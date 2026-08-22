@@ -134,3 +134,21 @@ body {
 }
 .modal-actions button[type="submit"] { background: #5865f2; color: white; }
 .modal-actions button[type="button"] { background: #404249; color: #e6e6e6; }
+
+/* CONFIGURAÇÕES DE VOZ */
+.mic-status { font-size: 12px; color: #949ba4; padding: 0 0 8px; }
+.mic-test-row { display: flex; gap: 8px; margin-top: 12px; }
+.mic-test-row button {
+  flex: 1; padding: 8px; border-radius: 6px; border: none; background: #404249;
+  color: #e6e6e6; cursor: pointer; font-size: 13px;
+}
+.mic-test-row button:hover { background: #4a4d55; }
+.mic-test-row button.active { background: #23a55a; color: white; }
+.mic-meter {
+  margin-top: 10px; height: 14px; background: #1e1f22; border-radius: 7px; overflow: hidden;
+}
+.mic-meter-bar {
+  height: 100%; width: 0%; background: linear-gradient(90deg, #23a55a, #f2c34f, #f23f42);
+  transition: width 60ms linear;
+}
+#btn-toggle-mic.muted { background: #f23f42; color: white; }

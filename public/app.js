@@ -4,10 +4,18 @@ let me = null;
 let socket = null;
 let currentChannel = null;
 let currentVoiceRoom = null;
-let localStream = null;
+let localStream = null; // tela compartilhada
+let micStream = null; // áudio do microfone
+let micMuted = false;
 const peers = {}; // socketId -> RTCPeerConnection
+const remoteStreams = {}; // socketId -> MediaStream combinada (áudio + vídeo do peer)
 
 const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+// Preferências de dispositivo de áudio, lembradas entre sessões
+let preferredInputId = localStorage.getItem('ng_input_device') || '';
+let preferredOutputId = localStorage.getItem('ng_output_device') || '';
+const supportsOutputSelection = typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype;
 
 // ---------- AUTH UI ----------
 
@@ -284,9 +292,7 @@ function registerSocketHandlers() {
 
   socket.on('rtc:peer-joined', ({ socketId, username }) => {
     const pc = createPeerConnection(socketId, username);
-    if (localStream) {
-      localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
-    }
+    addLocalTracksToPeer(pc);
   });
 
   socket.on('rtc:peer-left', ({ socketId }) => {
@@ -294,6 +300,7 @@ function registerSocketHandlers() {
       peers[socketId].close();
       delete peers[socketId];
     }
+    delete remoteStreams[socketId];
     removeVideoTile(socketId);
   });
 
@@ -301,9 +308,7 @@ function registerSocketHandlers() {
     let pc = peers[from];
     if (!pc) {
       pc = createPeerConnection(from, username);
-      if (localStream) {
-        localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
-      }
+      addLocalTracksToPeer(pc);
     }
     if (data.type === 'offer') {
       await pc.setRemoteDescription(data);
@@ -322,9 +327,10 @@ function registerSocketHandlers() {
 
 // ---------- WEBRTC (voz / compartilhamento de tela) ----------
 
-function joinVoiceRoom(roomId) {
+async function joinVoiceRoom(roomId) {
   currentVoiceRoom = roomId;
   socket.emit('rtc:join', roomId);
+  await startMicrophone();
 }
 
 function leaveVoiceRoom() {
@@ -334,9 +340,20 @@ function leaveVoiceRoom() {
     peers[id].close();
     delete peers[id];
   });
+  Object.keys(remoteStreams).forEach((id) => delete remoteStreams[id]);
   document.getElementById('video-grid').innerHTML = '';
   stopScreenShare();
+  stopMicrophone();
   currentVoiceRoom = null;
+}
+
+function addLocalTracksToPeer(pc) {
+  if (micStream) {
+    micStream.getTracks().forEach((track) => pc.addTrack(track, micStream));
+  }
+  if (localStream) {
+    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+  }
 }
 
 function createPeerConnection(peerId, username) {
@@ -348,7 +365,15 @@ function createPeerConnection(peerId, username) {
   };
 
   pc.ontrack = (e) => {
-    addVideoTile(peerId, username, e.streams[0]);
+    // Acumula as tracks (áudio do mic + vídeo da tela) numa única stream por
+    // peer, pra tocar tudo junto num único elemento <video> (que também toca áudio).
+    let stream = remoteStreams[peerId];
+    if (!stream) {
+      stream = new MediaStream();
+      remoteStreams[peerId] = stream;
+    }
+    if (!stream.getTracks().includes(e.track)) stream.addTrack(e.track);
+    addVideoTile(peerId, username, stream);
   };
 
   pc.onnegotiationneeded = async () => {
@@ -363,6 +388,7 @@ function createPeerConnection(peerId, username) {
 
   pc.onconnectionstatechange = () => {
     if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
+      delete remoteStreams[peerId];
       removeVideoTile(peerId);
     }
   };
@@ -379,13 +405,62 @@ function addVideoTile(peerId, username, stream) {
     tile.innerHTML = `<video autoplay playsinline></video><span class="label">${escapeHtml(username || 'Participante')}</span>`;
     document.getElementById('video-grid').appendChild(tile);
   }
-  tile.querySelector('video').srcObject = stream;
+  const videoEl = tile.querySelector('video');
+  videoEl.srcObject = stream;
+  applyOutputDevice(videoEl);
 }
 
 function removeVideoTile(peerId) {
   const tile = document.getElementById('tile-' + peerId);
   if (tile) tile.remove();
 }
+
+// ---------- MICROFONE (voz de verdade, igual chamada de voz) ----------
+
+async function startMicrophone() {
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: preferredInputId ? { deviceId: { exact: preferredInputId } } : true,
+    });
+  } catch (err) {
+    setMicStatus('Não foi possível acessar o microfone: ' + err.message);
+    return;
+  }
+  micStream.getAudioTracks().forEach((t) => (t.enabled = !micMuted));
+  Object.values(peers).forEach((pc) => {
+    micStream.getTracks().forEach((track) => pc.addTrack(track, micStream));
+  });
+  updateMicButton();
+  setMicStatus(micMuted ? '🎙️ Microfone mutado' : '🎙️ Microfone ativo');
+}
+
+function stopMicrophone() {
+  if (micStream) {
+    micStream.getTracks().forEach((t) => t.stop());
+    micStream = null;
+  }
+  setMicStatus('');
+}
+
+function setMicStatus(text) {
+  const el = document.getElementById('mic-status');
+  if (el) el.textContent = text;
+}
+
+function updateMicButton() {
+  const btn = document.getElementById('btn-toggle-mic');
+  btn.textContent = micMuted ? '🔇 Ativar microfone' : '🎙️ Mutar';
+  btn.classList.toggle('muted', micMuted);
+}
+
+document.getElementById('btn-toggle-mic').onclick = () => {
+  micMuted = !micMuted;
+  if (micStream) micStream.getAudioTracks().forEach((t) => (t.enabled = !micMuted));
+  updateMicButton();
+  setMicStatus(micMuted ? '🎙️ Microfone mutado' : '🎙️ Microfone ativo');
+};
+
+// ---------- COMPARTILHAMENTO DE TELA ----------
 
 document.getElementById('btn-share-screen').onclick = async () => {
   try {
@@ -411,7 +486,6 @@ function stopScreenShare() {
     localStream.getTracks().forEach((t) => t.stop());
     localStream = null;
   }
-  removeVideoTile('local');
   document.getElementById('btn-share-screen').classList.remove('hidden');
   document.getElementById('btn-stop-share').classList.add('hidden');
 }
@@ -422,6 +496,165 @@ document.getElementById('btn-leave-voice').onclick = () => {
   currentChannel = null;
   document.getElementById('current-channel-name').textContent = 'Selecione um canal';
   document.querySelectorAll('.channel-item').forEach((c) => c.classList.remove('active'));
+};
+
+// ---------- CONFIGURAÇÕES DE VOZ (dispositivos + teste de microfone) ----------
+
+const modalVoiceSettings = document.getElementById('modal-voice-settings');
+let micTestStream = null;
+let micTestAudioCtx = null;
+let micTestRafId = null;
+
+document.getElementById('btn-voice-settings').onclick = async () => {
+  modalVoiceSettings.classList.remove('hidden');
+  await populateAudioDevices();
+};
+document.getElementById('btn-close-voice-settings').onclick = () => {
+  stopMicTest();
+  modalVoiceSettings.classList.add('hidden');
+};
+
+async function populateAudioDevices() {
+  // Precisa de uma permissão de mic concedida pelo menos uma vez pro navegador
+  // revelar os nomes dos dispositivos (senão vem tudo em branco).
+  try {
+    const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
+    tmp.getTracks().forEach((t) => t.stop());
+  } catch (_) {
+    // usuário pode ter negado — segue mesmo assim, só sem os nomes
+  }
+
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const inputSelect = document.getElementById('input-device-select');
+  const outputSelect = document.getElementById('output-device-select');
+
+  inputSelect.innerHTML = '';
+  devices
+    .filter((d) => d.kind === 'audioinput')
+    .forEach((d, i) => {
+      const opt = document.createElement('option');
+      opt.value = d.deviceId;
+      opt.textContent = d.label || `Microfone ${i + 1}`;
+      inputSelect.appendChild(opt);
+    });
+  if (preferredInputId) inputSelect.value = preferredInputId;
+
+  outputSelect.innerHTML = '';
+  const outputHint = document.getElementById('output-unsupported-hint');
+  if (supportsOutputSelection) {
+    outputHint.classList.add('hidden');
+    devices
+      .filter((d) => d.kind === 'audiooutput')
+      .forEach((d, i) => {
+        const opt = document.createElement('option');
+        opt.value = d.deviceId;
+        opt.textContent = d.label || `Saída de áudio ${i + 1}`;
+        outputSelect.appendChild(opt);
+      });
+    if (preferredOutputId) outputSelect.value = preferredOutputId;
+    outputSelect.disabled = false;
+  } else {
+    outputHint.classList.remove('hidden');
+    outputSelect.disabled = true;
+  }
+
+  inputSelect.onchange = () => {
+    preferredInputId = inputSelect.value;
+    localStorage.setItem('ng_input_device', preferredInputId);
+  };
+  outputSelect.onchange = () => {
+    preferredOutputId = outputSelect.value;
+    localStorage.setItem('ng_output_device', preferredOutputId);
+    document.querySelectorAll('#video-grid video').forEach(applyOutputDevice);
+  };
+}
+
+function applyOutputDevice(videoEl) {
+  if (supportsOutputSelection && preferredOutputId && videoEl.setSinkId) {
+    videoEl.setSinkId(preferredOutputId).catch(() => {});
+  }
+}
+
+document.getElementById('btn-test-mic').onclick = async () => {
+  const btn = document.getElementById('btn-test-mic');
+  if (micTestStream) {
+    stopMicTest();
+    return;
+  }
+  try {
+    micTestStream = await navigator.mediaDevices.getUserMedia({
+      audio: preferredInputId ? { deviceId: { exact: preferredInputId } } : true,
+    });
+  } catch (err) {
+    document.getElementById('mic-test-hint').textContent = 'Erro ao acessar o microfone: ' + err.message;
+    return;
+  }
+  btn.textContent = '⏹️ Parar teste';
+  btn.classList.add('active');
+  document.getElementById('mic-test-hint').textContent = 'Fale perto do microfone — a barra abaixo deve se mover.';
+
+  micTestAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source = micTestAudioCtx.createMediaStreamSource(micTestStream);
+  const analyser = micTestAudioCtx.createAnalyser();
+  analyser.fftSize = 512;
+  source.connect(analyser);
+  const data = new Uint8Array(analyser.frequencyBinCount);
+
+  const meterBar = document.getElementById('mic-meter-bar');
+  function tick() {
+    analyser.getByteTimeDomainData(data);
+    let sumSquares = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = (data[i] - 128) / 128;
+      sumSquares += v * v;
+    }
+    const rms = Math.sqrt(sumSquares / data.length);
+    const level = Math.min(100, Math.round(rms * 300));
+    meterBar.style.width = level + '%';
+    micTestRafId = requestAnimationFrame(tick);
+  }
+  tick();
+};
+
+function stopMicTest() {
+  if (micTestRafId) cancelAnimationFrame(micTestRafId);
+  micTestRafId = null;
+  if (micTestAudioCtx) {
+    micTestAudioCtx.close().catch(() => {});
+    micTestAudioCtx = null;
+  }
+  if (micTestStream) {
+    micTestStream.getTracks().forEach((t) => t.stop());
+    micTestStream = null;
+  }
+  const btn = document.getElementById('btn-test-mic');
+  btn.textContent = '🎤 Testar microfone';
+  btn.classList.remove('active');
+  document.getElementById('mic-meter-bar').style.width = '0%';
+}
+
+document.getElementById('btn-test-output').onclick = async () => {
+  // Gera um bipe curto e toca na saída de áudio escolhida, pra testar
+  // caixinha/fone sem depender de arquivo de áudio externo.
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = ctx.createOscillator();
+  const dest = ctx.createMediaStreamDestination();
+  oscillator.frequency.value = 440;
+  oscillator.connect(dest);
+
+  const audioEl = new Audio();
+  audioEl.srcObject = dest.stream;
+  if (supportsOutputSelection && preferredOutputId) {
+    try {
+      await audioEl.setSinkId(preferredOutputId);
+    } catch (_) {}
+  }
+  audioEl.play();
+  oscillator.start();
+  setTimeout(() => {
+    oscillator.stop();
+    ctx.close();
+  }, 600);
 };
 
 tryResumeSession();

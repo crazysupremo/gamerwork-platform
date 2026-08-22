@@ -35,9 +35,16 @@ DB_PATH=/caminho/local/data.sqlite npm start
   a comunidade se organiza por jogo/assunto, igual servidores do Discord.
 - Canais de texto e voz, agrupados dinamicamente por categoria/servidor.
 - Chat em tempo real (Socket.io), com histórico salvo em SQLite.
-- Salas de voz com **compartilhamento de tela** via WebRTC (mesh entre participantes,
-  usando STUN público do Google — sem servidor TURN, então pode falhar em redes
+- **Voz de verdade nas salas**: ao entrar numa sala de voz, o microfone conecta
+  automaticamente (igual chamada de voz do Discord), com botão de mutar/ativar.
+- **Compartilhamento de tela** via WebRTC (mesh entre participantes, usando
+  STUN público do Google — sem servidor TURN, então pode falhar em redes
   restritas/corporativas).
+- **Configurações de voz** (ícone ⚙️ na sala): escolher qual microfone usar
+  (entrada) e qual caixa de som/fone usar (saída — depende do navegador
+  suportar `setSinkId`, funciona no Chrome/Edge, não no Safari/Firefox), com
+  teste de microfone (medidor de nível ao vivo) e teste de saída (toca um bipe
+  na caixa escolhida). Preferências ficam salvas no navegador.
 - Filtro automático de texto (`moderation.js`): **todas** as categorias de risco
   (venda de armas, instruções de explosivos, ameaças graves de violência,
   exploração infantil, conteúdo sexual explícito) são **bloqueadas antes de

@@ -69,10 +69,13 @@
     <!-- Painel de sala de voz / compartilhamento de tela -->
     <section id="voice-panel" class="voice-panel hidden">
       <div class="voice-controls">
+        <button id="btn-toggle-mic">🎙️ Mutar</button>
         <button id="btn-share-screen">🖥️ Compartilhar tela</button>
         <button id="btn-stop-share" class="hidden">⏹️ Parar compartilhamento</button>
+        <button id="btn-voice-settings">⚙️ Configurações de voz</button>
         <button id="btn-leave-voice">Sair da sala</button>
       </div>
+      <div id="mic-status" class="mic-status"></div>
       <div id="video-grid" class="video-grid"></div>
     </section>
   </main>
@@ -103,6 +106,34 @@
       </div>
       <p id="room-error" class="auth-error"></p>
     </form>
+  </div>
+</div>
+
+<!-- MODAL: configurações de voz (entrada/saída/teste de microfone) -->
+<div id="modal-voice-settings" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>Configurações de voz</h2>
+
+    <label>Microfone (entrada)</label>
+    <select id="input-device-select"></select>
+
+    <label>Saída de áudio (alto-falante/fone)</label>
+    <select id="output-device-select"></select>
+    <p id="output-unsupported-hint" class="hint hidden">
+      Seu navegador não permite escolher a saída de áudio por aqui — troque nas
+      configurações de som do sistema.
+    </p>
+
+    <div class="mic-test-row">
+      <button type="button" id="btn-test-mic">🎤 Testar microfone</button>
+      <button type="button" id="btn-test-output">🔊 Testar saída</button>
+    </div>
+    <div class="mic-meter"><div id="mic-meter-bar" class="mic-meter-bar"></div></div>
+    <p id="mic-test-hint" class="hint">Clique em "Testar microfone" e fale — a barra deve se mover.</p>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-close-voice-settings">Fechar</button>
+    </div>
   </div>
 </div>
 
