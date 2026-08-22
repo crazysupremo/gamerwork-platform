@@ -1,0 +1,19 @@
+{
+  "name": "gamerwork-platform",
+  "version": "0.1.0",
+  "description": "Plataforma de chat/voz para gamers e trabalho, com compartilhamento de tela e moderação de conteúdo",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-session": "^2.1.0",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "uuid": "^9.0.1"
+  }
+}
