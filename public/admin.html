@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<title>GamerWork · Admin</title>
+<link rel="stylesheet" href="/style.css" />
+<style>
+  .admin-wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
+  .admin-wrap h1 { color: #5865f2; }
+  .admin-wrap h2 { margin-top: 32px; border-bottom: 1px solid #3a3c42; padding-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #2b2d31; }
+  th { color: #949ba4; }
+  button.action { background: #404249; border: none; color: #e6e6e6; padding: 4px 10px; border-radius: 4px; cursor: pointer; margin-right: 4px; }
+  button.action:hover { background: #4a4d55; }
+  button.danger { background: #f23f42; color: white; }
+  .back-link { color: #949ba4; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="admin-wrap">
+  <a class="back-link" href="/">← Voltar ao app</a>
+  <h1>Painel de Moderação</h1>
+  <p id="admin-guard" class="auth-error"></p>
+
+  <div id="admin-content" class="hidden">
+    <h2>Denúncias pendentes</h2>
+    <table id="reports-table">
+      <thead><tr><th>Data</th><th>Motivo</th><th>Denunciante</th><th>Usuário denunciado</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>Mensagens bloqueadas pelo filtro automático</h2>
+    <p style="color:#949ba4; font-size:13px;">Estas mensagens foram barradas antes de chegar a qualquer usuário e ficam aqui só para revisão de moderador.</p>
+    <table id="blocked-table">
+      <thead><tr><th>Data</th><th>Usuário</th><th>Conteúdo</th><th>Categorias</th><th>Ações</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>Mensagens sinalizadas (enviadas, mas com termo de atenção)</h2>
+    <table id="flagged-table">
+      <thead><tr><th>Data</th><th>Usuário</th><th>Conteúdo</th><th>Categorias</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>Usuários</h2>
+    <table id="users-table">
+      <thead><tr><th>Usuário</th><th>Criado em</th><th>Admin</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="/admin.js"></script>
+</body>
+</html>

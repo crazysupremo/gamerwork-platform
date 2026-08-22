@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GamerWork</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<!-- TELA DE LOGIN / REGISTRO -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <h1>GamerWork</h1>
+    <p class="subtitle">Comunidade para gamers e trabalho</p>
+
+    <div class="auth-tabs">
+      <button id="tab-login" class="auth-tab active">Entrar</button>
+      <button id="tab-register" class="auth-tab">Criar conta</button>
+    </div>
+
+    <form id="form-login" class="auth-form">
+      <input type="text" id="login-username" placeholder="Usuário" required />
+      <input type="password" id="login-password" placeholder="Senha" required />
+      <button type="submit">Entrar</button>
+    </form>
+
+    <form id="form-register" class="auth-form hidden">
+      <input type="text" id="register-username" placeholder="Usuário (min. 3 caracteres)" required />
+      <input type="password" id="register-password" placeholder="Senha (min. 6 caracteres)" required />
+      <button type="submit">Criar conta</button>
+    </form>
+
+    <p id="auth-error" class="auth-error"></p>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="app" class="app hidden">
+  <aside class="sidebar">
+    <div class="sidebar-header">GamerWork</div>
+
+    <div class="category" data-category="gamers">
+      <div class="category-title">🎮 Gamers</div>
+      <div class="channel-list" id="channels-gamers"></div>
+    </div>
+
+    <div class="category" data-category="trabalho">
+      <div class="category-title">💼 Trabalho</div>
+      <div class="channel-list" id="channels-trabalho"></div>
+    </div>
+
+    <div class="sidebar-footer">
+      <span id="me-username"></span>
+      <a href="/admin.html" id="admin-link" class="hidden">Admin</a>
+      <button id="btn-logout">Sair</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="main-header">
+      <span id="current-channel-name">Selecione um canal</span>
+    </header>
+
+    <!-- Painel de chat de texto -->
+    <section id="text-panel" class="text-panel">
+      <div id="messages" class="messages"></div>
+      <form id="form-message" class="message-form">
+        <input type="text" id="message-input" placeholder="Escreva uma mensagem..." autocomplete="off" />
+        <button type="submit">Enviar</button>
+      </form>
+    </section>
+
+    <!-- Painel de sala de voz / compartilhamento de tela -->
+    <section id="voice-panel" class="voice-panel hidden">
+      <div class="voice-controls">
+        <button id="btn-share-screen">🖥️ Compartilhar tela</button>
+        <button id="btn-stop-share" class="hidden">⏹️ Parar compartilhamento</button>
+        <button id="btn-leave-voice">Sair da sala</button>
+      </div>
+      <div id="video-grid" class="video-grid"></div>
+    </section>
+  </main>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
