@@ -1,103 +1,137 @@
-// db.js - configuração do SQLite (usa o módulo nativo node:sqlite do Node 22+,
-// sem necessidade de compilação de dependências nativas)
+// db.js - conexão com o banco de dados
+//
+// Usa o Turso (turso.tech) por padrão: compatível com SQLite, gratuito pra
+// sempre (sem prazo de validade, sem cartão), e os dados sobrevivem a
+// reinícios/redeploys do servidor — diferente de um arquivo SQLite local no
+// Render, que é apagado a cada novo deploy.
+//
+// Configuração (variáveis de ambiente):
+//   TURSO_DATABASE_URL - ex: libsql://seu-banco-sua-org.turso.io
+//   TURSO_AUTH_TOKEN   - token de autenticação do banco
+//
+// Sem essas duas variáveis configuradas, cai automaticamente num arquivo
+// SQLite local (data.sqlite) — funciona bem pra testar no seu computador,
+// mas em produção sem Turso os dados não persistem entre reinícios. Veja o
+// DEPLOY.md pra criar o banco grátis e configurar isso.
 const path = require('path');
-const { DatabaseSync } = require('node:sqlite');
+const { createClient } = require('@libsql/client');
 
-// Permite sobrescrever o caminho do banco via variável de ambiente. Útil se a
-// pasta do projeto estiver em uma unidade sincronizada na nuvem (OneDrive,
-// Dropbox, iCloud) — bancos SQLite podem falhar (erro de I/O) nesse tipo de
-// pasta porque o locking de arquivo não funciona como num disco local.
-// Nesse caso, rode com: DB_PATH=/caminho/local/data.sqlite npm start
-const dbPath = process.env.DB_PATH || path.join(__dirname, 'data.sqlite');
-const db = new DatabaseSync(dbPath);
+const url = process.env.TURSO_DATABASE_URL || `file:${path.join(__dirname, 'data.sqlite')}`;
+const authToken = process.env.TURSO_AUTH_TOKEN;
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  username TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  email TEXT,
-  email_verified INTEGER NOT NULL DEFAULT 0,
-  verification_code TEXT,
-  verification_expires TEXT,
-  is_admin INTEGER NOT NULL DEFAULT 0,
-  is_banned INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+if (!process.env.TURSO_DATABASE_URL) {
+  console.warn(
+    '[aviso] TURSO_DATABASE_URL não configurada — usando arquivo SQLite local. ' +
+      'Em produção (Render), isso significa que os dados podem ser apagados a cada redeploy. Veja o DEPLOY.md.'
+  );
+}
 
-CREATE TABLE IF NOT EXISTS channels (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  category TEXT NOT NULL, -- nome do "servidor"/comunidade (livre, criado por usuários)
-  type TEXT NOT NULL DEFAULT 'texto', -- 'texto' | 'voz'
-  created_by TEXT, -- id do usuário que criou a sala (nulo para as salas padrão)
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+const client = createClient(authToken ? { url, authToken } : { url });
 
-CREATE TABLE IF NOT EXISTS messages (
-  id TEXT PRIMARY KEY,
-  channel_id TEXT NOT NULL,
-  user_id TEXT NOT NULL,
-  username TEXT NOT NULL,
-  content TEXT NOT NULL,
-  flagged INTEGER NOT NULL DEFAULT 0,
-  flag_categories TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+async function run(sql, args = []) {
+  const res = await client.execute({ sql, args });
+  return { lastInsertRowid: res.lastInsertRowid, changes: res.rowsAffected };
+}
 
-CREATE TABLE IF NOT EXISTS blocked_messages (
-  id TEXT PRIMARY KEY,
-  channel_id TEXT NOT NULL,
-  user_id TEXT NOT NULL,
-  username TEXT NOT NULL,
-  content TEXT NOT NULL,
-  flag_categories TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+async function get(sql, args = []) {
+  const res = await client.execute({ sql, args });
+  return res.rows[0];
+}
 
-CREATE TABLE IF NOT EXISTS reports (
-  id TEXT PRIMARY KEY,
-  message_id TEXT,
-  reported_user_id TEXT,
-  reporter_user_id TEXT NOT NULL,
-  reason TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pendente', -- 'pendente' | 'resolvido' | 'descartado'
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-`);
+async function all(sql, args = []) {
+  const res = await client.execute({ sql, args });
+  return res.rows;
+}
 
-// Migração leve: se o banco já existia de uma versão anterior (sem as
-// colunas de e-mail/verificação), adiciona elas agora. CREATE TABLE IF NOT
-// EXISTS não altera tabelas já existentes, então isso cobre quem já tinha
-// rodado o app antes dessa funcionalidade existir.
-function ensureColumn(table, columnDef) {
+async function ensureColumn(table, columnDef) {
   try {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`);
+    await client.execute(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`);
   } catch (err) {
-    // já existe — ignora
+    // coluna já existe — ignora
   }
 }
-ensureColumn('users', 'email TEXT');
-ensureColumn('users', 'email_verified INTEGER NOT NULL DEFAULT 0');
-ensureColumn('users', 'verification_code TEXT');
-ensureColumn('users', 'verification_expires TEXT');
 
-// Seed canais padrão (gamers + trabalho) se ainda não existirem.
-const seedChannels = [
-  { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },
-  { id: 'gamers-lfg', name: 'procurando-grupo', category: 'gamers', type: 'texto' },
-  { id: 'gamers-voz-1', name: 'Sala de Voz 1', category: 'gamers', type: 'voz' },
-  { id: 'trabalho-geral', name: 'geral', category: 'trabalho', type: 'texto' },
-  { id: 'trabalho-anuncios', name: 'anuncios', category: 'trabalho', type: 'texto' },
-  { id: 'trabalho-reuniao', name: 'Sala de Reunião', category: 'trabalho', type: 'voz' },
-];
+// Precisa ser chamada (e esperada) antes do servidor começar a atender
+// requisições, já que aqui é tudo assíncrono (banco remoto).
+async function initDb() {
+  await client.executeMultiple(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      email TEXT,
+      email_verified INTEGER NOT NULL DEFAULT 0,
+      verification_code TEXT,
+      verification_expires TEXT,
+      is_admin INTEGER NOT NULL DEFAULT 0,
+      is_banned INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
 
-const insertChannel = db.prepare(
-  'INSERT OR IGNORE INTO channels (id, name, category, type) VALUES (@id, @name, @category, @type)'
-);
-seedChannels.forEach((r) => insertChannel.run(r));
+    CREATE TABLE IF NOT EXISTS channels (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'texto',
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
 
-// node:sqlite's StatementSync já expõe .run/.get/.all de forma compatível
-// com o subconjunto de better-sqlite3 usado neste projeto, então o restante
-// do código (server.js) usa db.prepare(...).run/get/all normalmente.
-module.exports = db;
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      channel_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      content TEXT NOT NULL,
+      flagged INTEGER NOT NULL DEFAULT 0,
+      flag_categories TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS blocked_messages (
+      id TEXT PRIMARY KEY,
+      channel_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      content TEXT NOT NULL,
+      flag_categories TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS reports (
+      id TEXT PRIMARY KEY,
+      message_id TEXT,
+      reported_user_id TEXT,
+      reporter_user_id TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pendente',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  // Migração leve pra bancos criados antes de alguma dessas colunas existir.
+  await ensureColumn('users', 'email TEXT');
+  await ensureColumn('users', 'email_verified INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'verification_code TEXT');
+  await ensureColumn('users', 'verification_expires TEXT');
+  await ensureColumn('channels', 'created_by TEXT');
+
+  const seedChannels = [
+    { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },
+    { id: 'gamers-lfg', name: 'procurando-grupo', category: 'gamers', type: 'texto' },
+    { id: 'gamers-voz-1', name: 'Sala de Voz 1', category: 'gamers', type: 'voz' },
+    { id: 'trabalho-geral', name: 'geral', category: 'trabalho', type: 'texto' },
+    { id: 'trabalho-anuncios', name: 'anuncios', category: 'trabalho', type: 'texto' },
+    { id: 'trabalho-reuniao', name: 'Sala de Reunião', category: 'trabalho', type: 'voz' },
+  ];
+  for (const ch of seedChannels) {
+    await run('INSERT OR IGNORE INTO channels (id, name, category, type) VALUES (?, ?, ?, ?)', [
+      ch.id,
+      ch.name,
+      ch.category,
+      ch.type,
+    ]);
+  }
+}
+
+module.exports = { run, get, all, initDb };

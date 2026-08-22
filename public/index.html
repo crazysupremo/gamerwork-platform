@@ -39,10 +39,17 @@
 
 <!-- APP PRINCIPAL -->
 <div id="app" class="app hidden">
+  <!-- Trilho de servidores, igual Discord: um ícone por "servidor" (categoria).
+       Clica pra trocar de servidor; o + de baixo cria um novo. -->
+  <nav id="server-rail" class="server-rail">
+    <div id="server-rail-list" class="server-rail-list"></div>
+    <button id="btn-new-server" class="server-icon server-icon-add" title="Criar servidor">+</button>
+  </nav>
+
   <aside class="sidebar">
     <div class="sidebar-header">
-      NEXT GAME
-      <button id="btn-new-room" title="Criar sala">+</button>
+      <span id="active-server-name">NEXT GAME</span>
+      <button id="btn-new-room" title="Criar sala neste servidor">+</button>
     </div>
 
     <div id="categories-container"></div>
@@ -143,6 +150,11 @@
       Seu navegador não permite escolher a saída de áudio por aqui — troque nas
       configurações de som do sistema.
     </p>
+
+    <label class="checkbox-row">
+      <input type="checkbox" id="noise-suppression-toggle" checked />
+      Cancelamento de ruído (reduz barulho de fundo do microfone)
+    </label>
 
     <div class="mic-test-row">
       <button type="button" id="btn-test-mic">🎤 Testar microfone</button>

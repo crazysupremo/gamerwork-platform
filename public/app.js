@@ -17,7 +17,20 @@ const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
 // Preferências de dispositivo de áudio, lembradas entre sessões
 let preferredInputId = localStorage.getItem('ng_input_device') || '';
 let preferredOutputId = localStorage.getItem('ng_output_device') || '';
+let noiseSuppressionEnabled = localStorage.getItem('ng_noise_suppression') !== 'off'; // ligado por padrão
 const supportsOutputSelection = typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype;
+
+// Constraints de áudio do microfone: cancelamento de eco, redução de ruído
+// de fundo e ajuste automático de volume — tudo processado pelo próprio
+// navegador antes de mandar o áudio pra call.
+function micConstraints() {
+  return {
+    deviceId: preferredInputId ? { exact: preferredInputId } : undefined,
+    echoCancellation: true,
+    noiseSuppression: noiseSuppressionEnabled,
+    autoGainControl: true,
+  };
+}
 
 // ---------- AUTH UI ----------
 
@@ -102,71 +115,92 @@ function startApp() {
   loadChannels();
 }
 
-// ---------- CHANNELS ----------
+// ---------- CHANNELS / SERVIDORES ----------
 
 let allChannels = [];
+let activeServerCategory = null; // categoria = "servidor" selecionado no trilho, igual Discord
 
 async function loadChannels() {
   const res = await fetch('/api/channels', { credentials: 'include' });
   allChannels = await res.json();
+
+  const categories = [...new Set(allChannels.map((c) => c.category))].sort((a, b) => a.localeCompare(b));
+  if (!activeServerCategory || !categories.includes(activeServerCategory)) {
+    activeServerCategory = categories[0] || null;
+  }
+
+  renderServerRail(categories);
   renderCategories(allChannels);
   updateCategoryDatalist(allChannels);
 }
 
+// Trilho de servidores (coluna de ícones à esquerda, igual Discord) —
+// cada categoria criada pelos usuários vira um "servidor" clicável aqui.
+function renderServerRail(categories) {
+  const list = document.getElementById('server-rail-list');
+  list.innerHTML = '';
+  categories.forEach((category) => {
+    const btn = document.createElement('button');
+    btn.className = 'server-icon';
+    if (category === activeServerCategory) btn.classList.add('active');
+    btn.title = category;
+    btn.textContent = serverInitials(category);
+    btn.onclick = () => {
+      activeServerCategory = category;
+      renderServerRail(categories);
+      renderCategories(allChannels);
+    };
+    list.appendChild(btn);
+  });
+}
+
+function serverInitials(category) {
+  const words = category.trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return (words[0] || '?').slice(0, 2).toUpperCase();
+}
+
+// Mostra só os canais do servidor (categoria) ativo no momento.
 function renderCategories(channels) {
   const container = document.getElementById('categories-container');
   container.innerHTML = '';
 
-  // Agrupa canais por categoria (cada categoria = um "servidor"/comunidade)
-  const byCategory = {};
-  channels.forEach((ch) => {
-    if (!byCategory[ch.category]) byCategory[ch.category] = [];
-    byCategory[ch.category].push(ch);
-  });
+  const nameEl = document.getElementById('active-server-name');
+  nameEl.textContent = activeServerCategory
+    ? categoryIcon(activeServerCategory) + ' ' + activeServerCategory
+    : 'NEXT GAME';
 
-  Object.keys(byCategory)
-    .sort((a, b) => a.localeCompare(b))
-    .forEach((category) => {
-      const section = document.createElement('div');
-      section.className = 'category';
-      section.dataset.category = category;
+  const channelsInServer = channels.filter((ch) => ch.category === activeServerCategory);
 
-      const title = document.createElement('div');
-      title.className = 'category-title';
-      title.textContent = categoryIcon(category) + ' ' + category;
-      section.appendChild(title);
+  const list = document.createElement('div');
+  list.className = 'channel-list';
+  channelsInServer.forEach((ch) => {
+    const row = document.createElement('div');
+    row.className = 'channel-item-row';
 
-      const list = document.createElement('div');
-      list.className = 'channel-list';
-      byCategory[category].forEach((ch) => {
-        const row = document.createElement('div');
-        row.className = 'channel-item-row';
+    const el = document.createElement('div');
+    el.className = 'channel-item';
+    if (currentChannel && currentChannel.id === ch.id) el.classList.add('active');
+    if (ch.type === 'voz' && connectedVoiceRoomId === ch.id) el.classList.add('connected');
+    el.textContent = (ch.type === 'voz' ? '🔊 ' : '# ') + ch.name;
+    el.onclick = () => selectChannel(ch);
+    row.appendChild(el);
 
-        const el = document.createElement('div');
-        el.className = 'channel-item';
-        if (currentChannel && currentChannel.id === ch.id) el.classList.add('active');
-        if (ch.type === 'voz' && connectedVoiceRoomId === ch.id) el.classList.add('connected');
-        el.textContent = (ch.type === 'voz' ? '🔊 ' : '# ') + ch.name;
-        el.onclick = () => selectChannel(ch);
-        row.appendChild(el);
-
-        if (ch.type === 'voz' && voiceParticipants[ch.id] && voiceParticipants[ch.id].length > 0) {
-          const chips = document.createElement('div');
-          chips.className = 'voice-participants';
-          voiceParticipants[ch.id].forEach((p) => {
-            const chip = document.createElement('div');
-            chip.className = 'participant-chip';
-            chip.innerHTML = `<span class="participant-avatar">${escapeHtml((p.username || '?')[0].toUpperCase())}</span>${escapeHtml(p.username)}`;
-            chips.appendChild(chip);
-          });
-          row.appendChild(chips);
-        }
-
-        list.appendChild(row);
+    if (ch.type === 'voz' && voiceParticipants[ch.id] && voiceParticipants[ch.id].length > 0) {
+      const chips = document.createElement('div');
+      chips.className = 'voice-participants';
+      voiceParticipants[ch.id].forEach((p) => {
+        const chip = document.createElement('div');
+        chip.className = 'participant-chip';
+        chip.innerHTML = `<span class="participant-avatar">${escapeHtml((p.username || '?')[0].toUpperCase())}</span>${escapeHtml(p.username)}`;
+        chips.appendChild(chip);
       });
-      section.appendChild(list);
-      container.appendChild(section);
-    });
+      row.appendChild(chips);
+    }
+
+    list.appendChild(row);
+  });
+  container.appendChild(list);
 }
 
 function categoryIcon(category) {
@@ -184,11 +218,20 @@ function updateCategoryDatalist(channels) {
 // ---------- CRIAR SALA (modal) ----------
 
 const modalNewRoom = document.getElementById('modal-new-room');
-document.getElementById('btn-new-room').onclick = () => {
+
+function openNewRoomModal(prefillCategory) {
   document.getElementById('room-error').textContent = '';
   document.getElementById('form-new-room').reset();
+  if (prefillCategory) document.getElementById('room-category').value = prefillCategory;
   modalNewRoom.classList.remove('hidden');
-};
+  document.getElementById('room-name').focus();
+}
+
+// "+" dentro do servidor atual: cria uma sala nesse mesmo servidor (categoria já preenchida)
+document.getElementById('btn-new-room').onclick = () => openNewRoomModal(activeServerCategory);
+// "+" do trilho de servidores: cria um servidor novo (categoria em branco pra digitar o nome)
+document.getElementById('btn-new-server').onclick = () => openNewRoomModal('');
+
 document.getElementById('btn-cancel-room').onclick = () => modalNewRoom.classList.add('hidden');
 
 document.getElementById('form-new-room').onsubmit = async (e) => {
@@ -212,6 +255,7 @@ document.getElementById('form-new-room').onsubmit = async (e) => {
       return;
     }
     modalNewRoom.classList.add('hidden');
+    activeServerCategory = data.category; // já entra direto no servidor recém-criado/atualizado
     await loadChannels();
   } catch (err) {
     errorEl.textContent = 'Erro de conexão com o servidor';
@@ -516,20 +560,35 @@ function addVideoTile(peerId, username, stream) {
       <video autoplay playsinline></video>
       <div class="tile-avatar"><span>${initial}</span></div>
       <span class="label">${escapeHtml(username || 'Participante')}</span>
-      <button type="button" class="tile-expand-btn" title="Ampliar">⛶</button>
+      <div class="tile-controls">
+        <button type="button" class="tile-btn tile-expand-btn" title="Ampliar">⤢</button>
+        <button type="button" class="tile-btn tile-fullscreen-btn" title="Tela cheia">⛶</button>
+      </div>
     `;
     document.getElementById('video-grid').appendChild(tile);
     // remove a classe de animação depois que ela roda, pra não repetir em updates futuros
     setTimeout(() => tile.classList.remove('tile-enter'), 260);
 
-    // Clicar no botão (ou dar 2 cliques na tile) amplia pra tela cheia, igual
-    // Discord — só faz sentido pra quem está com vídeo/tela compartilhada.
-    const expandBtn = tile.querySelector('.tile-expand-btn');
-    expandBtn.onclick = (e) => {
+    // "Ampliar" — a tile ocupa o espaço todo dentro da própria página (sem
+    // depender de nenhuma API do navegador, então nunca falha/buga).
+    tile.querySelector('.tile-expand-btn').onclick = (e) => {
       e.stopPropagation();
-      toggleTileFullscreen(tile);
+      toggleExpandedTile(tile);
     };
-    tile.querySelector('video').ondblclick = () => toggleTileFullscreen(tile);
+    tile.querySelector('video').ondblclick = () => toggleExpandedTile(tile);
+
+    // "Tela cheia" de verdade — usa a Fullscreen API nativa do navegador
+    // direto no elemento de vídeo (o jeito mais confiável, mesmo padrão do
+    // YouTube/Twitch), então o navegador cuida do redimensionamento sozinho.
+    tile.querySelector('.tile-fullscreen-btn').onclick = (e) => {
+      e.stopPropagation();
+      const videoEl = tile.querySelector('video');
+      if (document.fullscreenElement === videoEl) {
+        document.exitFullscreen().catch(() => {});
+      } else if (videoEl.requestFullscreen) {
+        videoEl.requestFullscreen().catch(() => {});
+      }
+    };
   }
 
   const videoEl = tile.querySelector('video');
@@ -553,35 +612,19 @@ function addVideoTile(peerId, username, stream) {
   attachSpeakingDetector(peerId, stream, tile);
 }
 
-// Amplia a tile pra tela cheia de verdade (Fullscreen API), igual o botão
-// de "Enter Fullscreen" do Discord quando alguém está compartilhando tela.
-function toggleTileFullscreen(tile) {
-  if (document.fullscreenElement === tile) {
-    document.exitFullscreen().catch(() => {});
-    return;
-  }
-  if (tile.requestFullscreen) {
-    tile.requestFullscreen().catch(() => {
-      // Se o navegador bloquear fullscreen de verdade, cai pro modo
-      // "ampliado" dentro da própria página como alternativa.
-      tile.classList.toggle('tile-expanded-fallback');
-    });
-  } else {
-    tile.classList.toggle('tile-expanded-fallback');
+// "Ampliar": faz a tile ocupar o espaço da grade inteira, escondendo as
+// outras — clique de novo (ou no X) pra voltar à grade normal. 100% CSS,
+// sem depender de permissão nenhuma do navegador.
+function toggleExpandedTile(tile) {
+  const grid = document.getElementById('video-grid');
+  const alreadyExpanded = tile.classList.contains('tile-expanded');
+  grid.querySelectorAll('.video-tile.tile-expanded').forEach((t) => t.classList.remove('tile-expanded'));
+  grid.classList.remove('grid-has-expanded');
+  if (!alreadyExpanded) {
+    tile.classList.add('tile-expanded');
+    grid.classList.add('grid-has-expanded');
   }
 }
-
-document.addEventListener('fullscreenchange', () => {
-  document.querySelectorAll('.video-tile').forEach((t) => {
-    const isFs = document.fullscreenElement === t;
-    t.classList.toggle('is-fullscreen', isFs);
-    const btn = t.querySelector('.tile-expand-btn');
-    if (btn) {
-      btn.textContent = isFs ? '✕' : '⛶';
-      btn.title = isFs ? 'Sair da tela cheia' : 'Ampliar';
-    }
-  });
-});
 
 // Detecta quando alguém está falando (nível de áudio) e acende um anel verde
 // ao redor do avatar/tile, igual indicador de "falando" do Discord.
@@ -636,9 +679,7 @@ function removeVideoTile(peerId) {
 async function startMicrophone() {
   showConnectingTile();
   try {
-    micStream = await navigator.mediaDevices.getUserMedia({
-      audio: preferredInputId ? { deviceId: { exact: preferredInputId } } : true,
-    });
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints() });
   } catch (err) {
     removeConnectingTile();
     setMicStatus('Não foi possível acessar o microfone: ' + err.message);
@@ -754,7 +795,18 @@ document.getElementById('bar-btn-disconnect').onclick = () => {
 
 document.getElementById('btn-share-screen').onclick = async () => {
   try {
-    localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    // audio: true pede pro navegador oferecer a opção de compartilhar o som
+    // do conteúdo também (aparece um checkbox "Compartilhar áudio" na janela
+    // de seleção de tela/aba do Chrome/Edge). Se a pessoa não marcar, ou o
+    // navegador não suportar, a stream simplesmente vem sem faixa de áudio —
+    // sem travar nada.
+    localStream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: false,
+      },
+    });
   } catch (err) {
     alert('Não foi possível iniciar o compartilhamento de tela: ' + err.message);
     return;
@@ -765,6 +817,13 @@ document.getElementById('btn-share-screen').onclick = async () => {
   });
   document.getElementById('btn-share-screen').classList.add('hidden');
   document.getElementById('btn-stop-share').classList.remove('hidden');
+
+  const hasSharedAudio = localStream.getAudioTracks().length > 0;
+  setMicStatus(
+    hasSharedAudio
+      ? '🖥️ Compartilhando tela com áudio'
+      : '🖥️ Compartilhando tela (sem áudio — a origem não permitiu ou você não marcou a opção)'
+  );
 
   localStream.getVideoTracks()[0].onended = stopScreenShare;
 };
@@ -806,6 +865,8 @@ document.getElementById('btn-close-voice-settings').onclick = () => {
 };
 
 async function populateAudioDevices() {
+  document.getElementById('noise-suppression-toggle').checked = noiseSuppressionEnabled;
+
   // Precisa de uma permissão de mic concedida pelo menos uma vez pro navegador
   // revelar os nomes dos dispositivos (senão vem tudo em branco).
   try {
@@ -858,6 +919,17 @@ async function populateAudioDevices() {
     localStorage.setItem('ng_output_device', preferredOutputId);
     document.querySelectorAll('#video-grid video').forEach(applyOutputDevice);
   };
+
+  document.getElementById('noise-suppression-toggle').onchange = (e) => {
+    noiseSuppressionEnabled = e.target.checked;
+    localStorage.setItem('ng_noise_suppression', noiseSuppressionEnabled ? 'on' : 'off');
+    // Aplica na hora, sem precisar sair e voltar da call.
+    if (micStream) {
+      micStream.getAudioTracks().forEach((t) => {
+        t.applyConstraints({ noiseSuppression: noiseSuppressionEnabled }).catch(() => {});
+      });
+    }
+  };
 }
 
 function applyOutputDevice(videoEl) {
@@ -873,9 +945,7 @@ document.getElementById('btn-test-mic').onclick = async () => {
     return;
   }
   try {
-    micTestStream = await navigator.mediaDevices.getUserMedia({
-      audio: preferredInputId ? { deviceId: { exact: preferredInputId } } : true,
-    });
+    micTestStream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints() });
   } catch (err) {
     document.getElementById('mic-test-hint').textContent = 'Erro ao acessar o microfone: ' + err.message;
     return;

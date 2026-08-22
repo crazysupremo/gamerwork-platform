@@ -39,26 +39,35 @@ passo a passo.
 5. Quando terminar, o Render mostra uma URL tipo
    `https://gamerwork-platform.onrender.com` — esse é o link do seu site no ar
 
+## Passo 5 — Banco de dados persistente (Turso, grátis pra sempre)
+
+Sem isso, as contas/mensagens são apagadas toda vez que o Render reinicia o
+serviço. O app já vem pronto pra usar o **Turso** (turso.tech) — compatível
+com o banco que o site usa, gratuito sem prazo de validade e sem cartão.
+
+1. Acesse **turso.tech** e crie uma conta grátis (dá pra entrar com GitHub)
+2. No painel, clique em **Create Database**, dê um nome (ex: `next-game`) e
+   escolha a região mais próxima de você
+3. Depois de criado, clique no banco → copie a **Database URL**
+   (algo como `libsql://next-game-seunome.turso.io`)
+4. Ainda no painel do banco, clique em **Create Token** (ou "Generate Token")
+   e copie o **Auth Token** gerado
+5. No Render, abra seu serviço → aba **Environment** → **Add Environment Variable**,
+   e adicione as duas:
+   - Key: `TURSO_DATABASE_URL` → Value: a URL que você copiou
+   - Key: `TURSO_AUTH_TOKEN` → Value: o token que você copiou
+6. Clique em **Save Changes** — o Render redeploya sozinho
+
+Pronto: a partir daí, contas e mensagens continuam salvas mesmo quando o
+Render reinicia o serviço. Sem essas duas variáveis, o site continua
+funcionando normalmente, só volta a usar um arquivo local que se perde a
+cada redeploy (bom só pra testar).
+
 ## Depois de publicar
 
 - Acesse a URL, registre-se — **o primeiro usuário que se cria vira admin**
   automaticamente, então esse deve ser você.
 - O painel de moderação fica em `SUA-URL/admin.html`.
-
-## ⚠️ Limitação importante do plano gratuito
-
-O plano free do Render usa **disco efêmero**: toda vez que o serviço reinicia
-(o que acontece sozinho após períodos de inatividade, ou a cada novo deploy),
-o banco de dados SQLite (`data.sqlite`) é **apagado** e todos os usuários,
-mensagens e denúncias somem. Isso é aceitável para testar a ideia com amigos,
-mas **não serve para lançar de verdade com usuários reais**.
-
-Quando quiser resolver isso, as opções são:
-1. Assinar um plano pago do Render com **disco persistente** (a partir de
-   uns poucos dólares por mês), ou
-2. Migrar o banco de dados para um serviço de banco gerenciado (ex.: Render
-   Postgres, que tem um plano free próprio) — isso exigiria adaptar o código
-   de `db.js`, posso fazer isso quando você quiser seguir esse caminho.
 
 ## Sobre o compartilhamento de tela em produção
 

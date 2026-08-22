@@ -4,12 +4,13 @@
   "description": "NEXT GAME - plataforma de chat/voz para gamers e trabalho, com salas criadas por usuários, compartilhamento de tela e moderação de conteúdo",
   "main": "server.js",
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=18.0.0"
   },
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "@libsql/client": "^0.14.0",
     "bcryptjs": "^2.4.3",
     "cookie-session": "^2.1.0",
     "express": "^4.19.2",

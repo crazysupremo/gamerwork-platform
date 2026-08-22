@@ -6,11 +6,10 @@ moderação de conteúdo. Testado e funcionando neste ambiente.
 
 ## Como rodar
 
-Requisitos: Node.js 22.5 ou superior (usa o módulo nativo `node:sqlite`, sem
-dependências de compilação).
+Requisitos: Node.js 18 ou superior.
 
 ```bash
-cd gamerwork-platform
+cd next-game
 npm install
 npm start
 ```
@@ -18,13 +17,11 @@ npm start
 Acesse `http://localhost:3000`. O **primeiro usuário que se registrar vira
 administrador automaticamente** e ganha acesso a `/admin.html`.
 
-Se a pasta do projeto estiver dentro de uma unidade sincronizada na nuvem
-(OneDrive, Dropbox, iCloud Drive), o SQLite pode falhar com "erro de I/O".
-Nesse caso rode com o banco em disco local:
-
-```bash
-DB_PATH=/caminho/local/data.sqlite npm start
-```
+**Banco de dados**: por padrão usa um arquivo SQLite local (`data.sqlite`),
+bom pra testar no seu computador. Pra ter um banco de verdade que sobrevive a
+reinícios do servidor em produção (recomendado), configure as variáveis
+`TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN` com uma conta grátis do
+[turso.tech](https://turso.tech) — passo a passo completo no `DEPLOY.md`.
 
 ## O que já funciona
 
