@@ -516,10 +516,20 @@ function addVideoTile(peerId, username, stream) {
       <video autoplay playsinline></video>
       <div class="tile-avatar"><span>${initial}</span></div>
       <span class="label">${escapeHtml(username || 'Participante')}</span>
+      <button type="button" class="tile-expand-btn" title="Ampliar">⛶</button>
     `;
     document.getElementById('video-grid').appendChild(tile);
     // remove a classe de animação depois que ela roda, pra não repetir em updates futuros
     setTimeout(() => tile.classList.remove('tile-enter'), 260);
+
+    // Clicar no botão (ou dar 2 cliques na tile) amplia pra tela cheia, igual
+    // Discord — só faz sentido pra quem está com vídeo/tela compartilhada.
+    const expandBtn = tile.querySelector('.tile-expand-btn');
+    expandBtn.onclick = (e) => {
+      e.stopPropagation();
+      toggleTileFullscreen(tile);
+    };
+    tile.querySelector('video').ondblclick = () => toggleTileFullscreen(tile);
   }
 
   const videoEl = tile.querySelector('video');
@@ -538,9 +548,40 @@ function addVideoTile(peerId, username, stream) {
   // igual Discord mostra o avatar em vez de tela preta em chamada de voz.
   const hasVideo = stream.getVideoTracks().length > 0;
   tile.classList.toggle('audio-only', !hasVideo);
+  tile.classList.toggle('has-video', hasVideo);
 
   attachSpeakingDetector(peerId, stream, tile);
 }
+
+// Amplia a tile pra tela cheia de verdade (Fullscreen API), igual o botão
+// de "Enter Fullscreen" do Discord quando alguém está compartilhando tela.
+function toggleTileFullscreen(tile) {
+  if (document.fullscreenElement === tile) {
+    document.exitFullscreen().catch(() => {});
+    return;
+  }
+  if (tile.requestFullscreen) {
+    tile.requestFullscreen().catch(() => {
+      // Se o navegador bloquear fullscreen de verdade, cai pro modo
+      // "ampliado" dentro da própria página como alternativa.
+      tile.classList.toggle('tile-expanded-fallback');
+    });
+  } else {
+    tile.classList.toggle('tile-expanded-fallback');
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  document.querySelectorAll('.video-tile').forEach((t) => {
+    const isFs = document.fullscreenElement === t;
+    t.classList.toggle('is-fullscreen', isFs);
+    const btn = t.querySelector('.tile-expand-btn');
+    if (btn) {
+      btn.textContent = isFs ? '✕' : '⛶';
+      btn.title = isFs ? 'Sair da tela cheia' : 'Ampliar';
+    }
+  });
+});
 
 // Detecta quando alguém está falando (nível de áudio) e acende um anel verde
 // ao redor do avatar/tile, igual indicador de "falando" do Discord.

@@ -122,6 +122,35 @@ body {
   padding: 2px 6px; border-radius: 4px; z-index: 2;
 }
 
+/* Botão de ampliar/tela cheia, igual Discord — só aparece pra quem tem vídeo
+   de verdade rolando (tela compartilhada), no hover da tile. */
+.tile-expand-btn {
+  position: absolute; top: 6px; right: 6px; z-index: 3;
+  width: 26px; height: 26px; border-radius: 6px; border: none;
+  background: rgba(0,0,0,0.55); color: #e6e6e6; cursor: pointer; font-size: 13px;
+  display: none; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 120ms ease, background 120ms ease;
+}
+.video-tile.has-video .tile-expand-btn { display: flex; }
+.video-tile.has-video:hover .tile-expand-btn { opacity: 1; }
+.tile-expand-btn:hover { background: rgba(0,0,0,0.8); }
+
+/* Tela cheia de verdade (Fullscreen API) */
+.video-tile:fullscreen,
+.video-tile.is-fullscreen {
+  height: 100vh; width: 100vw; background: #000;
+}
+.video-tile:fullscreen video,
+.video-tile.is-fullscreen video { object-fit: contain; }
+.video-tile:fullscreen .tile-expand-btn,
+.video-tile.is-fullscreen .tile-expand-btn { opacity: 1; }
+
+/* Modo "ampliado" alternativo, caso o navegador bloqueie fullscreen de verdade */
+.video-tile.tile-expanded-fallback {
+  position: fixed; inset: 24px; z-index: 200; height: auto; width: auto;
+  box-shadow: 0 0 0 3px #5865f2, 0 20px 60px rgba(0,0,0,0.6);
+}
+
 /* Entrada animada, igual Discord quando um quadradinho aparece na call */
 @keyframes tilePopIn {
   from { transform: scale(0.82); opacity: 0; }
