@@ -28,7 +28,9 @@ DB_PATH=/caminho/local/data.sqlite npm start
 
 ## O que já funciona
 
-- Cadastro/login com senha (hash bcrypt) e sessão em cookie.
+- Cadastro/login com usuário, e-mail e senha (hash bcrypt) e sessão em cookie
+  — o e-mail fica salvo no perfil, mas não tem etapa de confirmação por
+  código (acesso libera na hora do cadastro).
 - **Qualquer usuário pode criar salas novas** clicando no `+` do menu lateral —
   ao digitar o nome de um "servidor"/categoria que ainda não existe (ex.:
   "Valorant", "Minecraft", "Time de Design"), ele é criado na hora. É assim que

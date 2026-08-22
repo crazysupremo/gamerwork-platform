@@ -25,32 +25,16 @@ const tabLogin = document.getElementById('tab-login');
 const tabRegister = document.getElementById('tab-register');
 const formLogin = document.getElementById('form-login');
 const formRegister = document.getElementById('form-register');
-const formVerify = document.getElementById('form-verify');
-const authTabs = document.querySelector('.auth-tabs');
 const authError = document.getElementById('auth-error');
 
 tabLogin.onclick = () => switchTab('login');
 tabRegister.onclick = () => switchTab('register');
 
 function switchTab(which) {
-  authTabs.classList.remove('hidden');
   tabLogin.classList.toggle('active', which === 'login');
   tabRegister.classList.toggle('active', which === 'register');
   formLogin.classList.toggle('hidden', which !== 'login');
   formRegister.classList.toggle('hidden', which !== 'register');
-  formVerify.classList.add('hidden');
-  authError.textContent = '';
-}
-
-function showVerifyScreen(email) {
-  authTabs.classList.add('hidden');
-  formLogin.classList.add('hidden');
-  formRegister.classList.add('hidden');
-  formVerify.classList.remove('hidden');
-  document.getElementById('verify-explainer').textContent = email
-    ? `Mandamos um código de 6 dígitos pra ${email}. Confira também a caixa de spam.`
-    : 'Mandamos um código de 6 dígitos pro seu e-mail. Confira também a caixa de spam.';
-  document.getElementById('verify-code').value = '';
   authError.textContent = '';
 }
 
@@ -69,31 +53,8 @@ formRegister.onsubmit = async (e) => {
   await authRequest('/api/register', { username, email, password });
 };
 
-formVerify.onsubmit = async (e) => {
-  e.preventDefault();
-  const code = document.getElementById('verify-code').value.trim();
-  await authRequest('/api/verify-email', { code });
-};
-
-document.getElementById('btn-resend-code').onclick = async () => {
-  authError.textContent = '';
-  try {
-    const res = await fetch('/api/resend-code', { method: 'POST', credentials: 'include' });
-    const data = await res.json();
-    if (!res.ok) {
-      authError.textContent = data.error || 'Erro ao reenviar código';
-      return;
-    }
-    authError.textContent = 'Código reenviado!';
-    authError.style.color = '#23a55a';
-  } catch (_) {
-    authError.textContent = 'Erro de conexão com o servidor';
-  }
-};
-
 async function authRequest(url, body) {
   authError.textContent = '';
-  authError.style.color = '';
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -104,10 +65,6 @@ async function authRequest(url, body) {
     const data = await res.json();
     if (!res.ok) {
       authError.textContent = data.error || 'Erro ao autenticar';
-      return;
-    }
-    if (data.pending) {
-      showVerifyScreen(data.email);
       return;
     }
     me = data;
@@ -304,14 +261,8 @@ document.getElementById('form-profile').onsubmit = async (e) => {
       return;
     }
     modalProfile.classList.add('hidden');
-    if (data.pending) {
-      // Trocou de e-mail — precisa confirmar o código novo antes de continuar.
-      document.getElementById('app').classList.add('hidden');
-      document.getElementById('auth-screen').classList.remove('hidden');
-      showVerifyScreen(data.email);
-    } else {
-      alert('Perfil atualizado!');
-    }
+    me.email = document.getElementById('profile-email').value.trim() || me.email;
+    alert('Perfil atualizado!');
   } catch (err) {
     errorEl.textContent = 'Erro de conexão com o servidor';
   }
