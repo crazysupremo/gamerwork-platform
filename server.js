@@ -164,15 +164,17 @@ app.get('/api/me', requireAuth, (req, res) => {
     username: req.user.username,
     is_admin: req.user.is_admin,
     email: req.user.email,
+    status_message: req.user.status_message,
+    avatar: req.user.avatar,
   });
 });
 
-// Editar perfil: trocar senha (exige senha atual) e/ou e-mail.
+// Editar perfil: trocar senha (exige senha atual), e-mail, status "jogando" e/ou avatar.
 app.patch(
   '/api/me',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { email, password, currentPassword } = req.body || {};
+    const { email, password, currentPassword, status_message, avatar } = req.body || {};
 
     if (password) {
       if (!currentPassword || !bcrypt.compareSync(currentPassword, req.user.password_hash)) {
@@ -198,7 +200,31 @@ app.patch(
       await db.run('UPDATE users SET email = ?, email_verified = 1 WHERE id = ?', [email, req.user.id]);
     }
 
-    res.json({ ok: true });
+    if (typeof status_message === 'string') {
+      if (status_message.length > 60) {
+        return res.status(400).json({ error: 'Status "jogando" precisa ter no máximo 60 caracteres' });
+      }
+      await db.run('UPDATE users SET status_message = ? WHERE id = ?', [status_message.trim() || null, req.user.id]);
+    }
+
+    if (typeof avatar === 'string') {
+      // Aceita tanto uma imagem em base64 (data URL) quanto vazio (remover avatar).
+      // Limite de tamanho pra não inchar o banco com imagens gigantes.
+      if (avatar.length > 350000) {
+        return res.status(400).json({ error: 'Imagem muito grande — escolha uma menor' });
+      }
+      if (avatar && !avatar.startsWith('data:image/') && !avatar.startsWith('emoji:')) {
+        return res.status(400).json({ error: 'Formato de avatar inválido' });
+      }
+      await db.run('UPDATE users SET avatar = ? WHERE id = ?', [avatar || null, req.user.id]);
+    }
+
+    const updated = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    res.json({
+      ok: true,
+      status_message: updated.status_message,
+      avatar: updated.avatar,
+    });
   })
 );
 
@@ -257,10 +283,43 @@ app.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const rows = await db.all(
-      'SELECT id, channel_id, user_id, username, content, created_at FROM messages WHERE channel_id = ? ORDER BY created_at DESC LIMIT 50',
+      'SELECT id, channel_id, user_id, username, content, edited, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 50',
       [req.params.id]
     );
-    res.json(rows.reverse());
+    const messages = rows.reverse();
+    if (messages.length > 0) {
+      const ids = messages.map((m) => m.id);
+      const placeholders = ids.map(() => '?').join(',');
+      const reactionRows = await db.all(
+        `SELECT message_id, user_id, emoji FROM message_reactions WHERE message_id IN (${placeholders})`,
+        ids
+      );
+      const byMessage = {};
+      reactionRows.forEach((r) => {
+        if (!byMessage[r.message_id]) byMessage[r.message_id] = {};
+        if (!byMessage[r.message_id][r.emoji]) byMessage[r.message_id][r.emoji] = { emoji: r.emoji, count: 0, reacted: false };
+        byMessage[r.message_id][r.emoji].count++;
+        if (r.user_id === req.user.id) byMessage[r.message_id][r.emoji].reacted = true;
+      });
+      messages.forEach((m) => {
+        m.reactions = byMessage[m.id] ? Object.values(byMessage[m.id]) : [];
+      });
+    }
+    res.json(messages);
+  })
+);
+
+// Lista pública de usuários (pra painel de membros) — status online é
+// combinado no cliente com o que chega em tempo real via socket.
+app.get(
+  '/api/users',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await db.all(
+        'SELECT id, username, avatar, status_message, is_admin FROM users WHERE is_banned = 0 ORDER BY username'
+      )
+    );
   })
 );
 
@@ -407,14 +466,30 @@ function removeFromAllVoiceRooms(socketId) {
   }
 }
 
+// Presença online global (quem está com o site aberto, em qualquer tela) —
+// userId -> quantidade de conexões abertas (várias abas contam como 1 online).
+const onlineUsers = new Map();
+
+function broadcastOnlineUsers() {
+  io.emit('presence:online', [...onlineUsers.keys()]);
+}
+
 io.on('connection', (socket) => {
   const user = socket.user;
 
   socket.emit('voice:state', voiceStateSnapshot());
 
+  onlineUsers.set(user.id, (onlineUsers.get(user.id) || 0) + 1);
+  broadcastOnlineUsers();
+  socket.emit('presence:online', [...onlineUsers.keys()]);
+
   socket.on('disconnect', () => {
     messageTimestamps.delete(socket.id);
     removeFromAllVoiceRooms(socket.id);
+    const count = (onlineUsers.get(user.id) || 1) - 1;
+    if (count <= 0) onlineUsers.delete(user.id);
+    else onlineUsers.set(user.id, count);
+    broadcastOnlineUsers();
   });
 
   socket.on('channel:join', (channelId) => {
@@ -475,6 +550,97 @@ io.on('connection', (socket) => {
     } catch (err) {
       console.error('Erro ao processar chat:message:', err);
     }
+  });
+
+  // Editar mensagem própria (passa pelo mesmo filtro de moderação)
+  socket.on('chat:edit', async ({ messageId, content }) => {
+    try {
+      if (!messageId || !content || typeof content !== 'string' || !content.trim()) return;
+      if (content.length > 2000) return;
+      const msg = await db.get('SELECT * FROM messages WHERE id = ?', [messageId]);
+      if (!msg || msg.user_id !== user.id || msg.deleted) return;
+
+      const scan = scanText(content);
+      if (scan.block) {
+        socket.emit('chat:blocked', {
+          reason: 'Edição bloqueada pelo filtro de conteúdo.',
+          categories: scan.categories,
+        });
+        return;
+      }
+
+      await db.run('UPDATE messages SET content = ?, edited = 1, flagged = ?, flag_categories = ? WHERE id = ?', [
+        content,
+        scan.flagged ? 1 : 0,
+        JSON.stringify(scan.categories),
+        messageId,
+      ]);
+      io.to(msg.channel_id).emit('chat:edited', { id: messageId, content, channel_id: msg.channel_id });
+    } catch (err) {
+      console.error('Erro ao processar chat:edit:', err);
+    }
+  });
+
+  // Apagar mensagem (dono da mensagem ou admin)
+  socket.on('chat:delete', async ({ messageId }) => {
+    try {
+      const msg = await db.get('SELECT * FROM messages WHERE id = ?', [messageId]);
+      if (!msg) return;
+      if (msg.user_id !== user.id && !user.is_admin) return;
+      await db.run('UPDATE messages SET deleted = 1 WHERE id = ?', [messageId]);
+      io.to(msg.channel_id).emit('chat:deleted', { id: messageId, channel_id: msg.channel_id });
+    } catch (err) {
+      console.error('Erro ao processar chat:delete:', err);
+    }
+  });
+
+  // Reagir com emoji (clicar de novo no mesmo emoji remove a reação)
+  socket.on('chat:react', async ({ messageId, emoji }) => {
+    try {
+      if (!messageId || !emoji || typeof emoji !== 'string' || emoji.length > 8) return;
+      const msg = await db.get('SELECT * FROM messages WHERE id = ?', [messageId]);
+      if (!msg || msg.deleted) return;
+
+      const existing = await db.get(
+        'SELECT id FROM message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?',
+        [messageId, user.id, emoji]
+      );
+      if (existing) {
+        await db.run('DELETE FROM message_reactions WHERE id = ?', [existing.id]);
+      } else {
+        await db.run('INSERT INTO message_reactions (id, message_id, user_id, emoji) VALUES (?, ?, ?, ?)', [
+          uuidv4(),
+          messageId,
+          user.id,
+          emoji,
+        ]);
+      }
+
+      const rows = await db.all('SELECT user_id, emoji FROM message_reactions WHERE message_id = ?', [messageId]);
+      const grouped = {};
+      rows.forEach((r) => {
+        if (!grouped[r.emoji]) grouped[r.emoji] = { emoji: r.emoji, count: 0, users: [] };
+        grouped[r.emoji].count++;
+        grouped[r.emoji].users.push(r.user_id);
+      });
+      io.to(msg.channel_id).emit('chat:reactions', {
+        messageId,
+        channel_id: msg.channel_id,
+        reactions: Object.values(grouped),
+      });
+    } catch (err) {
+      console.error('Erro ao processar chat:react:', err);
+    }
+  });
+
+  // Indicador de "digitando..." — só retransmite, não salva nada.
+  socket.on('typing:start', (channelId) => {
+    if (!channelId) return;
+    socket.to(channelId).emit('typing:update', { userId: user.id, username: user.username, typing: true });
+  });
+  socket.on('typing:stop', (channelId) => {
+    if (!channelId) return;
+    socket.to(channelId).emit('typing:update', { userId: user.id, username: user.username, typing: false });
   });
 
   // --- Sinalização WebRTC para voz/vídeo/compartilhamento de tela ---

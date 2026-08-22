@@ -107,6 +107,15 @@ async function initDb() {
       status TEXT NOT NULL DEFAULT 'pendente',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS message_reactions (
+      id TEXT PRIMARY KEY,
+      message_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      emoji TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(message_id, user_id, emoji)
+    );
   `);
 
   // Migração leve pra bancos criados antes de alguma dessas colunas existir.
@@ -114,7 +123,11 @@ async function initDb() {
   await ensureColumn('users', 'email_verified INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'verification_code TEXT');
   await ensureColumn('users', 'verification_expires TEXT');
+  await ensureColumn('users', 'status_message TEXT');
+  await ensureColumn('users', 'avatar TEXT');
   await ensureColumn('channels', 'created_by TEXT');
+  await ensureColumn('messages', 'edited INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('messages', 'deleted INTEGER NOT NULL DEFAULT 0');
 
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },

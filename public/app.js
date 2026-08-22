@@ -11,6 +11,27 @@ let isDeafened = false;
 const peers = {}; // socketId -> RTCPeerConnection
 const remoteStreams = {}; // socketId -> MediaStream combinada (áudio + vídeo do peer)
 let voiceParticipants = {}; // channelId -> [{socketId, userId, username}]
+let cameraStream = null; // vídeo da webcam (separado da tela compartilhada)
+let allUsers = []; // cache de /api/users pro painel de membros
+let onlineUserIds = new Set();
+let typingUsers = {}; // channelId -> { userId: username }
+let typingTimeout = null;
+
+const AVATAR_EMOJIS = ['🎮', '🕹️', '👾', '🔥', '⚡', '🐉', '🦊', '🐱', '💀', '👑', '🎯', '🚀'];
+
+// Gera o HTML de um avatar (foto enviada, emoji escolhido, ou inicial do nome).
+function renderAvatarHtml(user, sizeClass) {
+  const avatar = user && user.avatar;
+  if (avatar && avatar.startsWith('data:image/')) {
+    return `<img src="${avatar}" alt="" />`;
+  }
+  if (avatar && avatar.startsWith('emoji:')) {
+    const parts = avatar.split(':'); // emoji:🎮:#5865f2
+    return `<span style="font-size:1.1em">${escapeHtml(parts[1] || '🎮')}</span>`;
+  }
+  const initial = escapeHtml(((user && user.username) || '?')[0].toUpperCase());
+  return `<span>${initial}</span>`;
+}
 
 const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
 
@@ -108,12 +129,66 @@ function startApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('me-username').textContent = me.username;
+  document.getElementById('me-avatar').innerHTML = renderAvatarHtml(me);
   if (me.is_admin) document.getElementById('admin-link').classList.remove('hidden');
 
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
   loadChannels();
+  loadMembers();
 }
+
+// ---------- MEMBROS (online/offline) ----------
+
+async function loadMembers() {
+  try {
+    const res = await fetch('/api/users', { credentials: 'include' });
+    allUsers = await res.json();
+    renderMembers();
+  } catch (_) {}
+}
+
+function renderMembers() {
+  const container = document.getElementById('members-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const online = allUsers.filter((u) => onlineUserIds.has(u.id));
+  const offline = allUsers.filter((u) => !onlineUserIds.has(u.id));
+
+  const buildGroup = (title, users, isOffline) => {
+    if (users.length === 0) return;
+    const groupTitle = document.createElement('div');
+    groupTitle.className = 'member-group-title';
+    groupTitle.textContent = `${title} — ${users.length}`;
+    container.appendChild(groupTitle);
+
+    users.forEach((u) => {
+      const row = document.createElement('div');
+      row.className = 'member-row' + (isOffline ? ' offline' : '');
+      row.innerHTML = `
+        <div class="member-avatar-wrap">
+          <div class="member-avatar">${renderAvatarHtml(u)}</div>
+          <span class="member-status-dot"></span>
+        </div>
+        <div class="member-info">
+          <div class="member-name">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}</div>
+          ${u.status_message ? `<div class="member-game">🎮 ${escapeHtml(u.status_message)}</div>` : ''}
+        </div>
+      `;
+      container.appendChild(row);
+    });
+  };
+
+  buildGroup('Online', online, false);
+  buildGroup('Offline', offline, true);
+}
+
+document.getElementById('btn-toggle-members').onclick = () => {
+  const panel = document.getElementById('members-panel');
+  panel.classList.toggle('hidden');
+  document.getElementById('btn-toggle-members').classList.toggle('active-state', !panel.classList.contains('hidden'));
+};
 
 // ---------- CHANNELS / SERVIDORES ----------
 
@@ -262,14 +337,65 @@ document.getElementById('form-new-room').onsubmit = async (e) => {
   }
 };
 
-// ---------- EDITAR PERFIL (email / senha) ----------
+// ---------- EDITAR PERFIL (email / senha / avatar / status) ----------
 
 const modalProfile = document.getElementById('modal-profile');
+let pendingAvatar = undefined; // undefined = não mexeu, string = novo valor (ou '' pra remover)
+
+function updateAvatarPreview() {
+  const preview = document.getElementById('profile-avatar-preview');
+  const avatarValue = pendingAvatar !== undefined ? pendingAvatar : me.avatar;
+  preview.innerHTML = renderAvatarHtml({ username: me.username, avatar: avatarValue });
+}
+
+// Monta a fileira de emojis pra escolher como avatar "criado na hora"
+const emojiRow = document.getElementById('avatar-emoji-row');
+AVATAR_EMOJIS.forEach((emoji) => {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = emoji;
+  btn.style.background = '#5865f2';
+  btn.onclick = () => {
+    pendingAvatar = 'emoji:' + emoji + ':#5865f2';
+    updateAvatarPreview();
+  };
+  emojiRow.appendChild(btn);
+});
+
+document.getElementById('profile-avatar-file').onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      // Redimensiona no navegador antes de mandar pro servidor, pra não
+      // encher o banco de dados com fotos gigantes.
+      const size = 160;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(size / img.width, size / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      pendingAvatar = canvas.toDataURL('image/jpeg', 0.82);
+      updateAvatarPreview();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+};
+
 document.getElementById('btn-edit-profile').onclick = () => {
   document.getElementById('profile-error').textContent = '';
   document.getElementById('profile-email').value = me.email || '';
+  document.getElementById('profile-status').value = me.status_message || '';
   document.getElementById('profile-new-password').value = '';
   document.getElementById('profile-current-password').value = '';
+  pendingAvatar = undefined;
+  updateAvatarPreview();
   modalProfile.classList.remove('hidden');
 };
 document.getElementById('btn-cancel-profile').onclick = () => modalProfile.classList.add('hidden');
@@ -279,6 +405,7 @@ document.getElementById('form-profile').onsubmit = async (e) => {
   const email = document.getElementById('profile-email').value.trim();
   const password = document.getElementById('profile-new-password').value;
   const currentPassword = document.getElementById('profile-current-password').value;
+  const statusMessage = document.getElementById('profile-status').value.trim();
   const errorEl = document.getElementById('profile-error');
   errorEl.textContent = '';
 
@@ -286,8 +413,10 @@ document.getElementById('form-profile').onsubmit = async (e) => {
   if (email && email !== me.email) body.email = email;
   if (password) body.password = password;
   if (body.email || body.password) body.currentPassword = currentPassword;
+  if (statusMessage !== (me.status_message || '')) body.status_message = statusMessage;
+  if (pendingAvatar !== undefined) body.avatar = pendingAvatar;
 
-  if (!body.email && !body.password) {
+  if (Object.keys(body).length === 0) {
     modalProfile.classList.add('hidden');
     return;
   }
@@ -305,7 +434,10 @@ document.getElementById('form-profile').onsubmit = async (e) => {
       return;
     }
     modalProfile.classList.add('hidden');
-    me.email = document.getElementById('profile-email').value.trim() || me.email;
+    if (body.email) me.email = email;
+    if ('status_message' in data) me.status_message = data.status_message;
+    if ('avatar' in data) me.avatar = data.avatar;
+    loadMembers();
     alert('Perfil atualizado!');
   } catch (err) {
     errorEl.textContent = 'Erro de conexão com o servidor';
@@ -346,8 +478,12 @@ function selectChannel(channel) {
 
 // ---------- TEXT CHAT ----------
 
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '🔥', '😮', '🎮'];
+
 async function joinTextChannel(channelId) {
   socket.emit('channel:join', channelId);
+  typingUsers[channelId] = {};
+  renderTypingIndicator();
   const res = await fetch(`/api/channels/${channelId}/messages`, { credentials: 'include' });
   const messages = await res.json();
   const container = document.getElementById('messages');
@@ -360,16 +496,115 @@ function renderMessage(msg) {
   const container = document.getElementById('messages');
   const el = document.createElement('div');
   el.className = 'message';
+  el.dataset.id = msg.id;
   const time = new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const author = allUsers.find((u) => u.id === msg.user_id);
+  const isOwn = msg.user_id === me.id;
+  const canDelete = isOwn || me.is_admin;
+
   el.innerHTML = `
-    <div class="meta"><strong>${escapeHtml(msg.username)}</strong> · ${time}</div>
-    <div class="content">${escapeHtml(msg.content)}</div>
-    <span class="report-link" data-id="${msg.id}" data-user="${msg.user_id}">Denunciar</span>
+    <div class="message-row">
+      <div class="message-avatar">${renderAvatarHtml(author || { username: msg.username })}</div>
+      <div class="message-body">
+        <div class="meta">
+          <strong>${escapeHtml(msg.username)}</strong> · ${time}
+          ${msg.edited ? '<span class="edited-tag">(editado)</span>' : ''}
+        </div>
+        <div class="content">${escapeHtml(msg.content)}</div>
+        <div class="message-reactions" id="reactions-${msg.id}"></div>
+      </div>
+    </div>
+    <div class="message-actions">
+      <button class="act-react" title="Reagir">😀</button>
+      ${isOwn ? '<button class="act-edit" title="Editar">✏️</button>' : ''}
+      ${canDelete ? '<button class="act-delete" title="Apagar">🗑️</button>' : ''}
+      <button class="act-report" title="Denunciar">🚩</button>
+    </div>
+    <div class="reaction-picker" id="picker-${msg.id}">
+      ${REACTION_EMOJIS.map((e) => `<button data-emoji="${e}">${e}</button>`).join('')}
+    </div>
   `;
-  el.querySelector('.report-link').onclick = () => reportMessage(msg.id, msg.user_id);
+
+  el.querySelector('.act-react').onclick = (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.reaction-picker.open').forEach((p) => p.classList.remove('open'));
+    el.querySelector('.reaction-picker').classList.toggle('open');
+  };
+  el.querySelectorAll('.reaction-picker button').forEach((btn) => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      socket.emit('chat:react', { messageId: msg.id, emoji: btn.dataset.emoji });
+      el.querySelector('.reaction-picker').classList.remove('open');
+    };
+  });
+  if (isOwn) {
+    el.querySelector('.act-edit').onclick = (e) => {
+      e.stopPropagation();
+      startEditMessage(el, msg);
+    };
+  }
+  if (canDelete) {
+    el.querySelector('.act-delete').onclick = (e) => {
+      e.stopPropagation();
+      if (confirm('Apagar essa mensagem?')) socket.emit('chat:delete', { messageId: msg.id });
+    };
+  }
+  el.querySelector('.act-report').onclick = (e) => {
+    e.stopPropagation();
+    reportMessage(msg.id, msg.user_id);
+  };
+
   container.appendChild(el);
+  if (msg.reactions && msg.reactions.length > 0) renderReactions(msg.id, msg.reactions);
   container.scrollTop = container.scrollHeight;
 }
+
+function renderReactions(messageId, reactions) {
+  const el = document.getElementById('reactions-' + messageId);
+  if (!el) return;
+  el.innerHTML = '';
+  reactions
+    .filter((r) => r.count > 0)
+    .forEach((r) => {
+      const chip = document.createElement('span');
+      chip.className = 'reaction-chip' + (r.reacted ? ' reacted' : '');
+      chip.textContent = `${r.emoji} ${r.count}`;
+      chip.onclick = () => socket.emit('chat:react', { messageId, emoji: r.emoji });
+      el.appendChild(chip);
+    });
+}
+
+function startEditMessage(el, msg) {
+  const contentEl = el.querySelector('.content');
+  const original = msg.content;
+  contentEl.innerHTML = '';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = original;
+  input.className = 'edit-inline-input';
+  input.style.cssText = 'width:100%;padding:6px;border-radius:4px;border:1px solid #5865f2;background:#26272e;color:#e6e6e6;';
+  contentEl.appendChild(input);
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+
+  function save() {
+    const newContent = input.value.trim();
+    if (newContent && newContent !== original) {
+      socket.emit('chat:edit', { messageId: msg.id, content: newContent });
+    } else {
+      contentEl.textContent = original;
+    }
+  }
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') save();
+    if (e.key === 'Escape') contentEl.textContent = original;
+  };
+  input.onblur = save;
+}
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.reaction-picker.open').forEach((p) => p.classList.remove('open'));
+});
 
 async function reportMessage(messageId, reportedUserId) {
   const reason = prompt('Motivo da denúncia (ex: assédio, conteúdo impróprio, spam):');
@@ -383,6 +618,36 @@ async function reportMessage(messageId, reportedUserId) {
   alert('Denúncia enviada. Um moderador irá revisar.');
 }
 
+// ---------- INDICADOR DE "DIGITANDO..." ----------
+
+function renderTypingIndicator() {
+  const el = document.getElementById('typing-indicator');
+  if (!el || !currentChannel) return;
+  const users = Object.values(typingUsers[currentChannel.id] || {});
+  if (users.length === 0) {
+    el.textContent = '';
+  } else if (users.length === 1) {
+    el.textContent = `${users[0]} está digitando...`;
+  } else {
+    el.textContent = `${users.join(', ')} estão digitando...`;
+  }
+}
+
+const messageInput = document.getElementById('message-input');
+let isTyping = false;
+messageInput.addEventListener('input', () => {
+  if (!currentChannel) return;
+  if (!isTyping) {
+    isTyping = true;
+    socket.emit('typing:start', currentChannel.id);
+  }
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => {
+    isTyping = false;
+    socket.emit('typing:stop', currentChannel.id);
+  }, 2000);
+});
+
 document.getElementById('form-message').onsubmit = (e) => {
   e.preventDefault();
   const input = document.getElementById('message-input');
@@ -390,6 +655,9 @@ document.getElementById('form-message').onsubmit = (e) => {
   if (!content || !currentChannel) return;
   socket.emit('chat:message', { channelId: currentChannel.id, content });
   input.value = '';
+  clearTimeout(typingTimeout);
+  isTyping = false;
+  socket.emit('typing:stop', currentChannel.id);
 };
 
 function escapeHtml(str) {
@@ -407,6 +675,43 @@ function registerSocketHandlers() {
 
   socket.on('chat:blocked', ({ reason }) => {
     alert('⚠️ ' + reason);
+  });
+
+  socket.on('chat:edited', ({ id, content, channel_id }) => {
+    if (!currentChannel || channel_id !== currentChannel.id) return;
+    const el = document.querySelector(`.message[data-id="${id}"] .content`);
+    if (el) el.textContent = content;
+    const meta = document.querySelector(`.message[data-id="${id}"] .meta`);
+    if (meta && !meta.querySelector('.edited-tag')) {
+      const tag = document.createElement('span');
+      tag.className = 'edited-tag';
+      tag.textContent = '(editado)';
+      meta.appendChild(tag);
+    }
+  });
+
+  socket.on('chat:deleted', ({ id, channel_id }) => {
+    if (!currentChannel || channel_id !== currentChannel.id) return;
+    const el = document.querySelector(`.message[data-id="${id}"]`);
+    if (el) el.remove();
+  });
+
+  socket.on('chat:reactions', ({ messageId, channel_id, reactions }) => {
+    if (!currentChannel || channel_id !== currentChannel.id) return;
+    renderReactions(messageId, reactions.map((r) => ({ emoji: r.emoji, count: r.count, reacted: r.users.includes(me.id) })));
+  });
+
+  socket.on('typing:update', ({ userId, username, typing }) => {
+    if (!currentChannel) return;
+    if (!typingUsers[currentChannel.id]) typingUsers[currentChannel.id] = {};
+    if (typing) typingUsers[currentChannel.id][userId] = username;
+    else delete typingUsers[currentChannel.id][userId];
+    renderTypingIndicator();
+  });
+
+  socket.on('presence:online', (userIds) => {
+    onlineUserIds = new Set(userIds);
+    renderMembers();
   });
 
   socket.on('rtc:peer-joined', ({ socketId, username }) => {
@@ -489,6 +794,11 @@ function disconnectVoice() {
     micStream.getTracks().forEach((t) => t.stop());
     micStream = null;
   }
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+    updateCameraButton();
+  }
   document.getElementById('video-grid').innerHTML = '';
   document.getElementById('btn-share-screen').classList.remove('hidden');
   document.getElementById('btn-stop-share').classList.add('hidden');
@@ -503,6 +813,9 @@ function addLocalTracksToPeer(pc) {
   }
   if (localStream) {
     localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+  }
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((track) => pc.addTrack(track, cameraStream));
   }
 }
 
@@ -708,13 +1021,60 @@ function stopMicrophone() {
 function updateLocalTile() {
   if (!connectedVoiceRoomId) {
     removeVideoTile('local');
+    removeVideoTile('local-camera');
     return;
   }
   const combined = new MediaStream();
   if (micStream) micStream.getAudioTracks().forEach((t) => combined.addTrack(t));
   if (localStream) localStream.getVideoTracks().forEach((t) => combined.addTrack(t));
   addVideoTile('local', me.username + ' (você)', combined);
+
+  if (cameraStream) {
+    addVideoTile('local-camera', me.username + ' (câmera)', cameraStream);
+  } else {
+    removeVideoTile('local-camera');
+  }
 }
+
+// ---------- CÂMERA (webcam, separada da tela compartilhada) ----------
+
+async function toggleCamera() {
+  if (cameraStream) {
+    const tracksToRemove = cameraStream.getTracks();
+    Object.values(peers).forEach((pc) => {
+      pc.getSenders()
+        .filter((s) => s.track && tracksToRemove.includes(s.track))
+        .forEach((s) => pc.removeTrack(s));
+    });
+    tracksToRemove.forEach((t) => t.stop());
+    cameraStream = null;
+    updateLocalTile();
+    updateCameraButton();
+    return;
+  }
+
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+  } catch (err) {
+    alert('Não foi possível acessar a câmera: ' + err.message);
+    return;
+  }
+  Object.values(peers).forEach((pc) => {
+    cameraStream.getTracks().forEach((track) => pc.addTrack(track, cameraStream));
+  });
+  updateLocalTile();
+  updateCameraButton();
+  cameraStream.getVideoTracks()[0].onended = () => {
+    if (cameraStream) toggleCamera();
+  };
+}
+
+function updateCameraButton() {
+  document.getElementById('btn-toggle-camera').classList.toggle('active-state', !!cameraStream);
+}
+
+document.getElementById('btn-toggle-camera').onclick = toggleCamera;
+document.getElementById('btn-mic-options').onclick = () => document.getElementById('btn-voice-settings').click();
 
 // Quadradinho temporário de "Conectando..." enquanto o navegador pede
 // permissão de microfone — assim a tela não fica vazia/parada nesse meio tempo.
@@ -739,7 +1099,8 @@ function setMicStatus(text) {
 
 function updateMicButton() {
   const btn = document.getElementById('btn-toggle-mic');
-  btn.textContent = micMuted ? '🔇 Ativar microfone' : '🎙️ Mutar';
+  btn.textContent = micMuted ? '🔇' : '🎙️';
+  btn.title = micMuted ? 'Ativar microfone' : 'Mutar microfone';
   btn.classList.toggle('muted', micMuted);
   document.getElementById('bar-btn-mute').classList.toggle('active-state', micMuted);
 }
