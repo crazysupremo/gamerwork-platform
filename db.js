@@ -16,6 +16,10 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   username TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
+  email TEXT,
+  email_verified INTEGER NOT NULL DEFAULT 0,
+  verification_code TEXT,
+  verification_expires TEXT,
   is_admin INTEGER NOT NULL DEFAULT 0,
   is_banned INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -61,6 +65,22 @@ CREATE TABLE IF NOT EXISTS reports (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `);
+
+// Migração leve: se o banco já existia de uma versão anterior (sem as
+// colunas de e-mail/verificação), adiciona elas agora. CREATE TABLE IF NOT
+// EXISTS não altera tabelas já existentes, então isso cobre quem já tinha
+// rodado o app antes dessa funcionalidade existir.
+function ensureColumn(table, columnDef) {
+  try {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`);
+  } catch (err) {
+    // já existe — ignora
+  }
+}
+ensureColumn('users', 'email TEXT');
+ensureColumn('users', 'email_verified INTEGER NOT NULL DEFAULT 0');
+ensureColumn('users', 'verification_code TEXT');
+ensureColumn('users', 'verification_expires TEXT');
 
 // Seed canais padrão (gamers + trabalho) se ainda não existirem.
 const seedChannels = [

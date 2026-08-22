@@ -14,3 +14,5 @@ services:
         value: 22.11.0
       - key: SESSION_SECRET
         generateValue: true
+      - key: RESEND_API_KEY
+        sync: false # preencha manualmente no painel do Render (Environment) com sua chave do resend.com

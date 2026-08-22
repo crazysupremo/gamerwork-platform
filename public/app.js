@@ -25,16 +25,32 @@ const tabLogin = document.getElementById('tab-login');
 const tabRegister = document.getElementById('tab-register');
 const formLogin = document.getElementById('form-login');
 const formRegister = document.getElementById('form-register');
+const formVerify = document.getElementById('form-verify');
+const authTabs = document.querySelector('.auth-tabs');
 const authError = document.getElementById('auth-error');
 
 tabLogin.onclick = () => switchTab('login');
 tabRegister.onclick = () => switchTab('register');
 
 function switchTab(which) {
+  authTabs.classList.remove('hidden');
   tabLogin.classList.toggle('active', which === 'login');
   tabRegister.classList.toggle('active', which === 'register');
   formLogin.classList.toggle('hidden', which !== 'login');
   formRegister.classList.toggle('hidden', which !== 'register');
+  formVerify.classList.add('hidden');
+  authError.textContent = '';
+}
+
+function showVerifyScreen(email) {
+  authTabs.classList.add('hidden');
+  formLogin.classList.add('hidden');
+  formRegister.classList.add('hidden');
+  formVerify.classList.remove('hidden');
+  document.getElementById('verify-explainer').textContent = email
+    ? `Mandamos um código de 6 dígitos pra ${email}. Confira também a caixa de spam.`
+    : 'Mandamos um código de 6 dígitos pro seu e-mail. Confira também a caixa de spam.';
+  document.getElementById('verify-code').value = '';
   authError.textContent = '';
 }
 
@@ -48,12 +64,36 @@ formLogin.onsubmit = async (e) => {
 formRegister.onsubmit = async (e) => {
   e.preventDefault();
   const username = document.getElementById('register-username').value.trim();
+  const email = document.getElementById('register-email').value.trim();
   const password = document.getElementById('register-password').value;
-  await authRequest('/api/register', { username, password });
+  await authRequest('/api/register', { username, email, password });
+};
+
+formVerify.onsubmit = async (e) => {
+  e.preventDefault();
+  const code = document.getElementById('verify-code').value.trim();
+  await authRequest('/api/verify-email', { code });
+};
+
+document.getElementById('btn-resend-code').onclick = async () => {
+  authError.textContent = '';
+  try {
+    const res = await fetch('/api/resend-code', { method: 'POST', credentials: 'include' });
+    const data = await res.json();
+    if (!res.ok) {
+      authError.textContent = data.error || 'Erro ao reenviar código';
+      return;
+    }
+    authError.textContent = 'Código reenviado!';
+    authError.style.color = '#23a55a';
+  } catch (_) {
+    authError.textContent = 'Erro de conexão com o servidor';
+  }
 };
 
 async function authRequest(url, body) {
   authError.textContent = '';
+  authError.style.color = '';
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -64,6 +104,10 @@ async function authRequest(url, body) {
     const data = await res.json();
     if (!res.ok) {
       authError.textContent = data.error || 'Erro ao autenticar';
+      return;
+    }
+    if (data.pending) {
+      showVerifyScreen(data.email);
       return;
     }
     me = data;
@@ -212,6 +256,62 @@ document.getElementById('form-new-room').onsubmit = async (e) => {
     }
     modalNewRoom.classList.add('hidden');
     await loadChannels();
+  } catch (err) {
+    errorEl.textContent = 'Erro de conexão com o servidor';
+  }
+};
+
+// ---------- EDITAR PERFIL (email / senha) ----------
+
+const modalProfile = document.getElementById('modal-profile');
+document.getElementById('btn-edit-profile').onclick = () => {
+  document.getElementById('profile-error').textContent = '';
+  document.getElementById('profile-email').value = me.email || '';
+  document.getElementById('profile-new-password').value = '';
+  document.getElementById('profile-current-password').value = '';
+  modalProfile.classList.remove('hidden');
+};
+document.getElementById('btn-cancel-profile').onclick = () => modalProfile.classList.add('hidden');
+
+document.getElementById('form-profile').onsubmit = async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('profile-email').value.trim();
+  const password = document.getElementById('profile-new-password').value;
+  const currentPassword = document.getElementById('profile-current-password').value;
+  const errorEl = document.getElementById('profile-error');
+  errorEl.textContent = '';
+
+  const body = {};
+  if (email && email !== me.email) body.email = email;
+  if (password) body.password = password;
+  if (body.email || body.password) body.currentPassword = currentPassword;
+
+  if (!body.email && !body.password) {
+    modalProfile.classList.add('hidden');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Erro ao salvar';
+      return;
+    }
+    modalProfile.classList.add('hidden');
+    if (data.pending) {
+      // Trocou de e-mail — precisa confirmar o código novo antes de continuar.
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('auth-screen').classList.remove('hidden');
+      showVerifyScreen(data.email);
+    } else {
+      alert('Perfil atualizado!');
+    }
   } catch (err) {
     errorEl.textContent = 'Erro de conexão com o servidor';
   }
@@ -378,10 +478,26 @@ function disconnectVoice() {
     delete peers[id];
   });
   Object.keys(remoteStreams).forEach((id) => delete remoteStreams[id]);
-  document.getElementById('video-grid').innerHTML = '';
-  stopScreenShare();
-  stopMicrophone();
+  Object.keys(speakingDetectors).forEach((id) => {
+    speakingDetectors[id].ctx.close().catch(() => {});
+    cancelAnimationFrame(speakingDetectors[id].rafId);
+    delete speakingDetectors[id];
+  });
+  // Zera o estado de conexão ANTES de parar mic/tela, pra updateLocalTile()
+  // não recriar uma tile "local" fantasma no meio da limpeza.
   connectedVoiceRoomId = null;
+  if (localStream) {
+    localStream.getTracks().forEach((t) => t.stop());
+    localStream = null;
+  }
+  if (micStream) {
+    micStream.getTracks().forEach((t) => t.stop());
+    micStream = null;
+  }
+  document.getElementById('video-grid').innerHTML = '';
+  document.getElementById('btn-share-screen').classList.remove('hidden');
+  document.getElementById('btn-stop-share').classList.add('hidden');
+  setMicStatus('');
   updateVoiceBar();
   renderCategories(allChannels);
 }
@@ -435,26 +551,90 @@ function createPeerConnection(peerId, username) {
   return pc;
 }
 
+const speakingDetectors = {}; // peerId -> { ctx, rafId }
+
 function addVideoTile(peerId, username, stream) {
   let tile = document.getElementById('tile-' + peerId);
-  if (!tile) {
+  const isNew = !tile;
+  if (isNew) {
     tile = document.createElement('div');
-    tile.className = 'video-tile';
+    tile.className = 'video-tile tile-enter';
     tile.id = 'tile-' + peerId;
-    tile.innerHTML = `<video autoplay playsinline></video><span class="label">${escapeHtml(username || 'Participante')}</span>`;
+    const initial = escapeHtml((username || '?')[0].toUpperCase());
+    tile.innerHTML = `
+      <video autoplay playsinline></video>
+      <div class="tile-avatar"><span>${initial}</span></div>
+      <span class="label">${escapeHtml(username || 'Participante')}</span>
+    `;
     document.getElementById('video-grid').appendChild(tile);
+    // remove a classe de animação depois que ela roda, pra não repetir em updates futuros
+    setTimeout(() => tile.classList.remove('tile-enter'), 260);
   }
+
   const videoEl = tile.querySelector('video');
   videoEl.srcObject = stream;
-  videoEl.muted = isDeafened;
+  // A tile "local" é a sua própria câmera/mic — sempre muda pra você mesmo
+  // (senão você ouviria seu próprio microfone de volta, causando eco/feedback).
+  videoEl.muted = peerId === 'local' ? true : isDeafened;
   applyOutputDevice(videoEl);
   videoEl.play().catch(() => {
     // Alguns navegadores bloqueiam autoplay com áudio fora de um gesto direto
     // do usuário — nesse caso o próprio elemento mostra o ícone de play.
   });
+
+  // Mostra o avatar (círculo com inicial) quando não há vídeo de verdade
+  // rolando (só áudio, ex.: alguém que não está compartilhando tela) —
+  // igual Discord mostra o avatar em vez de tela preta em chamada de voz.
+  const hasVideo = stream.getVideoTracks().length > 0;
+  tile.classList.toggle('audio-only', !hasVideo);
+
+  attachSpeakingDetector(peerId, stream, tile);
+}
+
+// Detecta quando alguém está falando (nível de áudio) e acende um anel verde
+// ao redor do avatar/tile, igual indicador de "falando" do Discord.
+function attachSpeakingDetector(peerId, stream, tile) {
+  if (speakingDetectors[peerId]) {
+    speakingDetectors[peerId].ctx.close().catch(() => {});
+    cancelAnimationFrame(speakingDetectors[peerId].rafId);
+    delete speakingDetectors[peerId];
+  }
+  const audioTracks = stream.getAudioTracks();
+  if (audioTracks.length === 0) return;
+
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = ctx.createMediaStreamSource(new MediaStream([audioTracks[0]]));
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+
+    function tick() {
+      analyser.getByteTimeDomainData(data);
+      let sumSquares = 0;
+      for (let i = 0; i < data.length; i++) {
+        const v = (data[i] - 128) / 128;
+        sumSquares += v * v;
+      }
+      const rms = Math.sqrt(sumSquares / data.length);
+      const stillThere = document.getElementById('tile-' + peerId);
+      if (stillThere) stillThere.classList.toggle('speaking', rms > 0.04);
+      speakingDetectors[peerId].rafId = requestAnimationFrame(tick);
+    }
+    speakingDetectors[peerId] = { ctx, rafId: null };
+    tick();
+  } catch (_) {
+    // ambiente sem suporte a AudioContext pra essa stream — sem indicador, sem problema
+  }
 }
 
 function removeVideoTile(peerId) {
+  if (speakingDetectors[peerId]) {
+    speakingDetectors[peerId].ctx.close().catch(() => {});
+    cancelAnimationFrame(speakingDetectors[peerId].rafId);
+    delete speakingDetectors[peerId];
+  }
   const tile = document.getElementById('tile-' + peerId);
   if (tile) tile.remove();
 }
@@ -462,11 +642,13 @@ function removeVideoTile(peerId) {
 // ---------- MICROFONE (voz de verdade, igual chamada de voz) ----------
 
 async function startMicrophone() {
+  showConnectingTile();
   try {
     micStream = await navigator.mediaDevices.getUserMedia({
       audio: preferredInputId ? { deviceId: { exact: preferredInputId } } : true,
     });
   } catch (err) {
+    removeConnectingTile();
     setMicStatus('Não foi possível acessar o microfone: ' + err.message);
     return;
   }
@@ -476,6 +658,8 @@ async function startMicrophone() {
   });
   updateMicButton();
   setMicStatus(micMuted ? '🎙️ Microfone mutado' : '🎙️ Microfone ativo');
+  removeConnectingTile();
+  updateLocalTile();
 }
 
 function stopMicrophone() {
@@ -484,6 +668,35 @@ function stopMicrophone() {
     micStream = null;
   }
   setMicStatus('');
+}
+
+// Sua própria tile na chamada — combina áudio do mic + vídeo da tela (se
+// estiver compartilhando) num único quadradinho com seu nome, igual todo mundo.
+function updateLocalTile() {
+  if (!connectedVoiceRoomId) {
+    removeVideoTile('local');
+    return;
+  }
+  const combined = new MediaStream();
+  if (micStream) micStream.getAudioTracks().forEach((t) => combined.addTrack(t));
+  if (localStream) localStream.getVideoTracks().forEach((t) => combined.addTrack(t));
+  addVideoTile('local', me.username + ' (você)', combined);
+}
+
+// Quadradinho temporário de "Conectando..." enquanto o navegador pede
+// permissão de microfone — assim a tela não fica vazia/parada nesse meio tempo.
+function showConnectingTile() {
+  const grid = document.getElementById('video-grid');
+  if (document.getElementById('tile-connecting')) return;
+  const tile = document.createElement('div');
+  tile.className = 'video-tile audio-only tile-enter';
+  tile.id = 'tile-connecting';
+  tile.innerHTML = `<div class="tile-avatar tile-avatar-pulse"><span>…</span></div><span class="label">Conectando</span>`;
+  grid.appendChild(tile);
+}
+function removeConnectingTile() {
+  const tile = document.getElementById('tile-connecting');
+  if (tile) tile.remove();
 }
 
 function setMicStatus(text) {
@@ -554,7 +767,7 @@ document.getElementById('btn-share-screen').onclick = async () => {
     alert('Não foi possível iniciar o compartilhamento de tela: ' + err.message);
     return;
   }
-  addVideoTile('local', me.username + ' (você)', localStream);
+  updateLocalTile();
   Object.values(peers).forEach((pc) => {
     localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
   });
@@ -573,6 +786,7 @@ function stopScreenShare() {
   }
   document.getElementById('btn-share-screen').classList.remove('hidden');
   document.getElementById('btn-stop-share').classList.add('hidden');
+  updateLocalTile();
 }
 
 document.getElementById('btn-leave-voice').onclick = () => {

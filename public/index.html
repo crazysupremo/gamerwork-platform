@@ -27,8 +27,17 @@
 
     <form id="form-register" class="auth-form hidden">
       <input type="text" id="register-username" placeholder="Usuário (min. 3 caracteres)" required />
+      <input type="email" id="register-email" placeholder="E-mail" required />
       <input type="password" id="register-password" placeholder="Senha (min. 6 caracteres)" required />
       <button type="submit">Criar conta</button>
+    </form>
+
+    <!-- TELA DE VERIFICAÇÃO DE CÓDIGO (aparece depois de criar conta ou logar sem verificar) -->
+    <form id="form-verify" class="auth-form hidden">
+      <p class="subtitle" id="verify-explainer">Mandamos um código de 6 dígitos pro seu e-mail. Confira também a caixa de spam.</p>
+      <input type="text" id="verify-code" placeholder="Código de 6 dígitos" maxlength="6" inputmode="numeric" required />
+      <button type="submit">Confirmar</button>
+      <button type="button" id="btn-resend-code" class="link-button">Reenviar código</button>
     </form>
 
     <p id="auth-error" class="auth-error"></p>
@@ -64,6 +73,7 @@
 
     <div class="sidebar-footer">
       <span id="me-username"></span>
+      <button id="btn-edit-profile" title="Editar perfil">⚙️</button>
       <a href="/admin.html" id="admin-link" class="hidden">Admin</a>
       <button id="btn-logout">Sair</button>
     </div>
@@ -151,6 +161,30 @@
     <div class="modal-actions">
       <button type="button" id="btn-close-voice-settings">Fechar</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: editar perfil (email e senha) -->
+<div id="modal-profile" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>Editar perfil</h2>
+    <form id="form-profile">
+      <label>E-mail atual</label>
+      <input type="email" id="profile-email" placeholder="seu@email.com" />
+      <p class="hint">Trocar o e-mail exige confirmar um novo código.</p>
+
+      <label>Nova senha (deixe em branco pra não trocar)</label>
+      <input type="password" id="profile-new-password" placeholder="Nova senha" />
+
+      <label>Senha atual (obrigatória pra trocar e-mail ou senha)</label>
+      <input type="password" id="profile-current-password" placeholder="Senha atual" />
+
+      <div class="modal-actions">
+        <button type="button" id="btn-cancel-profile">Cancelar</button>
+        <button type="submit">Salvar</button>
+      </div>
+      <p id="profile-error" class="auth-error"></p>
+    </form>
   </div>
 </div>
 

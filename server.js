@@ -11,6 +11,7 @@ const { Server } = require('socket.io');
 
 const db = require('./db');
 const { scanText } = require('./moderation');
+const { sendVerificationEmail, generateCode } = require('./mailer');
 
 const app = express();
 const httpServer = createServer(app);
@@ -73,10 +74,31 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// Conta é considerada verificada se não tem e-mail cadastrado (contas
+// antigas, de antes dessa funcionalidade existir) ou se o e-mail já foi
+// confirmado com o código.
+function isEmailVerified(user) {
+  return !user.email || user.email_verified === 1;
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CODE_TTL_MS = 15 * 60 * 1000;
+
+function issueVerificationCode(userId, email) {
+  const code = generateCode();
+  const expires = new Date(Date.now() + CODE_TTL_MS).toISOString();
+  db.prepare('UPDATE users SET verification_code = ?, verification_expires = ? WHERE id = ?').run(
+    code,
+    expires,
+    userId
+  );
+  sendVerificationEmail(email, code).catch(() => {});
+}
+
 // ---------- AUTH ----------
 
 app.post('/api/register', authLimiter, (req, res) => {
-  const { username, password } = req.body || {};
+  const { username, email, password } = req.body || {};
   if (
     !username ||
     !password ||
@@ -92,18 +114,27 @@ app.post('/api/register', authLimiter, (req, res) => {
       error: 'Usuário (3-32 caracteres, só letras/números/._-) e senha (6-200 caracteres) são obrigatórios',
     });
   }
-  const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-  if (existing) return res.status(409).json({ error: 'Usuário já existe' });
+  if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email) || email.length > 200) {
+    return res.status(400).json({ error: 'E-mail inválido' });
+  }
+  const existingUsername = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+  if (existingUsername) return res.status(409).json({ error: 'Usuário já existe' });
+  const existingEmail = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  if (existingEmail) return res.status(409).json({ error: 'Já existe uma conta com esse e-mail' });
 
   const isFirstUser = db.prepare('SELECT COUNT(*) as c FROM users').get().c === 0;
   const id = uuidv4();
   const password_hash = bcrypt.hashSync(password, 10);
   db.prepare(
-    'INSERT INTO users (id, username, password_hash, is_admin) VALUES (?, ?, ?, ?)'
-  ).run(id, username, password_hash, isFirstUser ? 1 : 0);
+    'INSERT INTO users (id, username, password_hash, email, is_admin) VALUES (?, ?, ?, ?, ?)'
+  ).run(id, username, password_hash, email, isFirstUser ? 1 : 0);
 
-  req.session.userId = id;
-  res.json({ id, username, is_admin: isFirstUser ? 1 : 0 });
+  issueVerificationCode(id, email);
+
+  // Ainda não loga de verdade — fica "pendente" até confirmar o código.
+  req.session.pendingUserId = id;
+  req.session.userId = null;
+  res.json({ pending: true, email });
 });
 
 app.post('/api/login', authLimiter, (req, res) => {
@@ -113,7 +144,16 @@ app.post('/api/login', authLimiter, (req, res) => {
     return res.status(401).json({ error: 'Usuário ou senha inválidos' });
   }
   if (user.is_banned) return res.status(403).json({ error: 'Esta conta foi banida' });
+
+  if (!isEmailVerified(user)) {
+    issueVerificationCode(user.id, user.email);
+    req.session.pendingUserId = user.id;
+    req.session.userId = null;
+    return res.json({ pending: true, email: user.email });
+  }
+
   req.session.userId = user.id;
+  req.session.pendingUserId = null;
   res.json({ id: user.id, username: user.username, is_admin: user.is_admin });
 });
 
@@ -122,8 +162,83 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// Reenvia o código pra conta que está com verificação pendente na sessão atual.
+app.post('/api/resend-code', authLimiter, (req, res) => {
+  const userId = req.session.pendingUserId;
+  if (!userId) return res.status(400).json({ error: 'Nenhuma verificação pendente' });
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!user || !user.email) return res.status(400).json({ error: 'Conta inválida' });
+  issueVerificationCode(user.id, user.email);
+  res.json({ ok: true });
+});
+
+app.post('/api/verify-email', authLimiter, (req, res) => {
+  const userId = req.session.pendingUserId;
+  const { code } = req.body || {};
+  if (!userId) return res.status(400).json({ error: 'Nenhuma verificação pendente' });
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(400).json({ error: 'Conta inválida' });
+
+  if (!code || user.verification_code !== String(code)) {
+    return res.status(400).json({ error: 'Código incorreto' });
+  }
+  if (!user.verification_expires || new Date(user.verification_expires) < new Date()) {
+    return res.status(400).json({ error: 'Código expirado — peça um novo' });
+  }
+
+  db.prepare(
+    'UPDATE users SET email_verified = 1, verification_code = NULL, verification_expires = NULL WHERE id = ?'
+  ).run(user.id);
+
+  req.session.userId = user.id;
+  req.session.pendingUserId = null;
+  res.json({ id: user.id, username: user.username, is_admin: user.is_admin });
+});
+
 app.get('/api/me', requireAuth, (req, res) => {
-  res.json({ id: req.user.id, username: req.user.username, is_admin: req.user.is_admin });
+  res.json({
+    id: req.user.id,
+    username: req.user.username,
+    is_admin: req.user.is_admin,
+    email: req.user.email,
+  });
+});
+
+// Editar perfil: trocar senha (exige senha atual) e/ou e-mail (exige nova verificação).
+app.patch('/api/me', requireAuth, (req, res) => {
+  const { email, password, currentPassword } = req.body || {};
+
+  if (password) {
+    if (!currentPassword || !bcrypt.compareSync(currentPassword, req.user.password_hash)) {
+      return res.status(401).json({ error: 'Senha atual incorreta' });
+    }
+    if (typeof password !== 'string' || password.length < 6 || password.length > 200) {
+      return res.status(400).json({ error: 'Nova senha precisa ter 6-200 caracteres' });
+    }
+    const newHash = bcrypt.hashSync(password, 10);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, req.user.id);
+  }
+
+  if (email && email !== req.user.email) {
+    if (!currentPassword || !bcrypt.compareSync(currentPassword, req.user.password_hash)) {
+      return res.status(401).json({ error: 'Senha atual incorreta' });
+    }
+    if (!EMAIL_REGEX.test(email) || email.length > 200) {
+      return res.status(400).json({ error: 'E-mail inválido' });
+    }
+    const existingEmail = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email, req.user.id);
+    if (existingEmail) return res.status(409).json({ error: 'Já existe uma conta com esse e-mail' });
+
+    db.prepare('UPDATE users SET email = ?, email_verified = 0 WHERE id = ?').run(email, req.user.id);
+    issueVerificationCode(req.user.id, email);
+
+    // Precisa reconfirmar o novo e-mail antes de continuar usando a conta.
+    req.session.pendingUserId = req.user.id;
+    req.session.userId = null;
+    return res.json({ pending: true, email });
+  }
+
+  res.json({ ok: true });
 });
 
 // ---------- CHANNELS ----------

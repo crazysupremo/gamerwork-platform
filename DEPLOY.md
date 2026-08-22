@@ -60,6 +60,25 @@ Quando quiser resolver isso, as opções são:
    Postgres, que tem um plano free próprio) — isso exigiria adaptar o código
    de `db.js`, posso fazer isso quando você quiser seguir esse caminho.
 
+## Ativar o envio de e-mail de verificação (Resend)
+
+Sem isso, o cadastro ainda funciona, mas o código de confirmação só aparece
+nos logs do servidor (ninguém recebe e-mail de verdade). Pra ativar:
+
+1. Acesse **resend.com** e crie uma conta grátis (só e-mail, sem cartão)
+2. No painel, vá em **API Keys** → **Create API Key**, copie a chave (começa com `re_`)
+3. No Render, abra seu serviço → aba **Environment** → **Add Environment Variable**
+   - Key: `RESEND_API_KEY`
+   - Value: a chave que você copiou
+4. Clique em **Save Changes** — o Render redeploya sozinho com a nova variável
+
+**Limitação do plano grátis do Resend**: sem verificar um domínio próprio, só
+dá pra mandar e-mail pro endereço com que você criou a conta Resend (é uma
+proteção deles contra spam). Pra mandar pra qualquer pessoa que se cadastrar
+no seu site, você precisa verificar um domínio no painel do Resend (aba
+**Domains**) e trocar a variável `EMAIL_FROM` no Render pra um endereço desse
+domínio, tipo `NEXT GAME <contato@seudominio.com>`.
+
 ## Sobre o compartilhamento de tela em produção
 
 O WebRTC deste protótipo usa apenas um servidor STUN público (Google), sem
