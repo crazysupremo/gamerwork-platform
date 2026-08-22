@@ -45,6 +45,23 @@
 
     <div id="categories-container"></div>
 
+    <!-- Barra fixa de "conectado por voz" — igual Discord, fica visível mesmo
+         navegando por outros canais, até você clicar em desconectar. -->
+    <div id="voice-connected-bar" class="voice-connected-bar hidden">
+      <div class="voice-connected-info" id="voice-connected-info">
+        <span class="voice-connected-dot"></span>
+        <div class="voice-connected-text">
+          <div class="voice-connected-label">Voz conectada</div>
+          <div id="voice-connected-room-name" class="voice-connected-room"></div>
+        </div>
+      </div>
+      <div class="voice-connected-controls">
+        <button id="bar-btn-mute" title="Mutar/Ativar microfone">🎙️</button>
+        <button id="bar-btn-deafen" title="Ensurdecer">🎧</button>
+        <button id="bar-btn-disconnect" title="Desconectar">📞</button>
+      </div>
+    </div>
+
     <div class="sidebar-footer">
       <span id="me-username"></span>
       <a href="/admin.html" id="admin-link" class="hidden">Admin</a>

@@ -258,10 +258,39 @@ function isRateLimited(socketId) {
   return timestamps.length > MESSAGE_RATE_LIMIT;
 }
 
+// Presença global de quem está em cada sala de voz (roomId -> Map(socketId -> username)),
+// transmitida pra TODO MUNDO (não só pra quem já está na sala) — é assim que
+// dá pra mostrar "quem está na call" embaixo do nome do canal no menu, igual Discord.
+const voiceRooms = new Map();
+
+function voiceStateSnapshot() {
+  const snapshot = {};
+  for (const [roomId, participants] of voiceRooms.entries()) {
+    snapshot[roomId] = [...participants.values()];
+  }
+  return snapshot;
+}
+
+function broadcastVoiceRoom(roomId) {
+  const participants = voiceRooms.has(roomId) ? [...voiceRooms.get(roomId).values()] : [];
+  io.emit('voice:update', { roomId, participants });
+}
+
+function removeFromAllVoiceRooms(socketId) {
+  for (const [roomId, participants] of voiceRooms.entries()) {
+    if (participants.delete(socketId)) broadcastVoiceRoom(roomId);
+  }
+}
+
 io.on('connection', (socket) => {
   const user = socket.user;
 
-  socket.on('disconnect', () => messageTimestamps.delete(socket.id));
+  socket.emit('voice:state', voiceStateSnapshot());
+
+  socket.on('disconnect', () => {
+    messageTimestamps.delete(socket.id);
+    removeFromAllVoiceRooms(socket.id);
+  });
 
   socket.on('channel:join', (channelId) => {
     socket.join(channelId);
@@ -320,13 +349,24 @@ io.on('connection', (socket) => {
   // --- Sinalização WebRTC para voz/vídeo/compartilhamento de tela ---
   // Modelo simples: mesh entre participantes de uma sala de voz.
   socket.on('rtc:join', (roomId) => {
+    // Sai de qualquer outra sala de voz antes (só dá pra estar em uma por vez)
+    removeFromAllVoiceRooms(socket.id);
+
     socket.join('rtc:' + roomId);
     socket.to('rtc:' + roomId).emit('rtc:peer-joined', { socketId: socket.id, username: user.username });
+
+    if (!voiceRooms.has(roomId)) voiceRooms.set(roomId, new Map());
+    voiceRooms.get(roomId).set(socket.id, { socketId: socket.id, userId: user.id, username: user.username });
+    broadcastVoiceRoom(roomId);
   });
 
   socket.on('rtc:leave', (roomId) => {
     socket.leave('rtc:' + roomId);
     socket.to('rtc:' + roomId).emit('rtc:peer-left', { socketId: socket.id });
+    if (voiceRooms.has(roomId)) {
+      voiceRooms.get(roomId).delete(socket.id);
+      broadcastVoiceRoom(roomId);
+    }
   });
 
   socket.on('rtc:signal', ({ to, data }) => {

@@ -2,13 +2,15 @@
 
 let me = null;
 let socket = null;
-let currentChannel = null;
-let currentVoiceRoom = null;
+let currentChannel = null; // o que está sendo exibido no painel principal agora
+let connectedVoiceRoomId = null; // sala de voz em que você está REALMENTE conectado (independe do que está vendo)
 let localStream = null; // tela compartilhada
 let micStream = null; // áudio do microfone
 let micMuted = false;
+let isDeafened = false;
 const peers = {}; // socketId -> RTCPeerConnection
 const remoteStreams = {}; // socketId -> MediaStream combinada (áudio + vídeo do peer)
+let voiceParticipants = {}; // channelId -> [{socketId, userId, username}]
 
 const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
 
@@ -136,11 +138,30 @@ function renderCategories(channels) {
       const list = document.createElement('div');
       list.className = 'channel-list';
       byCategory[category].forEach((ch) => {
+        const row = document.createElement('div');
+        row.className = 'channel-item-row';
+
         const el = document.createElement('div');
         el.className = 'channel-item';
+        if (currentChannel && currentChannel.id === ch.id) el.classList.add('active');
+        if (ch.type === 'voz' && connectedVoiceRoomId === ch.id) el.classList.add('connected');
         el.textContent = (ch.type === 'voz' ? '🔊 ' : '# ') + ch.name;
-        el.onclick = () => selectChannel(ch, el);
-        list.appendChild(el);
+        el.onclick = () => selectChannel(ch);
+        row.appendChild(el);
+
+        if (ch.type === 'voz' && voiceParticipants[ch.id] && voiceParticipants[ch.id].length > 0) {
+          const chips = document.createElement('div');
+          chips.className = 'voice-participants';
+          voiceParticipants[ch.id].forEach((p) => {
+            const chip = document.createElement('div');
+            chip.className = 'participant-chip';
+            chip.innerHTML = `<span class="participant-avatar">${escapeHtml((p.username || '?')[0].toUpperCase())}</span>${escapeHtml(p.username)}`;
+            chips.appendChild(chip);
+          });
+          row.appendChild(chips);
+        }
+
+        list.appendChild(row);
       });
       section.appendChild(list);
       container.appendChild(section);
@@ -196,33 +217,36 @@ document.getElementById('form-new-room').onsubmit = async (e) => {
   }
 };
 
-function selectChannel(channel, el) {
-  document.querySelectorAll('.channel-item').forEach((c) => c.classList.remove('active'));
-  el.classList.add('active');
+// Clicar num canal SEMPRE troca o que aparece no painel principal. Só entra
+// (ou sai) de uma conexão de voz de verdade quando faz sentido — navegar por
+// canais de texto NÃO desconecta você da call, igual Discord.
+function selectChannel(channel) {
+  // sai do canal de TEXTO anterior (sala de voz não é "deixada" só por trocar de tela)
+  if (currentChannel && currentChannel.type === 'texto') {
+    socket.emit('channel:leave', currentChannel.id);
+  }
+
+  currentChannel = channel;
   document.getElementById('current-channel-name').textContent =
     (channel.type === 'voz' ? '🔊 ' : '# ') + channel.name;
-
-  leaveCurrentChannel();
-  currentChannel = channel;
 
   if (channel.type === 'voz') {
     document.getElementById('text-panel').classList.add('hidden');
     document.getElementById('voice-panel').classList.remove('hidden');
-    joinVoiceRoom(channel.id);
+    if (connectedVoiceRoomId !== channel.id) {
+      // já conectado em outra sala de voz? troca (só dá pra estar em uma por vez)
+      if (connectedVoiceRoomId) disconnectVoice();
+      connectVoice(channel.id);
+    }
+    // se já está conectado nessa mesma sala, só mostra a tela de novo — os
+    // tiles de vídeo/áudio continuam vivos desde a última vez.
   } else {
     document.getElementById('voice-panel').classList.add('hidden');
     document.getElementById('text-panel').classList.remove('hidden');
     joinTextChannel(channel.id);
   }
-}
 
-function leaveCurrentChannel() {
-  if (!currentChannel) return;
-  if (currentChannel.type === 'voz') {
-    leaveVoiceRoom();
-  } else {
-    socket.emit('channel:leave', currentChannel.id);
-  }
+  renderCategories(allChannels);
 }
 
 // ---------- TEXT CHAT ----------
@@ -323,19 +347,32 @@ function registerSocketHandlers() {
       } catch (_) {}
     }
   });
+
+  // Presença global: quem está em cada sala de voz, pra mostrar no menu
+  // lateral mesmo pra quem não está conectado (igual Discord).
+  socket.on('voice:state', (state) => {
+    voiceParticipants = state;
+    renderCategories(allChannels);
+  });
+
+  socket.on('voice:update', ({ roomId, participants }) => {
+    voiceParticipants[roomId] = participants;
+    renderCategories(allChannels);
+  });
 }
 
 // ---------- WEBRTC (voz / compartilhamento de tela) ----------
 
-async function joinVoiceRoom(roomId) {
-  currentVoiceRoom = roomId;
+async function connectVoice(roomId) {
+  connectedVoiceRoomId = roomId;
   socket.emit('rtc:join', roomId);
   await startMicrophone();
+  updateVoiceBar();
 }
 
-function leaveVoiceRoom() {
-  if (!currentVoiceRoom) return;
-  socket.emit('rtc:leave', currentVoiceRoom);
+function disconnectVoice() {
+  if (!connectedVoiceRoomId) return;
+  socket.emit('rtc:leave', connectedVoiceRoomId);
   Object.keys(peers).forEach((id) => {
     peers[id].close();
     delete peers[id];
@@ -344,7 +381,9 @@ function leaveVoiceRoom() {
   document.getElementById('video-grid').innerHTML = '';
   stopScreenShare();
   stopMicrophone();
-  currentVoiceRoom = null;
+  connectedVoiceRoomId = null;
+  updateVoiceBar();
+  renderCategories(allChannels);
 }
 
 function addLocalTracksToPeer(pc) {
@@ -407,7 +446,12 @@ function addVideoTile(peerId, username, stream) {
   }
   const videoEl = tile.querySelector('video');
   videoEl.srcObject = stream;
+  videoEl.muted = isDeafened;
   applyOutputDevice(videoEl);
+  videoEl.play().catch(() => {
+    // Alguns navegadores bloqueiam autoplay com áudio fora de um gesto direto
+    // do usuário — nesse caso o próprio elemento mostra o ícone de play.
+  });
 }
 
 function removeVideoTile(peerId) {
@@ -451,13 +495,54 @@ function updateMicButton() {
   const btn = document.getElementById('btn-toggle-mic');
   btn.textContent = micMuted ? '🔇 Ativar microfone' : '🎙️ Mutar';
   btn.classList.toggle('muted', micMuted);
+  document.getElementById('bar-btn-mute').classList.toggle('active-state', micMuted);
 }
 
-document.getElementById('btn-toggle-mic').onclick = () => {
+function toggleMic() {
   micMuted = !micMuted;
   if (micStream) micStream.getAudioTracks().forEach((t) => (t.enabled = !micMuted));
   updateMicButton();
   setMicStatus(micMuted ? '🎙️ Microfone mutado' : '🎙️ Microfone ativo');
+}
+
+document.getElementById('btn-toggle-mic').onclick = toggleMic;
+
+function toggleDeafen() {
+  isDeafened = !isDeafened;
+  // Ensurdecer também muta o microfone, igual Discord (não dá pra falar sem ouvir).
+  if (isDeafened && !micMuted) toggleMic();
+  document.querySelectorAll('#video-grid video').forEach((v) => (v.muted = isDeafened));
+  document.getElementById('bar-btn-deafen').classList.toggle('active-state', isDeafened);
+}
+
+// ---------- BARRA FIXA "CONECTADO POR VOZ" ----------
+
+function updateVoiceBar() {
+  const bar = document.getElementById('voice-connected-bar');
+  if (!connectedVoiceRoomId) {
+    bar.classList.add('hidden');
+    return;
+  }
+  bar.classList.remove('hidden');
+  const channel = allChannels.find((c) => c.id === connectedVoiceRoomId);
+  document.getElementById('voice-connected-room-name').textContent = channel ? channel.name : 'sala de voz';
+}
+
+document.getElementById('voice-connected-info').onclick = () => {
+  if (!connectedVoiceRoomId) return;
+  const channel = allChannels.find((c) => c.id === connectedVoiceRoomId);
+  if (channel) selectChannel(channel);
+};
+document.getElementById('bar-btn-mute').onclick = toggleMic;
+document.getElementById('bar-btn-deafen').onclick = toggleDeafen;
+document.getElementById('bar-btn-disconnect').onclick = () => {
+  disconnectVoice();
+  if (currentChannel && currentChannel.type === 'voz') {
+    document.getElementById('voice-panel').classList.add('hidden');
+    currentChannel = null;
+    document.getElementById('current-channel-name').textContent = 'Selecione um canal';
+    renderCategories(allChannels);
+  }
 };
 
 // ---------- COMPARTILHAMENTO DE TELA ----------
@@ -491,11 +576,11 @@ function stopScreenShare() {
 }
 
 document.getElementById('btn-leave-voice').onclick = () => {
-  leaveVoiceRoom();
+  disconnectVoice();
   document.getElementById('voice-panel').classList.add('hidden');
   currentChannel = null;
   document.getElementById('current-channel-name').textContent = 'Selecione um canal';
-  document.querySelectorAll('.channel-item').forEach((c) => c.classList.remove('active'));
+  renderCategories(allChannels);
 };
 
 // ---------- CONFIGURAÇÕES DE VOZ (dispositivos + teste de microfone) ----------

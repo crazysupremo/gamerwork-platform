@@ -54,18 +54,21 @@ body {
   width: 22px; height: 22px; cursor: pointer; font-size: 14px; line-height: 1;
 }
 .sidebar-header button:hover { background: #404249; }
+#categories-container { flex: 1; overflow-y: auto; min-height: 0; }
 .category { margin-top: 12px; }
-.category-title { font-size: 12px; text-transform: uppercase; color: #949ba4; padding: 4px 8px; }
-.channel-list { display: flex; flex-direction: column; }
+.category-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: #949ba4; padding: 4px 8px; }
+.channel-list { display: flex; flex-direction: column; gap: 1px; }
 .channel-item {
-  padding: 6px 10px; border-radius: 6px; color: #949ba4; cursor: pointer; font-size: 14px;
+  padding: 6px 8px; border-radius: 4px; color: #949ba4; cursor: pointer; font-size: 14px;
+  transition: background 0.1s ease, color 0.1s ease;
 }
-.channel-item:hover { background: #35373c; color: #e6e6e6; }
+.channel-item:hover { background: #35373c; color: #dbdee1; }
 .channel-item.active { background: #404249; color: white; }
 .sidebar-footer {
-  margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding: 8px;
+  flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 8px;
   border-top: 1px solid #3a3c42; font-size: 13px;
 }
+.sidebar-footer #me-username { flex: 1; }
 .sidebar-footer a, .sidebar-footer button {
   background: none; border: none; color: #949ba4; text-align: left; cursor: pointer; padding: 0;
 }
@@ -152,3 +155,44 @@ body {
   transition: width 60ms linear;
 }
 #btn-toggle-mic.muted { background: #f23f42; color: white; }
+
+/* PARTICIPANTES CONECTADOS (embaixo do nome da sala de voz, no menu) */
+.channel-item-row { display: flex; flex-direction: column; }
+.voice-participants { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 0 4px 22px; }
+.participant-chip {
+  display: flex; align-items: center; gap: 4px; background: #35373c; border-radius: 12px;
+  padding: 2px 8px 2px 2px; font-size: 11px; color: #cfd2d8;
+}
+.participant-avatar {
+  width: 16px; height: 16px; border-radius: 50%; background: #5865f2; color: white;
+  display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700;
+  flex-shrink: 0;
+}
+.channel-item.connected { color: #23a55a; }
+.channel-item.connected::after { content: ' 🔊'; }
+
+/* BARRA FIXA "CONECTADO POR VOZ" (estilo Discord) */
+.voice-connected-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: #232428; border-radius: 8px; padding: 8px 10px; margin: 6px 4px;
+  cursor: pointer;
+}
+.voice-connected-info { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.voice-connected-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #23a55a; flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(35, 165, 90, 0.2);
+}
+.voice-connected-text { min-width: 0; }
+.voice-connected-label { font-size: 10px; color: #23a55a; text-transform: uppercase; letter-spacing: 0.03em; }
+.voice-connected-room {
+  font-size: 13px; color: #e6e6e6; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 110px;
+}
+.voice-connected-controls { display: flex; gap: 4px; flex-shrink: 0; }
+.voice-connected-controls button {
+  width: 26px; height: 26px; border-radius: 6px; border: none; background: #35373c;
+  color: #e6e6e6; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;
+}
+.voice-connected-controls button:hover { background: #404249; }
+.voice-connected-controls button.active-state { background: #f23f42; color: white; }
+#bar-btn-disconnect:hover { background: #f23f42; color: white; }
