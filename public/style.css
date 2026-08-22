@@ -45,7 +45,15 @@ body {
 .sidebar {
   width: 240px; background: #2b2d31; display: flex; flex-direction: column; padding: 12px 8px;
 }
-.sidebar-header { font-weight: 700; padding: 8px; color: #5865f2; }
+.sidebar-header {
+  font-weight: 700; padding: 8px; color: #5865f2; display: flex;
+  align-items: center; justify-content: space-between;
+}
+.sidebar-header button {
+  background: #35373c; color: #e6e6e6; border: none; border-radius: 6px;
+  width: 22px; height: 22px; cursor: pointer; font-size: 14px; line-height: 1;
+}
+.sidebar-header button:hover { background: #404249; }
 .category { margin-top: 12px; }
 .category-title { font-size: 12px; text-transform: uppercase; color: #949ba4; padding: 4px 8px; }
 .channel-list { display: flex; flex-direction: column; }
@@ -104,3 +112,25 @@ body {
 .flagged-banner {
   background: #3a2a2a; color: #f2a33f; font-size: 12px; padding: 4px 8px; border-radius: 4px; margin-bottom: 8px;
 }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex;
+  align-items: center; justify-content: center; z-index: 100;
+}
+.modal-card {
+  background: #2b2d31; padding: 24px; border-radius: 10px; width: 340px;
+}
+.modal-card h2 { margin-top: 0; color: #5865f2; }
+.modal-card form { display: flex; flex-direction: column; gap: 6px; }
+.modal-card label { font-size: 12px; color: #949ba4; margin-top: 8px; }
+.modal-card input, .modal-card select {
+  padding: 8px; border-radius: 6px; border: none; background: #1e1f22; color: #e6e6e6;
+}
+.modal-card .hint { font-size: 11px; color: #6d7178; margin: 2px 0 0; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.modal-actions button {
+  padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer;
+}
+.modal-actions button[type="submit"] { background: #5865f2; color: white; }
+.modal-actions button[type="button"] { background: #404249; color: #e6e6e6; }

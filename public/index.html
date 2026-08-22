@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GamerWork</title>
+<title>NEXT GAME</title>
 <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -11,7 +11,7 @@
 <!-- TELA DE LOGIN / REGISTRO -->
 <div id="auth-screen" class="auth-screen">
   <div class="auth-card">
-    <h1>GamerWork</h1>
+    <h1>NEXT GAME</h1>
     <p class="subtitle">Comunidade para gamers e trabalho</p>
 
     <div class="auth-tabs">
@@ -38,17 +38,12 @@
 <!-- APP PRINCIPAL -->
 <div id="app" class="app hidden">
   <aside class="sidebar">
-    <div class="sidebar-header">GamerWork</div>
-
-    <div class="category" data-category="gamers">
-      <div class="category-title">🎮 Gamers</div>
-      <div class="channel-list" id="channels-gamers"></div>
+    <div class="sidebar-header">
+      NEXT GAME
+      <button id="btn-new-room" title="Criar sala">+</button>
     </div>
 
-    <div class="category" data-category="trabalho">
-      <div class="category-title">💼 Trabalho</div>
-      <div class="channel-list" id="channels-trabalho"></div>
-    </div>
+    <div id="categories-container"></div>
 
     <div class="sidebar-footer">
       <span id="me-username"></span>
@@ -81,6 +76,34 @@
       <div id="video-grid" class="video-grid"></div>
     </section>
   </main>
+</div>
+
+<!-- MODAL: criar sala/servidor -->
+<div id="modal-new-room" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>Criar sala</h2>
+    <form id="form-new-room">
+      <label>Nome da sala</label>
+      <input type="text" id="room-name" placeholder="ex: valorant-comp, reuniao-semanal" required />
+
+      <label>Servidor / categoria</label>
+      <input type="text" id="room-category" list="category-options" placeholder="ex: Valorant, Trabalho, Minecraft" required />
+      <datalist id="category-options"></datalist>
+      <p class="hint">Se o nome não existir ainda, um novo servidor é criado automaticamente.</p>
+
+      <label>Tipo</label>
+      <select id="room-type">
+        <option value="texto">Texto</option>
+        <option value="voz">Voz (com compartilhamento de tela)</option>
+      </select>
+
+      <div class="modal-actions">
+        <button type="button" id="btn-cancel-room">Cancelar</button>
+        <button type="submit">Criar</button>
+      </div>
+      <p id="room-error" class="auth-error"></p>
+    </form>
+  </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>

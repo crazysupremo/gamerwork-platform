@@ -1,4 +1,4 @@
-# GamerWork — protótipo de plataforma para gamers e trabalho
+# NEXT GAME — protótipo de plataforma para gamers e trabalho
 
 Protótipo funcional de uma plataforma web (estilo Discord) com chat em tempo real,
 salas de voz com compartilhamento de tela (WebRTC) e um sistema básico de
@@ -29,7 +29,11 @@ DB_PATH=/caminho/local/data.sqlite npm start
 ## O que já funciona
 
 - Cadastro/login com senha (hash bcrypt) e sessão em cookie.
-- Canais de texto e voz organizados em duas categorias: **Gamers** e **Trabalho**.
+- **Qualquer usuário pode criar salas novas** clicando no `+` do menu lateral —
+  ao digitar o nome de um "servidor"/categoria que ainda não existe (ex.:
+  "Valorant", "Minecraft", "Time de Design"), ele é criado na hora. É assim que
+  a comunidade se organiza por jogo/assunto, igual servidores do Discord.
+- Canais de texto e voz, agrupados dinamicamente por categoria/servidor.
 - Chat em tempo real (Socket.io), com histórico salvo em SQLite.
 - Salas de voz com **compartilhamento de tela** via WebRTC (mesh entre participantes,
   usando STUN público do Google — sem servidor TURN, então pode falhar em redes
@@ -45,6 +49,12 @@ DB_PATH=/caminho/local/data.sqlite npm start
 - Botão "Denunciar" em cada mensagem, que cria uma denúncia manual.
 - Painel de administração (`/admin.html`): revisar denúncias, ver mensagens
   bloqueadas pelo filtro, banir/desbanir usuários.
+- **Segurança reforçada**: cabeçalhos de proteção (helmet — contra XSS,
+  clickjacking, sniffing de tipo de arquivo), limite de tentativas de
+  login/registro por IP (proteção contra força bruta), limite geral de
+  requisições por IP nas rotas de API, limite de mensagens por usuário no chat
+  (anti-flood), cookies de sessão `httpOnly` + `secure` em produção, e
+  validação de tamanho/formato em todos os campos de entrada.
 
 ## Limitações importantes — leia antes de lançar isso ao público
 
@@ -80,6 +90,10 @@ compartilhamento de tela.
   TURN para WebRTC funcionar atrás de NAT/firewalls, backups, HTTPS/domínio,
   e capacidade de escala não estão configurados aqui — isso é um protótipo
   local.
+- **"Segurança total" não existe** — nenhum site é 100% invulnerável. O que foi
+  feito aqui fecha as brechas mais comuns (força bruta, XSS, flood, cookies
+  mal configurados), mas não substitui um pentest profissional se a plataforma
+  crescer com dados sensíveis de muitos usuários.
 
 ## Próximos passos sugeridos
 

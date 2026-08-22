@@ -24,8 +24,10 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS channels (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  category TEXT NOT NULL, -- 'gamers' | 'trabalho'
-  type TEXT NOT NULL DEFAULT 'texto' -- 'texto' | 'voz'
+  category TEXT NOT NULL, -- nome do "servidor"/comunidade (livre, criado por usuários)
+  type TEXT NOT NULL DEFAULT 'texto', -- 'texto' | 'voz'
+  created_by TEXT, -- id do usuário que criou a sala (nulo para as salas padrão)
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS messages (

@@ -1,6 +1,8 @@
 // server.js - servidor principal
 const path = require('path');
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
@@ -15,17 +17,48 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const PORT = process.env.PORT || 3000;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'troque-este-segredo-antes-de-ir-para-producao';
 
-app.use(express.json());
+// Necessário no Render (e em qualquer host atrás de proxy reverso) para que
+// cookies "secure" e detecção de HTTPS funcionem corretamente.
+app.set('trust proxy', 1);
+
+// Cabeçalhos de segurança (protege contra XSS, clickjacking, sniffing, etc.)
+// CSP desabilitado por padrão aqui porque o app usa scripts inline simples;
+// ative e ajuste se quiser uma política mais restrita.
+app.use(helmet({ contentSecurityPolicy: false }));
+
+app.use(express.json({ limit: '100kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(
   cookieSession({
     name: 'session',
     keys: [SESSION_SECRET],
     maxAge: 7 * 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: IS_PRODUCTION,
   })
 );
+
+// Limite de tentativas de login/registro por IP, pra dificultar força bruta
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Muitas tentativas. Aguarde alguns minutos e tente de novo.' },
+});
+
+// Limite geral pras rotas de API, evita abuso/flood
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', apiLimiter);
 
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Não autenticado' });
@@ -42,10 +75,22 @@ function requireAdmin(req, res, next) {
 
 // ---------- AUTH ----------
 
-app.post('/api/register', (req, res) => {
+app.post('/api/register', authLimiter, (req, res) => {
   const { username, password } = req.body || {};
-  if (!username || !password || username.length < 3 || password.length < 6) {
-    return res.status(400).json({ error: 'Usuário (min 3) e senha (min 6) são obrigatórios' });
+  if (
+    !username ||
+    !password ||
+    typeof username !== 'string' ||
+    typeof password !== 'string' ||
+    username.length < 3 ||
+    username.length > 32 ||
+    password.length < 6 ||
+    password.length > 200 ||
+    !/^[a-zA-Z0-9_.-]+$/.test(username)
+  ) {
+    return res.status(400).json({
+      error: 'Usuário (3-32 caracteres, só letras/números/._-) e senha (6-200 caracteres) são obrigatórios',
+    });
   }
   const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
   if (existing) return res.status(409).json({ error: 'Usuário já existe' });
@@ -61,7 +106,7 @@ app.post('/api/register', (req, res) => {
   res.json({ id, username, is_admin: isFirstUser ? 1 : 0 });
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', authLimiter, (req, res) => {
   const { username, password } = req.body || {};
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   if (!user || !bcrypt.compareSync(password || '', user.password_hash)) {
@@ -85,6 +130,38 @@ app.get('/api/me', requireAuth, (req, res) => {
 
 app.get('/api/channels', requireAuth, (req, res) => {
   res.json(db.prepare('SELECT * FROM channels ORDER BY category, type, name').all());
+});
+
+// Qualquer usuário logado pode criar uma sala nova. Se a "categoria" (nome do
+// servidor/comunidade) informada ainda não existir, ela é criada na hora —
+// é assim que usuários criam servidores próprios (ex: "Valorant", "Minecraft").
+app.post('/api/channels', requireAuth, (req, res) => {
+  const { name, category, type } = req.body || {};
+  if (
+    !name ||
+    !category ||
+    typeof name !== 'string' ||
+    typeof category !== 'string' ||
+    name.trim().length < 2 ||
+    name.trim().length > 40 ||
+    category.trim().length < 2 ||
+    category.trim().length > 40
+  ) {
+    return res.status(400).json({ error: 'Nome e servidor/categoria precisam ter entre 2 e 40 caracteres' });
+  }
+  if (!['texto', 'voz'].includes(type)) {
+    return res.status(400).json({ error: 'Tipo inválido' });
+  }
+
+  const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 40);
+  const cleanCategory = category.trim().slice(0, 40);
+  const id = uuidv4();
+
+  db.prepare(
+    'INSERT INTO channels (id, name, category, type, created_by) VALUES (?, ?, ?, ?, ?)'
+  ).run(id, cleanName, cleanCategory, type, req.user.id);
+
+  res.json({ id, name: cleanName, category: cleanCategory, type });
 });
 
 app.get('/api/channels/:id/messages', requireAuth, (req, res) => {
@@ -165,8 +242,26 @@ io.use((socket, next) => {
   }
 });
 
+// Limite simples de mensagens por socket, pra evitar flood/spam (não é
+// proteção contra ataque coordenado sério, mas cobre o caso comum).
+const MESSAGE_RATE_LIMIT = 8; // mensagens
+const MESSAGE_RATE_WINDOW_MS = 10 * 1000;
+const messageTimestamps = new Map(); // socket.id -> array de timestamps
+
+function isRateLimited(socketId) {
+  const now = Date.now();
+  const timestamps = (messageTimestamps.get(socketId) || []).filter(
+    (t) => now - t < MESSAGE_RATE_WINDOW_MS
+  );
+  timestamps.push(now);
+  messageTimestamps.set(socketId, timestamps);
+  return timestamps.length > MESSAGE_RATE_LIMIT;
+}
+
 io.on('connection', (socket) => {
   const user = socket.user;
+
+  socket.on('disconnect', () => messageTimestamps.delete(socket.id));
 
   socket.on('channel:join', (channelId) => {
     socket.join(channelId);
@@ -179,7 +274,15 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat:message', ({ channelId, content }) => {
-    if (!channelId || !content || !content.trim()) return;
+    if (!channelId || !content || typeof content !== 'string' || !content.trim()) return;
+    if (content.length > 2000) {
+      socket.emit('chat:blocked', { reason: 'Mensagem muito longa (limite: 2000 caracteres).', categories: [] });
+      return;
+    }
+    if (isRateLimited(socket.id)) {
+      socket.emit('chat:blocked', { reason: 'Você está enviando mensagens rápido demais. Aguarde um pouco.', categories: [] });
+      return;
+    }
 
     const scan = scanText(content);
     if (scan.block) {
@@ -236,5 +339,5 @@ io.on('connection', (socket) => {
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`GamerWork rodando em http://localhost:${PORT}`);
+  console.log(`NEXT GAME rodando em http://localhost:${PORT}`);
 });

@@ -93,24 +93,100 @@ function startApp() {
 
 // ---------- CHANNELS ----------
 
+let allChannels = [];
+
 async function loadChannels() {
   const res = await fetch('/api/channels', { credentials: 'include' });
-  const channels = await res.json();
-  renderChannelList('gamers', channels.filter((c) => c.category === 'gamers'));
-  renderChannelList('trabalho', channels.filter((c) => c.category === 'trabalho'));
+  allChannels = await res.json();
+  renderCategories(allChannels);
+  updateCategoryDatalist(allChannels);
 }
 
-function renderChannelList(category, channels) {
-  const container = document.getElementById('channels-' + category);
+function renderCategories(channels) {
+  const container = document.getElementById('categories-container');
   container.innerHTML = '';
+
+  // Agrupa canais por categoria (cada categoria = um "servidor"/comunidade)
+  const byCategory = {};
   channels.forEach((ch) => {
-    const el = document.createElement('div');
-    el.className = 'channel-item';
-    el.textContent = (ch.type === 'voz' ? '🔊 ' : '# ') + ch.name;
-    el.onclick = () => selectChannel(ch, el);
-    container.appendChild(el);
+    if (!byCategory[ch.category]) byCategory[ch.category] = [];
+    byCategory[ch.category].push(ch);
   });
+
+  Object.keys(byCategory)
+    .sort((a, b) => a.localeCompare(b))
+    .forEach((category) => {
+      const section = document.createElement('div');
+      section.className = 'category';
+      section.dataset.category = category;
+
+      const title = document.createElement('div');
+      title.className = 'category-title';
+      title.textContent = categoryIcon(category) + ' ' + category;
+      section.appendChild(title);
+
+      const list = document.createElement('div');
+      list.className = 'channel-list';
+      byCategory[category].forEach((ch) => {
+        const el = document.createElement('div');
+        el.className = 'channel-item';
+        el.textContent = (ch.type === 'voz' ? '🔊 ' : '# ') + ch.name;
+        el.onclick = () => selectChannel(ch, el);
+        list.appendChild(el);
+      });
+      section.appendChild(list);
+      container.appendChild(section);
+    });
 }
+
+function categoryIcon(category) {
+  const normalized = category.toLowerCase();
+  if (normalized.includes('trabalho')) return '💼';
+  return '🎮';
+}
+
+function updateCategoryDatalist(channels) {
+  const datalist = document.getElementById('category-options');
+  const categories = [...new Set(channels.map((c) => c.category))];
+  datalist.innerHTML = categories.map((c) => `<option value="${escapeHtml(c)}"></option>`).join('');
+}
+
+// ---------- CRIAR SALA (modal) ----------
+
+const modalNewRoom = document.getElementById('modal-new-room');
+document.getElementById('btn-new-room').onclick = () => {
+  document.getElementById('room-error').textContent = '';
+  document.getElementById('form-new-room').reset();
+  modalNewRoom.classList.remove('hidden');
+};
+document.getElementById('btn-cancel-room').onclick = () => modalNewRoom.classList.add('hidden');
+
+document.getElementById('form-new-room').onsubmit = async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('room-name').value.trim();
+  const category = document.getElementById('room-category').value.trim();
+  const type = document.getElementById('room-type').value;
+  const errorEl = document.getElementById('room-error');
+  errorEl.textContent = '';
+
+  try {
+    const res = await fetch('/api/channels', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name, category, type }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Erro ao criar sala';
+      return;
+    }
+    modalNewRoom.classList.add('hidden');
+    await loadChannels();
+  } catch (err) {
+    errorEl.textContent = 'Erro de conexão com o servidor';
+  }
+};
 
 function selectChannel(channel, el) {
   document.querySelectorAll('.channel-item').forEach((c) => c.classList.remove('active'));

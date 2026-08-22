@@ -1,0 +1,16 @@
+# Blueprint de deploy para o Render.com
+# Como usar: no painel do Render, clique em "New +" -> "Blueprint" e aponte
+# para o repositório do GitHub que contém este arquivo. O Render lê este
+# arquivo automaticamente e configura o serviço sozinho.
+services:
+  - type: web
+    name: next-game
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.11.0
+      - key: SESSION_SECRET
+        generateValue: true
