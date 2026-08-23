@@ -91,6 +91,36 @@ function requireAdmin(req, res, next) {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// ---------- BOT DE BOAS-VINDAS/AVISOS ----------
+// Um "bot" simples do sistema que posta mensagens automáticas (não é um bot
+// de verdade tipo Discord com comandos próprios — é automação de servidor).
+const BOT_USER_ID = 'system-bot';
+const BOT_USERNAME = 'NEXT GAME Bot';
+const WELCOME_CHANNEL_ID = 'gamers-geral';
+
+async function postSystemMessage(channelId, content) {
+  try {
+    const id = uuidv4();
+    await db.run('INSERT INTO messages (id, channel_id, user_id, username, content) VALUES (?, ?, ?, ?, ?)', [
+      id,
+      channelId,
+      BOT_USER_ID,
+      BOT_USERNAME,
+      content,
+    ]);
+    io.to(channelId).emit('chat:message', {
+      id,
+      channel_id: channelId,
+      user_id: BOT_USER_ID,
+      username: BOT_USERNAME,
+      content,
+      created_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Erro ao postar mensagem do bot:', err);
+  }
+}
+
 // ---------- AUTH ----------
 
 app.post(
@@ -134,6 +164,8 @@ app.post(
 
     req.session.userId = id;
     res.json({ id, username, is_admin: isFirstUser ? 1 : 0 });
+
+    postSystemMessage(WELCOME_CHANNEL_ID, `🎉 ${username} acabou de entrar no NEXT GAME! Dê as boas-vindas.`);
   })
 );
 
@@ -278,6 +310,35 @@ app.post(
   })
 );
 
+// Informações/regras do servidor (categoria) — igual tela de boas-vindas do Discord.
+app.get(
+  '/api/servers/:category',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const info = await db.get('SELECT * FROM servers WHERE category = ?', [req.params.category]);
+    res.json(info || { category: req.params.category, description: null, rules: null });
+  })
+);
+
+app.patch(
+  '/api/servers/:category',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { description, rules } = req.body || {};
+    if ((description && description.length > 500) || (rules && rules.length > 2000)) {
+      return res.status(400).json({ error: 'Descrição (máx. 500) ou regras (máx. 2000) muito longas' });
+    }
+    await db.run(
+      `INSERT INTO servers (category, description, rules, updated_by, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(category) DO UPDATE SET description = excluded.description, rules = excluded.rules, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
+      [req.params.category, description || null, rules || null, req.user.id]
+    );
+    res.json({ ok: true });
+  })
+);
+
 app.get(
   '/api/channels/:id/messages',
   requireAuth,
@@ -387,6 +448,8 @@ app.post(
   asyncHandler(async (req, res) => {
     await db.run('UPDATE users SET is_banned = 1 WHERE id = ?', [req.params.id]);
     res.json({ ok: true });
+    const banned = await db.get('SELECT username FROM users WHERE id = ?', [req.params.id]);
+    if (banned) postSystemMessage(WELCOME_CHANNEL_ID, `🔨 ${banned.username} foi banido(a) por um moderador.`);
   })
 );
 

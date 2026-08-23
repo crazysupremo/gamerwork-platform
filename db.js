@@ -116,6 +116,14 @@ async function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(message_id, user_id, emoji)
     );
+
+    CREATE TABLE IF NOT EXISTS servers (
+      category TEXT PRIMARY KEY,
+      description TEXT,
+      rules TEXT,
+      updated_by TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Migração leve pra bancos criados antes de alguma dessas colunas existir.

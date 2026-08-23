@@ -278,6 +278,52 @@ function renderCategories(channels) {
   container.appendChild(list);
 }
 
+// ---------- INFORMAÇÕES/REGRAS DO SERVIDOR ----------
+
+const modalServerInfo = document.getElementById('modal-server-info');
+let serverInfoEditing = false;
+
+document.getElementById('btn-server-info').onclick = async () => {
+  if (!activeServerCategory) return;
+  serverInfoEditing = false;
+  document.getElementById('server-info-title').textContent = 'Sobre ' + activeServerCategory;
+  document.getElementById('form-server-info').classList.add('hidden');
+  document.getElementById('server-info-view').classList.remove('hidden');
+  document.getElementById('btn-save-server-info').classList.add('hidden');
+  document.getElementById('btn-edit-server-info').classList.toggle('hidden', !me.is_admin);
+
+  const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, { credentials: 'include' });
+  const info = await res.json();
+  document.getElementById('server-info-description').textContent = info.description || 'Nenhuma descrição definida ainda.';
+  document.getElementById('server-info-rules').textContent = info.rules || 'Nenhuma regra definida ainda.';
+  document.getElementById('server-info-description-input').value = info.description || '';
+  document.getElementById('server-info-rules-input').value = info.rules || '';
+
+  modalServerInfo.classList.remove('hidden');
+};
+
+document.getElementById('btn-close-server-info').onclick = () => modalServerInfo.classList.add('hidden');
+
+document.getElementById('btn-edit-server-info').onclick = () => {
+  serverInfoEditing = true;
+  document.getElementById('server-info-view').classList.add('hidden');
+  document.getElementById('form-server-info').classList.remove('hidden');
+  document.getElementById('btn-edit-server-info').classList.add('hidden');
+  document.getElementById('btn-save-server-info').classList.remove('hidden');
+};
+
+document.getElementById('btn-save-server-info').onclick = async () => {
+  const description = document.getElementById('server-info-description-input').value.trim();
+  const rules = document.getElementById('server-info-rules-input').value.trim();
+  await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ description, rules }),
+  });
+  modalServerInfo.classList.add('hidden');
+};
+
 function categoryIcon(category) {
   const normalized = category.toLowerCase();
   if (normalized.includes('trabalho')) return '💼';
@@ -492,22 +538,31 @@ async function joinTextChannel(channelId) {
   container.scrollTop = container.scrollHeight;
 }
 
+const BOT_USER_ID = 'system-bot';
+
 function renderMessage(msg) {
   const container = document.getElementById('messages');
   const el = document.createElement('div');
-  el.className = 'message';
+  const isBot = msg.user_id === BOT_USER_ID;
+  el.className = 'message' + (isBot ? ' bot-message' : '');
   el.dataset.id = msg.id;
   const time = new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const author = allUsers.find((u) => u.id === msg.user_id);
   const isOwn = msg.user_id === me.id;
-  const canDelete = isOwn || me.is_admin;
+  const canDelete = (isOwn || me.is_admin) && !isBot;
+
+  const avatarHtml = isBot
+    ? '<span>🤖</span>'
+    : renderAvatarHtml(author || { username: msg.username });
 
   el.innerHTML = `
     <div class="message-row">
-      <div class="message-avatar">${renderAvatarHtml(author || { username: msg.username })}</div>
+      <div class="message-avatar">${avatarHtml}</div>
       <div class="message-body">
         <div class="meta">
-          <strong>${escapeHtml(msg.username)}</strong> · ${time}
+          <strong>${escapeHtml(msg.username)}</strong>
+          ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
+          · ${time}
           ${msg.edited ? '<span class="edited-tag">(editado)</span>' : ''}
         </div>
         <div class="content">${escapeHtml(msg.content)}</div>
@@ -515,28 +570,30 @@ function renderMessage(msg) {
       </div>
     </div>
     <div class="message-actions">
-      <button class="act-react" title="Reagir">😀</button>
-      ${isOwn ? '<button class="act-edit" title="Editar">✏️</button>' : ''}
+      ${isBot ? '' : '<button class="act-react" title="Reagir">😀</button>'}
+      ${isOwn && !isBot ? '<button class="act-edit" title="Editar">✏️</button>' : ''}
       ${canDelete ? '<button class="act-delete" title="Apagar">🗑️</button>' : ''}
-      <button class="act-report" title="Denunciar">🚩</button>
+      ${isBot ? '' : '<button class="act-report" title="Denunciar">🚩</button>'}
     </div>
     <div class="reaction-picker" id="picker-${msg.id}">
       ${REACTION_EMOJIS.map((e) => `<button data-emoji="${e}">${e}</button>`).join('')}
     </div>
   `;
 
-  el.querySelector('.act-react').onclick = (e) => {
-    e.stopPropagation();
-    document.querySelectorAll('.reaction-picker.open').forEach((p) => p.classList.remove('open'));
-    el.querySelector('.reaction-picker').classList.toggle('open');
-  };
-  el.querySelectorAll('.reaction-picker button').forEach((btn) => {
-    btn.onclick = (e) => {
+  if (!isBot) {
+    el.querySelector('.act-react').onclick = (e) => {
       e.stopPropagation();
-      socket.emit('chat:react', { messageId: msg.id, emoji: btn.dataset.emoji });
-      el.querySelector('.reaction-picker').classList.remove('open');
+      document.querySelectorAll('.reaction-picker.open').forEach((p) => p.classList.remove('open'));
+      el.querySelector('.reaction-picker').classList.toggle('open');
     };
-  });
+    el.querySelectorAll('.reaction-picker button').forEach((btn) => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        socket.emit('chat:react', { messageId: msg.id, emoji: btn.dataset.emoji });
+        el.querySelector('.reaction-picker').classList.remove('open');
+      };
+    });
+  }
   if (isOwn) {
     el.querySelector('.act-edit').onclick = (e) => {
       e.stopPropagation();
@@ -549,10 +606,12 @@ function renderMessage(msg) {
       if (confirm('Apagar essa mensagem?')) socket.emit('chat:delete', { messageId: msg.id });
     };
   }
-  el.querySelector('.act-report').onclick = (e) => {
-    e.stopPropagation();
-    reportMessage(msg.id, msg.user_id);
-  };
+  if (!isBot) {
+    el.querySelector('.act-report').onclick = (e) => {
+      e.stopPropagation();
+      reportMessage(msg.id, msg.user_id);
+    };
+  }
 
   container.appendChild(el);
   if (msg.reactions && msg.reactions.length > 0) renderReactions(msg.id, msg.reactions);
@@ -725,6 +784,7 @@ function registerSocketHandlers() {
       delete peers[socketId];
     }
     delete remoteStreams[socketId];
+    stopConnectionQualityMonitor(socketId);
     removeVideoTile(socketId);
   });
 
@@ -776,6 +836,7 @@ function disconnectVoice() {
   Object.keys(peers).forEach((id) => {
     peers[id].close();
     delete peers[id];
+    stopConnectionQualityMonitor(id);
   });
   Object.keys(remoteStreams).forEach((id) => delete remoteStreams[id]);
   Object.keys(speakingDetectors).forEach((id) => {
@@ -856,7 +917,56 @@ function createPeerConnection(peerId, username) {
     }
   };
 
+  startConnectionQualityMonitor(peerId, pc);
+
   return pc;
+}
+
+// Checa a qualidade da conexão (perda de pacotes) a cada poucos segundos e
+// acende um indicador verde/amarelo/vermelho na tile da pessoa, igual Discord.
+const qualityIntervals = {};
+const qualityLastStats = {};
+
+function startConnectionQualityMonitor(peerId, pc) {
+  stopConnectionQualityMonitor(peerId);
+  qualityIntervals[peerId] = setInterval(async () => {
+    try {
+      const stats = await pc.getStats();
+      let packetsLost = 0;
+      let packetsReceived = 0;
+      stats.forEach((report) => {
+        if (report.type === 'inbound-rtp' && !report.isRemote) {
+          packetsLost += report.packetsLost || 0;
+          packetsReceived += report.packetsReceived || 0;
+        }
+      });
+      const last = qualityLastStats[peerId] || { packetsLost: 0, packetsReceived: 0 };
+      const deltaLost = Math.max(0, packetsLost - last.packetsLost);
+      const deltaReceived = Math.max(0, packetsReceived - last.packetsReceived);
+      qualityLastStats[peerId] = { packetsLost, packetsReceived };
+
+      const total = deltaLost + deltaReceived;
+      const lossRatio = total > 0 ? deltaLost / total : 0;
+
+      const dot = document.querySelector(`#tile-${peerId} .quality-dot`);
+      if (dot) {
+        dot.classList.remove('quality-good', 'quality-medium', 'quality-poor');
+        if (lossRatio > 0.08) dot.classList.add('quality-poor');
+        else if (lossRatio > 0.02) dot.classList.add('quality-medium');
+        else dot.classList.add('quality-good');
+      }
+    } catch (_) {
+      // getStats pode falhar logo depois que a conexão fecha — ignora
+    }
+  }, 3000);
+}
+
+function stopConnectionQualityMonitor(peerId) {
+  if (qualityIntervals[peerId]) {
+    clearInterval(qualityIntervals[peerId]);
+    delete qualityIntervals[peerId];
+  }
+  delete qualityLastStats[peerId];
 }
 
 const speakingDetectors = {}; // peerId -> { ctx, rafId }
@@ -864,6 +974,7 @@ const speakingDetectors = {}; // peerId -> { ctx, rafId }
 function addVideoTile(peerId, username, stream) {
   let tile = document.getElementById('tile-' + peerId);
   const isNew = !tile;
+  const isRemote = peerId !== 'local' && peerId !== 'local-camera';
   if (isNew) {
     tile = document.createElement('div');
     tile.className = 'video-tile tile-enter';
@@ -872,8 +983,10 @@ function addVideoTile(peerId, username, stream) {
     tile.innerHTML = `
       <video autoplay playsinline></video>
       <div class="tile-avatar"><span>${initial}</span></div>
+      ${isRemote ? '<span class="quality-dot quality-good" title="Qualidade da conexão"></span>' : ''}
       <span class="label">${escapeHtml(username || 'Participante')}</span>
       <div class="tile-controls">
+        ${isRemote ? '<input type="range" class="tile-volume" min="0" max="100" value="100" title="Volume" />' : ''}
         <button type="button" class="tile-btn tile-expand-btn" title="Ampliar">⤢</button>
         <button type="button" class="tile-btn tile-fullscreen-btn" title="Tela cheia">⛶</button>
       </div>
@@ -902,6 +1015,16 @@ function addVideoTile(peerId, username, stream) {
         videoEl.requestFullscreen().catch(() => {});
       }
     };
+
+    // Volume individual dessa pessoa (só ajusta o que você ouve, não afeta os outros)
+    const volumeSlider = tile.querySelector('.tile-volume');
+    if (volumeSlider) {
+      volumeSlider.oninput = (e) => {
+        e.stopPropagation();
+        tile.querySelector('video').volume = Number(volumeSlider.value) / 100;
+      };
+      volumeSlider.onclick = (e) => e.stopPropagation();
+    }
   }
 
   const videoEl = tile.querySelector('video');
@@ -998,7 +1121,7 @@ async function startMicrophone() {
     setMicStatus('Não foi possível acessar o microfone: ' + err.message);
     return;
   }
-  micStream.getAudioTracks().forEach((t) => (t.enabled = !micMuted));
+  updateMicEnabledState();
   Object.values(peers).forEach((pc) => {
     micStream.getTracks().forEach((track) => pc.addTrack(track, micStream));
   });
@@ -1107,12 +1230,81 @@ function updateMicButton() {
 
 function toggleMic() {
   micMuted = !micMuted;
-  if (micStream) micStream.getAudioTracks().forEach((t) => (t.enabled = !micMuted));
+  updateMicEnabledState();
   updateMicButton();
-  setMicStatus(micMuted ? '🎙️ Microfone mutado' : '🎙️ Microfone ativo');
+  setMicStatus(micStatusText());
 }
 
 document.getElementById('btn-toggle-mic').onclick = toggleMic;
+
+// ---------- PUSH-TO-TALK ----------
+
+let talkMode = localStorage.getItem('ng_talk_mode') || 'voice'; // 'voice' | 'ptt'
+let pttKeyCode = localStorage.getItem('ng_ptt_key') || 'Space';
+let pttHeld = false;
+
+function updateMicEnabledState() {
+  if (!micStream) return;
+  let enabled;
+  if (micMuted) enabled = false;
+  else if (talkMode === 'ptt') enabled = pttHeld;
+  else enabled = true;
+  micStream.getAudioTracks().forEach((t) => (t.enabled = enabled));
+}
+
+function micStatusText() {
+  if (micMuted) return '🎙️ Microfone mutado';
+  if (talkMode === 'ptt') return `🎙️ Push-to-talk — segure "${keyLabel(pttKeyCode)}" pra falar`;
+  return '🎙️ Microfone ativo';
+}
+
+function keyLabel(code) {
+  if (code === 'Space') return 'Espaço';
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  return code;
+}
+
+window.addEventListener('keydown', (e) => {
+  if (talkMode !== 'ptt' || !connectedVoiceRoomId) return;
+  const active = document.activeElement;
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+  if (e.code === pttKeyCode && !pttHeld) {
+    pttHeld = true;
+    updateMicEnabledState();
+    setMicStatus('🎙️ Falando (push-to-talk)');
+  }
+});
+window.addEventListener('keyup', (e) => {
+  if (talkMode !== 'ptt') return;
+  if (e.code === pttKeyCode) {
+    pttHeld = false;
+    updateMicEnabledState();
+    setMicStatus(micStatusText());
+  }
+});
+
+document.getElementById('talk-mode-select').onchange = (e) => {
+  talkMode = e.target.value;
+  localStorage.setItem('ng_talk_mode', talkMode);
+  document.getElementById('ptt-key-row').classList.toggle('hidden', talkMode !== 'ptt');
+  pttHeld = false;
+  updateMicEnabledState();
+  setMicStatus(micStatusText());
+};
+
+document.getElementById('btn-ptt-key').onclick = (e) => {
+  const btn = e.target;
+  btn.textContent = 'Pressione uma tecla...';
+  const capture = (ev) => {
+    ev.preventDefault();
+    pttKeyCode = ev.code;
+    localStorage.setItem('ng_ptt_key', pttKeyCode);
+    btn.textContent = keyLabel(pttKeyCode);
+    window.removeEventListener('keydown', capture, true);
+  };
+  window.addEventListener('keydown', capture, true);
+};
 
 function toggleDeafen() {
   isDeafened = !isDeafened;
@@ -1154,15 +1346,33 @@ document.getElementById('bar-btn-disconnect').onclick = () => {
 
 // ---------- COMPARTILHAMENTO DE TELA ----------
 
+let screenShareQuality = localStorage.getItem('ng_screen_quality') || '1080p30';
+
+const SCREEN_QUALITY_PRESETS = {
+  '720p30': { width: 1280, height: 720, frameRate: 30 },
+  '1080p30': { width: 1920, height: 1080, frameRate: 30 },
+  '1080p60': { width: 1920, height: 1080, frameRate: 60 },
+};
+
+document.getElementById('screen-quality-select').onchange = (e) => {
+  screenShareQuality = e.target.value;
+  localStorage.setItem('ng_screen_quality', screenShareQuality);
+};
+
 document.getElementById('btn-share-screen').onclick = async () => {
   try {
+    const preset = SCREEN_QUALITY_PRESETS[screenShareQuality] || SCREEN_QUALITY_PRESETS['1080p30'];
     // audio: true pede pro navegador oferecer a opção de compartilhar o som
     // do conteúdo também (aparece um checkbox "Compartilhar áudio" na janela
     // de seleção de tela/aba do Chrome/Edge). Se a pessoa não marcar, ou o
     // navegador não suportar, a stream simplesmente vem sem faixa de áudio —
     // sem travar nada.
     localStream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
+      video: {
+        width: { ideal: preset.width },
+        height: { ideal: preset.height },
+        frameRate: { ideal: preset.frameRate },
+      },
       audio: {
         echoCancellation: true,
         noiseSuppression: false,
@@ -1227,6 +1437,10 @@ document.getElementById('btn-close-voice-settings').onclick = () => {
 
 async function populateAudioDevices() {
   document.getElementById('noise-suppression-toggle').checked = noiseSuppressionEnabled;
+  document.getElementById('talk-mode-select').value = talkMode;
+  document.getElementById('ptt-key-row').classList.toggle('hidden', talkMode !== 'ptt');
+  document.getElementById('btn-ptt-key').textContent = keyLabel(pttKeyCode);
+  document.getElementById('screen-quality-select').value = screenShareQuality;
 
   // Precisa de uma permissão de mic concedida pelo menos uma vez pro navegador
   // revelar os nomes dos dispositivos (senão vem tudo em branco).

@@ -120,6 +120,7 @@ body {
   font-weight: 800; padding: 8px; color: #e6e6e6; display: flex;
   align-items: center; justify-content: space-between; letter-spacing: 0.01em;
 }
+.sidebar-header-actions { display: flex; gap: 6px; }
 .sidebar-header button {
   background: #26272e; color: #e6e6e6; border: none; border-radius: 6px;
   width: 22px; height: 22px; cursor: pointer; font-size: 14px; line-height: 1;
@@ -165,6 +166,12 @@ body {
 .message .meta { font-size: 12px; color: #949ba4; display: flex; align-items: center; gap: 6px; }
 .message .meta strong { color: #e6e6e6; }
 .message .meta .edited-tag { font-size: 10px; color: #6d7178; }
+.message.bot-message { background: rgba(0, 217, 192, 0.05); border-left: 2px solid var(--accent-3); padding-left: 8px; }
+.message.bot-message .message-avatar { background: linear-gradient(135deg, #00d9c0, #00a3ff); }
+.bot-tag {
+  background: var(--accent-3); color: #0e0f13; font-size: 9px; font-weight: 800;
+  padding: 1px 5px; border-radius: 3px; letter-spacing: 0.03em;
+}
 .message .content { font-size: 14px; }
 .message .content.deleted { color: #6d7178; font-style: italic; }
 .message .report-link {
@@ -269,6 +276,18 @@ body {
   display: flex; align-items: center; justify-content: center;
 }
 .tile-btn:hover { background: rgba(0,0,0,0.8); }
+.tile-volume {
+  width: 60px; align-self: center; accent-color: var(--accent); cursor: pointer;
+}
+
+/* Indicador de qualidade de conexão (bolinha verde/amarela/vermelha) */
+.quality-dot {
+  position: absolute; top: 6px; left: 6px; width: 9px; height: 9px; border-radius: 50%;
+  z-index: 3; box-shadow: 0 0 0 2px rgba(0,0,0,0.4);
+}
+.quality-dot.quality-good { background: #23a55a; }
+.quality-dot.quality-medium { background: #f2c34f; }
+.quality-dot.quality-poor { background: #f23f42; }
 
 /* "Ampliar": a tile ocupa o espaço da grade inteira, as outras somem —
    feito só com CSS, então sempre funciona (sem depender de permissão do navegador). */
@@ -323,10 +342,12 @@ video:fullscreen { background: #000; object-fit: contain; }
 .modal-card h2 { margin-top: 0; color: #5865f2; }
 .modal-card form { display: flex; flex-direction: column; gap: 6px; }
 .modal-card label { font-size: 12px; color: #949ba4; margin-top: 8px; }
-.modal-card input, .modal-card select {
+.modal-card input, .modal-card select, .modal-card textarea {
   padding: 8px; border-radius: 6px; border: none; background: #1e1f22; color: #e6e6e6;
+  font-family: inherit; resize: vertical;
 }
 .modal-card .hint { font-size: 11px; color: #6d7178; margin: 2px 0 0; }
+.server-info-text { font-size: 13px; color: #dbdee1; white-space: pre-wrap; margin: 0; }
 .checkbox-row {
   display: flex; align-items: center; gap: 8px; font-size: 13px; color: #dbdee1;
   margin-top: 10px; cursor: pointer;

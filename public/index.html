@@ -49,7 +49,10 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <span id="active-server-name">NEXT GAME</span>
-      <button id="btn-new-room" title="Criar sala neste servidor">+</button>
+      <div class="sidebar-header-actions">
+        <button id="btn-server-info" title="Informações e regras do servidor">ℹ️</button>
+        <button id="btn-new-room" title="Criar sala neste servidor">+</button>
+      </div>
     </div>
 
     <div id="categories-container"></div>
@@ -176,6 +179,23 @@
       Cancelamento de ruído (reduz barulho de fundo do microfone)
     </label>
 
+    <label>Modo de fala</label>
+    <select id="talk-mode-select">
+      <option value="voice">Ativação por voz (microfone sempre ativo)</option>
+      <option value="ptt">Push-to-talk (segurar uma tecla pra falar)</option>
+    </select>
+    <div id="ptt-key-row" class="hidden" style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+      <span class="hint" style="margin:0;">Tecla:</span>
+      <button type="button" id="btn-ptt-key" style="flex:1; padding:6px; border-radius:6px; border:none; background:#26272e; color:#e6e6e6; cursor:pointer;">Espaço</button>
+    </div>
+
+    <label>Qualidade da tela compartilhada</label>
+    <select id="screen-quality-select">
+      <option value="720p30">720p · 30fps</option>
+      <option value="1080p30" selected>1080p · 30fps</option>
+      <option value="1080p60">1080p · 60fps</option>
+    </select>
+
     <div class="mic-test-row">
       <button type="button" id="btn-test-mic">🎤 Testar microfone</button>
       <button type="button" id="btn-test-output">🔊 Testar saída</button>
@@ -223,6 +243,33 @@
       </div>
       <p id="profile-error" class="auth-error"></p>
     </form>
+  </div>
+</div>
+
+<!-- MODAL: informações e regras do servidor (igual tela de boas-vindas do Discord) -->
+<div id="modal-server-info" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2 id="server-info-title">Sobre este servidor</h2>
+
+    <div id="server-info-view">
+      <p class="hint" style="margin-bottom: 10px;">Descrição</p>
+      <p id="server-info-description" class="server-info-text"></p>
+      <p class="hint" style="margin: 14px 0 10px;">Regras</p>
+      <p id="server-info-rules" class="server-info-text"></p>
+    </div>
+
+    <form id="form-server-info" class="hidden">
+      <label>Descrição do servidor</label>
+      <textarea id="server-info-description-input" rows="2" maxlength="500" placeholder="Sobre o que é esse servidor..."></textarea>
+      <label>Regras</label>
+      <textarea id="server-info-rules-input" rows="6" maxlength="2000" placeholder="1. Respeite os outros&#10;2. Sem spam&#10;3. ..."></textarea>
+    </form>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-close-server-info">Fechar</button>
+      <button type="button" id="btn-edit-server-info" class="hidden">Editar</button>
+      <button type="button" id="btn-save-server-info" class="hidden">Salvar</button>
+    </div>
   </div>
 </div>
 
