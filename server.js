@@ -493,7 +493,8 @@ app.get(
 // Estatísticas gerais da plataforma pra tela de início.
 app.get(
   '/api/stats',
-  requireAuth,
+  // Sem requireAuth de propósito: são só contagens (nada pessoal), usadas
+  // também na landing pública antes do login.
   asyncHandler(async (req, res) => {
     const [users, servers, tournaments] = await Promise.all([
       db.get('SELECT COUNT(*) as c FROM users WHERE is_banned = 0'),
@@ -891,7 +892,7 @@ io.on('connection', (socket) => {
 
   socket.on('rtc:leave', (roomId) => {
     socket.leave('rtc:' + roomId);
-    socket.to('rtc:' + roomId).emit('rtc:peer-left', { socketId: socket.id });
+    socket.to('rtc:' + roomId).emit('rtc:peer-left', { socketId: socket.id, username: user.username });
     if (voiceRooms.has(roomId)) {
       voiceRooms.get(roomId).delete(socket.id);
       broadcastVoiceRoom(roomId);

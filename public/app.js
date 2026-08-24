@@ -72,6 +72,29 @@ function switchTab(which) {
   authError.textContent = '';
 }
 
+// ---------- LANDING PÚBLICA (antes do login) ----------
+
+function scrollToAuthCard(which) {
+  switchTab(which);
+  document.getElementById('auth-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+document.getElementById('landing-nav-login').onclick = () => scrollToAuthCard('login');
+document.getElementById('landing-cta-login').onclick = () => scrollToAuthCard('login');
+document.getElementById('landing-nav-register').onclick = () => scrollToAuthCard('register');
+document.getElementById('landing-cta-register').onclick = () => scrollToAuthCard('register');
+
+// Estatísticas públicas (sem precisar estar logado) pra landing.
+fetch('/api/stats')
+  .then((res) => res.json())
+  .then((stats) => {
+    document.getElementById('landing-stats').innerHTML = `
+      <div class="home-stat"><span class="home-stat-num">${stats.members}</span><span class="home-stat-label">👥 Membros</span></div>
+      <div class="home-stat"><span class="home-stat-num">${stats.servers}</span><span class="home-stat-label">🎮 Servidores</span></div>
+      <div class="home-stat"><span class="home-stat-num">${stats.tournaments}</span><span class="home-stat-label">🏆 Torneios</span></div>
+    `;
+  })
+  .catch(() => {});
+
 formLogin.onsubmit = async (e) => {
   e.preventDefault();
   const username = document.getElementById('login-username').value.trim();
@@ -136,7 +159,18 @@ function startApp() {
 
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
-  loadChannels().then(() => loadHomeDashboard());
+  loadChannels().then(() => {
+    // Link de convite (?channel=ID) — entra direto na sala em vez de cair na Início.
+    const params = new URLSearchParams(window.location.search);
+    const inviteChannelId = params.get('channel');
+    const target = inviteChannelId && allChannels.find((c) => c.id === inviteChannelId);
+    if (target) {
+      selectChannel(target);
+      history.replaceState({}, '', window.location.pathname);
+    } else {
+      loadHomeDashboard();
+    }
+  });
   loadMembers();
 }
 
@@ -522,8 +556,52 @@ document.getElementById('form-new-room').onsubmit = async (e) => {
 
 // ---------- EDITAR PERFIL (email / senha / avatar / status) ----------
 
+const POPULAR_GAMES = [
+  'Valorant', 'League of Legends', 'CS2', 'Fortnite', 'Minecraft', 'GTA V',
+  'Free Fire', 'Apex Legends', 'Overwatch 2', 'Dota 2', 'Rocket League',
+  'FIFA / EA FC', 'Call of Duty', 'Roblox', 'Among Us', 'Genshin Impact',
+];
+
 const modalProfile = document.getElementById('modal-profile');
 let pendingAvatar = undefined; // undefined = não mexeu, string = novo valor (ou '' pra remover)
+
+// Monta o dropdown de jogos populares + "Trabalhando" + "Outro" (texto livre)
+const profileStatusSelect = document.getElementById('profile-status-select');
+profileStatusSelect.innerHTML =
+  '<option value="">Nada no momento</option>' +
+  POPULAR_GAMES.map((g) => `<option value="${escapeHtml(g)}">🎮 ${escapeHtml(g)}</option>`).join('') +
+  '<option value="__custom__">✏️ Outro (digitar)</option>';
+
+profileStatusSelect.onchange = () => {
+  const isCustom = profileStatusSelect.value === '__custom__';
+  document.getElementById('profile-status').classList.toggle('hidden', !isCustom);
+  if (isCustom) document.getElementById('profile-status').focus();
+};
+
+function setProfileStatusFields(statusMessage) {
+  const value = statusMessage || '';
+  const isKnownGame = POPULAR_GAMES.includes(value);
+  if (!value) {
+    profileStatusSelect.value = '';
+    document.getElementById('profile-status').value = '';
+    document.getElementById('profile-status').classList.add('hidden');
+  } else if (isKnownGame) {
+    profileStatusSelect.value = value;
+    document.getElementById('profile-status').value = '';
+    document.getElementById('profile-status').classList.add('hidden');
+  } else {
+    profileStatusSelect.value = '__custom__';
+    document.getElementById('profile-status').value = value;
+    document.getElementById('profile-status').classList.remove('hidden');
+  }
+}
+
+function getProfileStatusValue() {
+  if (profileStatusSelect.value === '__custom__') {
+    return document.getElementById('profile-status').value.trim();
+  }
+  return profileStatusSelect.value;
+}
 
 function updateAvatarPreview() {
   const preview = document.getElementById('profile-avatar-preview');
@@ -574,7 +652,7 @@ document.getElementById('profile-avatar-file').onchange = (e) => {
 document.getElementById('btn-edit-profile').onclick = () => {
   document.getElementById('profile-error').textContent = '';
   document.getElementById('profile-email').value = me.email || '';
-  document.getElementById('profile-status').value = me.status_message || '';
+  setProfileStatusFields(me.status_message);
   document.getElementById('profile-new-password').value = '';
   document.getElementById('profile-current-password').value = '';
   pendingAvatar = undefined;
@@ -588,7 +666,7 @@ document.getElementById('form-profile').onsubmit = async (e) => {
   const email = document.getElementById('profile-email').value.trim();
   const password = document.getElementById('profile-new-password').value;
   const currentPassword = document.getElementById('profile-current-password').value;
-  const statusMessage = document.getElementById('profile-status').value.trim();
+  const statusMessage = getProfileStatusValue();
   const errorEl = document.getElementById('profile-error');
   errorEl.textContent = '';
 
@@ -897,10 +975,29 @@ async function joinTextChannel(channelId) {
   container.scrollTop = container.scrollHeight;
 }
 
+// Carrega o histórico do "Chat da Sala" (mesma conversa do channel_id da
+// sala de voz, só que renderizada na coluna lateral).
+async function loadVoiceChatHistory(channelId) {
+  const res = await fetch(`/api/channels/${channelId}/messages`, { credentials: 'include' });
+  const messages = await res.json();
+  const container = document.getElementById('voice-chat-messages');
+  container.innerHTML = '';
+  messages.forEach(renderMessage);
+  container.scrollTop = container.scrollHeight;
+}
+
 const BOT_USER_ID = 'system-bot';
 
+// Salas de voz também têm chat de texto (o "Chat da Sala" ao lado da
+// chamada) — usa o mesmo channel_id, só muda pra qual <div> a mensagem vai.
+function messagesContainerFor(channelId) {
+  const isVoiceChannel = allChannels.some((c) => c.id === channelId && c.type === 'voz');
+  return document.getElementById(isVoiceChannel ? 'voice-chat-messages' : 'messages');
+}
+
 function renderMessage(msg) {
-  const container = document.getElementById('messages');
+  const container = messagesContainerFor(msg.channel_id);
+  if (!container) return;
   const el = document.createElement('div');
   const isBot = msg.user_id === BOT_USER_ID;
   el.className = 'message' + (isBot ? ' bot-message' : '');
@@ -1135,15 +1232,19 @@ function registerSocketHandlers() {
   socket.on('rtc:peer-joined', ({ socketId, username }) => {
     const pc = createPeerConnection(socketId, username);
     addLocalTracksToPeer(pc);
+    logVoiceActivity(`${username} entrou na sala`);
+    updateVoiceParticipantCount();
   });
 
-  socket.on('rtc:peer-left', ({ socketId }) => {
+  socket.on('rtc:peer-left', ({ socketId, username }) => {
     if (peers[socketId]) {
       peers[socketId].close();
       delete peers[socketId];
     }
     delete remoteStreams[socketId];
     stopConnectionQualityMonitor(socketId);
+    logVoiceActivity(`${username || 'Alguém'} saiu da sala`);
+    updateVoiceParticipantCount();
     removeVideoTile(socketId);
   });
 
@@ -1185,13 +1286,20 @@ function registerSocketHandlers() {
 async function connectVoice(roomId) {
   connectedVoiceRoomId = roomId;
   socket.emit('rtc:join', roomId);
+  socket.emit('channel:join', roomId); // pro chat da sala funcionar (mesmo canal, uso duplo texto+voz)
+  loadVoiceChatHistory(roomId);
+  setupVoiceInvite(roomId);
+  clearVoiceActivityLog();
+  logVoiceActivity('Você entrou na sala');
   await startMicrophone();
   updateVoiceBar();
+  updateVoiceParticipantCount();
 }
 
 function disconnectVoice() {
   if (!connectedVoiceRoomId) return;
   socket.emit('rtc:leave', connectedVoiceRoomId);
+  socket.emit('channel:leave', connectedVoiceRoomId);
   Object.keys(peers).forEach((id) => {
     peers[id].close();
     delete peers[id];
@@ -1225,7 +1333,92 @@ function disconnectVoice() {
   setMicStatus('');
   updateVoiceBar();
   renderCategories(allChannels);
+  updateVoiceParticipantCount();
 }
+
+// ---------- EXTRAS DA SALA DE VOZ: convite, atividade, participantes, qualidade ----------
+
+function setupVoiceInvite(roomId) {
+  const input = document.getElementById('voice-invite-link');
+  input.value = `${window.location.origin}/?channel=${roomId}`;
+}
+
+document.getElementById('btn-copy-invite').onclick = () => {
+  const input = document.getElementById('voice-invite-link');
+  input.select();
+  navigator.clipboard.writeText(input.value).then(
+    () => {
+      const btn = document.getElementById('btn-copy-invite');
+      const original = btn.textContent;
+      btn.textContent = 'Copiado!';
+      setTimeout(() => (btn.textContent = original), 1500);
+    },
+    () => {}
+  );
+};
+
+function clearVoiceActivityLog() {
+  document.getElementById('voice-activity-log').innerHTML = '';
+}
+
+function logVoiceActivity(text) {
+  const log = document.getElementById('voice-activity-log');
+  if (!log) return;
+  const line = document.createElement('div');
+  line.className = 'activity-line';
+  const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  line.innerHTML = `<span>${escapeHtml(text)}</span><span class="activity-line-time">${time}</span>`;
+  log.prepend(line);
+  while (log.children.length > 8) log.removeChild(log.lastChild);
+}
+
+function updateVoiceParticipantCount() {
+  const el = document.getElementById('voice-participant-count');
+  if (!el || !connectedVoiceRoomId) return;
+  const count = Object.keys(peers).length + 1; // +1 é você mesmo
+  el.textContent = `${count} na chamada`;
+}
+
+document.getElementById('btn-toggle-voice-chat').onclick = () => {
+  document.getElementById('voice-chat-col').classList.toggle('hidden');
+};
+
+document.getElementById('form-voice-message').onsubmit = (e) => {
+  e.preventDefault();
+  const input = document.getElementById('voice-message-input');
+  const content = input.value.trim();
+  if (!content || !connectedVoiceRoomId) return;
+  socket.emit('chat:message', { channelId: connectedVoiceRoomId, content });
+  input.value = '';
+};
+
+// Resumo geral de qualidade da chamada (média de todos os participantes),
+// atualizado a partir dos mesmos dados do monitor por-participante.
+function updateVoiceQualitySummary() {
+  const el = document.getElementById('voice-quality-summary');
+  if (!el || !connectedVoiceRoomId) return;
+  const dots = document.querySelectorAll('#video-grid .quality-dot');
+  if (dots.length === 0) {
+    el.innerHTML = '<span class="hint" style="margin:0;">Sozinho na sala por enquanto.</span>';
+    return;
+  }
+  const poorCount = document.querySelectorAll('#video-grid .quality-poor').length;
+  const mediumCount = document.querySelectorAll('#video-grid .quality-medium').length;
+  let label = 'Excelente';
+  let cls = 'q-good';
+  if (poorCount > 0) {
+    label = 'Instável';
+    cls = 'q-poor';
+  } else if (mediumCount > 0) {
+    label = 'Boa';
+    cls = 'q-medium';
+  }
+  el.innerHTML = `
+    <div class="voice-quality-badge ${cls}">📶 ${label}</div>
+    <div class="voice-quality-ping">Baseado na conexão com ${dots.length} participante${dots.length === 1 ? '' : 's'}</div>
+  `;
+}
+setInterval(updateVoiceQualitySummary, 3500);
 
 function addLocalTracksToPeer(pc) {
   if (micStream) {
@@ -1342,6 +1535,7 @@ function addVideoTile(peerId, username, stream) {
     tile.innerHTML = `
       <video autoplay playsinline></video>
       <div class="tile-avatar"><span>${initial}</span></div>
+      <div class="tile-waveform"><span></span><span></span><span></span><span></span></div>
       ${isRemote ? '<span class="quality-dot quality-good" title="Qualidade da conexão"></span>' : ''}
       <span class="label">${escapeHtml(username || 'Participante')}</span>
       <div class="tile-controls">
@@ -1556,7 +1750,10 @@ function updateCameraButton() {
 }
 
 document.getElementById('btn-toggle-camera').onclick = toggleCamera;
-document.getElementById('btn-mic-options').onclick = () => document.getElementById('btn-voice-settings').click();
+document.getElementById('btn-mic-options').onclick = () => {
+  toggleDeafen();
+  document.getElementById('btn-mic-options').textContent = isDeafened ? '🔇' : '🔊';
+};
 
 // Quadradinho temporário de "Conectando..." enquanto o navegador pede
 // permissão de microfone — assim a tela não fica vazia/parada nesse meio tempo.
