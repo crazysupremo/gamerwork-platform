@@ -580,6 +580,7 @@ async function refreshStreakBadge() {
     } else {
       badge.classList.add('hidden');
     }
+    celebrateNewRewards(data, me.id);
   } catch (_) {}
 }
 
@@ -592,6 +593,7 @@ async function loadRewards() {
   const res = await fetch('/api/rewards', { credentials: 'include' });
   const data = await res.json();
   rewardsCache = data;
+  celebrateNewRewards(data, me.id);
 
   const nextStreakGoal = data.rewards.find((r) => r.type === 'streak' && !r.unlocked);
   summaryEl.innerHTML = `
@@ -1011,6 +1013,43 @@ document.getElementById('nav-bell').onclick = () => {
   setTimeout(() => document.getElementById('home-activity').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 };
 document.getElementById('nav-profile').onclick = () => document.getElementById('btn-edit-profile').click();
+
+// ---------- SONS E EFEITOS (liga/desliga geral) ----------
+
+function updateSfxToggleButton() {
+  const btn = document.getElementById('nav-sfx-toggle');
+  const on = SFX.isEnabled();
+  btn.textContent = on ? '🔊' : '🔇';
+  btn.title = on ? 'Sons ligados (clique pra desligar)' : 'Sons desligados (clique pra ligar)';
+}
+document.getElementById('nav-sfx-toggle').onclick = () => {
+  SFX.setEnabled(!SFX.isEnabled());
+  updateSfxToggleButton();
+  if (SFX.isEnabled()) SFX.click();
+};
+updateSfxToggleButton();
+
+// Clique genérico sutil em qualquer botão da interface — e som ao abrir
+// qualquer modal (detecta quando a classe "hidden" some de um .modal-overlay),
+// assim não precisa caçar cada handler de abrir modal um por um.
+document.addEventListener(
+  'click',
+  (e) => {
+    const btn = e.target.closest('button');
+    if (btn) SFX.click();
+  },
+  true
+);
+
+new MutationObserver((mutations) => {
+  mutations.forEach((m) => {
+    if (m.attributeName !== 'class') return;
+    const el = m.target;
+    if (el.classList.contains('modal-overlay') && !el.classList.contains('hidden')) {
+      SFX.modalOpen();
+    }
+  });
+}).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
 
 document.getElementById('navbar-search-input').addEventListener('input', (e) => {
   const term = e.target.value.trim().toLowerCase();
@@ -1470,6 +1509,11 @@ function escapeHtml(str) {
 function registerSocketHandlers() {
   socket.on('chat:message', (msg) => {
     if (currentChannel && msg.channel_id === currentChannel.id) renderMessage(msg);
+    if (msg.user_id !== me.id) {
+      const mentioned = msg.content && msg.content.toLowerCase().includes('@' + me.username.toLowerCase());
+      if (mentioned) SFX.mention();
+      else SFX.message();
+    }
   });
 
   socket.on('chat:blocked', ({ reason }) => {
@@ -1518,6 +1562,7 @@ function registerSocketHandlers() {
     addLocalTracksToPeer(pc);
     logVoiceActivity(`${username} entrou na sala`);
     updateVoiceParticipantCount();
+    SFX.peerJoin();
   });
 
   socket.on('rtc:peer-left', ({ socketId, username }) => {
@@ -1530,6 +1575,7 @@ function registerSocketHandlers() {
     logVoiceActivity(`${username || 'Alguém'} saiu da sala`);
     updateVoiceParticipantCount();
     removeVideoTile(socketId);
+    SFX.peerLeave();
   });
 
   socket.on('rtc:signal', async ({ from, username, data }) => {
@@ -1568,6 +1614,7 @@ function registerSocketHandlers() {
 // ---------- WEBRTC (voz / compartilhamento de tela) ----------
 
 async function connectVoice(roomId) {
+  SFX.join();
   connectedVoiceRoomId = roomId;
   socket.emit('rtc:join', roomId);
   socket.emit('channel:join', roomId); // pro chat da sala funcionar (mesmo canal, uso duplo texto+voz)
@@ -1582,6 +1629,7 @@ async function connectVoice(roomId) {
 
 function disconnectVoice() {
   if (!connectedVoiceRoomId) return;
+  SFX.leave();
   socket.emit('rtc:leave', connectedVoiceRoomId);
   socket.emit('channel:leave', connectedVoiceRoomId);
   Object.keys(peers).forEach((id) => {
@@ -2014,6 +2062,7 @@ async function toggleCamera() {
     cameraStream = null;
     updateLocalTile();
     updateCameraButton();
+    SFX.cameraOff();
     return;
   }
 
@@ -2028,6 +2077,7 @@ async function toggleCamera() {
   });
   updateLocalTile();
   updateCameraButton();
+  SFX.cameraOn();
   cameraStream.getVideoTracks()[0].onended = () => {
     if (cameraStream) toggleCamera();
   };
@@ -2077,6 +2127,8 @@ function toggleMic() {
   updateMicEnabledState();
   updateMicButton();
   setMicStatus(micStatusText());
+  if (micMuted) SFX.mute();
+  else SFX.unmute();
 }
 
 document.getElementById('btn-toggle-mic').onclick = toggleMic;
@@ -2232,6 +2284,7 @@ document.getElementById('btn-share-screen').onclick = async () => {
   });
   document.getElementById('btn-share-screen').classList.add('hidden');
   document.getElementById('btn-stop-share').classList.remove('hidden');
+  SFX.screenShareStart();
 
   const hasSharedAudio = localStream.getAudioTracks().length > 0;
   setMicStatus(
@@ -2253,6 +2306,7 @@ function stopScreenShare() {
   document.getElementById('btn-share-screen').classList.remove('hidden');
   document.getElementById('btn-stop-share').classList.add('hidden');
   updateLocalTile();
+  SFX.screenShareStop();
 }
 
 document.getElementById('btn-leave-voice').onclick = () => {
