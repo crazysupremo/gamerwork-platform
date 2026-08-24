@@ -122,16 +122,39 @@ document.getElementById('landing-nav-register').onclick = () => scrollToAuthCard
 document.getElementById('landing-cta-register').onclick = () => scrollToAuthCard('register');
 
 // ---------- MÚSICA DE FUNDO (tela de login) ----------
+// Faixa de verdade (Infraction, via InAudio — licença gratuita com crédito,
+// já incluído no rodapé da landing). Toca em loop com volume baixo; precisa
+// de um clique/tecla do usuário antes, por causa da política de autoplay
+// dos navegadores.
+const loginMusicEl = document.getElementById('login-music');
+loginMusicEl.volume = 0.35;
+let loginMusicEnabled = localStorage.getItem('ng_login_music') !== 'off'; // ligado por padrão
+
 function updateLoginMusicButton() {
   const btn = document.getElementById('btn-toggle-login-music');
-  btn.textContent = MusicEngine.isEnabled() ? '🔊 Música' : '🔇 Música';
+  btn.textContent = loginMusicEnabled ? '🔊 Música' : '🔇 Música';
 }
+
+function tryStartLoginMusic() {
+  const authScreen = document.getElementById('auth-screen');
+  if (!loginMusicEnabled || !authScreen || authScreen.classList.contains('hidden')) return;
+  loginMusicEl.play().catch(() => {});
+}
+
 document.getElementById('btn-toggle-login-music').onclick = (e) => {
-  e.stopPropagation(); // não deixa o clique também disparar o "unlock" genérico duas vezes
-  MusicEngine.setEnabled(!MusicEngine.isEnabled());
+  e.stopPropagation();
+  loginMusicEnabled = !loginMusicEnabled;
+  localStorage.setItem('ng_login_music', loginMusicEnabled ? 'on' : 'off');
   updateLoginMusicButton();
+  if (loginMusicEnabled) tryStartLoginMusic();
+  else loginMusicEl.pause();
 };
 updateLoginMusicButton();
+
+// Mesmo gesto que já destrava os efeitos sonoros (sfx.js) também inicia a música.
+['click', 'keydown'].forEach((evt) => {
+  window.addEventListener(evt, tryStartLoginMusic, { once: true, passive: true });
+});
 
 // Estatísticas públicas (sem precisar estar logado) pra landing.
 fetch('/api/stats')
@@ -201,7 +224,7 @@ async function tryResumeSession() {
 function startApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  MusicEngine.stop();
+  document.getElementById('login-music').pause();
   document.getElementById('me-username').textContent = me.username;
   renderAvatarInto(document.getElementById('me-avatar'), me);
   if (me.is_admin) document.getElementById('admin-link').classList.remove('hidden');

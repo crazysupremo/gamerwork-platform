@@ -16,6 +16,12 @@
   <canvas id="auth-bg-canvas" class="auth-bg-canvas"></canvas>
   <div class="auth-bg-overlay"></div>
 
+  <!-- Música de fundo (Infraction, via InAudio — licença gratuita com crédito
+       obrigatório, por isso o texto de atribuição fixo no rodapé abaixo). -->
+  <audio id="login-music" loop preload="none">
+    <source src="/assets/music/heroes.mp3" type="audio/mpeg" />
+  </audio>
+
   <div class="landing-content">
     <header class="landing-nav">
       <img src="/assets/logo.png" alt="NEXT GAME" class="navbar-logo-img" />
@@ -39,6 +45,13 @@
       </div>
       <div class="home-stats landing-stats" id="landing-stats"></div>
     </section>
+
+    <!-- Crédito exigido pela licença gratuita da InAudio (Creative Commons
+         Attribution) — não remover sem trocar a música ou comprar a licença. -->
+    <p class="landing-music-credit">
+      Music from #InAudio: <a href="https://inaudio.org/" target="_blank" rel="noopener">https://inaudio.org/</a>
+      — "Heroes (Main Version)" &amp; "Battle" by Infraction
+    </p>
   </div>
 
   <div class="auth-card" id="auth-card">
