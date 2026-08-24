@@ -124,6 +124,27 @@ async function initDb() {
       updated_by TEXT,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS tournaments (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      name TEXT NOT NULL,
+      game TEXT NOT NULL,
+      event_date TEXT,
+      prize TEXT,
+      max_slots INTEGER NOT NULL DEFAULT 32,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS tournament_registrations (
+      id TEXT PRIMARY KEY,
+      tournament_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      team_name TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(tournament_id, user_id)
+    );
   `);
 
   // Migração leve pra bancos criados antes de alguma dessas colunas existir.

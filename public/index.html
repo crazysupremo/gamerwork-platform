@@ -10,9 +10,16 @@
 
 <!-- TELA DE LOGIN / REGISTRO -->
 <div id="auth-screen" class="auth-screen">
+  <!-- Vídeo de fundo opcional: se algum arquivo existir em public/videos/bg-1.mp4 etc,
+       ele toca em loop atrás do login. Sem vídeo nenhum, some sozinho sem quebrar nada. -->
+  <video id="auth-bg-video" class="auth-bg-video hidden" autoplay muted loop playsinline></video>
+  <canvas id="auth-bg-canvas" class="auth-bg-canvas"></canvas>
+  <div class="auth-bg-overlay"></div>
+
   <div class="auth-card">
+    <div class="auth-logo">🎮</div>
     <h1>NEXT GAME</h1>
-    <p class="subtitle">Comunidade para gamers e trabalho</p>
+    <p class="subtitle">Conecte-se, jogue e trabalhe em equipe</p>
 
     <div class="auth-tabs">
       <button id="tab-login" class="auth-tab active">Entrar</button>
@@ -20,16 +27,31 @@
     </div>
 
     <form id="form-login" class="auth-form">
-      <input type="text" id="login-username" placeholder="Usuário" required />
-      <input type="password" id="login-password" placeholder="Senha" required />
-      <button type="submit">Entrar</button>
+      <div class="input-icon-wrap">
+        <span class="input-icon">👤</span>
+        <input type="text" id="login-username" placeholder="Usuário" required />
+      </div>
+      <div class="input-icon-wrap">
+        <span class="input-icon">🔒</span>
+        <input type="password" id="login-password" placeholder="Senha" required />
+      </div>
+      <button type="submit">🚀 Entrar</button>
     </form>
 
     <form id="form-register" class="auth-form hidden">
-      <input type="text" id="register-username" placeholder="Usuário (min. 3 caracteres)" required />
-      <input type="email" id="register-email" placeholder="E-mail" required />
-      <input type="password" id="register-password" placeholder="Senha (min. 6 caracteres)" required />
-      <button type="submit">Criar conta</button>
+      <div class="input-icon-wrap">
+        <span class="input-icon">👤</span>
+        <input type="text" id="register-username" placeholder="Usuário (min. 3 caracteres)" required />
+      </div>
+      <div class="input-icon-wrap">
+        <span class="input-icon">✉️</span>
+        <input type="email" id="register-email" placeholder="E-mail" required />
+      </div>
+      <div class="input-icon-wrap">
+        <span class="input-icon">🔒</span>
+        <input type="password" id="register-password" placeholder="Senha (min. 6 caracteres)" required />
+      </div>
+      <button type="submit">🎮 Criar conta</button>
     </form>
 
 
@@ -50,6 +72,8 @@
     <div class="sidebar-header">
       <span id="active-server-name">NEXT GAME</span>
       <div class="sidebar-header-actions">
+        <button id="btn-tournaments" title="Torneios">🏆</button>
+        <button id="btn-ranking" title="Ranking semanal">📊</button>
         <button id="btn-server-info" title="Informações e regras do servidor">ℹ️</button>
         <button id="btn-new-room" title="Criar sala neste servidor">+</button>
       </div>
@@ -269,6 +293,50 @@
       <button type="button" id="btn-close-server-info">Fechar</button>
       <button type="button" id="btn-edit-server-info" class="hidden">Editar</button>
       <button type="button" id="btn-save-server-info" class="hidden">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: torneios do servidor -->
+<div id="modal-tournaments" class="modal-overlay hidden">
+  <div class="modal-card modal-card-wide">
+    <h2>🏆 Torneios</h2>
+
+    <div id="tournaments-list" class="tournaments-list"></div>
+
+    <form id="form-new-tournament" class="hidden tournament-create-form">
+      <label>Nome do torneio</label>
+      <input type="text" id="tournament-name" maxlength="80" placeholder="ex: Copa Next Game" required />
+      <label>Jogo</label>
+      <input type="text" id="tournament-game" maxlength="40" placeholder="ex: Valorant" required />
+      <label>Data</label>
+      <input type="date" id="tournament-date" />
+      <label>Premiação</label>
+      <input type="text" id="tournament-prize" maxlength="60" placeholder="ex: R$ 500" />
+      <label>Vagas (times/jogadores)</label>
+      <input type="number" id="tournament-slots" min="2" max="500" value="32" />
+      <div class="modal-actions">
+        <button type="button" id="btn-cancel-tournament">Cancelar</button>
+        <button type="submit">Criar torneio</button>
+      </div>
+      <p id="tournament-error" class="auth-error"></p>
+    </form>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-close-tournaments">Fechar</button>
+      <button type="button" id="btn-new-tournament" class="hidden">+ Criar torneio</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ranking semanal -->
+<div id="modal-ranking" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>📊 Ranking Semanal</h2>
+    <p class="hint" style="margin-bottom:10px;">Baseado em mensagens enviadas nos últimos 7 dias.</p>
+    <div id="ranking-list" class="ranking-list"></div>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-ranking">Fechar</button>
     </div>
   </div>
 </div>

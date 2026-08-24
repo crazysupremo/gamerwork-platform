@@ -339,6 +339,129 @@ app.patch(
   })
 );
 
+// ---------- TORNEIOS ----------
+
+app.get(
+  '/api/tournaments',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const category = req.query.category;
+    const tournaments = category
+      ? await db.all('SELECT * FROM tournaments WHERE category = ? ORDER BY event_date IS NULL, event_date ASC', [category])
+      : await db.all('SELECT * FROM tournaments ORDER BY event_date IS NULL, event_date ASC');
+
+    if (tournaments.length > 0) {
+      const ids = tournaments.map((t) => t.id);
+      const placeholders = ids.map(() => '?').join(',');
+      const regRows = await db.all(
+        `SELECT tournament_id, user_id, team_name FROM tournament_registrations WHERE tournament_id IN (${placeholders})`,
+        ids
+      );
+      tournaments.forEach((t) => {
+        const regs = regRows.filter((r) => r.tournament_id === t.id);
+        t.registered_count = regs.length;
+        t.is_registered = regs.some((r) => r.user_id === req.user.id);
+      });
+    }
+    res.json(tournaments);
+  })
+);
+
+app.post(
+  '/api/tournaments',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { category, name, game, event_date, prize, max_slots } = req.body || {};
+    if (!category || !name || !game || !String(name).trim() || !String(game).trim()) {
+      return res.status(400).json({ error: 'Categoria, nome e jogo são obrigatórios' });
+    }
+    const id = uuidv4();
+    await db.run(
+      'INSERT INTO tournaments (id, category, name, game, event_date, prize, max_slots, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id,
+        category,
+        String(name).trim().slice(0, 80),
+        String(game).trim().slice(0, 40),
+        event_date || null,
+        (prize || '').slice(0, 60) || null,
+        Math.min(Math.max(Number(max_slots) || 32, 2), 500),
+        req.user.id,
+      ]
+    );
+    res.json({ id });
+  })
+);
+
+app.delete(
+  '/api/tournaments/:id',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM tournament_registrations WHERE tournament_id = ?', [req.params.id]);
+    await db.run('DELETE FROM tournaments WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  '/api/tournaments/:id/register',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tournament = await db.get('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
+    if (!tournament) return res.status(404).json({ error: 'Torneio não encontrado' });
+    const countRow = await db.get('SELECT COUNT(*) as c FROM tournament_registrations WHERE tournament_id = ?', [
+      req.params.id,
+    ]);
+    if (Number(countRow.c) >= tournament.max_slots) {
+      return res.status(400).json({ error: 'Torneio lotado' });
+    }
+    try {
+      await db.run('INSERT INTO tournament_registrations (id, tournament_id, user_id, team_name) VALUES (?, ?, ?, ?)', [
+        uuidv4(),
+        req.params.id,
+        req.user.id,
+        req.body && req.body.team_name ? String(req.body.team_name).slice(0, 40) : null,
+      ]);
+    } catch (err) {
+      return res.status(409).json({ error: 'Você já está inscrito nesse torneio' });
+    }
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  '/api/tournaments/:id/unregister',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM tournament_registrations WHERE tournament_id = ? AND user_id = ?', [
+      req.params.id,
+      req.user.id,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+// ---------- RANKING SEMANAL (baseado em atividade real: mensagens enviadas) ----------
+
+app.get(
+  '/api/ranking',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT u.id, u.username, u.avatar, COUNT(m.id) as points
+       FROM users u
+       JOIN messages m ON m.user_id = u.id
+       WHERE m.created_at >= datetime('now', '-7 days') AND m.deleted = 0
+       GROUP BY u.id
+       ORDER BY points DESC
+       LIMIT 10`
+    );
+    res.json(rows);
+  })
+);
+
 app.get(
   '/api/channels/:id/messages',
   requireAuth,

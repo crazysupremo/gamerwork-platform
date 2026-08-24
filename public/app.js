@@ -330,6 +330,141 @@ function categoryIcon(category) {
   return '🎮';
 }
 
+// ---------- TORNEIOS ----------
+
+const modalTournaments = document.getElementById('modal-tournaments');
+
+document.getElementById('btn-tournaments').onclick = async () => {
+  if (!activeServerCategory) return;
+  document.getElementById('btn-new-tournament').classList.toggle('hidden', !me.is_admin);
+  document.getElementById('form-new-tournament').classList.add('hidden');
+  modalTournaments.classList.remove('hidden');
+  await loadTournaments();
+};
+document.getElementById('btn-close-tournaments').onclick = () => modalTournaments.classList.add('hidden');
+
+document.getElementById('btn-new-tournament').onclick = () => {
+  document.getElementById('form-new-tournament').classList.remove('hidden');
+  document.getElementById('tournament-error').textContent = '';
+};
+document.getElementById('btn-cancel-tournament').onclick = () => {
+  document.getElementById('form-new-tournament').classList.add('hidden');
+};
+
+async function loadTournaments() {
+  const list = document.getElementById('tournaments-list');
+  list.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch(`/api/tournaments?category=${encodeURIComponent(activeServerCategory)}`, {
+    credentials: 'include',
+  });
+  const tournaments = await res.json();
+  list.innerHTML = '';
+
+  if (tournaments.length === 0) {
+    list.innerHTML = '<p class="empty-hint">Nenhum torneio criado ainda nesse servidor.</p>';
+    return;
+  }
+
+  tournaments.forEach((t) => {
+    const card = document.createElement('div');
+    card.className = 'tournament-card';
+    const dateText = t.event_date ? new Date(t.event_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'Data a definir';
+    card.innerHTML = `
+      <div class="tournament-info">
+        <h3>🏆 ${escapeHtml(t.name)}</h3>
+        <div class="tournament-meta">
+          <span>🎮 ${escapeHtml(t.game)}</span>
+          <span>📅 ${dateText}</span>
+          ${t.prize ? `<span>💰 ${escapeHtml(t.prize)}</span>` : ''}
+          <span>👥 ${t.registered_count}/${t.max_slots}</span>
+        </div>
+      </div>
+      <div class="tournament-actions">
+        <button class="${t.is_registered ? 'btn-unregister' : 'btn-register'}">
+          ${t.is_registered ? 'Sair' : 'Participar'}
+        </button>
+        ${me.is_admin ? '<button class="btn-delete-tournament">Excluir</button>' : ''}
+      </div>
+    `;
+    card.querySelector(t.is_registered ? '.btn-unregister' : '.btn-register').onclick = async () => {
+      const endpoint = t.is_registered ? 'unregister' : 'register';
+      const res2 = await fetch(`/api/tournaments/${t.id}/${endpoint}`, { method: 'POST', credentials: 'include' });
+      const data = await res2.json();
+      if (!res2.ok) {
+        alert(data.error || 'Erro');
+        return;
+      }
+      loadTournaments();
+    };
+    const deleteBtn = card.querySelector('.btn-delete-tournament');
+    if (deleteBtn) {
+      deleteBtn.onclick = async () => {
+        if (!confirm(`Excluir o torneio "${t.name}"?`)) return;
+        await fetch(`/api/tournaments/${t.id}`, { method: 'DELETE', credentials: 'include' });
+        loadTournaments();
+      };
+    }
+    list.appendChild(card);
+  });
+}
+
+document.getElementById('form-new-tournament').onsubmit = async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('tournament-error');
+  errorEl.textContent = '';
+  const body = {
+    category: activeServerCategory,
+    name: document.getElementById('tournament-name').value.trim(),
+    game: document.getElementById('tournament-game').value.trim(),
+    event_date: document.getElementById('tournament-date').value || null,
+    prize: document.getElementById('tournament-prize').value.trim(),
+    max_slots: document.getElementById('tournament-slots').value,
+  };
+  const res = await fetch('/api/tournaments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Erro ao criar torneio';
+    return;
+  }
+  document.getElementById('form-new-tournament').reset();
+  document.getElementById('form-new-tournament').classList.add('hidden');
+  loadTournaments();
+};
+
+// ---------- RANKING SEMANAL ----------
+
+const modalRanking = document.getElementById('modal-ranking');
+document.getElementById('btn-ranking').onclick = async () => {
+  modalRanking.classList.remove('hidden');
+  const list = document.getElementById('ranking-list');
+  list.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/ranking', { credentials: 'include' });
+  const ranking = await res.json();
+  list.innerHTML = '';
+  if (ranking.length === 0) {
+    list.innerHTML = '<p class="empty-hint">Ainda sem atividade suficiente essa semana.</p>';
+    return;
+  }
+  const medals = ['🥇', '🥈', '🥉'];
+  ranking.forEach((u, i) => {
+    const row = document.createElement('div');
+    row.className = 'ranking-row';
+    row.innerHTML = `
+      <span class="ranking-position">${medals[i] || i + 1}</span>
+      <div class="member-avatar">${renderAvatarHtml(u)}</div>
+      <span class="ranking-name">${escapeHtml(u.username)}</span>
+      <span class="ranking-points">${u.points} msgs</span>
+    `;
+    list.appendChild(row);
+  });
+};
+document.getElementById('btn-close-ranking').onclick = () => modalRanking.classList.add('hidden');
+
 function updateCategoryDatalist(channels) {
   const datalist = document.getElementById('category-options');
   const categories = [...new Set(channels.map((c) => c.category))];
@@ -1592,5 +1727,98 @@ document.getElementById('btn-test-output').onclick = async () => {
     ctx.close();
   }, 600);
 };
+
+// ---------- FUNDO ANIMADO DA TELA DE LOGIN ----------
+//
+// Se algum vídeo existir em /videos/bg-1.mp4 (ou .webm), ele toca em loop
+// atrás do login automaticamente. Sem nenhum vídeo, cai numa animação de
+// partículas/ícones de jogo flutuando — nunca fica vazio.
+(function initAuthBackground() {
+  const video = document.getElementById('auth-bg-video');
+  const candidates = ['/videos/bg-1.mp4', '/videos/bg-1.webm'];
+  let found = false;
+
+  function tryNext(i) {
+    if (i >= candidates.length) return;
+    video.src = candidates[i];
+    video.oncanplay = () => {
+      found = true;
+      video.classList.remove('hidden');
+      video.play().catch(() => {});
+    };
+    video.onerror = () => tryNext(i + 1);
+  }
+  tryNext(0);
+
+  // Partículas (rodam sempre, ficam por baixo do vídeo se ele existir)
+  const canvas = document.getElementById('auth-bg-canvas');
+  const ctx = canvas.getContext('2d');
+  const ICONS = ['🎮', '🕹️', '👾', '⚡', '🔥', '🚀', '🏆', '🎯', '🐉', '💥'];
+  let particles = [];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function makeParticle() {
+    return {
+      icon: ICONS[Math.floor(Math.random() * ICONS.length)],
+      x: Math.random() * canvas.width,
+      y: canvas.height + 40 + Math.random() * 200,
+      size: 18 + Math.random() * 26,
+      speed: 0.3 + Math.random() * 0.9,
+      drift: (Math.random() - 0.5) * 0.6,
+      opacity: 0.12 + Math.random() * 0.22,
+      rotation: Math.random() * 360,
+      rotationSpeed: (Math.random() - 0.5) * 0.6,
+    };
+  }
+  const PARTICLE_COUNT = 26;
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const p = makeParticle();
+    p.y = Math.random() * canvas.height; // espalha logo de cara, não só nasce embaixo
+    particles.push(p);
+  }
+
+  let rafId;
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach((p) => {
+      p.y -= p.speed;
+      p.x += p.drift;
+      p.rotation += p.rotationSpeed;
+      if (p.y < -60) Object.assign(p, makeParticle(), { y: canvas.height + 40 });
+
+      ctx.save();
+      ctx.globalAlpha = p.opacity;
+      ctx.translate(p.x, p.y);
+      ctx.rotate((p.rotation * Math.PI) / 180);
+      ctx.font = p.size + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.icon, 0, 0);
+      ctx.restore();
+    });
+    rafId = requestAnimationFrame(tick);
+  }
+  tick();
+
+  // Economiza recursos: pausa a animação quando a tela de login não está mais visível.
+  const observer = new MutationObserver(() => {
+    const visible = !document.getElementById('auth-screen').classList.contains('hidden');
+    if (!visible && rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+      video.pause();
+    } else if (visible && !rafId) {
+      tick();
+      if (found) video.play().catch(() => {});
+    }
+  });
+  observer.observe(document.getElementById('auth-screen'), { attributes: true, attributeFilter: ['class'] });
+})();
 
 tryResumeSession();
