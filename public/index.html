@@ -238,57 +238,69 @@
 
     <!-- Painel de sala de voz / compartilhamento de tela -->
     <section id="voice-panel" class="voice-panel hidden">
-      <div class="voice-main-col">
-        <div class="voice-room-header">
-          <span id="voice-participant-count" class="voice-participant-badge">0 na chamada</span>
-          <div class="voice-room-header-actions">
-            <button id="btn-toggle-voice-chat" class="header-icon-btn" title="Mostrar/esconder chat da sala">💬</button>
-          </div>
-        </div>
-
-        <div class="voice-section-label">NA CHAMADA</div>
-        <div id="mic-status" class="mic-status"></div>
-        <div id="video-grid" class="video-grid"></div>
-
-        <div class="voice-invite-row">
-          <span class="voice-section-label" style="margin:0;">CONVIDAR PARA SALA</span>
-          <div class="voice-invite-input-row">
-            <input type="text" id="voice-invite-link" readonly />
-            <button id="btn-copy-invite">Copiar</button>
-          </div>
-        </div>
-
-        <div class="voice-info-grid">
-          <div class="voice-info-card">
-            <div class="voice-section-label">ATIVIDADE DA SALA</div>
-            <div id="voice-activity-log" class="voice-activity-log"></div>
-          </div>
-          <div class="voice-info-card">
-            <div class="voice-section-label">QUALIDADE DA CONEXÃO</div>
-            <div id="voice-quality-summary" class="voice-quality-summary"></div>
-          </div>
-        </div>
+      <!-- Tela de "entrar na chamada" (igual Discord): aparece ao clicar numa
+           sala de voz da qual você ainda não faz parte — só conecta de
+           verdade (pede microfone etc) quando clica no botão. -->
+      <div id="voice-preview" class="voice-preview hidden">
+        <div class="voice-preview-icon" id="voice-preview-icon">🎮</div>
+        <h2 id="voice-preview-name" class="voice-preview-name">sala de voz</h2>
+        <div id="voice-preview-participants" class="voice-preview-participants"></div>
+        <button id="btn-join-voice-preview" class="voice-preview-join-btn">🎧 Entrar na chamada de voz</button>
       </div>
 
-      <!-- Chat da sala, ao lado da chamada — mesma conversa de texto do canal -->
-      <div id="voice-chat-col" class="voice-chat-col hidden">
-        <div class="voice-chat-header">Chat da Sala</div>
-        <div id="voice-chat-messages" class="messages"></div>
-        <form id="form-voice-message" class="message-form">
-          <input type="text" id="voice-message-input" placeholder="Mensagem..." autocomplete="off" />
-          <button type="submit">➤</button>
-        </form>
-      </div>
+      <div id="voice-incall" class="voice-incall-wrap hidden">
+        <div class="voice-main-col">
+          <div class="voice-room-header">
+            <span id="voice-participant-count" class="voice-participant-badge">0 na chamada</span>
+            <div class="voice-room-header-actions">
+              <button id="btn-toggle-voice-chat" class="header-icon-btn" title="Mostrar/esconder chat da sala">💬</button>
+            </div>
+          </div>
 
-      <div class="voice-controls-bar">
-        <div class="voice-controls">
-          <button id="btn-toggle-camera" class="control-icon-btn" title="Ligar/desligar câmera">📷</button>
-          <button id="btn-share-screen" class="control-icon-btn" title="Compartilhar tela">🖥️</button>
-          <button id="btn-stop-share" class="control-icon-btn hidden active-state" title="Parar compartilhamento">⏹️</button>
-          <button id="btn-toggle-mic" class="control-icon-btn" title="Mutar/Ativar microfone">🎙️</button>
-          <button id="btn-leave-voice" class="control-icon-btn control-icon-danger control-icon-lg" title="Sair da sala">📞</button>
-          <button id="btn-mic-options" class="control-icon-btn" title="Ensurdecer/Ativar saída">🔊</button>
-          <button id="btn-voice-settings" class="control-icon-btn" title="Mais opções">⋯</button>
+          <div class="voice-section-label">NA CHAMADA</div>
+          <div id="mic-status" class="mic-status"></div>
+          <div id="video-grid" class="video-grid"></div>
+
+          <div class="voice-invite-row">
+            <span class="voice-section-label" style="margin:0;">CONVIDAR PARA SALA</span>
+            <div class="voice-invite-input-row">
+              <input type="text" id="voice-invite-link" readonly />
+              <button id="btn-copy-invite">Copiar</button>
+            </div>
+          </div>
+
+          <div class="voice-info-grid">
+            <div class="voice-info-card">
+              <div class="voice-section-label">ATIVIDADE DA SALA</div>
+              <div id="voice-activity-log" class="voice-activity-log"></div>
+            </div>
+            <div class="voice-info-card">
+              <div class="voice-section-label">QUALIDADE DA CONEXÃO</div>
+              <div id="voice-quality-summary" class="voice-quality-summary"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat da sala, ao lado da chamada — mesma conversa de texto do canal -->
+        <div id="voice-chat-col" class="voice-chat-col hidden">
+          <div class="voice-chat-header">Chat da Sala</div>
+          <div id="voice-chat-messages" class="messages"></div>
+          <form id="form-voice-message" class="message-form">
+            <input type="text" id="voice-message-input" placeholder="Mensagem..." autocomplete="off" />
+            <button type="submit">➤</button>
+          </form>
+        </div>
+
+        <div class="voice-controls-bar">
+          <div class="voice-controls">
+            <button id="btn-toggle-camera" class="control-icon-btn" title="Ligar/desligar câmera">📷</button>
+            <button id="btn-share-screen" class="control-icon-btn" title="Compartilhar tela">🖥️</button>
+            <button id="btn-stop-share" class="control-icon-btn hidden active-state" title="Parar compartilhamento">⏹️</button>
+            <button id="btn-toggle-mic" class="control-icon-btn" title="Mutar/Ativar microfone">🎙️</button>
+            <button id="btn-leave-voice" class="control-icon-btn control-icon-danger control-icon-lg" title="Sair da sala">📞</button>
+            <button id="btn-mic-options" class="control-icon-btn" title="Ensurdecer/Ativar saída">🔊</button>
+            <button id="btn-voice-settings" class="control-icon-btn" title="Mais opções">⋯</button>
+          </div>
         </div>
       </div>
     </section>

@@ -342,6 +342,24 @@ async function loadServerIcons() {
   } catch (_) {}
 }
 
+// ---------- NÃO LIDAS: badge vermelho no ícone do servidor, igual Discord ----------
+// Conta por servidor (não por canal individual) — zera assim que a pessoa
+// clica no ícone daquele servidor ou abre qualquer canal dele.
+const unreadByCategory = {};
+
+function bumpUnreadServer(category) {
+  if (!category) return;
+  if (category === activeServerCategory && document.visibilityState === 'visible') return; // já estava vendo
+  unreadByCategory[category] = (unreadByCategory[category] || 0) + 1;
+  renderServerRail([...new Set(allChannels.map((c) => c.category))]);
+}
+
+function markServerRead(category) {
+  if (!category || !unreadByCategory[category]) return;
+  delete unreadByCategory[category];
+  renderServerRail([...new Set(allChannels.map((c) => c.category))]);
+}
+
 // Trilho de servidores (coluna de ícones à esquerda, igual Discord) —
 // cada categoria criada pelos usuários vira um "servidor" clicável aqui.
 function renderServerRail(categories) {
@@ -353,8 +371,18 @@ function renderServerRail(categories) {
     if (category === activeServerCategory) btn.classList.add('active');
     btn.title = category;
     btn.textContent = serverIcons[category] || serverInitials(category);
+
+    const unread = unreadByCategory[category];
+    if (unread) {
+      const badge = document.createElement('span');
+      badge.className = 'server-icon-badge';
+      badge.textContent = unread > 99 ? '99+' : String(unread);
+      btn.appendChild(badge);
+    }
+
     btn.onclick = () => {
       activeServerCategory = category;
+      markServerRead(category);
       renderServerRail(categories);
       renderCategories(allChannels);
     };
@@ -368,7 +396,21 @@ function serverInitials(category) {
   return (words[0] || '?').slice(0, 2).toUpperCase();
 }
 
-// Mostra só os canais do servidor (categoria) ativo no momento.
+// Estado de categorias recolhidas (lembrado entre sessões), igual Discord —
+// chave por servidor+tipo pra cada servidor guardar seu próprio estado.
+let collapsedGroups = {};
+try {
+  collapsedGroups = JSON.parse(localStorage.getItem('ng_collapsed_groups') || '{}');
+} catch (_) {
+  collapsedGroups = {};
+}
+function saveCollapsedGroups() {
+  localStorage.setItem('ng_collapsed_groups', JSON.stringify(collapsedGroups));
+}
+
+// Mostra só os canais do servidor (categoria) ativo no momento, agrupados em
+// "CANAIS DE TEXTO" e "CANAIS DE VOZ" com seta pra recolher/expandir, e um
+// icone que aparece só no hover de cada canal — tudo clicável com o mouse.
 function renderCategories(channels) {
   const container = document.getElementById('categories-container');
   container.innerHTML = '';
@@ -379,36 +421,105 @@ function renderCategories(channels) {
     : 'NEXT GAME';
 
   const channelsInServer = channels.filter((ch) => ch.category === activeServerCategory);
+  const groups = [
+    { key: 'texto', label: 'CANAIS DE TEXTO', channels: channelsInServer.filter((c) => c.type === 'texto') },
+    { key: 'voz', label: 'CANAIS DE VOZ', channels: channelsInServer.filter((c) => c.type === 'voz') },
+  ];
 
-  const list = document.createElement('div');
-  list.className = 'channel-list';
-  channelsInServer.forEach((ch) => {
-    const row = document.createElement('div');
-    row.className = 'channel-item-row';
+  groups.forEach((group) => {
+    if (group.channels.length === 0) return;
+    const groupKey = activeServerCategory + '::' + group.key;
+    const isCollapsed = !!collapsedGroups[groupKey];
 
-    const el = document.createElement('div');
-    el.className = 'channel-item';
-    if (currentChannel && currentChannel.id === ch.id) el.classList.add('active');
-    if (ch.type === 'voz' && connectedVoiceRoomId === ch.id) el.classList.add('connected');
-    el.textContent = (ch.type === 'voz' ? '🔊 ' : '# ') + ch.name;
-    el.onclick = () => selectChannel(ch);
-    row.appendChild(el);
+    const header = document.createElement('div');
+    header.className = 'channel-category-header';
+    header.innerHTML = `<span class="channel-category-chevron ${isCollapsed ? 'collapsed' : ''}">▾</span><span>${group.label}</span>`;
+    header.onclick = () => {
+      collapsedGroups[groupKey] = !collapsedGroups[groupKey];
+      saveCollapsedGroups();
+      renderCategories(allChannels);
+    };
+    container.appendChild(header);
 
-    if (ch.type === 'voz' && voiceParticipants[ch.id] && voiceParticipants[ch.id].length > 0) {
-      const chips = document.createElement('div');
-      chips.className = 'voice-participants';
-      voiceParticipants[ch.id].forEach((p) => {
-        const chip = document.createElement('div');
-        chip.className = 'participant-chip';
-        chip.innerHTML = `<span class="participant-avatar">${escapeHtml((p.username || '?')[0].toUpperCase())}</span>${escapeHtml(p.username)}`;
-        chips.appendChild(chip);
-      });
-      row.appendChild(chips);
-    }
+    if (isCollapsed) return;
 
-    list.appendChild(row);
+    const list = document.createElement('div');
+    list.className = 'channel-list';
+    group.channels.forEach((ch) => {
+      const row = document.createElement('div');
+      row.className = 'channel-item-row';
+
+      const el = document.createElement('div');
+      el.className = 'channel-item';
+      if (currentChannel && currentChannel.id === ch.id) el.classList.add('active');
+      if (ch.type === 'voz' && connectedVoiceRoomId === ch.id) el.classList.add('connected');
+
+      const label = document.createElement('span');
+      label.className = 'channel-item-label';
+      label.textContent = (ch.type === 'voz' ? '🔊 ' : '# ') + ch.name;
+      el.appendChild(label);
+      el.onclick = () => selectChannel(ch);
+
+      // Ícones que só aparecem passando o mouse em cima — igual Discord.
+      const actions = document.createElement('span');
+      actions.className = 'channel-item-actions';
+
+      const inviteBtn = document.createElement('button');
+      inviteBtn.type = 'button';
+      inviteBtn.className = 'channel-action-icon';
+      inviteBtn.title = 'Copiar link do canal';
+      inviteBtn.textContent = '🔗';
+      inviteBtn.onclick = (e) => {
+        e.stopPropagation();
+        const url = `${window.location.origin}/?channel=${ch.id}`;
+        navigator.clipboard.writeText(url).catch(() => {});
+        showCopyToast('Link do canal copiado!');
+      };
+      actions.appendChild(inviteBtn);
+
+      const settingsBtn = document.createElement('button');
+      settingsBtn.type = 'button';
+      settingsBtn.className = 'channel-action-icon';
+      settingsBtn.title = 'Gerenciar servidor';
+      settingsBtn.textContent = '⚙️';
+      settingsBtn.onclick = (e) => {
+        e.stopPropagation();
+        document.getElementById('btn-server-manage').click();
+      };
+      actions.appendChild(settingsBtn);
+
+      el.appendChild(actions);
+      row.appendChild(el);
+
+      if (ch.type === 'voz' && voiceParticipants[ch.id] && voiceParticipants[ch.id].length > 0) {
+        const chips = document.createElement('div');
+        chips.className = 'voice-participants';
+        voiceParticipants[ch.id].forEach((p) => {
+          const chip = document.createElement('div');
+          chip.className = 'participant-chip';
+          chip.innerHTML = `<span class="participant-avatar">${escapeHtml((p.username || '?')[0].toUpperCase())}</span>${escapeHtml(p.username)}`;
+          chips.appendChild(chip);
+        });
+        row.appendChild(chips);
+      }
+
+      list.appendChild(row);
+    });
+    container.appendChild(list);
   });
-  container.appendChild(list);
+}
+
+// Pequeno toast simples de confirmação (reaproveitado pros ícones de hover).
+function showCopyToast(text) {
+  const toast = document.createElement('div');
+  toast.className = 'copy-toast';
+  toast.textContent = text;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('copy-toast-show'));
+  setTimeout(() => {
+    toast.classList.remove('copy-toast-show');
+    setTimeout(() => toast.remove(), 200);
+  }, 1800);
 }
 
 // ---------- INFORMAÇÕES/REGRAS DO SERVIDOR ----------
@@ -1405,7 +1516,7 @@ async function openDmCall(userId, username) {
   }
   modalFriends.classList.add('hidden');
   socket.emit('dm:ring', { toUserId: userId, channelId: data.channel_id, fromUsername: me.username });
-  selectChannel({ id: data.channel_id, type: 'voz', name: '📞 ' + username });
+  selectChannel({ id: data.channel_id, type: 'voz', name: '📞 ' + username }, { autoConnect: true });
 }
 
 // Notificação de "alguém está te ligando" — toast com som, mesmo padrão dos
@@ -1423,7 +1534,7 @@ function showCallToast(fromUsername, channelId) {
   toast.style.cursor = 'pointer';
   toast.onclick = () => {
     toast.remove();
-    selectChannel({ id: channelId, type: 'voz', name: '📞 ' + fromUsername });
+    selectChannel({ id: channelId, type: 'voz', name: '📞 ' + fromUsername }, { autoConnect: true });
   };
   document.body.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add('reward-toast-show'));
@@ -1809,7 +1920,12 @@ document.getElementById('form-profile').onsubmit = async (e) => {
 // Clicar num canal SEMPRE troca o que aparece no painel principal. Só entra
 // (ou sai) de uma conexão de voz de verdade quando faz sentido — navegar por
 // canais de texto NÃO desconecta você da call, igual Discord.
-function selectChannel(channel) {
+// `options.autoConnect` pula a telinha de "Entrar na chamada" e conecta na
+// hora — usado só quando a intenção já é 100% clara (ligar pra um amigo,
+// atender uma chamada recebida), igual o botão de ligação do Discord.
+function selectChannel(channel, options = {}) {
+  const autoConnect = !!options.autoConnect;
+
   // sai do canal de TEXTO anterior (sala de voz não é "deixada" só por trocar de tela)
   if (currentChannel && currentChannel.type === 'texto') {
     socket.emit('channel:leave', currentChannel.id);
@@ -1824,11 +1940,11 @@ function selectChannel(channel) {
   if (channel.type === 'voz') {
     document.getElementById('text-panel').classList.add('hidden');
     document.getElementById('voice-panel').classList.remove('hidden');
-    if (connectedVoiceRoomId !== channel.id) {
-      // já conectado em outra sala de voz? troca (só dá pra estar em uma por vez)
+    if (autoConnect && connectedVoiceRoomId !== channel.id) {
       if (connectedVoiceRoomId) disconnectVoice();
       connectVoice(channel.id);
     }
+    updateVoicePanelView(channel);
     // se já está conectado nessa mesma sala, só mostra a tela de novo — os
     // tiles de vídeo/áudio continuam vivos desde a última vez.
   } else {
@@ -1837,8 +1953,42 @@ function selectChannel(channel) {
     joinTextChannel(channel.id);
   }
 
+  markServerRead(channel.category);
   renderCategories(allChannels);
   updateClearChannelButton();
+}
+
+// Alterna entre a tela de "Entrar na chamada" (não conectado ainda) e a view
+// de dentro da call (vídeo, controles etc), sem duplicar nenhum HTML.
+function updateVoicePanelView(channel) {
+  const isConnected = connectedVoiceRoomId === channel.id;
+  document.getElementById('voice-preview').classList.toggle('hidden', isConnected);
+  document.getElementById('voice-incall').classList.toggle('hidden', !isConnected);
+  if (!isConnected) renderVoicePreview(channel);
+}
+
+function renderVoicePreview(channel) {
+  document.getElementById('voice-preview-name').textContent = channel.name;
+  const participants = voiceParticipants[channel.id] || [];
+  const listEl = document.getElementById('voice-preview-participants');
+  if (participants.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Ninguém está em voz</p>';
+  } else {
+    listEl.innerHTML = '';
+    participants.forEach((p) => {
+      const chip = document.createElement('div');
+      chip.className = 'voice-preview-participant';
+      chip.innerHTML = `<span class="participant-avatar">${escapeHtml(
+        (p.username || '?')[0].toUpperCase()
+      )}</span>${escapeHtml(p.username)}`;
+      listEl.appendChild(chip);
+    });
+  }
+  document.getElementById('btn-join-voice-preview').onclick = () => {
+    if (connectedVoiceRoomId && connectedVoiceRoomId !== channel.id) disconnectVoice();
+    connectVoice(channel.id);
+    updateVoicePanelView(channel);
+  };
 }
 
 // Volta pra tela de Início (dashboard), saindo do canal de texto atual (a
@@ -2447,6 +2597,13 @@ function registerSocketHandlers() {
     alert('⚠️ ' + reason);
   });
 
+  // Mensagem nova em algum canal de um servidor que não estou olhando agora
+  // — acende o badge vermelho no ícone dele no trilho, igual Discord.
+  socket.on('server:activity', ({ category, channel_id }) => {
+    if (currentChannel && currentChannel.id === channel_id) return; // já estou vendo esse canal
+    bumpUnreadServer(category);
+  });
+
   socket.on('chat:edited', ({ id, content, channel_id }) => {
     if (!currentChannel || channel_id !== currentChannel.id) return;
     const el = document.querySelector(`.message[data-id="${id}"] .content`);
@@ -2530,11 +2687,15 @@ function registerSocketHandlers() {
   socket.on('voice:state', (state) => {
     voiceParticipants = state;
     renderCategories(allChannels);
+    if (currentChannel && currentChannel.type === 'voz') updateVoicePanelView(currentChannel);
   });
 
   socket.on('voice:update', ({ roomId, participants }) => {
     voiceParticipants[roomId] = participants;
     renderCategories(allChannels);
+    if (currentChannel && currentChannel.type === 'voz' && currentChannel.id === roomId) {
+      updateVoicePanelView(currentChannel);
+    }
   });
 
   // Alguém te ligou diretamente (DM) — mostra um toast com som pra atender.
@@ -2662,10 +2823,10 @@ function updateVoiceParticipantCount() {
 }
 
 document.getElementById('btn-toggle-voice-chat').onclick = () => {
-  document.getElementById('voice-panel').classList.toggle('chat-open');
+  document.getElementById('voice-incall').classList.toggle('chat-open');
   document.getElementById('btn-toggle-voice-chat').classList.toggle(
     'active-state',
-    document.getElementById('voice-panel').classList.contains('chat-open')
+    document.getElementById('voice-incall').classList.contains('chat-open')
   );
 };
 

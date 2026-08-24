@@ -2188,6 +2188,13 @@ io.on('connection', (socket) => {
   // mandar notificações direcionadas, tipo "alguém está te ligando".
   socket.join('user:' + user.id);
 
+  // Entra numa sala por servidor do qual é membro — usada só pra avisar "tem
+  // mensagem nova em algum canal desse servidor" (badge de não lida no
+  // trilho lateral), sem precisar estar com aquele canal aberto de verdade.
+  db.all('SELECT category FROM server_members WHERE user_id = ?', [user.id])
+    .then((rows) => rows.forEach((r) => socket.join('server:' + r.category)))
+    .catch((err) => console.error('Erro ao entrar nas salas de servidor:', err));
+
   socket.emit('voice:state', voiceStateSnapshot());
 
   onlineUsers.set(user.id, (onlineUsers.get(user.id) || 0) + 1);
@@ -2258,6 +2265,19 @@ io.on('connection', (socket) => {
         created_at: new Date().toISOString(),
       };
       io.to(channelId).emit('chat:message', payload);
+
+      // Avisa (só um evento leve, sem o conteúdo) todo mundo que é membro do
+      // MESMO SERVIDOR desse canal, mesmo quem não está com ele aberto agora
+      // — é o que acende o badge de não lida no ícone do trilho lateral.
+      if (!channelId.startsWith('dm::')) {
+        const parentChannel = await db.get('SELECT category FROM channels WHERE id = ?', [channelId]);
+        if (parentChannel) {
+          socket.to('server:' + parentChannel.category).emit('server:activity', {
+            category: parentChannel.category,
+            channel_id: channelId,
+          });
+        }
+      }
 
       // Se essa DM é com o bot assistente de IA, gera a resposta dele.
       if (channelId.startsWith('dm::')) {
