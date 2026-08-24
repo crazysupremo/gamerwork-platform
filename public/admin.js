@@ -14,6 +14,7 @@ async function init() {
   document.getElementById('admin-content').classList.remove('hidden');
   loadReports();
   loadBlocked();
+  loadFlaggedFrames();
   loadFlagged();
   loadUsers();
 }
@@ -95,6 +96,46 @@ async function loadBlocked() {
   );
 }
 
+async function loadFlaggedFrames() {
+  const res = await fetch('/api/admin/flagged-frames', { credentials: 'include' });
+  const rows = await res.json();
+  const tbody = document.querySelector('#flagged-frames-table tbody');
+  tbody.innerHTML = '';
+  rows.forEach((f) => {
+    const categories = (() => {
+      try {
+        return JSON.parse(f.categories || '[]').join(', ');
+      } catch (_) {
+        return '';
+      }
+    })();
+    const tr = document.createElement('tr');
+    if (f.reviewed) tr.style.opacity = '0.5';
+    tr.innerHTML = `
+      <td>${new Date(f.created_at).toLocaleString('pt-BR')}</td>
+      <td>${escapeHtml(f.username)}</td>
+      <td>${escapeHtml(f.reason || '-')}</td>
+      <td>${escapeHtml(categories)}</td>
+      <td>
+        ${f.reviewed ? 'Revisado' : `<button class="action" data-action="review" data-id="${f.id}">Marcar revisado</button>`}
+        <button class="action danger" data-action="ban" data-id="${f.user_id}">Banir usuário</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('button[data-action="review"]').forEach((btn) =>
+    btn.addEventListener('click', () => reviewFlaggedFrame(btn.dataset.id))
+  );
+  tbody.querySelectorAll('button[data-action="ban"]').forEach((btn) =>
+    btn.addEventListener('click', () => banUser(btn.dataset.id))
+  );
+}
+
+async function reviewFlaggedFrame(id) {
+  await fetch(`/api/admin/flagged-frames/${id}/review`, { method: 'POST', credentials: 'include' });
+  loadFlaggedFrames();
+}
+
 async function loadFlagged() {
   const res = await fetch('/api/admin/flagged-messages', { credentials: 'include' });
   const rows = await res.json();
@@ -154,6 +195,7 @@ async function banUser(id) {
   loadUsers();
   loadReports();
   loadBlocked();
+  loadFlaggedFrames();
 }
 
 async function unbanUser(id) {

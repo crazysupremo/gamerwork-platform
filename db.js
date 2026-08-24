@@ -214,6 +214,17 @@ async function initDb() {
       user_b TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS flagged_frames (
+      id TEXT PRIMARY KEY,
+      channel_id TEXT,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      reason TEXT,
+      categories TEXT,
+      reviewed INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Migração leve pra bancos criados antes de alguma dessas colunas existir.

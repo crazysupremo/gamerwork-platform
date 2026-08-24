@@ -146,12 +146,17 @@ const SFX = (() => {
 })();
 
 // Destrava o áudio na primeira interação do usuário na página (política dos
-// navegadores exige um gesto antes de tocar qualquer som).
+// navegadores exige um gesto antes de tocar qualquer som) — e já aproveita
+// pra iniciar a música de fundo, se ainda estiver na tela de login.
 ['click', 'keydown'].forEach((evt) => {
   window.addEventListener(
     evt,
     () => {
       if (SFX.isEnabled()) SFX.message && null; // no-op só pra garantir que o módulo carregou
+      const authScreen = document.getElementById('auth-screen');
+      if (authScreen && !authScreen.classList.contains('hidden')) {
+        MusicEngine.start();
+      }
     },
     { once: true, passive: true }
   );
@@ -253,3 +258,131 @@ function celebrateNewRewards(rewardsData, userId) {
   }
   localStorage.setItem(storageKey, JSON.stringify(unlockedNow.map((r) => r.key)));
 }
+
+// ---------- MÚSICA DE FUNDO (tela de login) ----------
+// Faixa animada tocando em loop, composta na hora via Web Audio (mesmo
+// princípio do resto do sfx.js — sem arquivo de música, sem direitos
+// autorais). Progressão Am-F-C-G com baixo, arpejo, kick e hi-hat, 128 BPM.
+const MusicEngine = (() => {
+  let ctx = null;
+  let masterGain = null;
+  let playing = false;
+  let nextNoteTime = 0;
+  let schedulerId = null;
+  let current16th = 0;
+  let musicEnabled = localStorage.getItem('ng_login_music') !== 'off'; // ligado por padrão
+
+  const bpm = 128;
+  const secondsPer16th = 60 / bpm / 4;
+
+  const progression = [
+    { bass: 110.0, chord: [220.0, 261.63, 329.63] }, // Am
+    { bass: 87.31, chord: [174.61, 220.0, 261.63] }, // F
+    { bass: 130.81, chord: [261.63, 329.63, 392.0] }, // C
+    { bass: 98.0, chord: [196.0, 246.94, 293.66] }, // G
+  ];
+
+  function getCtx() {
+    if (!ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return null;
+      ctx = new AudioCtx();
+      masterGain = ctx.createGain();
+      masterGain.gain.value = 0.16;
+      masterGain.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    return ctx;
+  }
+
+  function playNote(freq, time, duration, type, gain) {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0, time);
+    g.gain.linearRampToValueAtTime(gain, time + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+    osc.connect(g).connect(masterGain);
+    osc.start(time);
+    osc.stop(time + duration + 0.02);
+  }
+
+  function playKick(time) {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, time);
+    osc.frequency.exponentialRampToValueAtTime(40, time + 0.12);
+    g.gain.setValueAtTime(0.45, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+    osc.connect(g).connect(masterGain);
+    osc.start(time);
+    osc.stop(time + 0.16);
+  }
+
+  function playHat(time) {
+    const bufferSize = Math.floor(ctx.sampleRate * 0.03);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 7000;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.1, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+    noise.connect(filter).connect(g).connect(masterGain);
+    noise.start(time);
+    noise.stop(time + 0.04);
+  }
+
+  function scheduleStep(step, time) {
+    const barIndex = Math.floor(step / 16) % progression.length;
+    const { bass, chord } = progression[barIndex];
+    const beatInBar = step % 16;
+
+    if (beatInBar % 4 === 0) playNote(bass, time, secondsPer16th * 3.5, 'sawtooth', 0.2);
+    const arpPattern = [0, 1, 2, 1];
+    playNote(chord[arpPattern[beatInBar % 4]], time, secondsPer16th * 0.9, 'triangle', 0.09);
+    if (beatInBar === 0 || beatInBar === 8) playKick(time);
+    if (beatInBar % 2 === 1) playHat(time);
+  }
+
+  function scheduler() {
+    if (!ctx) return;
+    while (nextNoteTime < ctx.currentTime + 0.12) {
+      scheduleStep(current16th, nextNoteTime);
+      nextNoteTime += secondsPer16th;
+      current16th++;
+    }
+    schedulerId = setTimeout(scheduler, 25);
+  }
+
+  return {
+    isEnabled: () => musicEnabled,
+    isPlaying: () => playing,
+    setEnabled(value) {
+      musicEnabled = value;
+      localStorage.setItem('ng_login_music', value ? 'on' : 'off');
+      if (value) this.start();
+      else this.stop();
+    },
+    start() {
+      if (playing || !musicEnabled) return;
+      const audioCtx = getCtx();
+      if (!audioCtx) return;
+      playing = true;
+      current16th = 0;
+      nextNoteTime = audioCtx.currentTime + 0.1;
+      scheduler();
+    },
+    stop() {
+      playing = false;
+      if (schedulerId) clearTimeout(schedulerId);
+      schedulerId = null;
+    },
+  };
+})();

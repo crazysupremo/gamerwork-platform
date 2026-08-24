@@ -432,7 +432,9 @@ app.post(
     const existingEmail = await db.get('SELECT id FROM users WHERE email = ?', [email]);
     if (existingEmail) return res.status(409).json({ error: 'Já existe uma conta com esse e-mail' });
 
-    const countRow = await db.get('SELECT COUNT(*) as c FROM users');
+    // Não conta o usuário-bot da IA aqui, senão a primeira pessoa de verdade
+    // que se cadastra nunca vira admin (o bot já ocupa a "vaga" de primeiro).
+    const countRow = await db.get('SELECT COUNT(*) as c FROM users WHERE id != ?', [AI_BOT_USER_ID]);
     const isFirstUser = Number(countRow.c) === 0;
     const id = uuidv4();
     const password_hash = bcrypt.hashSync(password, 10);
@@ -1364,6 +1366,123 @@ async function triggerAiReply(channelId) {
   }
 }
 
+// ---------- MODERAÇÃO DE TELA COMPARTILHADA (câmera adicional de segurança) ----------
+// IMPORTANTE: isso usa um modelo de visão de propósito geral (Groq) pra dar
+// uma camada A MAIS de segurança sobre transmissões — NÃO é, e não deve ser
+// tratado como, um substituto de serviços especializados de detecção de CSAM
+// (PhotoDNA/Thorn), que comparam contra bancos de hashes conhecidos em vez de
+// "olhar e julgar" a imagem. Por isso o prompt abaixo pede pra marcar só
+// categorias gerais (armas, violência gráfica real, conteúdo sexual
+// explícito) — nunca pedimos ao modelo pra tentar identificar exploração
+// infantil especificamente, porque isso não é um uso apropriado/confiável de
+// um modelo generativo e a maioria dos provedores de IA proíbe esse uso.
+// Nunca guardamos a imagem em si — só o veredito, pra revisão humana.
+app.post(
+  '/api/moderate-frame',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { image, channelId } = req.body || {};
+    if (!image || typeof image !== 'string' || !image.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'Imagem inválida' });
+    }
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) return res.json({ flagged: false, skipped: true });
+
+    try {
+      const visionModel = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+      const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+        body: JSON.stringify({
+          model: visionModel,
+          max_tokens: 200,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text:
+                    'Esta imagem é um print de uma tela compartilhada numa plataforma de chat/voz pra gamers e ' +
+                    'equipes de trabalho. Responda APENAS um JSON, sem texto extra, no formato ' +
+                    '{"flagged": true ou false, "categories": [...], "reason": "..."}. ' +
+                    'Marque flagged=true SOMENTE se a imagem mostrar claramente: armas de fogo reais anunciadas ' +
+                    'pra venda, instruções de fabricação de explosivos, violência física grave/sangue real (não ' +
+                    'de jogos, filmes ou desenhos), ou conteúdo sexual explícito real. NÃO marque telas de jogos, ' +
+                    'código, memes, capturas de tela comuns, ou qualquer conteúdo fictício/ficcional. Na dúvida, ' +
+                    'marque flagged=false.',
+                },
+                { type: 'image_url', image_url: { url: image } },
+              ],
+            },
+          ],
+        }),
+      });
+
+      if (!apiRes.ok) {
+        const errText = await apiRes.text();
+        console.error('Erro na moderação de frame (Groq):', apiRes.status, errText);
+        return res.json({ flagged: false, error: true });
+      }
+
+      const data = await apiRes.json();
+      const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '{}';
+      let parsed = {};
+      try {
+        const match = text.match(/\{[\s\S]*\}/);
+        parsed = JSON.parse(match ? match[0] : text);
+      } catch (_) {
+        parsed = {};
+      }
+
+      if (parsed.flagged) {
+        const id = uuidv4();
+        await db.run(
+          'INSERT INTO flagged_frames (id, channel_id, user_id, username, reason, categories) VALUES (?, ?, ?, ?, ?, ?)',
+          [
+            id,
+            channelId || null,
+            req.user.id,
+            req.user.username,
+            parsed.reason || null,
+            JSON.stringify(parsed.categories || []),
+          ]
+        );
+        // Avisa admins conectados na hora — a ação de verdade (banir, encerrar
+        // a call) fica com um humano revisando no painel, nunca automática.
+        io.emit('moderation:frame-flagged', {
+          username: req.user.username,
+          reason: parsed.reason || 'conteúdo sinalizado',
+        });
+      }
+
+      res.json({ flagged: !!parsed.flagged });
+    } catch (err) {
+      console.error('Erro ao moderar frame:', err);
+      res.json({ flagged: false, error: true });
+    }
+  })
+);
+
+app.get(
+  '/api/admin/flagged-frames',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    res.json(await db.all('SELECT * FROM flagged_frames ORDER BY created_at DESC LIMIT 200'));
+  })
+);
+
+app.post(
+  '/api/admin/flagged-frames/:id/review',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    await db.run('UPDATE flagged_frames SET reviewed = 1 WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  })
+);
+
 // ---------- TORNEIOS ----------
 
 app.get(
@@ -1552,6 +1671,21 @@ app.get(
       });
     }
     res.json(messages);
+  })
+);
+
+// Limpa todas as mensagens de um canal/DM de uma vez — poder de moderador,
+// só pra admins do site (não é algo que qualquer usuário ou a IA pode fazer).
+// Apaga por soft-delete (mesmo campo "deleted" do apagar individual), então
+// fica no banco pra auditoria, só some da visualização normal.
+app.post(
+  '/api/channels/:id/clear',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    await db.run('UPDATE messages SET deleted = 1 WHERE channel_id = ?', [req.params.id]);
+    io.to(req.params.id).emit('chat:cleared', { channel_id: req.params.id });
+    res.json({ ok: true });
   })
 );
 

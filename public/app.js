@@ -121,6 +121,18 @@ document.getElementById('landing-cta-login').onclick = () => scrollToAuthCard('l
 document.getElementById('landing-nav-register').onclick = () => scrollToAuthCard('register');
 document.getElementById('landing-cta-register').onclick = () => scrollToAuthCard('register');
 
+// ---------- MÚSICA DE FUNDO (tela de login) ----------
+function updateLoginMusicButton() {
+  const btn = document.getElementById('btn-toggle-login-music');
+  btn.textContent = MusicEngine.isEnabled() ? '🔊 Música' : '🔇 Música';
+}
+document.getElementById('btn-toggle-login-music').onclick = (e) => {
+  e.stopPropagation(); // não deixa o clique também disparar o "unlock" genérico duas vezes
+  MusicEngine.setEnabled(!MusicEngine.isEnabled());
+  updateLoginMusicButton();
+};
+updateLoginMusicButton();
+
 // Estatísticas públicas (sem precisar estar logado) pra landing.
 fetch('/api/stats')
   .then((res) => res.json())
@@ -189,6 +201,7 @@ async function tryResumeSession() {
 function startApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
+  MusicEngine.stop();
   document.getElementById('me-username').textContent = me.username;
   renderAvatarInto(document.getElementById('me-avatar'), me);
   if (me.is_admin) document.getElementById('admin-link').classList.remove('hidden');
@@ -1802,6 +1815,7 @@ function selectChannel(channel) {
   }
 
   renderCategories(allChannels);
+  updateClearChannelButton();
 }
 
 // Volta pra tela de Início (dashboard), saindo do canal de texto atual (a
@@ -1817,12 +1831,33 @@ function goHome() {
   document.getElementById('home-panel').classList.remove('hidden');
   setNavActive('nav-inicio', true);
   renderCategories(allChannels);
+  updateClearChannelButton();
   loadHomeDashboard();
 }
 
 function setNavActive(id, active) {
   document.querySelectorAll('.navbar-link').forEach((el) => el.classList.remove('active'));
   if (active) document.getElementById(id).classList.add('active');
+}
+
+// ---------- LIMPAR CONVERSA (poder de moderador, só admin) ----------
+
+function updateClearChannelButton() {
+  const btn = document.getElementById('btn-clear-channel');
+  btn.classList.toggle('hidden', !(me.is_admin && currentChannel));
+}
+
+document.getElementById('btn-clear-channel').onclick = async () => {
+  if (!currentChannel) return;
+  if (!confirm(`Apagar TODAS as mensagens dessa conversa? Essa ação não pode ser desfeita pra quem está vendo.`)) return;
+  await fetch(`/api/channels/${currentChannel.id}/clear`, { method: 'POST', credentials: 'include' });
+};
+
+// Limpa a view de quem estiver olhando essa conversa no momento (inclusive
+// quem clicou) — chega via socket assim que o servidor confirma.
+function clearMessagesView(channelId) {
+  const container = messagesContainerFor(channelId);
+  if (container) container.innerHTML = '<p class="empty-hint">Essa conversa foi limpa por um administrador.</p>';
 }
 
 // ---------- NAVBAR (busca, sino, perfil, navegação) ----------
@@ -2484,6 +2519,21 @@ function registerSocketHandlers() {
     SFX.join();
     showCallToast(fromUsername, channelId);
   });
+
+  // Um admin limpou uma conversa — atualiza a view de quem estiver vendo agora.
+  socket.on('chat:cleared', ({ channel_id }) => {
+    if (currentChannel && currentChannel.id === channel_id) {
+      clearMessagesView(channel_id);
+    } else if (channel_id === connectedVoiceRoomId) {
+      clearMessagesView(channel_id);
+    }
+  });
+
+  // Um admin viu um frame de transmissão marcado pela moderação — avisa na hora.
+  socket.on('moderation:frame-flagged', ({ username, reason }) => {
+    if (!me.is_admin) return;
+    alert(`⚠️ Transmissão de ${username} foi marcada pela moderação: ${reason || 'conteúdo sinalizado'}. Confira no painel de admin.`);
+  });
 }
 
 // ---------- WEBRTC (voz / compartilhamento de tela) ----------
@@ -2505,6 +2555,7 @@ async function connectVoice(roomId) {
 function disconnectVoice() {
   if (!connectedVoiceRoomId) return;
   SFX.leave();
+  stopFrameModeration();
   socket.emit('rtc:leave', connectedVoiceRoomId);
   socket.emit('channel:leave', connectedVoiceRoomId);
   Object.keys(peers).forEach((id) => {
@@ -3307,6 +3358,7 @@ document.getElementById('btn-share-screen').onclick = async () => {
   document.getElementById('btn-share-screen').classList.add('hidden');
   document.getElementById('btn-stop-share').classList.remove('hidden');
   SFX.screenShareStart();
+  startFrameModeration();
 
   const hasSharedAudio = localStream.getAudioTracks().length > 0;
   setMicStatus(
@@ -3329,6 +3381,44 @@ function stopScreenShare() {
   document.getElementById('btn-stop-share').classList.add('hidden');
   updateLocalTile();
   SFX.screenShareStop();
+  stopFrameModeration();
+}
+
+// ---------- MODERAÇÃO DE TELA COMPARTILHADA (camada extra de segurança) ----------
+// Enquanto alguém está compartilhando a tela, manda um print periódico pro
+// servidor analisar. Não é substituto de moderação humana nem de detecção
+// especializada de CSAM — é só mais uma camada, com limitações reais.
+let frameModerationInterval = null;
+
+function startFrameModeration() {
+  stopFrameModeration();
+  frameModerationInterval = setInterval(captureAndModerateFrame, 15000);
+}
+
+function stopFrameModeration() {
+  if (frameModerationInterval) clearInterval(frameModerationInterval);
+  frameModerationInterval = null;
+}
+
+async function captureAndModerateFrame() {
+  const videoEl = document.querySelector('#tile-local video');
+  if (!videoEl || !videoEl.videoWidth) return;
+  try {
+    const canvas = document.createElement('canvas');
+    const scale = Math.min(1, 640 / videoEl.videoWidth);
+    canvas.width = Math.round(videoEl.videoWidth * scale);
+    canvas.height = Math.round(videoEl.videoHeight * scale);
+    canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+    const image = canvas.toDataURL('image/jpeg', 0.6);
+    await fetch('/api/moderate-frame', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ image, channelId: connectedVoiceRoomId }),
+    });
+  } catch (_) {
+    // falha silenciosa — não deve atrapalhar quem está compartilhando a tela
+  }
 }
 
 document.getElementById('btn-leave-voice').onclick = () => {
