@@ -338,6 +338,15 @@
       Cancelamento de ruído (reduz barulho de fundo do microfone)
     </label>
 
+    <label class="checkbox-row">
+      <input type="checkbox" id="noise-gate-toggle" checked />
+      Portão de ruído — silêncio total quando você não está falando
+    </label>
+    <div id="noise-gate-sensitivity-row" style="margin-top:6px;">
+      <span class="hint" style="margin:0 0 4px; display:block;">Sensibilidade do portão</span>
+      <input type="range" id="noise-gate-sensitivity" min="0" max="100" value="30" style="width:100%;" />
+    </div>
+
     <label>Modo de fala</label>
     <select id="talk-mode-select">
       <option value="voice">Ativação por voz (microfone sempre ativo)</option>
@@ -591,6 +600,19 @@
       </div>
       <div id="quiz-result"></div>
     </form>
+  </div>
+</div>
+
+<!-- MODAL: preview de perfil (clicar num avatar/nome, estilo Discord) -->
+<div id="modal-profile-preview" class="modal-overlay hidden">
+  <div class="modal-card profile-preview-card">
+    <div id="profile-preview-avatar" class="profile-preview-avatar"></div>
+    <h2 id="profile-preview-username"></h2>
+    <p id="profile-preview-status" class="profile-preview-status"></p>
+    <div id="profile-preview-actions" class="profile-preview-actions"></div>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-profile-preview">Fechar</button>
+    </div>
   </div>
 </div>
 

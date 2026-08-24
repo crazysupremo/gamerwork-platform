@@ -253,6 +253,12 @@ function renderMembers() {
           ${u.status_message ? `<div class="member-game">🎮 ${escapeHtml(u.status_message)}</div>` : ''}
         </div>
       `;
+      row.style.cursor = 'pointer';
+      row.onclick = () => openProfilePreview(u);
+      row.oncontextmenu = (e) => {
+        e.preventDefault();
+        showContextMenu(e.clientX, e.clientY, buildUserContextMenuItems(u));
+      };
       container.appendChild(row);
     });
   };
@@ -1199,11 +1205,14 @@ document.getElementById('nav-friends').onclick = () => {
 };
 document.getElementById('btn-close-friends').onclick = () => modalFriends.classList.add('hidden');
 
+let friendsCache = { friends: [], incoming: [], outgoing: [] };
+
 async function refreshFriendsBadge() {
   try {
     const res = await fetch('/api/friends', { credentials: 'include' });
     if (!res.ok) return;
     const data = await res.json();
+    friendsCache = data;
     const badge = document.getElementById('navbar-friends-badge');
     if (data.incoming.length > 0) {
       badge.textContent = data.incoming.length;
@@ -1214,9 +1223,25 @@ async function refreshFriendsBadge() {
   } catch (_) {}
 }
 
+// Status de amizade com alguém ('friend' | 'pending_out' | 'pending_in' | null)
+// — usado pelo menu de contexto e no preview de perfil.
+function getFriendStatus(userId) {
+  if (friendsCache.friends.some((f) => f.user.id === userId)) return 'friend';
+  if (friendsCache.outgoing.some((f) => f.user.id === userId)) return 'pending_out';
+  if (friendsCache.incoming.some((f) => f.user.id === userId)) return 'pending_in';
+  return null;
+}
+
+function findFriendshipId(userId) {
+  const all = [...friendsCache.friends, ...friendsCache.outgoing, ...friendsCache.incoming];
+  const match = all.find((f) => f.user.id === userId);
+  return match ? match.friendship_id : null;
+}
+
 async function loadFriends() {
   const res = await fetch('/api/friends', { credentials: 'include' });
   const data = await res.json();
+  friendsCache = data;
 
   const incomingSection = document.getElementById('friends-incoming-section');
   const outgoingSection = document.getElementById('friends-outgoing-section');
@@ -1317,6 +1342,153 @@ document.getElementById('form-add-friend').onsubmit = async (e) => {
   input.value = '';
   loadFriends();
 };
+
+// ---------- MENU DE CONTEXTO (clique direito, estilo Discord) ----------
+
+let activeContextMenu = null;
+
+function closeContextMenu() {
+  if (activeContextMenu) {
+    activeContextMenu.remove();
+    activeContextMenu = null;
+  }
+}
+document.addEventListener('click', closeContextMenu);
+document.addEventListener('scroll', closeContextMenu, true);
+window.addEventListener('resize', closeContextMenu);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeContextMenu();
+});
+
+// items: [{ icon, label, danger, onClick }] ou { separator: true }
+function showContextMenu(x, y, items) {
+  closeContextMenu();
+  const menu = document.createElement('div');
+  menu.className = 'context-menu';
+  items.forEach((item) => {
+    if (item.separator) {
+      const sep = document.createElement('div');
+      sep.className = 'context-menu-separator';
+      menu.appendChild(sep);
+      return;
+    }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'context-menu-item' + (item.danger ? ' context-menu-item-danger' : '');
+    btn.innerHTML = `${item.icon ? `<span class="context-menu-icon">${item.icon}</span>` : ''}<span>${escapeHtml(item.label)}</span>`;
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      closeContextMenu();
+      item.onClick();
+    };
+    menu.appendChild(btn);
+  });
+  document.body.appendChild(menu);
+  const rect = menu.getBoundingClientRect();
+  const maxX = window.innerWidth - rect.width - 8;
+  const maxY = window.innerHeight - rect.height - 8;
+  menu.style.left = Math.max(4, Math.min(x, maxX)) + 'px';
+  menu.style.top = Math.max(4, Math.min(y, maxY)) + 'px';
+  activeContextMenu = menu;
+}
+
+// Monta as ações disponíveis pra um usuário (usado tanto no menu de contexto
+// quanto nos botões do preview de perfil) — amizade, e banir se for admin do site.
+function userActionItems(user) {
+  const items = [];
+  if (user.id === me.id) return items;
+
+  const friendStatus = getFriendStatus(user.id);
+  if (friendStatus === 'friend') {
+    items.push({
+      icon: '💔',
+      label: 'Desfazer amizade',
+      onClick: async () => {
+        const fid = findFriendshipId(user.id);
+        if (fid) await fetch(`/api/friends/${fid}`, { method: 'DELETE', credentials: 'include' });
+        refreshFriendsBadge();
+      },
+    });
+  } else if (friendStatus === 'pending_out') {
+    items.push({ icon: '⏳', label: 'Pedido de amizade enviado', onClick: () => {} });
+  } else if (friendStatus === 'pending_in') {
+    items.push({
+      icon: '✅',
+      label: 'Aceitar pedido de amizade',
+      onClick: async () => {
+        const fid = findFriendshipId(user.id);
+        if (fid) await fetch(`/api/friends/${fid}/accept`, { method: 'POST', credentials: 'include' });
+        SFX.streakUp();
+        refreshFriendsBadge();
+      },
+    });
+  } else {
+    items.push({
+      icon: '➕',
+      label: 'Adicionar amigo',
+      onClick: async () => {
+        await fetch('/api/friends/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ username: user.username }),
+        });
+        refreshFriendsBadge();
+      },
+    });
+  }
+
+  if (me.is_admin) {
+    items.push({ separator: true });
+    items.push({
+      icon: '🔨',
+      label: 'Banir do NEXT GAME',
+      danger: true,
+      onClick: async () => {
+        if (!confirm(`Banir ${user.username} do NEXT GAME? Essa ação impede a pessoa de acessar a conta.`)) return;
+        await fetch(`/api/admin/users/${user.id}/ban`, { method: 'POST', credentials: 'include' });
+        allUsers = allUsers.filter((u) => u.id !== user.id);
+        renderMembers();
+      },
+    });
+  }
+
+  return items;
+}
+
+function buildUserContextMenuItems(user) {
+  const items = [{ icon: '👤', label: 'Ver perfil', onClick: () => openProfilePreview(user) }];
+  const actions = userActionItems(user);
+  if (actions.length > 0) items.push({ separator: true }, ...actions);
+  return items;
+}
+
+// ---------- PREVIEW DE PERFIL (ver foto de perfil grande) ----------
+
+const modalProfilePreview = document.getElementById('modal-profile-preview');
+
+function openProfilePreview(user) {
+  const avatarEl = document.getElementById('profile-preview-avatar');
+  avatarEl.innerHTML = renderAvatarHtml(user);
+  avatarEl.className = 'profile-preview-avatar ' + avatarFrameClass(user);
+  document.getElementById('profile-preview-username').textContent = user.username + (user.is_admin ? ' 👑' : '');
+  document.getElementById('profile-preview-status').textContent = user.status_message ? '🎮 ' + user.status_message : '';
+
+  const actionsEl = document.getElementById('profile-preview-actions');
+  actionsEl.innerHTML = '';
+  userActionItems(user).forEach((item) => {
+    if (item.separator) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'profile-preview-action-btn' + (item.danger ? ' profile-preview-action-danger' : '');
+    btn.innerHTML = `${item.icon} ${escapeHtml(item.label)}`;
+    btn.onclick = () => item.onClick();
+    actionsEl.appendChild(btn);
+  });
+
+  modalProfilePreview.classList.remove('hidden');
+}
+document.getElementById('btn-close-profile-preview').onclick = () => modalProfilePreview.classList.add('hidden');
 
 function updateCategoryDatalist(channels) {
   const datalist = document.getElementById('category-options');
@@ -1959,6 +2131,25 @@ function renderMessage(msg) {
     </div>
   `;
 
+  // Clique no avatar/nome abre o perfil; clique direito abre o menu de
+  // contexto (amizade, banir) — igual Discord. Não se aplica ao bot.
+  if (!isBot && author) {
+    const avatarEl = el.querySelector('.message-avatar');
+    const nameEl = el.querySelector('.meta strong');
+    [avatarEl, nameEl].forEach((elm) => {
+      elm.style.cursor = 'pointer';
+      elm.onclick = (e) => {
+        e.stopPropagation();
+        openProfilePreview(author);
+      };
+      elm.oncontextmenu = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showContextMenu(e.clientX, e.clientY, buildUserContextMenuItems(author));
+      };
+    });
+  }
+
   if (!isBot) {
     el.querySelector('.act-react').onclick = (e) => {
       e.stopPropagation();
@@ -2254,6 +2445,7 @@ function disconnectVoice() {
     micStream.getTracks().forEach((t) => t.stop());
     micStream = null;
   }
+  teardownNoiseGate();
   if (cameraStream) {
     cameraStream.getTracks().forEach((t) => t.stop());
     cameraStream = null;
@@ -2358,7 +2550,8 @@ setInterval(updateVoiceQualitySummary, 3500);
 
 function addLocalTracksToPeer(pc) {
   if (micStream) {
-    micStream.getTracks().forEach((track) => pc.addTrack(track, micStream));
+    const outgoing = getOutgoingMicStream();
+    outgoing.getTracks().forEach((track) => pc.addTrack(track, outgoing));
   }
   if (localStream) {
     localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
@@ -2476,6 +2669,7 @@ function addVideoTile(peerId, username, stream) {
       <span class="label">${escapeHtml(username || 'Participante')}</span>
       <div class="tile-controls">
         ${isRemote ? '<input type="range" class="tile-volume" min="0" max="100" value="100" title="Volume" />' : ''}
+        <button type="button" class="tile-btn tile-size-btn" title="Mudar tamanho">⬜</button>
         <button type="button" class="tile-btn tile-expand-btn" title="Ampliar">⤢</button>
         <button type="button" class="tile-btn tile-fullscreen-btn" title="Tela cheia">⛶</button>
       </div>
@@ -2483,6 +2677,26 @@ function addVideoTile(peerId, username, stream) {
     document.getElementById('video-grid').appendChild(tile);
     // remove a classe de animação depois que ela roda, pra não repetir em updates futuros
     setTimeout(() => tile.classList.remove('tile-enter'), 260);
+
+    // Tamanho manual da tile: alterna Padrão → Grande → Pequeno → Padrão.
+    // Útil principalmente pra sua própria câmera, que abre no tamanho
+    // "padrão" e nem sempre é o ideal.
+    const TILE_SIZES = [
+      { cls: '', icon: '⬜', title: 'Tamanho: padrão (clique pra aumentar)' },
+      { cls: 'tile-size-lg', icon: '⬛', title: 'Tamanho: grande (clique pra diminuir)' },
+      { cls: 'tile-size-sm', icon: '▫️', title: 'Tamanho: pequeno (clique pra voltar ao padrão)' },
+    ];
+    let tileSizeIndex = 0;
+    tile.querySelector('.tile-size-btn').onclick = (e) => {
+      e.stopPropagation();
+      TILE_SIZES.forEach((s) => s.cls && tile.classList.remove(s.cls));
+      tileSizeIndex = (tileSizeIndex + 1) % TILE_SIZES.length;
+      const next = TILE_SIZES[tileSizeIndex];
+      if (next.cls) tile.classList.add(next.cls);
+      const btn = tile.querySelector('.tile-size-btn');
+      btn.textContent = next.icon;
+      btn.title = next.title;
+    };
 
     // "Ampliar" — a tile ocupa o espaço todo dentro da própria página (sem
     // depender de nenhuma API do navegador, então nunca falha/buga).
@@ -2599,6 +2813,106 @@ function removeVideoTile(peerId) {
   if (tile) tile.remove();
 }
 
+// ---------- PORTÃO DE RUÍDO (silêncio total quando você não está falando) ----------
+// Diferente do "noiseSuppression" do navegador (que só reduz ruído contínuo
+// tipo ventilador), isso corta o áudio completamente quando você não está
+// falando — nada passa pros outros participantes: silêncio de verdade.
+let noiseGateEnabled = localStorage.getItem('ng_noise_gate') !== 'off'; // ligado por padrão
+let noiseGateSensitivity = Number(localStorage.getItem('ng_noise_gate_sensitivity') || 30); // 0-100
+let gateAudioCtx = null;
+let gateStream = null;
+let gateAnalyser = null;
+let gateGainNode = null;
+let gateRafId = null;
+let gateOpen = false;
+
+function buildNoiseGate(rawStream) {
+  teardownNoiseGate();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  gateAudioCtx = new AudioCtx();
+  const source = gateAudioCtx.createMediaStreamSource(rawStream);
+  gateAnalyser = gateAudioCtx.createAnalyser();
+  gateAnalyser.fftSize = 512;
+  gateGainNode = gateAudioCtx.createGain();
+  gateGainNode.gain.value = 0; // começa fechado até detectar fala
+  const destination = gateAudioCtx.createMediaStreamDestination();
+
+  source.connect(gateAnalyser);
+  gateAnalyser.connect(gateGainNode);
+  gateGainNode.connect(destination);
+  gateStream = destination.stream;
+  gateOpen = false;
+
+  const dataArray = new Uint8Array(gateAnalyser.frequencyBinCount);
+  const releaseFrames = 25; // "segura" a abertura um pouco pra não cortar palavras no meio
+  let silentFrames = 0;
+
+  function loop() {
+    if (!gateAnalyser) return; // desligado no meio do caminho
+    gateAnalyser.getByteTimeDomainData(dataArray);
+    let sumSquares = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const v = (dataArray[i] - 128) / 128;
+      sumSquares += v * v;
+    }
+    const rms = Math.sqrt(sumSquares / dataArray.length);
+    // sensibilidade 0-100: quanto maior, menor o limiar (abre com voz mais baixa)
+    const threshold = 0.045 - (noiseGateSensitivity / 100) * 0.035;
+    const now = gateAudioCtx.currentTime;
+    if (rms > threshold) {
+      silentFrames = 0;
+      if (!gateOpen) {
+        gateOpen = true;
+        gateGainNode.gain.cancelScheduledValues(now);
+        gateGainNode.gain.linearRampToValueAtTime(1, now + 0.02);
+      }
+    } else {
+      silentFrames++;
+      if (gateOpen && silentFrames > releaseFrames) {
+        gateOpen = false;
+        gateGainNode.gain.cancelScheduledValues(now);
+        gateGainNode.gain.linearRampToValueAtTime(0, now + 0.08);
+      }
+    }
+    gateRafId = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function teardownNoiseGate() {
+  if (gateRafId) cancelAnimationFrame(gateRafId);
+  gateRafId = null;
+  gateAnalyser = null;
+  if (gateAudioCtx) {
+    gateAudioCtx.close().catch(() => {});
+    gateAudioCtx = null;
+  }
+  gateStream = null;
+  gateOpen = false;
+}
+
+// A stream que realmente deve ser mandada pros outros participantes da call
+// (com o portão de ruído aplicado, se estiver ligado).
+function getOutgoingMicStream() {
+  if (noiseGateEnabled && gateStream) return gateStream;
+  return micStream;
+}
+
+// Troca a track de áudio já sendo enviada pra cada peer (sem precisar
+// renegociar a conexão) — usado quando liga/desliga o portão de ruído no meio de uma call.
+function applyOutgoingMicTrackToPeers() {
+  const outgoing = getOutgoingMicStream();
+  if (!outgoing) return;
+  const newTrack = outgoing.getAudioTracks()[0];
+  if (!newTrack) return;
+  Object.values(peers).forEach((pc) => {
+    const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'audio');
+    if (sender) sender.replaceTrack(newTrack).catch(() => {});
+  });
+  updateLocalTile();
+}
+
 // ---------- MICROFONE (voz de verdade, igual chamada de voz) ----------
 
 async function startMicrophone() {
@@ -2610,9 +2924,11 @@ async function startMicrophone() {
     setMicStatus('Não foi possível acessar o microfone: ' + err.message);
     return;
   }
+  if (noiseGateEnabled) buildNoiseGate(micStream);
   updateMicEnabledState();
+  const outgoing = getOutgoingMicStream();
   Object.values(peers).forEach((pc) => {
-    micStream.getTracks().forEach((track) => pc.addTrack(track, micStream));
+    outgoing.getTracks().forEach((track) => pc.addTrack(track, outgoing));
   });
   updateMicButton();
   setMicStatus(micMuted ? '🎙️ Microfone mutado' : '🎙️ Microfone ativo');
@@ -2625,6 +2941,7 @@ function stopMicrophone() {
     micStream.getTracks().forEach((t) => t.stop());
     micStream = null;
   }
+  teardownNoiseGate();
   setMicStatus('');
 }
 
@@ -2637,7 +2954,7 @@ function updateLocalTile() {
     return;
   }
   const combined = new MediaStream();
-  if (micStream) micStream.getAudioTracks().forEach((t) => combined.addTrack(t));
+  if (micStream) getOutgoingMicStream().getAudioTracks().forEach((t) => combined.addTrack(t));
   if (localStream) localStream.getVideoTracks().forEach((t) => combined.addTrack(t));
   addVideoTile('local', me.username + ' (você)', combined);
 
@@ -2935,6 +3252,9 @@ document.getElementById('btn-close-voice-settings').onclick = () => {
 
 async function populateAudioDevices() {
   document.getElementById('noise-suppression-toggle').checked = noiseSuppressionEnabled;
+  document.getElementById('noise-gate-toggle').checked = noiseGateEnabled;
+  document.getElementById('noise-gate-sensitivity').value = noiseGateSensitivity;
+  document.getElementById('noise-gate-sensitivity-row').classList.toggle('hidden', !noiseGateEnabled);
   document.getElementById('talk-mode-select').value = talkMode;
   document.getElementById('ptt-key-row').classList.toggle('hidden', talkMode !== 'ptt');
   document.getElementById('btn-ptt-key').textContent = keyLabel(pttKeyCode);
@@ -3002,6 +3322,22 @@ async function populateAudioDevices() {
         t.applyConstraints({ noiseSuppression: noiseSuppressionEnabled }).catch(() => {});
       });
     }
+  };
+
+  document.getElementById('noise-gate-toggle').onchange = (e) => {
+    noiseGateEnabled = e.target.checked;
+    localStorage.setItem('ng_noise_gate', noiseGateEnabled ? 'on' : 'off');
+    document.getElementById('noise-gate-sensitivity-row').classList.toggle('hidden', !noiseGateEnabled);
+    if (micStream) {
+      if (noiseGateEnabled) buildNoiseGate(micStream);
+      else teardownNoiseGate();
+      applyOutgoingMicTrackToPeers();
+    }
+  };
+
+  document.getElementById('noise-gate-sensitivity').oninput = (e) => {
+    noiseGateSensitivity = Number(e.target.value);
+    localStorage.setItem('ng_noise_gate_sensitivity', noiseGateSensitivity);
   };
 }
 
