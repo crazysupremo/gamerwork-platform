@@ -1049,10 +1049,12 @@ video:fullscreen { background: #000; object-fit: contain; }
 .friend-name { flex: 1; font-size: 13px; font-weight: 600; color: #dbdee1; min-width: 0; }
 .friend-status { font-size: 11px; color: var(--accent-3); font-weight: 400; }
 .friend-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.friend-accept-btn, .friend-decline-btn, .friend-remove-btn, .friend-cancel-btn {
+.friend-accept-btn, .friend-decline-btn, .friend-remove-btn, .friend-cancel-btn, .friend-message-btn, .friend-call-btn {
   background: #26272e; border: none; font-size: 13px; padding: 4px 8px; border-radius: 6px; cursor: pointer;
 }
-.friend-accept-btn:hover, .friend-decline-btn:hover, .friend-remove-btn:hover, .friend-cancel-btn:hover { background: #33353d; }
+.friend-accept-btn:hover, .friend-decline-btn:hover, .friend-remove-btn:hover, .friend-cancel-btn:hover,
+.friend-message-btn:hover, .friend-call-btn:hover { background: #33353d; }
+.friend-message-btn, .friend-call-btn { color: var(--accent-3); }
 .friend-pending-tag { font-size: 11px; color: #6d7178; }
 
 /* MENU DE CONTEXTO (botão direito, estilo Discord) */

@@ -63,6 +63,25 @@ Render reinicia o serviço. Sem essas duas variáveis, o site continua
 funcionando normalmente, só volta a usar um arquivo local que se perde a
 cada redeploy (bom só pra testar).
 
+## Passo 6 — Assistente de IA (opcional, tem custo por uso)
+
+O NEXT GAME tem um contato fixo chamado **"NEXT GAME IA"** que qualquer
+usuário pode chamar direto (sem precisar virar amigo) pra conversar com uma
+IA de verdade. Sem configurar nada, ele responde educadamente explicando que
+ainda não foi ligado — o resto do site funciona normalmente sem isso.
+
+Pra ativar:
+
+1. Crie uma conta em **console.anthropic.com** e gere uma chave de API
+   (Settings → API Keys → Create Key). **Esse é um serviço pago** — você
+   paga só pelo que for usado, sem mensalidade fixa; consulte os preços
+   atuais no próprio console antes de ativar.
+2. No Render, abra seu serviço → aba **Environment** → **Add Environment Variable**:
+   - Key: `ANTHROPIC_API_KEY` → Value: a chave que você copiou
+3. (Opcional) Pra trocar o modelo usado (o padrão é rápido e barato), adicione
+   também `ANTHROPIC_MODEL` com o nome do modelo desejado.
+4. Salve — o Render redeploya sozinho e o assistente passa a responder de verdade.
+
 ## Depois de publicar
 
 - Acesse a URL, registre-se — **o primeiro usuário que se cria vira admin**

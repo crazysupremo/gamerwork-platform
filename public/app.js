@@ -1297,8 +1297,26 @@ async function loadFriends() {
 
   const friendsList = document.getElementById('friends-list');
   friendsList.innerHTML = '';
+
+  // Assistente de IA fica sempre fixado no topo — não precisa de pedido de
+  // amizade, qualquer pessoa pode conversar com ele direto.
+  const aiRow = document.createElement('div');
+  aiRow.className = 'friend-row';
+  aiRow.innerHTML = `
+    <div class="member-avatar"><span>🤖</span></div>
+    <span class="friend-name">NEXT GAME IA <span class="friend-status">Assistente</span></span>
+    <div class="friend-actions">
+      <button type="button" class="friend-message-btn" title="Conversar">💬</button>
+    </div>
+  `;
+  aiRow.querySelector('.friend-message-btn').onclick = () => openDmText(AI_BOT_USER_ID, 'NEXT GAME IA');
+  friendsList.appendChild(aiRow);
+
   if (data.friends.length === 0) {
-    friendsList.innerHTML = '<p class="empty-hint">Você ainda não tem amigos adicionados.</p>';
+    const hint = document.createElement('p');
+    hint.className = 'empty-hint';
+    hint.textContent = 'Você ainda não tem amigos adicionados.';
+    friendsList.appendChild(hint);
   }
   data.friends.forEach((f) => {
     const row = document.createElement('div');
@@ -1311,9 +1329,13 @@ async function loadFriends() {
       </div>
       <span class="friend-name">${escapeHtml(f.user.username)}${f.user.status_message ? ` <span class="friend-status">🎮 ${escapeHtml(f.user.status_message)}</span>` : ''}</span>
       <div class="friend-actions">
+        <button type="button" class="friend-message-btn" title="Conversar">💬</button>
+        <button type="button" class="friend-call-btn" title="Ligar">📞</button>
         <button type="button" class="friend-remove-btn" title="Desfazer amizade">🗑️</button>
       </div>
     `;
+    row.querySelector('.friend-message-btn').onclick = () => openDmText(f.user.id, f.user.username);
+    row.querySelector('.friend-call-btn').onclick = () => openDmCall(f.user.id, f.user.username);
     row.querySelector('.friend-remove-btn').onclick = async () => {
       if (!confirm(`Desfazer amizade com ${f.user.username}?`)) return;
       await fetch(`/api/friends/${f.friendship_id}`, { method: 'DELETE', credentials: 'include' });
@@ -1321,6 +1343,58 @@ async function loadFriends() {
     };
     friendsList.appendChild(row);
   });
+}
+
+// ---------- MENSAGENS DIRETAS (DM) ----------
+// Reaproveita selectChannel/connectVoice — a única diferença é que o
+// channel_id vem do backend em vez de vir da lista de canais do servidor.
+
+async function openDmText(userId, username) {
+  const res = await fetch(`/api/dm/${userId}`, { credentials: 'include' });
+  const data = await res.json();
+  if (!res.ok) {
+    alert(data.error || 'Não foi possível abrir a conversa');
+    return;
+  }
+  modalFriends.classList.add('hidden');
+  selectChannel({ id: data.channel_id, type: 'texto', name: '💬 ' + username });
+}
+
+async function openDmCall(userId, username) {
+  const res = await fetch(`/api/dm/${userId}`, { credentials: 'include' });
+  const data = await res.json();
+  if (!res.ok) {
+    alert(data.error || 'Não foi possível ligar');
+    return;
+  }
+  modalFriends.classList.add('hidden');
+  socket.emit('dm:ring', { toUserId: userId, channelId: data.channel_id, fromUsername: me.username });
+  selectChannel({ id: data.channel_id, type: 'voz', name: '📞 ' + username });
+}
+
+// Notificação de "alguém está te ligando" — toast com som, mesmo padrão dos
+// avisos de recompensa.
+function showCallToast(fromUsername, channelId) {
+  const toast = document.createElement('div');
+  toast.className = 'reward-toast reward-toast-rare';
+  toast.innerHTML = `
+    <span class="reward-toast-icon">📞</span>
+    <div class="reward-toast-text">
+      <strong>${escapeHtml(fromUsername)} está te ligando</strong>
+      <span>Clique aqui pra atender</span>
+    </div>
+  `;
+  toast.style.cursor = 'pointer';
+  toast.onclick = () => {
+    toast.remove();
+    selectChannel({ id: channelId, type: 'voz', name: '📞 ' + fromUsername });
+  };
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('reward-toast-show'));
+  setTimeout(() => {
+    toast.classList.remove('reward-toast-show');
+    setTimeout(() => toast.remove(), 400);
+  }, 8000);
 }
 
 document.getElementById('form-add-friend').onsubmit = async (e) => {
@@ -2081,11 +2155,15 @@ async function loadVoiceChatHistory(channelId) {
 }
 
 const BOT_USER_ID = 'system-bot';
+const AI_BOT_USER_ID = 'ai-assistant-bot';
 
 // Salas de voz também têm chat de texto (o "Chat da Sala" ao lado da
 // chamada) — usa o mesmo channel_id, só muda pra qual <div> a mensagem vai.
 function messagesContainerFor(channelId) {
-  const isVoiceChannel = allChannels.some((c) => c.id === channelId && c.type === 'voz');
+  // Cobre tanto canais normais de voz quanto uma ligação individual (DM) —
+  // nos dois casos, se você está conectado por voz nessa sala agora, a
+  // mensagem vai pro "Chat da Sala" em vez do chat principal.
+  const isVoiceChannel = channelId === connectedVoiceRoomId || allChannels.some((c) => c.id === channelId && c.type === 'voz');
   return document.getElementById(isVoiceChannel ? 'voice-chat-messages' : 'messages');
 }
 
@@ -2399,6 +2477,12 @@ function registerSocketHandlers() {
   socket.on('voice:update', ({ roomId, participants }) => {
     voiceParticipants[roomId] = participants;
     renderCategories(allChannels);
+  });
+
+  // Alguém te ligou diretamente (DM) — mostra um toast com som pra atender.
+  socket.on('dm:ring', ({ fromUsername, channelId }) => {
+    SFX.join();
+    showCallToast(fromUsername, channelId);
   });
 }
 
@@ -2825,6 +2909,7 @@ let gateAnalyser = null;
 let gateGainNode = null;
 let gateRafId = null;
 let gateOpen = false;
+let gateLoopFn = null; // guarda o loop atual, pra retomar quando a aba volta a ficar visível
 
 function buildNoiseGate(rawStream) {
   teardownNoiseGate();
@@ -2849,7 +2934,7 @@ function buildNoiseGate(rawStream) {
   let silentFrames = 0;
 
   function loop() {
-    if (!gateAnalyser) return; // desligado no meio do caminho
+    if (!gateAnalyser || document.hidden) return; // desligado, ou aba minimizada/oculta
     gateAnalyser.getByteTimeDomainData(dataArray);
     let sumSquares = 0;
     for (let i = 0; i < dataArray.length; i++) {
@@ -2877,6 +2962,7 @@ function buildNoiseGate(rawStream) {
     }
     gateRafId = requestAnimationFrame(loop);
   }
+  gateLoopFn = loop;
   loop();
 }
 
@@ -2884,6 +2970,7 @@ function teardownNoiseGate() {
   if (gateRafId) cancelAnimationFrame(gateRafId);
   gateRafId = null;
   gateAnalyser = null;
+  gateLoopFn = null;
   if (gateAudioCtx) {
     gateAudioCtx.close().catch(() => {});
     gateAudioCtx = null;
@@ -2891,6 +2978,24 @@ function teardownNoiseGate() {
   gateStream = null;
   gateOpen = false;
 }
+
+// A aba minimizada/oculta faz o navegador pausar o requestAnimationFrame (pra
+// economizar bateria) — sem isso, quem minimiza o navegador podia ficar com
+// o portão "travado" fechado pra sempre (silêncio permanente, mesmo falando).
+// Solução: ao esconder a aba, abre o portão totalmente (áudio passa igual
+// sem portão nenhum); ao voltar, retoma a checagem normal de volume.
+document.addEventListener('visibilitychange', () => {
+  if (!gateAudioCtx || !gateGainNode) return;
+  if (document.hidden) {
+    if (gateRafId) cancelAnimationFrame(gateRafId);
+    gateRafId = null;
+    gateOpen = true;
+    gateGainNode.gain.cancelScheduledValues(gateAudioCtx.currentTime);
+    gateGainNode.gain.setValueAtTime(1, gateAudioCtx.currentTime);
+  } else if (gateLoopFn && !gateRafId) {
+    gateLoopFn();
+  }
+});
 
 // A stream que realmente deve ser mandada pros outros participantes da call
 // (com o portão de ruído aplicado, se estiver ligado).

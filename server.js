@@ -11,6 +11,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 
 const db = require('./db');
+const { AI_BOT_USER_ID, AI_BOT_USERNAME } = require('./db');
 const { scanText } = require('./moderation');
 
 const app = express();
@@ -1209,6 +1210,153 @@ app.delete(
   })
 );
 
+// ---------- MENSAGENS DIRETAS (DM) ----------
+// Reaproveita 100% a infraestrutura de chat/voz já existente (tabela
+// messages, socket chat:message, rtc:join) — o "channel_id" de uma DM é só
+// um id determinístico calculado a partir dos dois usuários, então tudo que
+// já funciona pra canais de servidor funciona pra DM sem mudar nada.
+function dmChannelId(a, b) {
+  return 'dm::' + [a, b].sort().join('::');
+}
+
+app.get(
+  '/api/dm/:userId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const targetId = req.params.userId;
+    if (targetId === req.user.id) return res.status(400).json({ error: 'Não dá pra mandar mensagem pra você mesmo' });
+
+    if (targetId !== AI_BOT_USER_ID) {
+      const [a, b] = [req.user.id, targetId].sort();
+      const friendship = await db.get(
+        "SELECT id FROM friendships WHERE user_a = ? AND user_b = ? AND status = 'accepted'",
+        [a, b]
+      );
+      if (!friendship) return res.status(403).json({ error: 'Vocês precisam ser amigos pra conversar diretamente' });
+    }
+
+    const target = await db.get('SELECT id, username, avatar, avatar_frame, is_admin FROM users WHERE id = ?', [
+      targetId,
+    ]);
+    if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    const id = dmChannelId(req.user.id, targetId);
+    const [userA, userB] = [req.user.id, targetId].sort();
+    await db.run('INSERT OR IGNORE INTO dm_channels (id, user_a, user_b) VALUES (?, ?, ?)', [id, userA, userB]);
+
+    res.json({ channel_id: id, other_user: target });
+  })
+);
+
+// Lista minhas conversas diretas (com a última mensagem, pra mostrar uma prévia).
+app.get(
+  '/api/dm',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all('SELECT * FROM dm_channels WHERE user_a = ? OR user_b = ?', [req.user.id, req.user.id]);
+    const results = [];
+    for (const row of rows) {
+      const otherId = row.user_a === req.user.id ? row.user_b : row.user_a;
+      const other = await db.get('SELECT id, username, avatar, avatar_frame FROM users WHERE id = ?', [otherId]);
+      if (!other) continue;
+      const lastMsg = await db.get(
+        'SELECT content, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 1',
+        [row.id]
+      );
+      results.push({ channel_id: row.id, other_user: other, last_message: lastMsg || null });
+    }
+    results.sort((x, y) => {
+      const tx = x.last_message ? x.last_message.created_at : '';
+      const ty = y.last_message ? y.last_message.created_at : '';
+      return ty.localeCompare(tx);
+    });
+    res.json(results);
+  })
+);
+
+// ---------- ASSISTENTE DE IA (bot que responde nas DMs com ele) ----------
+
+async function postAiMessage(channelId, content) {
+  const id = uuidv4();
+  await db.run('INSERT INTO messages (id, channel_id, user_id, username, content) VALUES (?, ?, ?, ?, ?)', [
+    id,
+    channelId,
+    AI_BOT_USER_ID,
+    AI_BOT_USERNAME,
+    content,
+  ]);
+  io.to(channelId).emit('chat:message', {
+    id,
+    channel_id: channelId,
+    user_id: AI_BOT_USER_ID,
+    username: AI_BOT_USERNAME,
+    content,
+    created_at: new Date().toISOString(),
+  });
+}
+
+async function triggerAiReply(channelId) {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      await postAiMessage(
+        channelId,
+        'Ainda não fui configurado! Peça pro administrador do site adicionar a variável de ambiente ANTHROPIC_API_KEY nas configurações do servidor (veja o DEPLOY.md).'
+      );
+      return;
+    }
+
+    // Pega as últimas mensagens da conversa como contexto (janela pequena,
+    // pra manter o custo baixo e a resposta rápida).
+    const history = await db.all(
+      'SELECT user_id, content FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 12',
+      [channelId]
+    );
+    const messages = history
+      .reverse()
+      .filter((m) => m.content && m.content.trim())
+      .map((m) => ({ role: m.user_id === AI_BOT_USER_ID ? 'assistant' : 'user', content: m.content }));
+    if (messages.length === 0) return;
+
+    const model = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
+    const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 500,
+        system:
+          'Você é o assistente de IA do NEXT GAME, uma plataforma de chat e voz pra gamers e equipes de trabalho. ' +
+          'Responda sempre em português do Brasil, de forma curta, direta e simpática. Pode ajudar com dúvidas ' +
+          'gerais, dicas de jogos, produtividade, ou sobre como usar a própria plataforma.',
+        messages,
+      }),
+    });
+
+    if (!apiRes.ok) {
+      const errText = await apiRes.text();
+      console.error('Erro na API da Anthropic:', apiRes.status, errText);
+      await postAiMessage(channelId, 'Deu um erro aqui do meu lado tentando responder. Tenta de novo daqui a pouco?');
+      return;
+    }
+
+    const data = await apiRes.json();
+    const reply =
+      (data.content || [])
+        .map((block) => block.text || '')
+        .join('')
+        .trim() || 'Não consegui pensar em uma resposta agora — tenta reformular a pergunta?';
+    await postAiMessage(channelId, reply);
+  } catch (err) {
+    console.error('Erro ao chamar a IA:', err);
+    await postAiMessage(channelId, 'Deu um erro aqui do meu lado. Tenta de novo?');
+  }
+}
+
 // ---------- TORNEIOS ----------
 
 app.get(
@@ -1408,7 +1556,8 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, avatar, avatar_frame, status_message, is_admin FROM users WHERE is_banned = 0 ORDER BY username'
+        'SELECT id, username, avatar, avatar_frame, status_message, is_admin FROM users WHERE is_banned = 0 AND id != ? ORDER BY username',
+        [AI_BOT_USER_ID]
       )
     );
   })
@@ -1570,6 +1719,10 @@ function broadcastOnlineUsers() {
 io.on('connection', (socket) => {
   const user = socket.user;
 
+  // Sala pessoal (uma por usuário, todas as abas/conexões dele) — usada pra
+  // mandar notificações direcionadas, tipo "alguém está te ligando".
+  socket.join('user:' + user.id);
+
   socket.emit('voice:state', voiceStateSnapshot());
 
   onlineUsers.set(user.id, (onlineUsers.get(user.id) || 0) + 1);
@@ -1640,6 +1793,15 @@ io.on('connection', (socket) => {
         created_at: new Date().toISOString(),
       };
       io.to(channelId).emit('chat:message', payload);
+
+      // Se essa DM é com o bot assistente de IA, gera a resposta dele.
+      if (channelId.startsWith('dm::')) {
+        const parts = channelId.split('::');
+        const otherId = parts[1] === user.id ? parts[2] : parts[2] === user.id ? parts[1] : null;
+        if (otherId === AI_BOT_USER_ID) {
+          triggerAiReply(channelId).catch((err) => console.error('Erro ao gerar resposta da IA:', err));
+        }
+      }
     } catch (err) {
       console.error('Erro ao processar chat:message:', err);
     }
@@ -1757,6 +1919,16 @@ io.on('connection', (socket) => {
       voiceRooms.get(roomId).delete(socket.id);
       broadcastVoiceRoom(roomId);
     }
+  });
+
+  // Notifica a pessoa específica que alguém está ligando pra ela (DM de voz)
+  // — só chega pras conexões dela, não é um broadcast geral.
+  socket.on('dm:ring', ({ toUserId, channelId, fromUsername }) => {
+    if (!toUserId || !channelId) return;
+    io.to('user:' + toUserId).emit('dm:ring', {
+      fromUsername: fromUsername || user.username,
+      channelId,
+    });
   });
 
   socket.on('rtc:signal', ({ to, data }) => {

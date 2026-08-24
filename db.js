@@ -15,7 +15,13 @@
 // DEPLOY.md pra criar o banco grátis e configurar isso.
 const path = require('path');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const { createClient } = require('@libsql/client');
+
+// ID fixo do usuário-bot assistente de IA — usado pelo server.js pra saber
+// quando uma DM é uma conversa com a IA (em vez de com outra pessoa).
+const AI_BOT_USER_ID = 'ai-assistant-bot';
+const AI_BOT_USERNAME = 'NEXT GAME IA';
 
 const url = process.env.TURSO_DATABASE_URL || `file:${path.join(__dirname, 'data.sqlite')}`;
 const authToken = process.env.TURSO_AUTH_TOKEN;
@@ -201,6 +207,13 @@ async function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(user_a, user_b)
     );
+
+    CREATE TABLE IF NOT EXISTS dm_channels (
+      id TEXT PRIMARY KEY,
+      user_a TEXT NOT NULL,
+      user_b TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Migração leve pra bancos criados antes de alguma dessas colunas existir.
@@ -267,6 +280,21 @@ async function initDb() {
       ]);
     }
   }
+
+  // Usuário real do bot assistente de IA — precisa existir na tabela users
+  // pra aparecer com avatar/nome normalmente em qualquer lugar que mostra
+  // quem mandou uma mensagem. A senha é um valor aleatório inutilizável (só
+  // existe pra satisfazer o NOT NULL da coluna); ninguém consegue logar com
+  // essa conta.
+  const existingBot = await get('SELECT id FROM users WHERE id = ?', [AI_BOT_USER_ID]);
+  if (!existingBot) {
+    const unusablePassword = bcrypt.hashSync(crypto.randomBytes(24).toString('hex'), 10);
+    await run(
+      `INSERT INTO users (id, username, password_hash, is_admin, is_banned, email_verified, avatar, status_message)
+       VALUES (?, ?, ?, 0, 0, 1, ?, ?)`,
+      [AI_BOT_USER_ID, AI_BOT_USERNAME, unusablePassword, 'emoji:🤖:#00d9c0', 'Sempre pronto pra ajudar']
+    );
+  }
 }
 
-module.exports = { run, get, all, initDb };
+module.exports = { run, get, all, initDb, AI_BOT_USER_ID, AI_BOT_USERNAME };
