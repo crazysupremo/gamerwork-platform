@@ -132,9 +132,11 @@ function startApp() {
   document.getElementById('me-avatar').innerHTML = renderAvatarHtml(me);
   if (me.is_admin) document.getElementById('admin-link').classList.remove('hidden');
 
+  updateNavbarProfile();
+
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
-  loadChannels();
+  loadChannels().then(() => loadHomeDashboard());
   loadMembers();
 }
 
@@ -637,6 +639,8 @@ function selectChannel(channel) {
   currentChannel = channel;
   document.getElementById('current-channel-name').textContent =
     (channel.type === 'voz' ? '🔊 ' : '# ') + channel.name;
+  document.getElementById('home-panel').classList.add('hidden');
+  setNavActive('nav-inicio', false);
 
   if (channel.type === 'voz') {
     document.getElementById('text-panel').classList.add('hidden');
@@ -655,6 +659,226 @@ function selectChannel(channel) {
   }
 
   renderCategories(allChannels);
+}
+
+// Volta pra tela de Início (dashboard), saindo do canal de texto atual (a
+// sala de voz continua conectada em segundo plano, igual Discord).
+function goHome() {
+  if (currentChannel && currentChannel.type === 'texto') {
+    socket.emit('channel:leave', currentChannel.id);
+  }
+  currentChannel = null;
+  document.getElementById('current-channel-name').textContent = 'Início';
+  document.getElementById('text-panel').classList.add('hidden');
+  document.getElementById('voice-panel').classList.add('hidden');
+  document.getElementById('home-panel').classList.remove('hidden');
+  setNavActive('nav-inicio', true);
+  renderCategories(allChannels);
+  loadHomeDashboard();
+}
+
+function setNavActive(id, active) {
+  document.querySelectorAll('.navbar-link').forEach((el) => el.classList.remove('active'));
+  if (active) document.getElementById(id).classList.add('active');
+}
+
+// ---------- NAVBAR (busca, sino, perfil, navegação) ----------
+
+function updateNavbarProfile() {
+  document.getElementById('navbar-avatar').innerHTML = renderAvatarHtml(me);
+  document.getElementById('navbar-username').textContent = me.username;
+  const level = Math.max(1, Math.floor((me.message_count || 0) / 10) + 1);
+  document.getElementById('navbar-level').textContent = `Nível ${level}`;
+}
+
+document.getElementById('nav-inicio').onclick = () => goHome();
+document.getElementById('nav-jogos').onclick = () => {
+  goHome();
+  setTimeout(() => document.getElementById('home-servers-grid').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+};
+document.getElementById('nav-comunidade').onclick = () => document.getElementById('btn-toggle-members').click();
+document.getElementById('nav-torneios').onclick = () => {
+  if (!activeServerCategory) {
+    alert('Crie ou entre num servidor primeiro pra ver os torneios dele.');
+    return;
+  }
+  document.getElementById('btn-tournaments').click();
+};
+document.getElementById('nav-sobre').onclick = () => {
+  if (!activeServerCategory) {
+    alert('Crie ou entre num servidor primeiro.');
+    return;
+  }
+  document.getElementById('btn-server-info').click();
+};
+document.getElementById('nav-bell').onclick = () => {
+  goHome();
+  setTimeout(() => document.getElementById('home-activity').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+};
+document.getElementById('nav-profile').onclick = () => document.getElementById('btn-edit-profile').click();
+
+document.getElementById('navbar-search-input').addEventListener('input', (e) => {
+  const term = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('.server-icon:not(.server-icon-add)').forEach((el) => {
+    el.style.opacity = !term || el.title.toLowerCase().includes(term) ? '1' : '0.25';
+  });
+  document.querySelectorAll('.home-server-card').forEach((el) => {
+    el.style.display = !term || el.dataset.name.includes(term) ? '' : 'none';
+  });
+});
+
+// ---------- PAINEL DE INÍCIO (dashboard com dados reais) ----------
+
+document.getElementById('home-btn-explore').onclick = () => {
+  document.getElementById('home-servers-grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+document.getElementById('home-btn-community').onclick = () => document.getElementById('btn-toggle-members').click();
+
+async function loadHomeDashboard() {
+  loadHomeStats();
+  loadHomeServers();
+  loadHomeActivity();
+  loadHomeTournament();
+  loadHomeRanking();
+}
+
+async function loadHomeStats() {
+  const res = await fetch('/api/stats', { credentials: 'include' });
+  const stats = await res.json();
+  const el = document.getElementById('home-stats');
+  el.innerHTML = `
+    <div class="home-stat"><span class="home-stat-num">${stats.members}</span><span class="home-stat-label">👥 Membros</span></div>
+    <div class="home-stat"><span class="home-stat-num">${stats.servers}</span><span class="home-stat-label">🎮 Servidores</span></div>
+    <div class="home-stat"><span class="home-stat-num">${stats.tournaments}</span><span class="home-stat-label">🏆 Torneios</span></div>
+  `;
+}
+
+function loadHomeServers() {
+  const grid = document.getElementById('home-servers-grid');
+  grid.innerHTML = '';
+  const categories = [...new Set(allChannels.map((c) => c.category))].sort((a, b) => a.localeCompare(b));
+  if (categories.length === 0) {
+    grid.innerHTML = '<p class="empty-hint">Nenhum servidor criado ainda — clique no + do trilho lateral pra criar o primeiro.</p>';
+    return;
+  }
+  categories.forEach((category) => {
+    const channelCount = allChannels.filter((c) => c.category === category).length;
+    const card = document.createElement('div');
+    card.className = 'home-server-card';
+    card.dataset.name = category.toLowerCase();
+    card.innerHTML = `
+      <div class="home-server-icon">${serverInitials(category)}</div>
+      <div class="home-server-name">${escapeHtml(category)}</div>
+      <div class="home-server-meta">${categoryIcon(category)} ${channelCount} sala${channelCount === 1 ? '' : 's'}</div>
+    `;
+    card.onclick = () => {
+      activeServerCategory = category;
+      renderServerRail([...new Set(allChannels.map((c) => c.category))]);
+      const firstChannel = allChannels.find((c) => c.category === category);
+      if (firstChannel) selectChannel(firstChannel);
+    };
+    grid.appendChild(card);
+  });
+}
+
+async function loadHomeActivity() {
+  const el = document.getElementById('home-activity');
+  el.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/activity', { credentials: 'include' });
+  const activity = await res.json();
+  el.innerHTML = '';
+  if (activity.length === 0) {
+    el.innerHTML = '<p class="empty-hint">Sem atividade ainda — manda a primeira mensagem!</p>';
+    return;
+  }
+  activity.forEach((a) => {
+    const row = document.createElement('div');
+    row.className = 'activity-row';
+    const time = timeAgo(a.created_at);
+    row.innerHTML = `
+      <div class="message-avatar">${renderAvatarHtml({ username: a.username })}</div>
+      <div class="activity-text">
+        <strong>${escapeHtml(a.username)}</strong> em <span class="activity-channel">#${escapeHtml(a.channel_name)}</span>
+        <div class="activity-content">${escapeHtml(a.content.slice(0, 80))}</div>
+      </div>
+      <span class="activity-time">${time}</span>
+    `;
+    el.appendChild(row);
+  });
+}
+
+function timeAgo(dateStr) {
+  const diffMs = Date.now() - new Date(dateStr + 'Z').getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'agora';
+  if (mins < 60) return `${mins} min atrás`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h atrás`;
+  return `${Math.floor(hours / 24)}d atrás`;
+}
+
+async function loadHomeTournament() {
+  const el = document.getElementById('home-tournament');
+  const res = await fetch('/api/tournaments', { credentials: 'include' });
+  const tournaments = await res.json();
+  const upcoming = tournaments.filter((t) => !t.event_date || new Date(t.event_date) >= new Date()).slice(0, 1)[0];
+  if (!upcoming) {
+    el.innerHTML = '<p class="empty-hint">Nenhum torneio marcado ainda.</p>';
+    return;
+  }
+  const dateText = upcoming.event_date
+    ? new Date(upcoming.event_date + 'T00:00:00').toLocaleDateString('pt-BR')
+    : 'Data a definir';
+  el.innerHTML = `
+    <div class="home-tournament-card">
+      <h3>🏆 ${escapeHtml(upcoming.name)}</h3>
+      <div class="tournament-meta">
+        <span>🎮 ${escapeHtml(upcoming.game)}</span>
+        <span>📅 ${dateText}</span>
+      </div>
+      <div class="tournament-meta">
+        ${upcoming.prize ? `<span>💰 ${escapeHtml(upcoming.prize)}</span>` : ''}
+        <span>👥 ${upcoming.registered_count}/${upcoming.max_slots}</span>
+      </div>
+      <button class="home-btn-primary" id="home-tournament-join" style="width:100%; margin-top:8px;">
+        ${upcoming.is_registered ? 'Você já está inscrito ✅' : 'Inscrever-se Agora'}
+      </button>
+    </div>
+  `;
+  if (!upcoming.is_registered) {
+    document.getElementById('home-tournament-join').onclick = async () => {
+      const res2 = await fetch(`/api/tournaments/${upcoming.id}/register`, { method: 'POST', credentials: 'include' });
+      const data = await res2.json();
+      if (!res2.ok) {
+        alert(data.error || 'Erro');
+        return;
+      }
+      loadHomeTournament();
+    };
+  }
+}
+
+async function loadHomeRanking() {
+  const el = document.getElementById('home-ranking');
+  const res = await fetch('/api/ranking', { credentials: 'include' });
+  const ranking = await res.json();
+  el.innerHTML = '';
+  if (ranking.length === 0) {
+    el.innerHTML = '<p class="empty-hint">Sem atividade suficiente essa semana.</p>';
+    return;
+  }
+  const medals = ['🥇', '🥈', '🥉'];
+  ranking.slice(0, 5).forEach((u, i) => {
+    const row = document.createElement('div');
+    row.className = 'ranking-row';
+    row.innerHTML = `
+      <span class="ranking-position">${medals[i] || i + 1}</span>
+      <div class="member-avatar">${renderAvatarHtml(u)}</div>
+      <span class="ranking-name">${escapeHtml(u.username)}</span>
+      <span class="ranking-points">${u.points} msgs</span>
+    `;
+    el.appendChild(row);
+  });
 }
 
 // ---------- TEXT CHAT ----------

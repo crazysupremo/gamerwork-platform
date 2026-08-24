@@ -190,16 +190,26 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/me', requireAuth, (req, res) => {
-  res.json({
-    id: req.user.id,
-    username: req.user.username,
-    is_admin: req.user.is_admin,
-    email: req.user.email,
-    status_message: req.user.status_message,
-    avatar: req.user.avatar,
-  });
-});
+app.get(
+  '/api/me',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    // Total de mensagens enviadas (histórico completo), usado só pra calcular
+    // um "nível" divertido no perfil — não é uma métrica séria de nada.
+    const countRow = await db.get('SELECT COUNT(*) as c FROM messages WHERE user_id = ? AND deleted = 0', [
+      req.user.id,
+    ]);
+    res.json({
+      id: req.user.id,
+      username: req.user.username,
+      is_admin: req.user.is_admin,
+      email: req.user.email,
+      status_message: req.user.status_message,
+      avatar: req.user.avatar,
+      message_count: Number(countRow.c),
+    });
+  })
+);
 
 // Editar perfil: trocar senha (exige senha atual), e-mail, status "jogando" e/ou avatar.
 app.patch(
@@ -459,6 +469,42 @@ app.get(
        LIMIT 10`
     );
     res.json(rows);
+  })
+);
+
+// Feed de atividade recente pra tela de início (mensagens reais de todos os
+// canais, sem as bloqueadas/apagadas).
+app.get(
+  '/api/activity',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT m.id, m.channel_id, m.user_id, m.username, m.content, m.created_at, c.name as channel_name, c.category
+       FROM messages m
+       JOIN channels c ON c.id = m.channel_id
+       WHERE m.deleted = 0 AND m.user_id != 'system-bot'
+       ORDER BY m.created_at DESC
+       LIMIT 15`
+    );
+    res.json(rows);
+  })
+);
+
+// Estatísticas gerais da plataforma pra tela de início.
+app.get(
+  '/api/stats',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const [users, servers, tournaments] = await Promise.all([
+      db.get('SELECT COUNT(*) as c FROM users WHERE is_banned = 0'),
+      db.get('SELECT COUNT(DISTINCT category) as c FROM channels'),
+      db.get('SELECT COUNT(*) as c FROM tournaments'),
+    ]);
+    res.json({
+      members: Number(users.c),
+      servers: Number(servers.c),
+      tournaments: Number(tournaments.c),
+    });
   })
 );
 
