@@ -62,9 +62,11 @@ body {
 .landing-hero { text-align: center; padding-bottom: 50px; }
 .landing-stats { max-width: 460px; margin: 32px auto 0; }
 .landing-music-credit {
-  text-align: center; font-size: 10px; color: #5c6067; margin: 24px 0 0; opacity: 0.7;
+  position: fixed; bottom: 6px; right: 8px; z-index: 5; margin: 0;
+  font-size: 9px; opacity: 0.35; transition: opacity 0.15s ease;
 }
-.landing-music-credit a { color: #7a7f88; }
+.landing-music-credit:hover { opacity: 0.8; }
+.landing-music-credit a { color: #6d7178; text-decoration: none; }
 
 .auth-card {
   position: relative; z-index: 2;

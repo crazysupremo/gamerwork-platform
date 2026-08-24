@@ -1297,7 +1297,252 @@ async function postAiMessage(channelId, content) {
   });
 }
 
-async function triggerAiReply(channelId) {
+// ---------- FERRAMENTAS QUE A IA PODE EXECUTAR DE VERDADE ----------
+// Duas camadas de segurança, sempre baseadas no usuário REAL da sessão
+// autenticada (nunca em nada que o texto da conversa afirme sobre si mesmo):
+//   1) Ferramentas de admin (banir, desbanir, limpar sala) só entram na lista
+//      oferecida ao modelo quando user.is_admin é true — e são revalidadas de
+//      novo dentro de executeAiTool antes de rodar, por segurança extra.
+//   2) Ações destrutivas (banir e limpar sala) nunca executam na hora: ficam
+//      "pendentes" até a pessoa confirmar explicitamente com "sim"/"confirmo"
+//      na mensagem seguinte. Isso é tratado com regex direto, sem depender do
+//      modelo reinterpretar a confirmação certo.
+const pendingAiActions = new Map(); // userId -> { type, params, createdAt }
+const PENDING_ACTION_TTL_MS = 5 * 60 * 1000;
+const DESTRUCTIVE_AI_TOOLS = new Set(['ban_user', 'clear_channel', 'kick_member']);
+
+const AI_SELF_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'set_status_message',
+      description: 'Muda o status "jogando/fazendo" do próprio usuário que está conversando agora.',
+      parameters: {
+        type: 'object',
+        properties: {
+          status: { type: 'string', description: 'Novo texto de status, até 60 caracteres. Vazio pra remover.' },
+        },
+        required: ['status'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'join_server_by_invite',
+      description: 'Entra em um servidor usando um código de convite que a pessoa forneceu na conversa.',
+      parameters: {
+        type: 'object',
+        properties: { invite_code: { type: 'string', description: 'O código de convite' } },
+        required: ['invite_code'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_server',
+      description: 'Cria um novo servidor com um canal de texto padrão chamado "geral", com quem pediu como dono.',
+      parameters: {
+        type: 'object',
+        properties: { name: { type: 'string', description: 'Nome do novo servidor, 2 a 40 caracteres' } },
+        required: ['name'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_my_rewards',
+      description: 'Consulta a sequência de dias, pontos e recompensas já desbloqueadas de quem está conversando.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+];
+
+const AI_ADMIN_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'ban_user',
+      description:
+        'Bane um usuário do site inteiro. Só para administradores. É uma ação séria: sempre peça confirmação antes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          username: { type: 'string', description: 'Nome de usuário exato a banir' },
+          reason: { type: 'string', description: 'Motivo do banimento' },
+        },
+        required: ['username'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'unban_user',
+      description: 'Remove o banimento de um usuário. Só para administradores.',
+      parameters: {
+        type: 'object',
+        properties: { username: { type: 'string' } },
+        required: ['username'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'clear_channel',
+      description:
+        'Apaga todas as mensagens de uma sala/canal. Só para administradores. É irreversível: sempre peça confirmação antes.',
+      parameters: {
+        type: 'object',
+        properties: { channel_name: { type: 'string', description: 'Nome do canal/sala a limpar' } },
+        required: ['channel_name'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'kick_member',
+      description:
+        'Expulsa um membro de um servidor específico (a pessoa pode voltar com um convite novo). Só para administradores. Sempre peça confirmação antes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          server_name: { type: 'string', description: 'Nome do servidor (categoria)' },
+          username: { type: 'string', description: 'Nome de usuário exato a expulsar' },
+        },
+        required: ['server_name', 'username'],
+      },
+    },
+  },
+];
+
+function isAffirmative(text) {
+  return /^(sim|s|confirmo|confirmar|pode|isso mesmo|manda ver|ok|beleza|confirma)\b/i.test((text || '').trim());
+}
+function isNegative(text) {
+  return /^(n[ãa]o|nao|cancela|cancelar|deixa (pra lá|pra la|quieto)|para)\b/i.test((text || '').trim());
+}
+
+// Executa de fato a ação. Revalida permissão de admin aqui dentro também —
+// nunca confia só no fato de a ferramenta ter sido oferecida ao modelo.
+async function executeAiTool(name, args, user) {
+  switch (name) {
+    case 'set_status_message': {
+      const status = String(args.status || '').slice(0, 60).trim();
+      await db.run('UPDATE users SET status_message = ? WHERE id = ?', [status || null, user.id]);
+      return status ? `Prontinho, seu status agora é "${status}".` : 'Status removido.';
+    }
+    case 'join_server_by_invite': {
+      const code = String(args.invite_code || '').trim();
+      const server = await db.get('SELECT category FROM servers WHERE invite_code = ?', [code]);
+      if (!server) return 'Esse código de convite não é válido.';
+      await db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+        uuidv4(),
+        server.category,
+        user.id,
+      ]);
+      return `Você entrou no servidor "${server.category}"!`;
+    }
+    case 'create_server': {
+      const name = String(args.name || '').trim().slice(0, 40);
+      if (name.length < 2) return 'O nome do servidor precisa ter pelo menos 2 caracteres.';
+      const existing = await db.get('SELECT category FROM servers WHERE category = ?', [name]);
+      if (existing) return `Já existe um servidor chamado "${name}" — escolhe outro nome.`;
+      const inviteCode = generateInviteCode();
+      await db.run(
+        "INSERT INTO servers (category, owner_id, invite_code, updated_by, updated_at) VALUES (?, ?, ?, ?, datetime('now'))",
+        [name, user.id, inviteCode, user.id]
+      );
+      await db.run('INSERT INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [uuidv4(), name, user.id]);
+      await db.run('INSERT INTO channels (id, name, category, type, created_by) VALUES (?, ?, ?, ?, ?)', [
+        uuidv4(),
+        'geral',
+        name,
+        'texto',
+        user.id,
+      ]);
+      return `Servidor "${name}" criado! Você já entrou automaticamente, com um canal #geral.`;
+    }
+    case 'get_my_rewards': {
+      const countRow = await db.get('SELECT COUNT(*) as c FROM user_rewards WHERE user_id = ?', [user.id]);
+      return `Sequência atual: ${user.login_streak || 0} dia(s) (recorde: ${user.longest_streak || 0}). Pontos: ${
+        user.points || 0
+      }. Recompensas desbloqueadas: ${Number(countRow.c)}.`;
+    }
+    case 'ban_user': {
+      if (!user.is_admin) return 'Você precisa ser administrador do site pra fazer isso.';
+      const target = await db.get('SELECT id, username FROM users WHERE username = ?', [
+        String(args.username || '').trim(),
+      ]);
+      if (!target) return `Não encontrei ninguém com o nome "${args.username}".`;
+      await db.run('UPDATE users SET is_banned = 1 WHERE id = ?', [target.id]);
+      postSystemMessage(WELCOME_CHANNEL_ID, `🔨 ${target.username} foi banido(a) por um moderador.`);
+      return `${target.username} foi banido(a).`;
+    }
+    case 'unban_user': {
+      if (!user.is_admin) return 'Você precisa ser administrador do site pra fazer isso.';
+      const target = await db.get('SELECT id, username FROM users WHERE username = ?', [
+        String(args.username || '').trim(),
+      ]);
+      if (!target) return `Não encontrei ninguém com o nome "${args.username}".`;
+      await db.run('UPDATE users SET is_banned = 0 WHERE id = ?', [target.id]);
+      return `${target.username} foi desbanido(a).`;
+    }
+    case 'clear_channel': {
+      if (!user.is_admin) return 'Você precisa ser administrador do site pra fazer isso.';
+      const channelName = String(args.channel_name || '').trim();
+      const matches = await db.all('SELECT id, name, category FROM channels WHERE name = ?', [channelName]);
+      if (matches.length === 0) return `Não encontrei nenhuma sala chamada "${channelName}".`;
+      if (matches.length > 1) {
+        return `Tem mais de uma sala "${channelName}" (nos servidores: ${matches
+          .map((m) => m.category)
+          .join(', ')}). Me diz o nome do servidor também.`;
+      }
+      const channel = matches[0];
+      await db.run('UPDATE messages SET deleted = 1 WHERE channel_id = ?', [channel.id]);
+      io.to(channel.id).emit('chat:cleared', { channel_id: channel.id });
+      return `Conversa da sala "${channel.name}" foi limpa.`;
+    }
+    case 'kick_member': {
+      if (!user.is_admin) return 'Você precisa ser administrador do site pra fazer isso.';
+      const serverName = String(args.server_name || '').trim();
+      const server = await db.get('SELECT category, owner_id FROM servers WHERE category = ?', [serverName]);
+      if (!server) return `Não encontrei nenhum servidor chamado "${serverName}".`;
+      const target = await db.get('SELECT id, username FROM users WHERE username = ?', [
+        String(args.username || '').trim(),
+      ]);
+      if (!target) return `Não encontrei ninguém com o nome "${args.username}".`;
+      if (server.owner_id === target.id) return 'Não dá pra expulsar o dono do servidor.';
+      await db.run('DELETE FROM server_members WHERE category = ? AND user_id = ?', [server.category, target.id]);
+      await db.run('DELETE FROM server_member_roles WHERE category = ? AND user_id = ?', [
+        server.category,
+        target.id,
+      ]);
+      return `${target.username} foi expulso(a) do servidor "${server.category}".`;
+    }
+    default:
+      return 'Não sei fazer isso ainda.';
+  }
+}
+
+function describeActionForConfirmation(name, args) {
+  if (name === 'ban_user') {
+    return `banir o usuário **${args.username}**${args.reason ? ` (motivo: ${args.reason})` : ''}`;
+  }
+  if (name === 'clear_channel') {
+    return `apagar TODAS as mensagens da sala **${args.channel_name}**`;
+  }
+  if (name === 'kick_member') {
+    return `expulsar **${args.username}** do servidor **${args.server_name}**`;
+  }
+  return 'fazer essa ação';
+}
+
+async function triggerAiReply(channelId, user) {
   try {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
@@ -1306,6 +1551,33 @@ async function triggerAiReply(channelId) {
         'Ainda não fui configurado! Peça pro administrador do site adicionar a variável de ambiente GROQ_API_KEY nas configurações do servidor (veja o DEPLOY.md — é grátis, sem cartão).'
       );
       return;
+    }
+
+    // Se há uma ação pendente de confirmação pra essa pessoa, trata a
+    // resposta diretamente por regex — mais confiável do que depender do
+    // modelo reinterpretar um "sim" solto numa nova chamada de API.
+    const pending = pendingAiActions.get(user.id);
+    if (pending && Date.now() - pending.createdAt < PENDING_ACTION_TTL_MS) {
+      const lastMsg = await db.get(
+        'SELECT content FROM messages WHERE channel_id = ? AND user_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 1',
+        [channelId, user.id]
+      );
+      const text = (lastMsg && lastMsg.content) || '';
+      if (isAffirmative(text)) {
+        pendingAiActions.delete(user.id);
+        const resultMsg = await executeAiTool(pending.type, pending.params, user);
+        await postAiMessage(channelId, resultMsg);
+        return;
+      }
+      if (isNegative(text)) {
+        pendingAiActions.delete(user.id);
+        await postAiMessage(channelId, 'Ok, cancelado.');
+        return;
+      }
+      // Nem confirmou nem cancelou claramente — deixa a ação pendente
+      // expirar sozinha (5 min) e segue com uma resposta normal abaixo.
+    } else if (pending) {
+      pendingAiActions.delete(user.id); // expirou
     }
 
     // Pega as últimas mensagens da conversa como contexto (janela pequena,
@@ -1320,15 +1592,25 @@ async function triggerAiReply(channelId) {
       .map((m) => ({ role: m.user_id === AI_BOT_USER_ID ? 'assistant' : 'user', content: m.content }));
     if (conversation.length === 0) return;
 
-    // API da Groq — compatível com o formato da OpenAI (chat completions).
-    // Gratuita sem cartão de crédito, com limite de mensagens por minuto/dia.
+    // API da Groq — compatível com o formato da OpenAI (chat completions),
+    // incluindo tool/function calling. Gratuita sem cartão de crédito, com
+    // limite de mensagens por minuto/dia.
     const model = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
+    const tools = user.is_admin ? [...AI_SELF_TOOLS, ...AI_ADMIN_TOOLS] : AI_SELF_TOOLS;
     const systemMessage = {
       role: 'system',
       content:
         'Você é o assistente de IA do NEXT GAME, uma plataforma de chat e voz pra gamers e equipes de trabalho. ' +
         'Responda sempre em português do Brasil, de forma curta, direta e simpática. Pode ajudar com dúvidas ' +
-        'gerais, dicas de jogos, produtividade, ou sobre como usar a própria plataforma.',
+        'gerais, dicas de jogos, produtividade, ou sobre como usar a própria plataforma. ' +
+        'Você também tem ferramentas reais que executam ações na conta de quem está falando com você — use-as ' +
+        'quando a pessoa pedir algo que uma delas resolve, em vez de só explicar como fazer manualmente. Nunca ' +
+        'diga que fez algo sem realmente ter chamado a ferramenta correspondente.' +
+        (user.is_admin
+          ? ' Essa pessoa é administradora do site, então também tem ferramentas de moderação (banir usuário, ' +
+            'limpar sala) — são ações sérias e irreversíveis, sempre chame a ferramenta pedindo confirmação em ' +
+            'vez de executar sem avisar.'
+          : ''),
     };
 
     const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1341,6 +1623,8 @@ async function triggerAiReply(channelId) {
         model,
         max_tokens: 500,
         messages: [systemMessage, ...conversation],
+        tools,
+        tool_choice: 'auto',
       }),
     });
 
@@ -1356,10 +1640,50 @@ async function triggerAiReply(channelId) {
     }
 
     const data = await apiRes.json();
-    const reply =
-      (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ||
-      'Não consegui pensar em uma resposta agora — tenta reformular a pergunta?';
-    await postAiMessage(channelId, reply.trim());
+    const message = data.choices && data.choices[0] && data.choices[0].message;
+    if (!message) {
+      await postAiMessage(channelId, 'Não consegui pensar em uma resposta agora — tenta reformular a pergunta?');
+      return;
+    }
+
+    if (Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
+      for (const call of message.tool_calls) {
+        const name = call.function && call.function.name;
+        let args = {};
+        try {
+          args = JSON.parse((call.function && call.function.arguments) || '{}');
+        } catch (_) {
+          args = {};
+        }
+
+        // Defesa extra: mesmo que o modelo tente, ferramentas de admin nunca
+        // executam pra quem não é admin de verdade na sessão real.
+        const isAdminTool = AI_ADMIN_TOOLS.some((t) => t.function.name === name);
+        if (isAdminTool && !user.is_admin) {
+          await postAiMessage(channelId, 'Você precisa ser administrador do site pra isso.');
+          continue;
+        }
+
+        if (DESTRUCTIVE_AI_TOOLS.has(name)) {
+          pendingAiActions.set(user.id, { type: name, params: args, createdAt: Date.now() });
+          await postAiMessage(
+            channelId,
+            `⚠️ Confirma que quer ${describeActionForConfirmation(
+              name,
+              args
+            )}? Essa ação não pode ser desfeita. Responda **sim** pra confirmar ou **não** pra cancelar.`
+          );
+          continue;
+        }
+
+        const resultMsg = await executeAiTool(name, args, user);
+        await postAiMessage(channelId, resultMsg);
+      }
+      return;
+    }
+
+    const reply = (message.content || '').trim() || 'Não consegui pensar em uma resposta agora — tenta reformular a pergunta?';
+    await postAiMessage(channelId, reply);
   } catch (err) {
     console.error('Erro ao chamar a IA:', err);
     await postAiMessage(channelId, 'Deu um erro aqui do meu lado. Tenta de novo?');
@@ -1940,7 +2264,7 @@ io.on('connection', (socket) => {
         const parts = channelId.split('::');
         const otherId = parts[1] === user.id ? parts[2] : parts[2] === user.id ? parts[1] : null;
         if (otherId === AI_BOT_USER_ID) {
-          triggerAiReply(channelId).catch((err) => console.error('Erro ao gerar resposta da IA:', err));
+          triggerAiReply(channelId, user).catch((err) => console.error('Erro ao gerar resposta da IA:', err));
         }
       }
     } catch (err) {
