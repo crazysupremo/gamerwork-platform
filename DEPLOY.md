@@ -63,24 +63,28 @@ Render reinicia o serviço. Sem essas duas variáveis, o site continua
 funcionando normalmente, só volta a usar um arquivo local que se perde a
 cada redeploy (bom só pra testar).
 
-## Passo 6 — Assistente de IA (opcional, tem custo por uso)
+## Passo 6 — Assistente de IA (opcional, gratuito)
 
 O NEXT GAME tem um contato fixo chamado **"NEXT GAME IA"** que qualquer
 usuário pode chamar direto (sem precisar virar amigo) pra conversar com uma
 IA de verdade. Sem configurar nada, ele responde educadamente explicando que
 ainda não foi ligado — o resto do site funciona normalmente sem isso.
 
+Usa a **Groq** (groq.com) — sem cartão de crédito, chave na hora. O plano
+grátis tem limite de mensagens por minuto/dia (não é ilimitado de verdade,
+mas dá pra uso normal); se bater o limite, o bot avisa educadamente pra
+tentar de novo daqui a pouco.
+
 Pra ativar:
 
-1. Crie uma conta em **console.anthropic.com** e gere uma chave de API
-   (Settings → API Keys → Create Key). **Esse é um serviço pago** — você
-   paga só pelo que for usado, sem mensalidade fixa; consulte os preços
-   atuais no próprio console antes de ativar.
-2. No Render, abra seu serviço → aba **Environment** → **Add Environment Variable**:
-   - Key: `ANTHROPIC_API_KEY` → Value: a chave que você copiou
-3. (Opcional) Pra trocar o modelo usado (o padrão é rápido e barato), adicione
-   também `ANTHROPIC_MODEL` com o nome do modelo desejado.
-4. Salve — o Render redeploya sozinho e o assistente passa a responder de verdade.
+1. Crie uma conta em **console.groq.com** (só precisa de e-mail, sem cartão)
+2. No painel, vá em **API Keys** → **Create API Key**, dê um nome e copie a
+   chave gerada (ela só aparece uma vez)
+3. No Render, abra seu serviço → aba **Environment** → **Add Environment Variable**:
+   - Key: `GROQ_API_KEY` → Value: a chave que você copiou
+4. (Opcional) Pra trocar o modelo usado, adicione também `GROQ_MODEL` com o
+   nome do modelo desejado (o padrão é `llama-3.3-70b-versatile`)
+5. Salve — o Render redeploya sozinho e o assistente passa a responder de verdade.
 
 ## Depois de publicar
 

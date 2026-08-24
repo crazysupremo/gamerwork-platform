@@ -1297,60 +1297,67 @@ async function postAiMessage(channelId, content) {
 
 async function triggerAiReply(channelId) {
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
       await postAiMessage(
         channelId,
-        'Ainda não fui configurado! Peça pro administrador do site adicionar a variável de ambiente ANTHROPIC_API_KEY nas configurações do servidor (veja o DEPLOY.md).'
+        'Ainda não fui configurado! Peça pro administrador do site adicionar a variável de ambiente GROQ_API_KEY nas configurações do servidor (veja o DEPLOY.md — é grátis, sem cartão).'
       );
       return;
     }
 
     // Pega as últimas mensagens da conversa como contexto (janela pequena,
-    // pra manter o custo baixo e a resposta rápida).
+    // pra manter dentro do limite gratuito e a resposta rápida).
     const history = await db.all(
       'SELECT user_id, content FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 12',
       [channelId]
     );
-    const messages = history
+    const conversation = history
       .reverse()
       .filter((m) => m.content && m.content.trim())
       .map((m) => ({ role: m.user_id === AI_BOT_USER_ID ? 'assistant' : 'user', content: m.content }));
-    if (messages.length === 0) return;
+    if (conversation.length === 0) return;
 
-    const model = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
-    const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+    // API da Groq — compatível com o formato da OpenAI (chat completions).
+    // Gratuita sem cartão de crédito, com limite de mensagens por minuto/dia.
+    const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+    const systemMessage = {
+      role: 'system',
+      content:
+        'Você é o assistente de IA do NEXT GAME, uma plataforma de chat e voz pra gamers e equipes de trabalho. ' +
+        'Responda sempre em português do Brasil, de forma curta, direta e simpática. Pode ajudar com dúvidas ' +
+        'gerais, dicas de jogos, produtividade, ou sobre como usar a própria plataforma.',
+    };
+
+    const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        Authorization: 'Bearer ' + apiKey,
       },
       body: JSON.stringify({
         model,
         max_tokens: 500,
-        system:
-          'Você é o assistente de IA do NEXT GAME, uma plataforma de chat e voz pra gamers e equipes de trabalho. ' +
-          'Responda sempre em português do Brasil, de forma curta, direta e simpática. Pode ajudar com dúvidas ' +
-          'gerais, dicas de jogos, produtividade, ou sobre como usar a própria plataforma.',
-        messages,
+        messages: [systemMessage, ...conversation],
       }),
     });
 
     if (!apiRes.ok) {
       const errText = await apiRes.text();
-      console.error('Erro na API da Anthropic:', apiRes.status, errText);
-      await postAiMessage(channelId, 'Deu um erro aqui do meu lado tentando responder. Tenta de novo daqui a pouco?');
+      console.error('Erro na API da Groq:', apiRes.status, errText);
+      const friendly =
+        apiRes.status === 429
+          ? 'Bati no limite de mensagens gratuitas por agora — tenta de novo daqui a pouco.'
+          : 'Deu um erro aqui do meu lado tentando responder. Tenta de novo daqui a pouco?';
+      await postAiMessage(channelId, friendly);
       return;
     }
 
     const data = await apiRes.json();
     const reply =
-      (data.content || [])
-        .map((block) => block.text || '')
-        .join('')
-        .trim() || 'Não consegui pensar em uma resposta agora — tenta reformular a pergunta?';
-    await postAiMessage(channelId, reply);
+      (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ||
+      'Não consegui pensar em uma resposta agora — tenta reformular a pergunta?';
+    await postAiMessage(channelId, reply.trim());
   } catch (err) {
     console.error('Erro ao chamar a IA:', err);
     await postAiMessage(channelId, 'Deu um erro aqui do meu lado. Tenta de novo?');
