@@ -195,6 +195,8 @@ function startApp() {
 
   updateNavbarProfile();
   refreshStreakBadge();
+  refreshFriendsBadge();
+  checkInviteLinkOnLoad();
 
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
@@ -379,10 +381,11 @@ document.getElementById('btn-server-info').onclick = async () => {
   document.getElementById('form-server-info').classList.add('hidden');
   document.getElementById('server-info-view').classList.remove('hidden');
   document.getElementById('btn-save-server-info').classList.add('hidden');
-  document.getElementById('btn-edit-server-info').classList.toggle('hidden', !me.is_admin);
 
   const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, { credentials: 'include' });
   const info = await res.json();
+  const canManage = me.is_admin || info.is_owner || (info.my_permissions || []).includes('manage_server');
+  document.getElementById('btn-edit-server-info').classList.toggle('hidden', !canManage);
   document.getElementById('server-info-description').textContent = info.description || 'Nenhuma descrição definida ainda.';
   document.getElementById('server-info-rules').textContent = info.rules || 'Nenhuma regra definida ainda.';
   document.getElementById('server-info-description-input').value = info.description || '';
@@ -419,6 +422,312 @@ function categoryIcon(category) {
   if (normalized.includes('trabalho')) return '💼';
   return '🎮';
 }
+
+// ---------- ENTRAR COM CONVITE (servidor privado, estilo Discord) ----------
+
+const modalJoinInvite = document.getElementById('modal-join-invite');
+
+document.getElementById('btn-join-invite').onclick = () => {
+  document.getElementById('join-invite-input').value = '';
+  document.getElementById('join-invite-error').textContent = '';
+  modalJoinInvite.classList.remove('hidden');
+};
+document.getElementById('btn-close-join-invite').onclick = () => modalJoinInvite.classList.add('hidden');
+
+// Aceita tanto o código puro quanto um link completo (?invite=CODIGO).
+function extractInviteCode(raw) {
+  const trimmed = raw.trim();
+  try {
+    const url = new URL(trimmed);
+    const fromQuery = url.searchParams.get('invite');
+    if (fromQuery) return fromQuery;
+  } catch (_) {
+    // não é uma URL válida, trata como código puro mesmo
+  }
+  return trimmed;
+}
+
+async function joinWithInviteCode(code) {
+  const errorEl = document.getElementById('join-invite-error');
+  errorEl.textContent = '';
+  try {
+    const res = await fetch(`/api/invite/${encodeURIComponent(code)}/join`, { method: 'POST', credentials: 'include' });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Convite inválido';
+      return false;
+    }
+    modalJoinInvite.classList.add('hidden');
+    activeServerCategory = data.category;
+    await loadChannels();
+    return true;
+  } catch (_) {
+    errorEl.textContent = 'Erro de conexão';
+    return false;
+  }
+}
+
+document.getElementById('btn-submit-invite').onclick = () => {
+  const code = extractInviteCode(document.getElementById('join-invite-input').value);
+  if (!code) return;
+  joinWithInviteCode(code);
+};
+
+// Link de convite direto (?invite=CODIGO) — entra automaticamente ao abrir.
+function checkInviteLinkOnLoad() {
+  const params = new URLSearchParams(window.location.search);
+  const inviteCode = params.get('invite');
+  if (inviteCode) {
+    joinWithInviteCode(inviteCode).finally(() => {
+      history.replaceState({}, '', window.location.pathname);
+    });
+  }
+}
+
+// ---------- GERENCIAR SERVIDOR: convite, membros e cargos ----------
+
+const modalServerManage = document.getElementById('modal-server-manage');
+let manageServerPermissions = [];
+let manageServerIsOwner = false;
+let manageAvailableRoles = [];
+const SERVER_PERMISSION_KEYS_CLIENT = ['manage_server', 'manage_channels', 'manage_roles', 'kick_members', 'mute_members'];
+
+document.getElementById('btn-server-manage').onclick = async () => {
+  if (!activeServerCategory) return;
+  document.querySelectorAll('.manage-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('.manage-tab-panel').forEach((p, i) => p.classList.toggle('hidden', i !== 0));
+
+  const infoRes = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, { credentials: 'include' });
+  const info = await infoRes.json();
+  manageServerIsOwner = !!info.is_owner;
+  manageServerPermissions = info.my_permissions || [];
+  if (me.is_admin) manageServerPermissions = SERVER_PERMISSION_KEYS_CLIENT;
+
+  await loadManageInvite();
+  modalServerManage.classList.remove('hidden');
+};
+document.getElementById('btn-close-server-manage').onclick = () => modalServerManage.classList.add('hidden');
+
+document.querySelectorAll('.manage-tab').forEach((tabBtn) => {
+  tabBtn.onclick = async () => {
+    document.querySelectorAll('.manage-tab').forEach((t) => t.classList.remove('active'));
+    tabBtn.classList.add('active');
+    document.querySelectorAll('.manage-tab-panel').forEach((p) => p.classList.add('hidden'));
+    const panel = document.getElementById('manage-tab-' + tabBtn.dataset.tab);
+    panel.classList.remove('hidden');
+    if (tabBtn.dataset.tab === 'members') await loadManageMembers();
+    if (tabBtn.dataset.tab === 'roles') await loadManageRoles();
+  };
+});
+
+async function loadManageInvite() {
+  const canManage = manageServerIsOwner || manageServerPermissions.includes('manage_server');
+  document.getElementById('btn-regenerate-invite').classList.toggle('hidden', !canManage);
+  const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/invite`, { credentials: 'include' });
+  const data = await res.json();
+  document.getElementById('invite-link-display').value = `${window.location.origin}/?invite=${data.invite_code}`;
+}
+
+document.getElementById('btn-copy-invite').onclick = () => {
+  const input = document.getElementById('invite-link-display');
+  navigator.clipboard.writeText(input.value).catch(() => {
+    input.select();
+    document.execCommand('copy');
+  });
+};
+
+document.getElementById('btn-regenerate-invite').onclick = async () => {
+  if (!confirm('Gerar um novo código invalida o link de convite atual. Continuar?')) return;
+  const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/invite/regenerate`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  const data = await res.json();
+  if (res.ok) document.getElementById('invite-link-display').value = `${window.location.origin}/?invite=${data.invite_code}`;
+};
+
+async function loadManageMembers() {
+  const listEl = document.getElementById('server-members-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/members`, { credentials: 'include' });
+  const members = await res.json();
+
+  const rolesRes = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/roles`, { credentials: 'include' });
+  const rolesData = await rolesRes.json();
+  manageAvailableRoles = rolesData.roles || [];
+
+  const canManageRoles = manageServerIsOwner || manageServerPermissions.includes('manage_roles');
+  const canKick = manageServerIsOwner || manageServerPermissions.includes('kick_members');
+
+  listEl.innerHTML = '';
+  members.forEach((m) => {
+    const row = document.createElement('div');
+    row.className = 'server-member-row';
+    const rolesHtml = m.roles
+      .map(
+        (r) => `
+      <span class="role-pill" style="background:${r.color}22; color:${r.color}; border-color:${r.color}66;">
+        ${escapeHtml(r.name)}
+        ${canManageRoles ? `<button type="button" class="role-pill-remove" data-role="${r.id}" title="Remover cargo">×</button>` : ''}
+      </span>
+    `
+      )
+      .join('');
+
+    const assignableRoles = manageAvailableRoles.filter((ar) => !m.roles.some((mr) => mr.id === ar.id));
+    const roleSelectHtml =
+      canManageRoles && assignableRoles.length > 0
+        ? `<select class="role-assign-select">
+             <option value="">+ Cargo</option>
+             ${assignableRoles.map((ar) => `<option value="${ar.id}">${escapeHtml(ar.name)}</option>`).join('')}
+           </select>`
+        : '';
+
+    row.innerHTML = `
+      <div class="member-avatar ${avatarFrameClass(m)}">${renderAvatarHtml(m)}</div>
+      <div class="server-member-info">
+        <div class="server-member-name">${escapeHtml(m.username)}${m.is_owner ? ' 👑' : ''}</div>
+        <div class="server-member-roles">${rolesHtml}</div>
+      </div>
+      <div class="server-member-actions">
+        ${roleSelectHtml}
+        ${canKick && !m.is_owner ? `<button type="button" class="server-kick-btn" title="Expulsar">🚪</button>` : ''}
+      </div>
+    `;
+
+    const select = row.querySelector('.role-assign-select');
+    if (select) {
+      select.onchange = async () => {
+        if (!select.value) return;
+        await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/members/${m.id}/roles`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ roleId: select.value, action: 'add' }),
+        });
+        loadManageMembers();
+      };
+    }
+    row.querySelectorAll('.role-pill-remove').forEach((btn) => {
+      btn.onclick = async () => {
+        await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/members/${m.id}/roles`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ roleId: btn.dataset.role, action: 'remove' }),
+        });
+        loadManageMembers();
+      };
+    });
+    const kickBtn = row.querySelector('.server-kick-btn');
+    if (kickBtn) {
+      kickBtn.onclick = async () => {
+        if (!confirm(`Expulsar ${m.username} do servidor?`)) return;
+        await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/kick/${m.id}`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        loadManageMembers();
+      };
+    }
+
+    listEl.appendChild(row);
+  });
+}
+
+async function loadManageRoles() {
+  const listEl = document.getElementById('server-roles-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/roles`, { credentials: 'include' });
+  const data = await res.json();
+  manageAvailableRoles = data.roles || [];
+
+  const canManageRoles = manageServerIsOwner || manageServerPermissions.includes('manage_roles');
+  document.getElementById('btn-new-role').classList.toggle('hidden', !canManageRoles);
+
+  // Monta as checkboxes de permissão a partir do catálogo mandado pelo backend.
+  const checkboxesEl = document.getElementById('role-permissions-checkboxes');
+  checkboxesEl.innerHTML = data.permissions_catalog
+    .map(
+      (p) => `
+    <label class="checkbox-row">
+      <input type="checkbox" value="${p.key}" />
+      <span>${escapeHtml(p.label)}</span>
+    </label>
+  `
+    )
+    .join('');
+
+  listEl.innerHTML = '';
+  if (manageAvailableRoles.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Nenhum cargo criado ainda.</p>';
+  }
+  manageAvailableRoles.forEach((r) => {
+    const row = document.createElement('div');
+    row.className = 'server-role-row';
+    row.innerHTML = `
+      <span class="role-pill" style="background:${r.color}22; color:${r.color}; border-color:${r.color}66;">${escapeHtml(r.name)}</span>
+      <span class="server-role-perms">${r.permissions.length} permiss${r.permissions.length === 1 ? 'ão' : 'ões'}</span>
+      ${canManageRoles ? `<button type="button" class="server-role-delete-btn" title="Excluir cargo">🗑️</button>` : ''}
+    `;
+    const deleteBtn = row.querySelector('.server-role-delete-btn');
+    if (deleteBtn) {
+      deleteBtn.onclick = async () => {
+        if (!confirm(`Excluir o cargo "${r.name}"?`)) return;
+        await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/roles/${r.id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        loadManageRoles();
+      };
+    }
+    listEl.appendChild(row);
+  });
+}
+
+document.getElementById('btn-new-role').onclick = () => {
+  document.getElementById('form-new-role').classList.remove('hidden');
+  document.getElementById('role-name-input').value = '';
+  document.getElementById('role-color-input').value = '#5865f2';
+};
+document.getElementById('btn-cancel-role').onclick = () => {
+  document.getElementById('form-new-role').classList.add('hidden');
+};
+
+document.getElementById('form-new-role').onsubmit = async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('role-name-input').value.trim();
+  const color = document.getElementById('role-color-input').value;
+  const permissions = [...document.querySelectorAll('#role-permissions-checkboxes input:checked')].map((c) => c.value);
+  const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/roles`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ name, color, permissions }),
+  });
+  if (res.ok) {
+    document.getElementById('form-new-role').classList.add('hidden');
+    loadManageRoles();
+  }
+};
+
+document.getElementById('btn-leave-server').onclick = async () => {
+  if (!activeServerCategory) return;
+  if (!confirm(`Sair do servidor "${activeServerCategory}"?`)) return;
+  const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/leave`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    alert(data.error || 'Não foi possível sair do servidor');
+    return;
+  }
+  modalServerManage.classList.add('hidden');
+  activeServerCategory = null;
+  await loadChannels();
+  goHome();
+};
 
 // ---------- TORNEIOS ----------
 
@@ -584,30 +893,19 @@ async function refreshStreakBadge() {
   } catch (_) {}
 }
 
-// Monta o visual de cada recompensa: os selos com imagem real (90/120 dias)
-// mostram a arte enviada, com o nome da pessoa sobreposto quando a arte tem
-// espaço reservado pra isso (hasName). O selo de 365 dias (só 2 vagas no
-// mundo) não tem imagem — é construído inteiramente em CSS, já que não temos
-// um gerador de imagem disponível aqui.
+// Monta o visual de cada recompensa: os selos com imagem real mostram a arte
+// enviada, com o nome da pessoa sobreposto quando a arte tem espaço reservado
+// pra isso (hasName), ou como legenda embaixo quando não tem.
+const SEAL_SHAPE_CLASS = {
+  seal90: 'reward-seal-square',
+  seal120: 'reward-seal-wide',
+  'founder-eternal': 'reward-seal-founder',
+};
+
 function sealVisualHtml(reward) {
-  if (reward.key === 'founder-eternal') {
-    return `
-      <div class="founder-badge">
-        <div class="founder-badge-crown">👑</div>
-        <div class="founder-badge-ring">
-          <div class="founder-badge-inner">
-            <span class="founder-badge-diamond">💎</span>
-            <span class="founder-badge-title">FUNDADOR<br/>ETERNO</span>
-            ${reward.unlocked ? `<span class="founder-badge-name">${escapeHtml(me.username)}</span>` : ''}
-            <span class="founder-badge-diamond">💎</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }
   if (reward.image) {
     return `
-      <div class="reward-seal-wrap ${reward.key === 'seal90' ? 'reward-seal-square' : 'reward-seal-wide'}">
+      <div class="reward-seal-wrap ${SEAL_SHAPE_CLASS[reward.key] || 'reward-seal-wide'}">
         <img src="${reward.image}" alt="${escapeHtml(reward.name)}" class="reward-seal-img" />
         ${reward.hasName && reward.unlocked ? `<span class="reward-seal-name">${escapeHtml(me.username)}</span>` : ''}
       </div>
@@ -889,6 +1187,135 @@ document.getElementById('form-quiz').onsubmit = async (e) => {
     SFX.wrong();
     resultEl.innerHTML = `<div class="verify-invalid">Você acertou ${data.correctCount}/${data.total}. Precisa acertar todas — tenta de novo!</div>`;
   }
+};
+
+// ---------- AMIGOS ----------
+
+const modalFriends = document.getElementById('modal-friends');
+
+document.getElementById('nav-friends').onclick = () => {
+  modalFriends.classList.remove('hidden');
+  loadFriends();
+};
+document.getElementById('btn-close-friends').onclick = () => modalFriends.classList.add('hidden');
+
+async function refreshFriendsBadge() {
+  try {
+    const res = await fetch('/api/friends', { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    const badge = document.getElementById('navbar-friends-badge');
+    if (data.incoming.length > 0) {
+      badge.textContent = data.incoming.length;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  } catch (_) {}
+}
+
+async function loadFriends() {
+  const res = await fetch('/api/friends', { credentials: 'include' });
+  const data = await res.json();
+
+  const incomingSection = document.getElementById('friends-incoming-section');
+  const outgoingSection = document.getElementById('friends-outgoing-section');
+  incomingSection.classList.toggle('hidden', data.incoming.length === 0);
+  outgoingSection.classList.toggle('hidden', data.outgoing.length === 0);
+
+  const incomingList = document.getElementById('friends-incoming-list');
+  incomingList.innerHTML = '';
+  data.incoming.forEach((f) => {
+    const row = document.createElement('div');
+    row.className = 'friend-row';
+    row.innerHTML = `
+      <div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
+      <span class="friend-name">${escapeHtml(f.user.username)}</span>
+      <div class="friend-actions">
+        <button type="button" class="friend-accept-btn" title="Aceitar">✅</button>
+        <button type="button" class="friend-decline-btn" title="Recusar">❌</button>
+      </div>
+    `;
+    row.querySelector('.friend-accept-btn').onclick = async () => {
+      await fetch(`/api/friends/${f.friendship_id}/accept`, { method: 'POST', credentials: 'include' });
+      SFX.streakUp();
+      loadFriends();
+      refreshFriendsBadge();
+    };
+    row.querySelector('.friend-decline-btn').onclick = async () => {
+      await fetch(`/api/friends/${f.friendship_id}`, { method: 'DELETE', credentials: 'include' });
+      loadFriends();
+      refreshFriendsBadge();
+    };
+    incomingList.appendChild(row);
+  });
+
+  const outgoingList = document.getElementById('friends-outgoing-list');
+  outgoingList.innerHTML = '';
+  data.outgoing.forEach((f) => {
+    const row = document.createElement('div');
+    row.className = 'friend-row';
+    row.innerHTML = `
+      <div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
+      <span class="friend-name">${escapeHtml(f.user.username)}</span>
+      <div class="friend-actions">
+        <span class="friend-pending-tag">Aguardando...</span>
+        <button type="button" class="friend-cancel-btn" title="Cancelar pedido">✖</button>
+      </div>
+    `;
+    row.querySelector('.friend-cancel-btn').onclick = async () => {
+      await fetch(`/api/friends/${f.friendship_id}`, { method: 'DELETE', credentials: 'include' });
+      loadFriends();
+    };
+    outgoingList.appendChild(row);
+  });
+
+  const friendsList = document.getElementById('friends-list');
+  friendsList.innerHTML = '';
+  if (data.friends.length === 0) {
+    friendsList.innerHTML = '<p class="empty-hint">Você ainda não tem amigos adicionados.</p>';
+  }
+  data.friends.forEach((f) => {
+    const row = document.createElement('div');
+    row.className = 'friend-row';
+    const isOnline = onlineUserIds.has(f.user.id);
+    row.innerHTML = `
+      <div class="member-avatar-wrap">
+        <div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
+        <span class="member-status-dot" style="${isOnline ? '' : 'background:#6d7178;'}"></span>
+      </div>
+      <span class="friend-name">${escapeHtml(f.user.username)}${f.user.status_message ? ` <span class="friend-status">🎮 ${escapeHtml(f.user.status_message)}</span>` : ''}</span>
+      <div class="friend-actions">
+        <button type="button" class="friend-remove-btn" title="Desfazer amizade">🗑️</button>
+      </div>
+    `;
+    row.querySelector('.friend-remove-btn').onclick = async () => {
+      if (!confirm(`Desfazer amizade com ${f.user.username}?`)) return;
+      await fetch(`/api/friends/${f.friendship_id}`, { method: 'DELETE', credentials: 'include' });
+      loadFriends();
+    };
+    friendsList.appendChild(row);
+  });
+}
+
+document.getElementById('form-add-friend').onsubmit = async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('add-friend-input');
+  const errorEl = document.getElementById('add-friend-error');
+  errorEl.textContent = '';
+  const res = await fetch('/api/friends/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ username: input.value.trim() }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Erro ao adicionar amigo';
+    return;
+  }
+  input.value = '';
+  loadFriends();
 };
 
 function updateCategoryDatalist(channels) {

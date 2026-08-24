@@ -14,6 +14,7 @@
 // mas em produção sem Turso os dados não persistem entre reinícios. Veja o
 // DEPLOY.md pra criar o banco grátis e configurar isso.
 const path = require('path');
+const crypto = require('crypto');
 const { createClient } = require('@libsql/client');
 
 const url = process.env.TURSO_DATABASE_URL || `file:${path.join(__dirname, 'data.sqlite')}`;
@@ -164,6 +165,42 @@ async function initDb() {
       completed_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(user_id, mission_key)
     );
+
+    CREATE TABLE IF NOT EXISTS server_members (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(category, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS server_roles (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT '#99aab5',
+      permissions TEXT NOT NULL DEFAULT '[]',
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS server_member_roles (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      role_id TEXT NOT NULL,
+      UNIQUE(category, user_id, role_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS friendships (
+      id TEXT PRIMARY KEY,
+      user_a TEXT NOT NULL,
+      user_b TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      requested_by TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_a, user_b)
+    );
   `);
 
   // Migração leve pra bancos criados antes de alguma dessas colunas existir.
@@ -174,6 +211,8 @@ async function initDb() {
   await ensureColumn('users', 'avatar_frame TEXT');
   await ensureColumn('users', 'points INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('servers', 'icon TEXT');
+  await ensureColumn('servers', 'owner_id TEXT');
+  await ensureColumn('servers', 'invite_code TEXT');
   await ensureColumn('users', 'email_verified INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'verification_code TEXT');
   await ensureColumn('users', 'verification_expires TEXT');
@@ -198,6 +237,35 @@ async function initDb() {
       ch.category,
       ch.type,
     ]);
+  }
+
+  // Os dois servidores padrão (gamers/trabalho) não têm dono — são as
+  // "comunidades públicas" iniciais, abertas a todo mundo que se cadastra
+  // (diferente de um servidor criado por um usuário depois, que já nasce
+  // privado e com dono). Precisam existir na tabela servers com um código de
+  // convite pra o resto do sistema de permissões/convite funcionar com eles.
+  for (const category of ['gamers', 'trabalho']) {
+    const existing = await get('SELECT category FROM servers WHERE category = ?', [category]);
+    if (!existing) {
+      const inviteCode = crypto.randomBytes(5).toString('hex');
+      await run('INSERT INTO servers (category, invite_code) VALUES (?, ?)', [category, inviteCode]);
+    }
+  }
+
+  // Migração pra contas criadas antes do sistema de membros existir: quem
+  // ainda não é membro de nenhum servidor entra automaticamente nos dois
+  // públicos padrão, senão a conta ficaria "presa" sem ver servidor nenhum.
+  const usersWithoutMembership = await all(`
+    SELECT id FROM users WHERE id NOT IN (SELECT DISTINCT user_id FROM server_members)
+  `);
+  for (const u of usersWithoutMembership) {
+    for (const category of ['gamers', 'trabalho']) {
+      await run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+        crypto.randomUUID(),
+        category,
+        u.id,
+      ]);
+    }
   }
 }
 

@@ -697,6 +697,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 .reward-seal-wrap { position: relative; width: 100%; margin: 0 auto 8px; }
 .reward-seal-square { max-width: 170px; aspect-ratio: 713 / 802; }
 .reward-seal-wide { max-width: 230px; aspect-ratio: 1046 / 651; }
+.reward-seal-founder { max-width: 280px; aspect-ratio: 1940 / 656; background: #0a0a0a; border-radius: 8px; }
 .reward-seal-img {
   width: 100%; height: 100%; object-fit: contain; display: block;
   filter: drop-shadow(0 6px 16px rgba(0,0,0,0.5));
@@ -998,3 +999,51 @@ video:fullscreen { background: #000; object-fit: contain; }
   66%  { box-shadow: 0 0 0 3px #ffb347, 0 0 22px rgba(255,179,71,0.8); }
   100% { box-shadow: 0 0 0 3px #ffd76b, 0 0 20px rgba(255,215,107,0.75); }
 }
+
+/* SERVIDOR: CONVITE, MEMBROS, CARGOS */
+.server-icon-add + .server-icon-add { margin-top: 6px; }
+.manage-tabs { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid #26272e; }
+.manage-tab {
+  background: none; border: none; color: #8b909a; font-size: 13px; font-weight: 700; cursor: pointer;
+  padding: 8px 12px; border-bottom: 2px solid transparent;
+}
+.manage-tab.active { color: #e6e6e6; border-bottom-color: var(--accent); }
+.manage-tab-panel { min-height: 120px; }
+
+.server-members-list, .server-roles-list { display: flex; flex-direction: column; gap: 8px; max-height: 45vh; overflow-y: auto; }
+.server-member-row, .server-role-row {
+  display: flex; align-items: center; gap: 10px; background: #1e1f22; border: 1px solid #35373c;
+  border-radius: 8px; padding: 8px 10px;
+}
+.server-member-info { flex: 1; min-width: 0; }
+.server-member-name { font-size: 13px; font-weight: 700; color: #e6e6e6; }
+.server-member-roles { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.server-member-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.role-pill {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 10px; border: 1px solid;
+}
+.role-pill-remove { background: none; border: none; color: inherit; cursor: pointer; font-size: 12px; padding: 0; line-height: 1; }
+.role-assign-select {
+  background: #101116; color: #dbdee1; border: 1px solid #35373c; border-radius: 6px; font-size: 11px; padding: 4px 6px;
+}
+.server-kick-btn, .server-role-delete-btn {
+  background: #26272e; border: none; color: #f23f42; font-size: 13px; padding: 4px 8px; border-radius: 6px; cursor: pointer;
+}
+.server-kick-btn:hover, .server-role-delete-btn:hover { background: #33353d; }
+.server-role-perms { font-size: 11px; color: #949ba4; flex: 1; }
+.role-permissions-checkboxes { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+
+/* AMIGOS */
+.friends-list { display: flex; flex-direction: column; gap: 6px; max-height: 30vh; overflow-y: auto; margin-bottom: 6px; }
+.friend-row {
+  display: flex; align-items: center; gap: 10px; background: #1e1f22; border-radius: 8px; padding: 8px 10px;
+}
+.friend-name { flex: 1; font-size: 13px; font-weight: 600; color: #dbdee1; min-width: 0; }
+.friend-status { font-size: 11px; color: var(--accent-3); font-weight: 400; }
+.friend-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.friend-accept-btn, .friend-decline-btn, .friend-remove-btn, .friend-cancel-btn {
+  background: #26272e; border: none; font-size: 13px; padding: 4px 8px; border-radius: 6px; cursor: pointer;
+}
+.friend-accept-btn:hover, .friend-decline-btn:hover, .friend-remove-btn:hover, .friend-cancel-btn:hover { background: #33353d; }
+.friend-pending-tag { font-size: 11px; color: #6d7178; }

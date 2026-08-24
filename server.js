@@ -92,6 +92,61 @@ function requireAdmin(req, res, next) {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// ---------- SERVIDORES: DONO, MEMBROS, CARGOS E PERMISSÕES ----------
+// Cada "servidor" (identificado pelo nome da categoria, igual sempre foi)
+// agora tem um dono e uma lista de membros — só quem foi convidado/entrou
+// consegue ver e participar, igual Discord. Cargos dão permissões
+// específicas dentro daquele servidor; o dono sempre tem todas.
+const SERVER_PERMISSIONS = [
+  { key: 'manage_server', label: 'Gerenciar servidor (nome, ícone, descrição)' },
+  { key: 'manage_channels', label: 'Gerenciar canais (criar/excluir salas)' },
+  { key: 'manage_roles', label: 'Gerenciar cargos' },
+  { key: 'kick_members', label: 'Expulsar membros' },
+  { key: 'mute_members', label: 'Mutar/ensurdecer membros na call' },
+];
+const SERVER_PERMISSION_KEYS = SERVER_PERMISSIONS.map((p) => p.key);
+
+function generateInviteCode() {
+  return crypto.randomBytes(5).toString('hex');
+}
+
+async function isServerMember(category, userId) {
+  const row = await db.get('SELECT id FROM server_members WHERE category = ? AND user_id = ?', [category, userId]);
+  return !!row;
+}
+
+// Dono tem tudo. Nos dois servidores padrão sem dono (gamers/trabalho),
+// qualquer membro pode criar salas — é o comportamento histórico dessas
+// duas comunidades públicas iniciais. Fora isso, permissão vem dos cargos.
+async function getServerPermissions(category, userId) {
+  const server = await db.get('SELECT owner_id FROM servers WHERE category = ?', [category]);
+  if (!server) return new Set();
+  if (server.owner_id === userId) return new Set(SERVER_PERMISSION_KEYS);
+  if (!server.owner_id) return new Set(['manage_channels']);
+
+  const roles = await db.all(
+    `SELECT r.permissions FROM server_member_roles smr
+     JOIN server_roles r ON r.id = smr.role_id
+     WHERE smr.category = ? AND smr.user_id = ?`,
+    [category, userId]
+  );
+  const perms = new Set();
+  roles.forEach((r) => {
+    try {
+      JSON.parse(r.permissions).forEach((p) => perms.add(p));
+    } catch (_) {}
+  });
+  return perms;
+}
+
+// Site admins (o painel /admin.html) sempre podem gerenciar qualquer
+// servidor, pra fins de moderação — além do dono e de quem tem o cargo certo.
+async function hasServerPermission(category, user, permission) {
+  if (user.is_admin) return true;
+  const perms = await getServerPermissions(category, user.id);
+  return perms.has(permission);
+}
+
 // ---------- BOT DE BOAS-VINDAS/AVISOS ----------
 // Um "bot" simples do sistema que posta mensagens automáticas (não é um bot
 // de verdade tipo Discord com comandos próprios — é automação de servidor).
@@ -179,7 +234,7 @@ const REWARDS_CATALOG = [
     days: 365,
     rare: true,
     limitedSlots: 2,
-    hasName: true,
+    image: '/assets/seal-founder.png',
   },
 ];
 
@@ -389,6 +444,17 @@ app.post(
 
     req.session.userId = id;
     res.json({ id, username, is_admin: isFirstUser ? 1 : 0 });
+
+    // Toda conta nova já entra automaticamente nos dois servidores públicos
+    // padrão (gamers/trabalho) — servidores criados por outros usuários daqui
+    // pra frente são privados e exigem convite.
+    for (const category of ['gamers', 'trabalho']) {
+      db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+        uuidv4(),
+        category,
+        id,
+      ]).catch(() => {});
+    }
 
     postSystemMessage(WELCOME_CHANNEL_ID, `🎉 ${username} acabou de entrar no NEXT GAME! Dê as boas-vindas.`);
     updateStreakAndRewards({ id, login_streak: 0, longest_streak: 0, last_login_date: null }).catch(() => {});
@@ -659,17 +725,26 @@ app.get(
 
 // ---------- CHANNELS ----------
 
+// Só mostra canais dos servidores em que a pessoa realmente é membro — igual
+// Discord, onde você só vê o que faz parte.
 app.get(
   '/api/channels',
   requireAuth,
   asyncHandler(async (req, res) => {
-    res.json(await db.all('SELECT * FROM channels ORDER BY category, type, name'));
+    const memberships = await db.all('SELECT category FROM server_members WHERE user_id = ?', [req.user.id]);
+    const categories = memberships.map((m) => m.category);
+    if (categories.length === 0) return res.json([]);
+    const placeholders = categories.map(() => '?').join(',');
+    res.json(
+      await db.all(`SELECT * FROM channels WHERE category IN (${placeholders}) ORDER BY category, type, name`, categories)
+    );
   })
 );
 
-// Qualquer usuário logado pode criar uma sala nova. Se a "categoria" (nome do
-// servidor/comunidade) informada ainda não existir, ela é criada na hora —
-// é assim que usuários criam servidores próprios (ex: "Valorant", "Minecraft").
+// Criar uma sala. Se a categoria/"servidor" ainda não existir, ela nasce
+// aqui — e quem criou vira o dono (igual criar um servidor novo no Discord).
+// Se a categoria já existir, precisa ser membro e ter permissão de gerenciar
+// canais (dono sempre tem; nos servidores padrão sem dono, qualquer membro tem).
 app.post(
   '/api/channels',
   requireAuth,
@@ -693,8 +768,29 @@ app.post(
 
     const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 40);
     const cleanCategory = category.trim().slice(0, 40);
-    const id = uuidv4();
 
+    const existingServer = await db.get('SELECT category FROM servers WHERE category = ?', [cleanCategory]);
+
+    if (!existingServer) {
+      // Servidor novo — quem cria vira dono automaticamente e já entra como membro.
+      const inviteCode = generateInviteCode();
+      await db.run(
+        'INSERT INTO servers (category, icon, owner_id, invite_code, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'))',
+        [cleanCategory, icon && typeof icon === 'string' && icon.length <= 8 ? icon : null, req.user.id, inviteCode, req.user.id]
+      );
+      await db.run('INSERT INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+        uuidv4(),
+        cleanCategory,
+        req.user.id,
+      ]);
+    } else {
+      const isMember = await isServerMember(cleanCategory, req.user.id);
+      if (!isMember) return res.status(403).json({ error: 'Você precisa ser membro desse servidor pra criar salas nele' });
+      const canManage = await hasServerPermission(cleanCategory, req.user, 'manage_channels');
+      if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra criar salas nesse servidor' });
+    }
+
+    const id = uuidv4();
     await db.run('INSERT INTO channels (id, name, category, type, created_by) VALUES (?, ?, ?, ?, ?)', [
       id,
       cleanName,
@@ -703,56 +799,412 @@ app.post(
       req.user.id,
     ]);
 
-    // Ícone do servidor (emoji): só é gravado se ainda não existir um pra essa
-    // categoria — quem cria primeiro escolhe, os próximos não sobrescrevem.
-    if (icon && typeof icon === 'string' && icon.length <= 8) {
-      await db.run(
-        `INSERT INTO servers (category, icon, updated_by, updated_at) VALUES (?, ?, ?, datetime('now'))
-         ON CONFLICT(category) DO UPDATE SET icon = COALESCE(servers.icon, excluded.icon)`,
-        [cleanCategory, icon, req.user.id]
-      );
-    }
-
     res.json({ id, name: cleanName, category: cleanCategory, type });
   })
 );
 
-// Lista enxuta (categoria + ícone) de todos os servidores já criados — usada
-// pro trilho de servidores e pro dashboard de Início mostrarem o ícone de
-// verdade escolhido por quem criou, em vez de um ícone genérico chutado.
+// Lista enxuta (categoria + ícone) dos servidores em que a pessoa é membro —
+// usada pro trilho de servidores e pro dashboard de Início.
 app.get(
   '/api/servers',
   requireAuth,
   asyncHandler(async (req, res) => {
-    res.json(await db.all('SELECT category, icon FROM servers'));
+    res.json(
+      await db.all(
+        `SELECT s.category, s.icon FROM servers s
+         JOIN server_members sm ON sm.category = s.category
+         WHERE sm.user_id = ?`,
+        [req.user.id]
+      )
+    );
+  })
+);
+
+// Meus servidores com mais detalhes (dono, quantidade de membros) — usado no
+// modal de gerenciamento e em telas que precisam saber se sou dono.
+app.get(
+  '/api/servers/mine',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT s.category, s.icon, s.owner_id,
+              (SELECT COUNT(*) FROM server_members WHERE category = s.category) as member_count
+       FROM servers s
+       JOIN server_members sm ON sm.category = s.category
+       WHERE sm.user_id = ?`,
+      [req.user.id]
+    );
+    res.json(rows.map((r) => ({ ...r, is_owner: r.owner_id === req.user.id })));
+  })
+);
+
+// Convite: qualquer um com o código consegue ver uma prévia do servidor sem
+// precisar estar logado — só entra de fato com POST (aí sim exige login).
+app.get(
+  '/api/invite/:code',
+  asyncHandler(async (req, res) => {
+    const server = await db.get('SELECT category, icon, description FROM servers WHERE invite_code = ?', [
+      req.params.code,
+    ]);
+    if (!server) return res.status(404).json({ error: 'Convite inválido ou expirado' });
+    const countRow = await db.get('SELECT COUNT(*) as c FROM server_members WHERE category = ?', [server.category]);
+    res.json({ ...server, member_count: Number(countRow.c) });
+  })
+);
+
+app.post(
+  '/api/invite/:code/join',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const server = await db.get('SELECT category FROM servers WHERE invite_code = ?', [req.params.code]);
+    if (!server) return res.status(404).json({ error: 'Convite inválido ou expirado' });
+    await db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+      uuidv4(),
+      server.category,
+      req.user.id,
+    ]);
+    res.json({ category: server.category });
+  })
+);
+
+// Ver/gerar o código de convite do servidor — só quem tem permissão de
+// gerenciar o servidor (dono, admin do site, ou cargo com manage_server).
+app.get(
+  '/api/servers/:category/invite',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const isMember = await isServerMember(req.params.category, req.user.id);
+    if (!isMember) return res.status(403).json({ error: 'Você não é membro desse servidor' });
+    const server = await db.get('SELECT invite_code FROM servers WHERE category = ?', [req.params.category]);
+    if (!server) return res.status(404).json({ error: 'Servidor não encontrado' });
+    res.json({ invite_code: server.invite_code });
+  })
+);
+
+app.post(
+  '/api/servers/:category/invite/regenerate',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_server');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar esse servidor' });
+    const newCode = generateInviteCode();
+    await db.run('UPDATE servers SET invite_code = ? WHERE category = ?', [newCode, req.params.category]);
+    res.json({ invite_code: newCode });
   })
 );
 
 // Informações/regras do servidor (categoria) — igual tela de boas-vindas do Discord.
+// Só membros conseguem ver (servidor é privado).
 app.get(
   '/api/servers/:category',
   requireAuth,
   asyncHandler(async (req, res) => {
+    const isMember = await isServerMember(req.params.category, req.user.id);
+    if (!isMember && !req.user.is_admin) return res.status(403).json({ error: 'Você não é membro desse servidor' });
     const info = await db.get('SELECT * FROM servers WHERE category = ?', [req.params.category]);
-    res.json(info || { category: req.params.category, description: null, rules: null });
+    const perms = await getServerPermissions(req.params.category, req.user.id);
+    res.json({
+      ...(info || { category: req.params.category, description: null, rules: null }),
+      is_owner: info && info.owner_id === req.user.id,
+      my_permissions: [...perms],
+    });
   })
 );
 
 app.patch(
   '/api/servers/:category',
   requireAuth,
-  requireAdmin,
   asyncHandler(async (req, res) => {
-    const { description, rules } = req.body || {};
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_server');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar esse servidor' });
+    const { description, rules, icon } = req.body || {};
     if ((description && description.length > 500) || (rules && rules.length > 2000)) {
       return res.status(400).json({ error: 'Descrição (máx. 500) ou regras (máx. 2000) muito longas' });
     }
     await db.run(
-      `INSERT INTO servers (category, description, rules, updated_by, updated_at)
-       VALUES (?, ?, ?, ?, datetime('now'))
-       ON CONFLICT(category) DO UPDATE SET description = excluded.description, rules = excluded.rules, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
-      [req.params.category, description || null, rules || null, req.user.id]
+      `INSERT INTO servers (category, description, rules, icon, updated_by, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(category) DO UPDATE SET
+         description = excluded.description,
+         rules = excluded.rules,
+         icon = COALESCE(excluded.icon, servers.icon),
+         updated_by = excluded.updated_by,
+         updated_at = excluded.updated_at`,
+      [req.params.category, description || null, rules || null, icon && icon.length <= 8 ? icon : null, req.user.id]
     );
+    res.json({ ok: true });
+  })
+);
+
+// ---------- MEMBROS, CARGOS E PERMISSÕES DO SERVIDOR ----------
+
+app.get(
+  '/api/servers/:category/members',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const isMember = await isServerMember(req.params.category, req.user.id);
+    if (!isMember && !req.user.is_admin) return res.status(403).json({ error: 'Você não é membro desse servidor' });
+
+    const server = await db.get('SELECT owner_id FROM servers WHERE category = ?', [req.params.category]);
+    const members = await db.all(
+      `SELECT u.id, u.username, u.avatar, u.avatar_frame
+       FROM server_members sm JOIN users u ON u.id = sm.user_id
+       WHERE sm.category = ? ORDER BY u.username`,
+      [req.params.category]
+    );
+    const roleRows = await db.all(
+      `SELECT smr.user_id, r.id as role_id, r.name, r.color
+       FROM server_member_roles smr JOIN server_roles r ON r.id = smr.role_id
+       WHERE smr.category = ?`,
+      [req.params.category]
+    );
+    res.json(
+      members.map((m) => ({
+        ...m,
+        is_owner: server && server.owner_id === m.id,
+        roles: roleRows.filter((r) => r.user_id === m.id).map((r) => ({ id: r.role_id, name: r.name, color: r.color })),
+      }))
+    );
+  })
+);
+
+app.post(
+  '/api/servers/:category/kick/:userId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canKick = await hasServerPermission(req.params.category, req.user, 'kick_members');
+    if (!canKick) return res.status(403).json({ error: 'Você não tem permissão pra expulsar membros' });
+    const server = await db.get('SELECT owner_id FROM servers WHERE category = ?', [req.params.category]);
+    if (server && server.owner_id === req.params.userId) {
+      return res.status(400).json({ error: 'Não dá pra expulsar o dono do servidor' });
+    }
+    await db.run('DELETE FROM server_members WHERE category = ? AND user_id = ?', [req.params.category, req.params.userId]);
+    await db.run('DELETE FROM server_member_roles WHERE category = ? AND user_id = ?', [
+      req.params.category,
+      req.params.userId,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  '/api/servers/:category/leave',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const server = await db.get('SELECT owner_id FROM servers WHERE category = ?', [req.params.category]);
+    if (server && server.owner_id === req.user.id) {
+      return res.status(400).json({ error: 'O dono não pode sair do próprio servidor — exclua ou transfira antes' });
+    }
+    await db.run('DELETE FROM server_members WHERE category = ? AND user_id = ?', [req.params.category, req.user.id]);
+    await db.run('DELETE FROM server_member_roles WHERE category = ? AND user_id = ?', [
+      req.params.category,
+      req.user.id,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.get(
+  '/api/servers/:category/roles',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const isMember = await isServerMember(req.params.category, req.user.id);
+    if (!isMember && !req.user.is_admin) return res.status(403).json({ error: 'Você não é membro desse servidor' });
+    const roles = await db.all('SELECT * FROM server_roles WHERE category = ? ORDER BY position DESC, created_at', [
+      req.params.category,
+    ]);
+    res.json({
+      permissions_catalog: SERVER_PERMISSIONS,
+      roles: roles.map((r) => ({ ...r, permissions: JSON.parse(r.permissions || '[]') })),
+    });
+  })
+);
+
+app.post(
+  '/api/servers/:category/roles',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_roles');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar cargos' });
+    const { name, color, permissions } = req.body || {};
+    if (!name || typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 30) {
+      return res.status(400).json({ error: 'Nome do cargo precisa ter 2-30 caracteres' });
+    }
+    const cleanColor = typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#99aab5';
+    const cleanPermissions = Array.isArray(permissions) ? permissions.filter((p) => SERVER_PERMISSION_KEYS.includes(p)) : [];
+    const id = uuidv4();
+    await db.run('INSERT INTO server_roles (id, category, name, color, permissions) VALUES (?, ?, ?, ?, ?)', [
+      id,
+      req.params.category,
+      name.trim(),
+      cleanColor,
+      JSON.stringify(cleanPermissions),
+    ]);
+    res.json({ id, name: name.trim(), color: cleanColor, permissions: cleanPermissions });
+  })
+);
+
+app.patch(
+  '/api/servers/:category/roles/:roleId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_roles');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar cargos' });
+    const { name, color, permissions } = req.body || {};
+    const role = await db.get('SELECT * FROM server_roles WHERE id = ? AND category = ?', [
+      req.params.roleId,
+      req.params.category,
+    ]);
+    if (!role) return res.status(404).json({ error: 'Cargo não encontrado' });
+
+    const cleanName = name && name.trim().length >= 2 && name.trim().length <= 30 ? name.trim() : role.name;
+    const cleanColor = typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color) ? color : role.color;
+    const cleanPermissions = Array.isArray(permissions)
+      ? permissions.filter((p) => SERVER_PERMISSION_KEYS.includes(p))
+      : JSON.parse(role.permissions || '[]');
+
+    await db.run('UPDATE server_roles SET name = ?, color = ?, permissions = ? WHERE id = ?', [
+      cleanName,
+      cleanColor,
+      JSON.stringify(cleanPermissions),
+      req.params.roleId,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/servers/:category/roles/:roleId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_roles');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar cargos' });
+    await db.run('DELETE FROM server_roles WHERE id = ? AND category = ?', [req.params.roleId, req.params.category]);
+    await db.run('DELETE FROM server_member_roles WHERE role_id = ?', [req.params.roleId]);
+    res.json({ ok: true });
+  })
+);
+
+// Atribuir ou remover um cargo de um membro.
+app.post(
+  '/api/servers/:category/members/:userId/roles',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_roles');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar cargos' });
+    const { roleId, action } = req.body || {};
+    if (!roleId || !['add', 'remove'].includes(action)) {
+      return res.status(400).json({ error: 'Dados inválidos' });
+    }
+    if (action === 'add') {
+      await db.run('INSERT OR IGNORE INTO server_member_roles (id, category, user_id, role_id) VALUES (?, ?, ?, ?)', [
+        uuidv4(),
+        req.params.category,
+        req.params.userId,
+        roleId,
+      ]);
+    } else {
+      await db.run('DELETE FROM server_member_roles WHERE category = ? AND user_id = ? AND role_id = ?', [
+        req.params.category,
+        req.params.userId,
+        roleId,
+      ]);
+    }
+    res.json({ ok: true });
+  })
+);
+
+// ---------- AMIZADES ----------
+
+app.get(
+  '/api/friends',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT f.id, f.status, f.requested_by, f.created_at,
+              CASE WHEN f.user_a = ? THEN f.user_b ELSE f.user_a END as other_id
+       FROM friendships f
+       WHERE f.user_a = ? OR f.user_b = ?`,
+      [req.user.id, req.user.id, req.user.id]
+    );
+    if (rows.length === 0) return res.json({ friends: [], incoming: [], outgoing: [] });
+
+    const otherIds = rows.map((r) => r.other_id);
+    const placeholders = otherIds.map(() => '?').join(',');
+    const users = await db.all(
+      `SELECT id, username, avatar, avatar_frame, status_message FROM users WHERE id IN (${placeholders})`,
+      otherIds
+    );
+    const usersMap = {};
+    users.forEach((u) => (usersMap[u.id] = u));
+
+    const friends = [];
+    const incoming = [];
+    const outgoing = [];
+    rows.forEach((r) => {
+      const entry = { friendship_id: r.id, user: usersMap[r.other_id], created_at: r.created_at };
+      if (r.status === 'accepted') friends.push(entry);
+      else if (r.requested_by === req.user.id) outgoing.push(entry);
+      else incoming.push(entry);
+    });
+    res.json({ friends, incoming, outgoing });
+  })
+);
+
+app.post(
+  '/api/friends/request',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { username } = req.body || {};
+    if (!username || typeof username !== 'string') return res.status(400).json({ error: 'Usuário inválido' });
+    const target = await db.get('SELECT id FROM users WHERE username = ?', [username.trim()]);
+    if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
+    if (target.id === req.user.id) return res.status(400).json({ error: 'Você não pode adicionar a si mesmo' });
+
+    const [userA, userB] = [req.user.id, target.id].sort();
+    const existing = await db.get('SELECT id, status FROM friendships WHERE user_a = ? AND user_b = ?', [userA, userB]);
+    if (existing) {
+      return res.status(409).json({ error: existing.status === 'accepted' ? 'Vocês já são amigos' : 'Já existe um pedido pendente' });
+    }
+    const id = uuidv4();
+    await db.run('INSERT INTO friendships (id, user_a, user_b, status, requested_by) VALUES (?, ?, ?, ?, ?)', [
+      id,
+      userA,
+      userB,
+      'pending',
+      req.user.id,
+    ]);
+    res.json({ id, status: 'pending' });
+  })
+);
+
+app.post(
+  '/api/friends/:id/accept',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const friendship = await db.get('SELECT * FROM friendships WHERE id = ?', [req.params.id]);
+    if (!friendship || (friendship.user_a !== req.user.id && friendship.user_b !== req.user.id)) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+    if (friendship.requested_by === req.user.id) {
+      return res.status(400).json({ error: 'Você não pode aceitar seu próprio pedido' });
+    }
+    await db.run("UPDATE friendships SET status = 'accepted' WHERE id = ?", [req.params.id]);
+    res.json({ ok: true });
+  })
+);
+
+// Cobre recusar um pedido pendente, cancelar um pedido enviado, ou desfazer
+// uma amizade já aceita — as três ações são só "apagar essa linha".
+app.delete(
+  '/api/friends/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const friendship = await db.get('SELECT * FROM friendships WHERE id = ?', [req.params.id]);
+    if (!friendship || (friendship.user_a !== req.user.id && friendship.user_b !== req.user.id)) {
+      return res.status(404).json({ error: 'Não encontrado' });
+    }
+    await db.run('DELETE FROM friendships WHERE id = ?', [req.params.id]);
     res.json({ ok: true });
   })
 );

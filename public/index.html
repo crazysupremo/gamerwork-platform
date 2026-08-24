@@ -103,6 +103,7 @@
       </div>
       <button class="navbar-icon-btn" id="nav-bell" title="Atividade recente">🔔<span id="navbar-bell-badge" class="navbar-badge hidden">0</span></button>
       <button class="navbar-icon-btn" id="nav-rewards" title="Loja de recompensas">🎁<span id="navbar-streak-badge" class="navbar-badge hidden">0</span></button>
+      <button class="navbar-icon-btn" id="nav-friends" title="Amigos">👥<span id="navbar-friends-badge" class="navbar-badge hidden">0</span></button>
       <button class="navbar-icon-btn" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos">🔊</button>
       <button class="navbar-profile" id="nav-profile">
         <div id="navbar-avatar" class="member-avatar"></div>
@@ -120,6 +121,7 @@
   <nav id="server-rail" class="server-rail">
     <div id="server-rail-list" class="server-rail-list"></div>
     <button id="btn-new-server" class="server-icon server-icon-add" title="Criar servidor">+</button>
+    <button id="btn-join-invite" class="server-icon server-icon-add" title="Entrar com convite">🔗</button>
   </nav>
 
   <aside class="sidebar">
@@ -129,6 +131,7 @@
         <button id="btn-tournaments" title="Torneios">🏆</button>
         <button id="btn-ranking" title="Ranking semanal">📊</button>
         <button id="btn-server-info" title="Informações e regras do servidor">ℹ️</button>
+        <button id="btn-server-manage" title="Membros, cargos e convite">⚙️</button>
         <button id="btn-new-room" title="Criar sala neste servidor">+</button>
       </div>
     </div>
@@ -430,6 +433,73 @@
   </div>
 </div>
 
+<!-- MODAL: gerenciar servidor — convite, membros e cargos (estilo Discord) -->
+<div id="modal-server-manage" class="modal-overlay hidden">
+  <div class="modal-card modal-card-wide">
+    <h2>⚙️ Gerenciar Servidor</h2>
+    <div class="manage-tabs">
+      <button type="button" class="manage-tab active" data-tab="invite">🔗 Convite</button>
+      <button type="button" class="manage-tab" data-tab="members">👥 Membros</button>
+      <button type="button" class="manage-tab" data-tab="roles">🎭 Cargos</button>
+    </div>
+
+    <div id="manage-tab-invite" class="manage-tab-panel">
+      <p class="hint" style="margin-bottom:10px;">Compartilhe esse link pra convidar qualquer pessoa pro servidor.</p>
+      <div class="input-icon-wrap">
+        <span class="input-icon">🔗</span>
+        <input type="text" id="invite-link-display" readonly />
+      </div>
+      <div class="modal-actions" style="margin-top:10px; justify-content:flex-start;">
+        <button type="button" id="btn-copy-invite">📋 Copiar link</button>
+        <button type="button" id="btn-regenerate-invite" class="hidden">🔄 Gerar novo código</button>
+      </div>
+    </div>
+
+    <div id="manage-tab-members" class="manage-tab-panel hidden">
+      <div id="server-members-list" class="server-members-list"></div>
+    </div>
+
+    <div id="manage-tab-roles" class="manage-tab-panel hidden">
+      <div id="server-roles-list" class="server-roles-list"></div>
+      <button type="button" id="btn-new-role" class="hidden" style="margin-top:10px;">+ Criar cargo</button>
+      <form id="form-new-role" class="hidden" style="margin-top:10px;">
+        <label>Nome do cargo</label>
+        <input type="text" id="role-name-input" maxlength="30" placeholder="ex: Moderador" required />
+        <label>Cor</label>
+        <input type="color" id="role-color-input" value="#5865f2" style="height:36px; padding:2px;" />
+        <label>Permissões</label>
+        <div id="role-permissions-checkboxes" class="role-permissions-checkboxes"></div>
+        <div class="modal-actions">
+          <button type="button" id="btn-cancel-role">Cancelar</button>
+          <button type="submit">Criar cargo</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-close-server-manage">Fechar</button>
+      <button type="button" id="btn-leave-server">🚪 Sair do servidor</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: entrar com código/link de convite -->
+<div id="modal-join-invite" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>🔗 Entrar com convite</h2>
+    <p class="hint" style="margin-bottom:10px;">Cole o código ou o link de convite que te mandaram.</p>
+    <div class="input-icon-wrap">
+      <span class="input-icon">🔗</span>
+      <input type="text" id="join-invite-input" placeholder="ex: a1b2c3d4e5 ou o link completo" />
+    </div>
+    <button type="button" id="btn-submit-invite" class="home-btn-primary" style="margin-top:10px; width:100%;">Entrar</button>
+    <p id="join-invite-error" class="auth-error"></p>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-join-invite">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: torneios do servidor -->
 <div id="modal-tournaments" class="modal-overlay hidden">
   <div class="modal-card modal-card-wide">
@@ -521,6 +591,39 @@
       </div>
       <div id="quiz-result"></div>
     </form>
+  </div>
+</div>
+
+<!-- MODAL: amigos (pedir, aceitar, lista) -->
+<div id="modal-friends" class="modal-overlay hidden">
+  <div class="modal-card modal-card-wide">
+    <h2>👥 Amigos</h2>
+
+    <form id="form-add-friend" style="display:flex; gap:8px; margin-bottom:14px;">
+      <div class="input-icon-wrap" style="flex:1;">
+        <span class="input-icon">👤</span>
+        <input type="text" id="add-friend-input" placeholder="Nome de usuário" required />
+      </div>
+      <button type="submit" class="home-btn-primary" style="white-space:nowrap;">Adicionar</button>
+    </form>
+    <p id="add-friend-error" class="auth-error"></p>
+
+    <div id="friends-incoming-section" class="hidden">
+      <div class="home-section-title">📥 Pedidos recebidos</div>
+      <div id="friends-incoming-list" class="friends-list"></div>
+    </div>
+
+    <div id="friends-outgoing-section" class="hidden">
+      <div class="home-section-title" style="margin-top:14px;">📤 Pedidos enviados</div>
+      <div id="friends-outgoing-list" class="friends-list"></div>
+    </div>
+
+    <div class="home-section-title" style="margin-top:14px;">✅ Seus amigos</div>
+    <div id="friends-list" class="friends-list"></div>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-close-friends">Fechar</button>
+    </div>
   </div>
 </div>
 
