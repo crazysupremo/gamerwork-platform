@@ -13,11 +13,34 @@ const remoteStreams = {}; // socketId -> MediaStream combinada (áudio + vídeo 
 let voiceParticipants = {}; // channelId -> [{socketId, userId, username}]
 let cameraStream = null; // vídeo da webcam (separado da tela compartilhada)
 let allUsers = []; // cache de /api/users pro painel de membros
+let serverIcons = {}; // category -> emoji real escolhido por quem criou o servidor
 let onlineUserIds = new Set();
 let typingUsers = {}; // channelId -> { userId: username }
 let typingTimeout = null;
 
 const AVATAR_EMOJIS = ['🎮', '🕹️', '👾', '🔥', '⚡', '🐉', '🦊', '🐱', '💀', '👑', '🎯', '🚀'];
+const SERVER_ICONS = ['🎮', '🕹️', '👾', '🔫', '⚔️', '🏆', '⚽', '🏎️', '🧙', '🐉', '💼', '💬', '🎧', '🚀'];
+
+// Monta a fileira de ícones pra escolher o emoji de um novo servidor.
+function buildRoomIconRow() {
+  const row = document.getElementById('room-icon-row');
+  const hiddenInput = document.getElementById('room-icon');
+  row.innerHTML = '';
+  SERVER_ICONS.forEach((icon, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = icon;
+    btn.style.background = '#5865f2';
+    if (i === 0) btn.classList.add('avatar-emoji-selected');
+    btn.onclick = () => {
+      hiddenInput.value = icon;
+      row.querySelectorAll('button').forEach((b) => b.classList.remove('avatar-emoji-selected'));
+      btn.classList.add('avatar-emoji-selected');
+    };
+    row.appendChild(btn);
+  });
+  hiddenInput.value = SERVER_ICONS[0];
+}
 
 // Gera o HTML de um avatar (foto enviada, emoji escolhido, ou inicial do nome).
 function renderAvatarHtml(user, sizeClass) {
@@ -31,6 +54,21 @@ function renderAvatarHtml(user, sizeClass) {
   }
   const initial = escapeHtml(((user && user.username) || '?')[0].toUpperCase());
   return `<span>${initial}</span>`;
+}
+
+// Classe CSS da moldura animada (se a pessoa tiver uma equipada) — usada
+// junto com renderAvatarHtml em todo lugar que mostra avatar.
+function avatarFrameClass(user) {
+  return user && user.avatar_frame ? 'avatar-frame-' + user.avatar_frame : '';
+}
+
+// Atalho pra quando o avatar vai direto num elemento já existente no DOM
+// (em vez de dentro de um template de HTML string).
+function renderAvatarInto(el, user) {
+  el.innerHTML = renderAvatarHtml(user);
+  el.className = el.className.replace(/\bavatar-frame-\S+/g, '').trim();
+  const frameClass = avatarFrameClass(user);
+  if (frameClass) el.classList.add(frameClass);
 }
 
 const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
@@ -152,10 +190,11 @@ function startApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('me-username').textContent = me.username;
-  document.getElementById('me-avatar').innerHTML = renderAvatarHtml(me);
+  renderAvatarInto(document.getElementById('me-avatar'), me);
   if (me.is_admin) document.getElementById('admin-link').classList.remove('hidden');
 
   updateNavbarProfile();
+  refreshStreakBadge();
 
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
@@ -204,7 +243,7 @@ function renderMembers() {
       row.className = 'member-row' + (isOffline ? ' offline' : '');
       row.innerHTML = `
         <div class="member-avatar-wrap">
-          <div class="member-avatar">${renderAvatarHtml(u)}</div>
+          <div class="member-avatar ${avatarFrameClass(u)}">${renderAvatarHtml(u)}</div>
           <span class="member-status-dot"></span>
         </div>
         <div class="member-info">
@@ -240,9 +279,23 @@ async function loadChannels() {
     activeServerCategory = categories[0] || null;
   }
 
+  await loadServerIcons();
   renderServerRail(categories);
   renderCategories(allChannels);
   updateCategoryDatalist(allChannels);
+}
+
+// Busca os ícones reais escolhidos por quem criou cada servidor (um só
+// request pra todos, em vez de um por categoria).
+async function loadServerIcons() {
+  try {
+    const res = await fetch('/api/servers', { credentials: 'include' });
+    const rows = await res.json();
+    serverIcons = {};
+    rows.forEach((r) => {
+      if (r.icon) serverIcons[r.category] = r.icon;
+    });
+  } catch (_) {}
 }
 
 // Trilho de servidores (coluna de ícones à esquerda, igual Discord) —
@@ -255,7 +308,7 @@ function renderServerRail(categories) {
     btn.className = 'server-icon';
     if (category === activeServerCategory) btn.classList.add('active');
     btn.title = category;
-    btn.textContent = serverInitials(category);
+    btn.textContent = serverIcons[category] || serverInitials(category);
     btn.onclick = () => {
       activeServerCategory = category;
       renderServerRail(categories);
@@ -361,6 +414,7 @@ document.getElementById('btn-save-server-info').onclick = async () => {
 };
 
 function categoryIcon(category) {
+  if (serverIcons[category]) return serverIcons[category];
   const normalized = category.toLowerCase();
   if (normalized.includes('trabalho')) return '💼';
   return '🎮';
@@ -501,6 +555,167 @@ document.getElementById('btn-ranking').onclick = async () => {
 };
 document.getElementById('btn-close-ranking').onclick = () => modalRanking.classList.add('hidden');
 
+// ---------- LOJA DE RECOMPENSAS (streak de acesso, molduras, selo raro) ----------
+
+const modalRewards = document.getElementById('modal-rewards');
+let rewardsCache = null;
+
+document.getElementById('nav-rewards').onclick = () => {
+  modalRewards.classList.remove('hidden');
+  loadRewards();
+};
+document.getElementById('btn-close-rewards').onclick = () => modalRewards.classList.add('hidden');
+
+// Atualiza a bolinha de streak no sino de recompensas da navbar.
+async function refreshStreakBadge() {
+  try {
+    const res = await fetch('/api/rewards', { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    rewardsCache = data;
+    const badge = document.getElementById('navbar-streak-badge');
+    if (data.streak > 0) {
+      badge.textContent = '🔥' + data.streak;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  } catch (_) {}
+}
+
+async function loadRewards() {
+  const summaryEl = document.getElementById('rewards-streak-summary');
+  const catalogEl = document.getElementById('rewards-catalog');
+  summaryEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  catalogEl.innerHTML = '';
+
+  const res = await fetch('/api/rewards', { credentials: 'include' });
+  const data = await res.json();
+  rewardsCache = data;
+
+  const nextStreakGoal = data.rewards.find((r) => r.type === 'streak' && !r.unlocked);
+  summaryEl.innerHTML = `
+    <div class="streak-summary-row">
+      <div class="streak-flame-box">
+        <span class="streak-flame">🔥</span>
+        <div>
+          <div class="streak-count">${data.streak} ${data.streak === 1 ? 'dia' : 'dias'} seguidos</div>
+          <div class="streak-best">Recorde: ${data.longest_streak} ${data.longest_streak === 1 ? 'dia' : 'dias'}</div>
+        </div>
+      </div>
+      ${
+        nextStreakGoal
+          ? `<div class="streak-next-goal">
+               <div class="streak-next-label">Próxima recompensa: ${escapeHtml(nextStreakGoal.name)} (${nextStreakGoal.days} dias)</div>
+               <div class="streak-progress-bar"><div class="streak-progress-fill" style="width:${Math.min(100, (data.streak / nextStreakGoal.days) * 100)}%"></div></div>
+             </div>`
+          : `<div class="streak-next-goal"><div class="streak-next-label">🎉 Você desbloqueou todas as recompensas de streak!</div></div>`
+      }
+    </div>
+  `;
+
+  data.rewards.forEach((r) => {
+    const card = document.createElement('div');
+    card.className = 'reward-card' + (r.unlocked ? '' : ' reward-card-locked') + (r.rare ? ' reward-card-rare' : '');
+
+    const previewFrameClass = r.unlocked && r.frame ? 'avatar-frame-' + r.frame : '';
+    const progress = r.type === 'streak' && !r.unlocked ? Math.min(data.streak, r.days) : null;
+
+    let actionsHtml = '';
+    if (r.unlocked) {
+      const isEquipped = me.avatar_frame === r.frame;
+      actionsHtml = `
+        <div class="reward-actions">
+          <button type="button" class="reward-equip-btn" ${isEquipped ? 'disabled' : ''}>
+            ${isEquipped ? '✅ Equipada' : 'Equipar moldura'}
+          </button>
+        </div>
+        <div class="reward-verify">
+          <span class="reward-code">${escapeHtml(r.verification_code)}</span>
+          <button type="button" class="reward-copy-btn" title="Copiar código">📋</button>
+          <button type="button" class="reward-verify-btn" title="Verificar publicamente">🔎 Verificar</button>
+        </div>
+      `;
+    } else {
+      actionsHtml = `<div class="reward-locked-hint">🔒 ${
+        r.type === 'streak' ? `${progress}/${r.days} dias de acesso seguido` : 'Ainda não desbloqueado'
+      }</div>`;
+    }
+
+    card.innerHTML = `
+      ${r.rare ? `<img src="/assets/logo.png" alt="" class="reward-rare-logo" />` : ''}
+      <div class="reward-icon-wrap">
+        <div class="reward-frame-preview member-avatar-lg ${previewFrameClass}">${renderAvatarHtml(me)}</div>
+      </div>
+      <div class="reward-info">
+        <h3>${r.rare ? '⭐ ' : ''}${escapeHtml(r.name)}</h3>
+        <p>${escapeHtml(r.description)}</p>
+        ${actionsHtml}
+      </div>
+    `;
+
+    if (r.unlocked) {
+      card.querySelector('.reward-equip-btn').onclick = async () => {
+        const res2 = await fetch('/api/me', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ avatar_frame: r.frame }),
+        });
+        const updated = await res2.json();
+        if (!res2.ok) {
+          alert(updated.error || 'Erro ao equipar moldura');
+          return;
+        }
+        me.avatar_frame = updated.avatar_frame;
+        renderAvatarInto(document.getElementById('me-avatar'), me);
+        renderAvatarInto(document.getElementById('navbar-avatar'), me);
+        loadRewards();
+      };
+      card.querySelector('.reward-copy-btn').onclick = () => {
+        navigator.clipboard.writeText(r.verification_code).catch(() => {});
+      };
+      card.querySelector('.reward-verify-btn').onclick = () => {
+        modalRewards.classList.add('hidden');
+        document.getElementById('verify-code-input').value = r.verification_code;
+        document.getElementById('modal-verify').classList.remove('hidden');
+        document.getElementById('btn-verify-code').click();
+      };
+    }
+
+    catalogEl.appendChild(card);
+  });
+}
+
+// ---------- VERIFICAÇÃO PÚBLICA DE SELO (auditável, sem login) ----------
+
+document.getElementById('btn-close-verify').onclick = () => document.getElementById('modal-verify').classList.add('hidden');
+
+document.getElementById('btn-verify-code').onclick = async () => {
+  const code = document.getElementById('verify-code-input').value.trim();
+  const resultEl = document.getElementById('verify-result');
+  if (!code) return;
+  resultEl.innerHTML = '<p class="empty-hint">Verificando...</p>';
+  try {
+    const res = await fetch(`/api/verify/${encodeURIComponent(code)}`);
+    const data = await res.json();
+    if (!data.valid) {
+      resultEl.innerHTML = `<div class="verify-invalid">❌ Código não encontrado ou inválido.</div>`;
+      return;
+    }
+    resultEl.innerHTML = `
+      <div class="verify-valid">
+        <img src="/assets/logo.png" alt="" class="verify-logo" />
+        ✅ Selo autêntico<br />
+        <strong>${escapeHtml(data.username)}</strong> — ${escapeHtml(data.reward_name)}<br />
+        <span class="hint">Desbloqueado em ${new Date(data.unlocked_at).toLocaleString('pt-BR')}</span>
+      </div>
+    `;
+  } catch (_) {
+    resultEl.innerHTML = `<div class="verify-invalid">Erro ao verificar. Tente de novo.</div>`;
+  }
+};
+
 function updateCategoryDatalist(channels) {
   const datalist = document.getElementById('category-options');
   const categories = [...new Set(channels.map((c) => c.category))];
@@ -515,6 +730,7 @@ function openNewRoomModal(prefillCategory) {
   document.getElementById('room-error').textContent = '';
   document.getElementById('form-new-room').reset();
   if (prefillCategory) document.getElementById('room-category').value = prefillCategory;
+  buildRoomIconRow();
   modalNewRoom.classList.remove('hidden');
   document.getElementById('room-name').focus();
 }
@@ -531,6 +747,7 @@ document.getElementById('form-new-room').onsubmit = async (e) => {
   const name = document.getElementById('room-name').value.trim();
   const category = document.getElementById('room-category').value.trim();
   const type = document.getElementById('room-type').value;
+  const icon = document.getElementById('room-icon').value || '🎮';
   const errorEl = document.getElementById('room-error');
   errorEl.textContent = '';
 
@@ -539,7 +756,7 @@ document.getElementById('form-new-room').onsubmit = async (e) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ name, category, type }),
+      body: JSON.stringify({ name, category, type, icon }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -763,7 +980,7 @@ function setNavActive(id, active) {
 // ---------- NAVBAR (busca, sino, perfil, navegação) ----------
 
 function updateNavbarProfile() {
-  document.getElementById('navbar-avatar').innerHTML = renderAvatarHtml(me);
+  renderAvatarInto(document.getElementById('navbar-avatar'), me);
   document.getElementById('navbar-username').textContent = me.username;
   const level = Math.max(1, Math.floor((me.message_count || 0) / 10) + 1);
   document.getElementById('navbar-level').textContent = `Nível ${level}`;
@@ -815,9 +1032,74 @@ document.getElementById('home-btn-community').onclick = () => document.getElemen
 async function loadHomeDashboard() {
   loadHomeStats();
   loadHomeServers();
+  loadHomePlayingNow();
   loadHomeActivity();
   loadHomeTournament();
   loadHomeRanking();
+  loadHomeStreakCard();
+}
+
+// Quem está online agora e com um jogo selecionado no status — dá vida ao
+// painel de Início mostrando atividade real da comunidade, não só números.
+async function loadHomePlayingNow() {
+  const el = document.getElementById('home-playing-now');
+  if (allUsers.length === 0) await loadMembers();
+  const playing = allUsers.filter((u) => onlineUserIds.has(u.id) && u.status_message);
+  if (playing.length === 0) {
+    el.innerHTML = '<p class="empty-hint">Ninguém com um jogo selecionado no status agora. Defina o seu no perfil!</p>';
+    return;
+  }
+  el.innerHTML = playing
+    .map(
+      (u) => `
+    <div class="playing-now-card">
+      <div class="member-avatar ${avatarFrameClass(u)}">${renderAvatarHtml(u)}</div>
+      <div class="playing-now-info">
+        <strong>${escapeHtml(u.username)}</strong>
+        <span>🎮 ${escapeHtml(u.status_message)}</span>
+      </div>
+    </div>
+  `
+    )
+    .join('');
+}
+
+// Card de streak/recompensas na coluna lateral da Início — atalho rápido
+// pra loja de recompensas sem precisar caçar o ícone na navbar.
+async function loadHomeStreakCard() {
+  const el = document.getElementById('home-streak-card');
+  if (!rewardsCache) {
+    try {
+      const res = await fetch('/api/rewards', { credentials: 'include' });
+      rewardsCache = await res.json();
+    } catch (_) {
+      el.innerHTML = '';
+      return;
+    }
+  }
+  const nextGoal = rewardsCache.rewards.find((r) => r.type === 'streak' && !r.unlocked);
+  el.innerHTML = `
+    <div class="home-section-title">🔥 Sua Sequência</div>
+    <div class="streak-summary-row" style="background:transparent;border:none;padding:0;">
+      <div class="streak-flame-box">
+        <span class="streak-flame">🔥</span>
+        <div>
+          <div class="streak-count">${rewardsCache.streak} ${rewardsCache.streak === 1 ? 'dia' : 'dias'} seguidos</div>
+          <div class="streak-best">Recorde: ${rewardsCache.longest_streak} ${rewardsCache.longest_streak === 1 ? 'dia' : 'dias'}</div>
+        </div>
+      </div>
+      ${
+        nextGoal
+          ? `<div class="streak-next-goal">
+               <div class="streak-next-label">${escapeHtml(nextGoal.name)} em ${nextGoal.days} dias</div>
+               <div class="streak-progress-bar"><div class="streak-progress-fill" style="width:${Math.min(100, (rewardsCache.streak / nextGoal.days) * 100)}%"></div></div>
+             </div>`
+          : ''
+      }
+    </div>
+    <button type="button" class="home-btn-secondary" id="home-open-rewards" style="width:100%; margin-top:10px;">🎁 Ver loja de recompensas</button>
+  `;
+  document.getElementById('home-open-rewards').onclick = () => document.getElementById('nav-rewards').click();
 }
 
 async function loadHomeStats() {
@@ -844,10 +1126,11 @@ function loadHomeServers() {
     const card = document.createElement('div');
     card.className = 'home-server-card';
     card.dataset.name = category.toLowerCase();
+    const voiceCount = allChannels.filter((c) => c.category === category && c.type === 'voz').length;
     card.innerHTML = `
-      <div class="home-server-icon">${serverInitials(category)}</div>
+      <div class="home-server-icon">${serverIcons[category] ? serverIcons[category] : serverInitials(category)}</div>
       <div class="home-server-name">${escapeHtml(category)}</div>
-      <div class="home-server-meta">${categoryIcon(category)} ${channelCount} sala${channelCount === 1 ? '' : 's'}</div>
+      <div class="home-server-meta">${channelCount} sala${channelCount === 1 ? '' : 's'}${voiceCount > 0 ? ` · 🎙️ ${voiceCount} de voz` : ''}</div>
     `;
     card.onclick = () => {
       activeServerCategory = category;
@@ -1010,10 +1293,11 @@ function renderMessage(msg) {
   const avatarHtml = isBot
     ? '<span>🤖</span>'
     : renderAvatarHtml(author || { username: msg.username });
+  const avatarFrameCls = isBot ? '' : avatarFrameClass(author || {});
 
   el.innerHTML = `
     <div class="message-row">
-      <div class="message-avatar">${avatarHtml}</div>
+      <div class="message-avatar ${avatarFrameCls}">${avatarHtml}</div>
       <div class="message-body">
         <div class="meta">
           <strong>${escapeHtml(msg.username)}</strong>
@@ -1380,7 +1664,11 @@ function updateVoiceParticipantCount() {
 }
 
 document.getElementById('btn-toggle-voice-chat').onclick = () => {
-  document.getElementById('voice-chat-col').classList.toggle('hidden');
+  document.getElementById('voice-panel').classList.toggle('chat-open');
+  document.getElementById('btn-toggle-voice-chat').classList.toggle(
+    'active-state',
+    document.getElementById('voice-panel').classList.contains('chat-open')
+  );
 };
 
 document.getElementById('form-voice-message').onsubmit = (e) => {

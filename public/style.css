@@ -79,6 +79,11 @@ body {
   font-size: 30px; box-shadow: 0 8px 24px rgba(88,101,242,0.45);
   animation: authLogoFloat 3.2s ease-in-out infinite;
 }
+.auth-logo-img {
+  display: block; height: 56px; width: auto; margin: 0 auto 10px;
+  filter: drop-shadow(0 6px 18px rgba(88,101,242,0.5));
+  animation: authLogoFloat 3.2s ease-in-out infinite;
+}
 @keyframes authLogoFloat {
   0%, 100% { transform: translateY(0) rotate(-2deg); }
   50% { transform: translateY(-5px) rotate(2deg); }
@@ -136,6 +141,7 @@ body {
 }
 .navbar-left { display: flex; align-items: center; gap: 28px; min-width: 0; }
 .navbar-logo { font-weight: 800; font-size: 16px; white-space: nowrap; }
+.navbar-logo-img { height: 34px; width: auto; display: block; flex-shrink: 0; }
 .navbar-logo-accent {
   background: var(--gradient-brand); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
@@ -296,10 +302,20 @@ body {
 .home-server-card:hover { transform: translateY(-3px); border-color: var(--accent); }
 .home-server-icon {
   width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 12px; background: var(--gradient-brand);
-  display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 14px;
+  display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 20px;
 }
 .home-server-name { font-size: 13px; font-weight: 700; color: #e6e6e6; margin-bottom: 3px; }
 .home-server-meta { font-size: 11px; color: #8b909a; }
+
+.home-playing-now { display: flex; flex-wrap: wrap; gap: 8px; }
+.playing-now-card {
+  display: flex; align-items: center; gap: 8px; background: #1a1b20; border: 1px solid #26272e;
+  border-radius: 10px; padding: 8px 12px;
+}
+.playing-now-info { display: flex; flex-direction: column; font-size: 12px; line-height: 1.4; }
+.playing-now-info strong { color: #e6e6e6; }
+.playing-now-info span { color: var(--accent-3); }
+.home-streak-card .home-section-title { margin-bottom: 4px; }
 
 .home-activity { display: flex; flex-direction: column; gap: 4px; }
 .activity-row {
@@ -389,9 +405,10 @@ body {
 .message-form button:active { transform: scale(0.97); }
 
 .voice-panel {
-  flex: 1; display: grid; grid-template-columns: 1fr 320px; grid-template-rows: 1fr auto;
-  gap: 0; min-height: 0;
+  flex: 1; display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr auto;
+  gap: 0; min-height: 0; transition: grid-template-columns 150ms ease;
 }
+.voice-panel.chat-open { grid-template-columns: 1fr 300px; }
 .voice-main-col { grid-column: 1; grid-row: 1; overflow-y: auto; padding: 18px 20px; }
 .voice-controls-bar {
   grid-column: 1 / -1; grid-row: 2; display: flex; justify-content: center; padding: 14px;
@@ -420,11 +437,21 @@ body {
 }
 .control-arrow-btn:hover { background: #33353d; color: white; }
 .video-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px;
+  grid-auto-rows: 180px;
+}
+/* Quem está compartilhando tela/câmera ganha destaque automático maior na
+   grade, igual Discord foca em quem está transmitindo. */
+.video-grid:has(.video-tile.has-video) { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.video-tile.has-video {
+  grid-column: span 2; grid-row: span 2;
+}
+@media (max-width: 700px) {
+  .video-tile.has-video { grid-column: span 1; }
 }
 .video-tile {
   background: #1a1b20; border: 1px solid #26272e; border-radius: 12px; overflow: hidden; position: relative;
-  height: 180px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px;
+  height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px;
   box-shadow: 0 0 0 2px transparent; transition: box-shadow 120ms ease;
 }
 .video-tile:has(video[src]), .video-tile.has-video { padding: 0; flex-direction: row; }
@@ -528,6 +555,7 @@ video:fullscreen { background: #000; object-fit: contain; }
   display: flex; flex-direction: column; min-height: 0;
 }
 .voice-chat-col.hidden { display: none; }
+.voice-panel:not(.chat-open) .voice-chat-col { display: none; }
 .voice-chat-header { padding: 14px 16px; font-weight: 800; font-size: 13px; border-bottom: 1px solid #26272e; }
 .voice-chat-col .messages { flex: 1; padding: 12px; }
 .voice-chat-col .message-form { border-top: 1px solid #26272e; padding: 10px; }
@@ -606,6 +634,70 @@ video:fullscreen { background: #000; object-fit: contain; }
 }
 .modal-card .hint { font-size: 11px; color: #6d7178; margin: 2px 0 0; }
 .server-info-text { font-size: 13px; color: #dbdee1; white-space: pre-wrap; margin: 0; }
+
+/* LOJA DE RECOMPENSAS */
+.rewards-streak-summary { margin-bottom: 14px; }
+.streak-summary-row {
+  background: #1e1f22; border: 1px solid #35373c; border-radius: 10px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.streak-flame-box { display: flex; align-items: center; gap: 10px; }
+.streak-flame { font-size: 26px; }
+.streak-count { font-weight: 800; font-size: 15px; color: #e6e6e6; }
+.streak-best { font-size: 12px; color: #949ba4; }
+.streak-next-goal { display: flex; flex-direction: column; gap: 4px; }
+.streak-next-label { font-size: 12px; color: #dbdee1; }
+.streak-progress-bar { height: 6px; border-radius: 4px; background: #101116; overflow: hidden; }
+.streak-progress-fill { height: 100%; background: var(--gradient-brand); border-radius: 4px; transition: width 0.3s ease; }
+
+.rewards-catalog { display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; }
+.reward-card {
+  position: relative; display: flex; gap: 12px; align-items: flex-start; background: #1e1f22;
+  border: 1px solid #35373c; border-radius: 10px; padding: 12px; overflow: hidden;
+}
+.reward-card-locked { opacity: 0.55; }
+.reward-card-rare {
+  border-color: #ffd76b; background: linear-gradient(135deg, rgba(255,215,107,0.08), rgba(30,31,34,1));
+}
+.reward-rare-logo {
+  position: absolute; top: -14px; right: -14px; width: 70px; height: auto; opacity: 0.18; pointer-events: none;
+}
+.reward-icon-wrap { flex-shrink: 0; }
+.member-avatar-lg {
+  width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 17px; background: var(--gradient-brand); color: white; overflow: hidden;
+}
+.member-avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
+.reward-info { flex: 1; min-width: 0; }
+.reward-info h3 { margin: 0 0 3px; font-size: 14px; color: #e6e6e6; }
+.reward-info p { margin: 0 0 8px; font-size: 12px; color: #949ba4; }
+.reward-actions { margin-bottom: 6px; }
+.reward-equip-btn {
+  padding: 6px 12px; border-radius: 6px; border: none; background: var(--gradient-brand); color: white;
+  font-weight: 700; font-size: 12px; cursor: pointer;
+}
+.reward-equip-btn:disabled { background: #2b6b46; cursor: default; opacity: 0.9; }
+.reward-locked-hint { font-size: 12px; color: #6d7178; }
+.reward-verify { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.reward-code {
+  font-family: monospace; font-size: 11px; background: #101116; color: #00d9c0; padding: 3px 6px; border-radius: 4px;
+}
+.reward-copy-btn, .reward-verify-btn {
+  background: #26272e; border: none; color: #dbdee1; font-size: 11px; padding: 3px 8px; border-radius: 4px; cursor: pointer;
+}
+.reward-copy-btn:hover, .reward-verify-btn:hover { background: #33353d; }
+
+/* VERIFICAÇÃO PÚBLICA DE SELO */
+.verify-result { margin-top: 12px; }
+.verify-valid {
+  text-align: center; background: #1e1f22; border: 1px solid #ffd76b; border-radius: 10px; padding: 14px;
+  color: #e6e6e6; font-size: 13px; line-height: 1.6;
+}
+.verify-logo { height: 28px; width: auto; display: block; margin: 0 auto 8px; }
+.verify-invalid {
+  text-align: center; background: #1e1f22; border: 1px solid #f23f42; border-radius: 10px; padding: 14px;
+  color: #f23f42; font-size: 13px;
+}
 .checkbox-row {
   display: flex; align-items: center; gap: 8px; font-size: 13px; color: #dbdee1;
   margin-top: 10px; cursor: pointer;
@@ -726,3 +818,41 @@ video:fullscreen { background: #000; object-fit: contain; }
   display: flex; align-items: center; justify-content: center;
 }
 .avatar-emoji-row button:hover { outline: 2px solid var(--accent); }
+.avatar-emoji-row button.avatar-emoji-selected { outline: 2px solid var(--accent-3); }
+
+/* MOLDURAS DE AVATAR ANIMADAS (recompensas por streak de acesso) — usa
+   box-shadow em vez de border, porque box-shadow não é cortado pelo
+   overflow:hidden do próprio elemento (o "outline" do avatar circular). */
+.avatar-frame-rainbow {
+  animation: frameRainbow 3s linear infinite;
+}
+@keyframes frameRainbow {
+  0%   { box-shadow: 0 0 0 3px #ff3b7a, 0 0 10px rgba(255,59,122,0.55); }
+  20%  { box-shadow: 0 0 0 3px #ff9900, 0 0 10px rgba(255,153,0,0.55); }
+  40%  { box-shadow: 0 0 0 3px #ffee00, 0 0 10px rgba(255,238,0,0.55); }
+  60%  { box-shadow: 0 0 0 3px #00e5ff, 0 0 10px rgba(0,229,255,0.55); }
+  80%  { box-shadow: 0 0 0 3px #7c4dff, 0 0 10px rgba(124,77,255,0.55); }
+  100% { box-shadow: 0 0 0 3px #ff3b7a, 0 0 10px rgba(255,59,122,0.55); }
+}
+.avatar-frame-sparkle {
+  animation: frameSparkle 1.6s ease-in-out infinite;
+}
+@keyframes frameSparkle {
+  0%, 100% { box-shadow: 0 0 0 2px #fff, 0 0 12px rgba(255,255,255,0.55); }
+  50%      { box-shadow: 0 0 0 2px #00d9c0, 0 0 18px rgba(0,217,192,0.85); }
+}
+.avatar-frame-fire {
+  animation: frameFire 1s ease-in-out infinite;
+}
+@keyframes frameFire {
+  0%, 100% { box-shadow: 0 0 0 3px #ff6a00, 0 0 10px rgba(255,106,0,0.65); }
+  50%      { box-shadow: 0 0 0 3px #ffd200, 0 0 18px rgba(255,80,0,0.9); }
+}
+.avatar-frame-legend {
+  animation: frameLegend 2.2s ease-in-out infinite;
+  position: relative;
+}
+@keyframes frameLegend {
+  0%, 100% { box-shadow: 0 0 0 3px #ffd76b, 0 0 16px rgba(255,215,107,0.65); }
+  50%      { box-shadow: 0 0 0 3px #ffffff, 0 0 26px rgba(255,215,107,0.95); }
+}

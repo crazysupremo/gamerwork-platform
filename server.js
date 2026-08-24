@@ -1,5 +1,6 @@
 // server.js - servidor principal
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -121,6 +122,120 @@ async function postSystemMessage(channelId, content) {
   }
 }
 
+// ---------- RECOMPENSAS / STREAK DE ACESSO ----------
+// Catálogo fixo (não precisa de tabela própria pra isso, só pros
+// desbloqueios de cada usuário, que ficam em user_rewards).
+const REWARDS_CATALOG = [
+  {
+    key: 'starter',
+    name: 'Primeiros Passos',
+    description: 'Criar sua conta no NEXT GAME',
+    frame: 'rainbow',
+    type: 'account',
+  },
+  {
+    key: 'week',
+    name: 'Ativo',
+    description: '7 dias seguidos acessando',
+    frame: 'sparkle',
+    type: 'streak',
+    days: 7,
+  },
+  {
+    key: 'month',
+    name: 'Dedicado',
+    description: '30 dias seguidos acessando',
+    frame: 'fire',
+    type: 'streak',
+    days: 30,
+  },
+  {
+    key: 'legend',
+    name: 'Lenda NEXT GAME',
+    description: '90 dias seguidos acessando — selo oficial raro e auditável',
+    frame: 'legend',
+    type: 'streak',
+    days: 90,
+    rare: true,
+  },
+];
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function daysBetween(a, b) {
+  return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+
+// Gera um código único e verificável (qualquer um pode conferir em
+// /api/verify/:code sem precisar estar logado) — é o que torna o selo raro
+// "auditável" de verdade, e não só uma imagem qualquer.
+function generateVerificationCode(userId, rewardKey) {
+  const hash = crypto
+    .createHash('sha256')
+    .update(`${userId}:${rewardKey}:${Date.now()}:${process.env.SESSION_SECRET || 'ng'}`)
+    .digest('hex')
+    .slice(0, 10)
+    .toUpperCase();
+  return `NG-${hash}`;
+}
+
+// Atualiza o streak de acesso do usuário e desbloqueia recompensas novas.
+// Chamada tanto no registro (conta nova = dia 1) quanto em todo login.
+async function updateStreakAndRewards(user) {
+  const today = todayStr();
+  let streak = user.login_streak || 0;
+  let longest = user.longest_streak || 0;
+
+  if (!user.last_login_date) {
+    streak = 1;
+  } else {
+    const diff = daysBetween(user.last_login_date, today);
+    if (diff === 0) {
+      // já contou hoje, não mexe
+    } else if (diff === 1) {
+      streak += 1;
+    } else {
+      streak = 1; // quebrou a sequência
+    }
+  }
+  longest = Math.max(longest, streak);
+
+  await db.run('UPDATE users SET login_streak = ?, longest_streak = ?, last_login_date = ? WHERE id = ?', [
+    streak,
+    longest,
+    today,
+    user.id,
+  ]);
+
+  // Desbloqueia "Primeiros Passos" sempre (é só ter conta)
+  await unlockReward(user.id, 'starter');
+
+  for (const reward of REWARDS_CATALOG) {
+    if (reward.type === 'streak' && streak >= reward.days) {
+      await unlockReward(user.id, reward.key);
+    }
+  }
+
+  return { streak, longest };
+}
+
+async function unlockReward(userId, rewardKey) {
+  const existing = await db.get('SELECT id FROM user_rewards WHERE user_id = ? AND reward_key = ?', [
+    userId,
+    rewardKey,
+  ]);
+  if (existing) return;
+  const code = generateVerificationCode(userId, rewardKey);
+  await db.run('INSERT INTO user_rewards (id, user_id, reward_key, verification_code) VALUES (?, ?, ?, ?)', [
+    uuidv4(),
+    userId,
+    rewardKey,
+    code,
+  ]);
+}
+
 // ---------- AUTH ----------
 
 app.post(
@@ -166,6 +281,7 @@ app.post(
     res.json({ id, username, is_admin: isFirstUser ? 1 : 0 });
 
     postSystemMessage(WELCOME_CHANNEL_ID, `🎉 ${username} acabou de entrar no NEXT GAME! Dê as boas-vindas.`);
+    updateStreakAndRewards({ id, login_streak: 0, longest_streak: 0, last_login_date: null }).catch(() => {});
   })
 );
 
@@ -182,6 +298,7 @@ app.post(
 
     req.session.userId = user.id;
     res.json({ id: user.id, username: user.username, is_admin: user.is_admin });
+    updateStreakAndRewards(user).catch((err) => console.error('Erro ao atualizar streak:', err));
   })
 );
 
@@ -206,7 +323,10 @@ app.get(
       email: req.user.email,
       status_message: req.user.status_message,
       avatar: req.user.avatar,
+      avatar_frame: req.user.avatar_frame,
       message_count: Number(countRow.c),
+      login_streak: req.user.login_streak || 0,
+      longest_streak: req.user.longest_streak || 0,
     });
   })
 );
@@ -216,7 +336,7 @@ app.patch(
   '/api/me',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { email, password, currentPassword, status_message, avatar } = req.body || {};
+    const { email, password, currentPassword, status_message, avatar, avatar_frame } = req.body || {};
 
     if (password) {
       if (!currentPassword || !bcrypt.compareSync(currentPassword, req.user.password_hash)) {
@@ -261,11 +381,76 @@ app.patch(
       await db.run('UPDATE users SET avatar = ? WHERE id = ?', [avatar || null, req.user.id]);
     }
 
+    if (typeof avatar_frame === 'string') {
+      if (avatar_frame) {
+        // Só deixa equipar uma moldura que o usuário já desbloqueou de verdade.
+        const reward = REWARDS_CATALOG.find((r) => r.frame === avatar_frame);
+        const owned = reward && (await db.get('SELECT id FROM user_rewards WHERE user_id = ? AND reward_key = ?', [
+          req.user.id,
+          reward.key,
+        ]));
+        if (!owned) return res.status(403).json({ error: 'Você ainda não desbloqueou essa moldura' });
+      }
+      await db.run('UPDATE users SET avatar_frame = ? WHERE id = ?', [avatar_frame || null, req.user.id]);
+    }
+
     const updated = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
     res.json({
       ok: true,
       status_message: updated.status_message,
       avatar: updated.avatar,
+      avatar_frame: updated.avatar_frame,
+    });
+  })
+);
+
+// ---------- RECOMPENSAS ----------
+
+app.get(
+  '/api/rewards',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const unlocked = await db.all('SELECT reward_key, verification_code, unlocked_at FROM user_rewards WHERE user_id = ?', [
+      req.user.id,
+    ]);
+    const unlockedMap = {};
+    unlocked.forEach((u) => (unlockedMap[u.reward_key] = u));
+
+    const rewards = REWARDS_CATALOG.map((r) => ({
+      ...r,
+      unlocked: !!unlockedMap[r.key],
+      verification_code: unlockedMap[r.key] ? unlockedMap[r.key].verification_code : null,
+      unlocked_at: unlockedMap[r.key] ? unlockedMap[r.key].unlocked_at : null,
+    }));
+
+    res.json({
+      streak: req.user.login_streak || 0,
+      longest_streak: req.user.longest_streak || 0,
+      rewards,
+      equipped_frame: req.user.avatar_frame || null,
+    });
+  })
+);
+
+// Verificação pública do selo — qualquer pessoa com o código consegue
+// conferir se é autêntico, sem precisar estar logada. Isso é o que torna a
+// recompensa rara "auditável" de verdade.
+app.get(
+  '/api/verify/:code',
+  asyncHandler(async (req, res) => {
+    const row = await db.get(
+      `SELECT ur.reward_key, ur.unlocked_at, u.username
+       FROM user_rewards ur JOIN users u ON u.id = ur.user_id
+       WHERE ur.verification_code = ?`,
+      [req.params.code]
+    );
+    if (!row) return res.status(404).json({ valid: false });
+    const reward = REWARDS_CATALOG.find((r) => r.key === row.reward_key);
+    res.json({
+      valid: true,
+      username: row.username,
+      reward_name: reward ? reward.name : row.reward_key,
+      unlocked_at: row.unlocked_at,
     });
   })
 );
@@ -287,7 +472,7 @@ app.post(
   '/api/channels',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { name, category, type } = req.body || {};
+    const { name, category, type, icon } = req.body || {};
     if (
       !name ||
       !category ||
@@ -316,7 +501,28 @@ app.post(
       req.user.id,
     ]);
 
+    // Ícone do servidor (emoji): só é gravado se ainda não existir um pra essa
+    // categoria — quem cria primeiro escolhe, os próximos não sobrescrevem.
+    if (icon && typeof icon === 'string' && icon.length <= 8) {
+      await db.run(
+        `INSERT INTO servers (category, icon, updated_by, updated_at) VALUES (?, ?, ?, datetime('now'))
+         ON CONFLICT(category) DO UPDATE SET icon = COALESCE(servers.icon, excluded.icon)`,
+        [cleanCategory, icon, req.user.id]
+      );
+    }
+
     res.json({ id, name: cleanName, category: cleanCategory, type });
+  })
+);
+
+// Lista enxuta (categoria + ícone) de todos os servidores já criados — usada
+// pro trilho de servidores e pro dashboard de Início mostrarem o ícone de
+// verdade escolhido por quem criou, em vez de um ícone genérico chutado.
+app.get(
+  '/api/servers',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json(await db.all('SELECT category, icon FROM servers'));
   })
 );
 
@@ -548,7 +754,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, avatar, status_message, is_admin FROM users WHERE is_banned = 0 ORDER BY username'
+        'SELECT id, username, avatar, avatar_frame, status_message, is_admin FROM users WHERE is_banned = 0 ORDER BY username'
       )
     );
   })

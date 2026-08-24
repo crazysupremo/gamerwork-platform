@@ -18,7 +18,7 @@
 
   <div class="landing-content">
     <header class="landing-nav">
-      <span class="navbar-logo">🎮 NEXT <span class="navbar-logo-accent">GAME</span></span>
+      <img src="/assets/logo.png" alt="NEXT GAME" class="navbar-logo-img" />
       <div class="landing-nav-actions">
         <button class="landing-nav-btn" id="landing-nav-login">Entrar</button>
         <button class="landing-nav-btn landing-nav-btn-primary" id="landing-nav-register">Criar conta</button>
@@ -41,8 +41,7 @@
   </div>
 
   <div class="auth-card" id="auth-card">
-    <div class="auth-logo">🎮</div>
-    <h1>NEXT GAME</h1>
+    <img src="/assets/logo.png" alt="NEXT GAME" class="auth-logo-img" />
     <p class="subtitle">Conecte-se, jogue e trabalhe em equipe</p>
 
     <div class="auth-tabs">
@@ -88,7 +87,7 @@
   <!-- Navbar superior: logo, navegação, busca, notificações e perfil -->
   <header id="top-navbar" class="top-navbar">
     <div class="navbar-left">
-      <span class="navbar-logo">🎮 NEXT <span class="navbar-logo-accent">GAME</span></span>
+      <img src="/assets/logo.png" alt="NEXT GAME" class="navbar-logo-img" />
       <nav class="navbar-links">
         <button class="navbar-link active" id="nav-inicio">Início</button>
         <button class="navbar-link" id="nav-jogos">Jogos</button>
@@ -103,6 +102,7 @@
         <input type="text" id="navbar-search-input" placeholder="Buscar servidores..." />
       </div>
       <button class="navbar-icon-btn" id="nav-bell" title="Atividade recente">🔔<span id="navbar-bell-badge" class="navbar-badge hidden">0</span></button>
+      <button class="navbar-icon-btn" id="nav-rewards" title="Loja de recompensas">🎁<span id="navbar-streak-badge" class="navbar-badge hidden">0</span></button>
       <button class="navbar-profile" id="nav-profile">
         <div id="navbar-avatar" class="member-avatar"></div>
         <div class="navbar-profile-text">
@@ -187,10 +187,14 @@
           <div class="home-section-title">🔥 Servidores em Destaque</div>
           <div id="home-servers-grid" class="home-servers-grid"></div>
 
+          <div class="home-section-title" style="margin-top:20px;">🎮 Jogando Agora</div>
+          <div id="home-playing-now" class="home-playing-now"></div>
+
           <div class="home-section-title" style="margin-top:20px;">⚡ Atividade Recente</div>
           <div id="home-activity" class="home-activity"></div>
         </div>
         <div class="home-col-side">
+          <div class="home-side-card home-streak-card" id="home-streak-card"></div>
           <div class="home-side-card">
             <div class="home-section-title">🏆 Torneio em Destaque</div>
             <div id="home-tournament"></div>
@@ -248,7 +252,7 @@
       </div>
 
       <!-- Chat da sala, ao lado da chamada — mesma conversa de texto do canal -->
-      <div id="voice-chat-col" class="voice-chat-col">
+      <div id="voice-chat-col" class="voice-chat-col hidden">
         <div class="voice-chat-header">Chat da Sala</div>
         <div id="voice-chat-messages" class="messages"></div>
         <form id="form-voice-message" class="message-form">
@@ -290,6 +294,10 @@
       <input type="text" id="room-category" list="category-options" placeholder="ex: Valorant, Trabalho, Minecraft" required />
       <datalist id="category-options"></datalist>
       <p class="hint">Se o nome não existir ainda, um novo servidor é criado automaticamente.</p>
+
+      <label>Ícone do servidor (se for criar um novo)</label>
+      <div class="avatar-emoji-row" id="room-icon-row"></div>
+      <input type="hidden" id="room-icon" value="🎮" />
 
       <label>Tipo</label>
       <select id="room-type">
@@ -461,6 +469,43 @@
     <div id="ranking-list" class="ranking-list"></div>
     <div class="modal-actions">
       <button type="button" id="btn-close-ranking">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: loja de recompensas (streak de acesso + molduras + selo raro) -->
+<div id="modal-rewards" class="modal-overlay hidden">
+  <div class="modal-card modal-card-wide">
+    <h2>🎁 Loja de Recompensas</h2>
+    <p class="hint" style="margin-bottom:10px;">
+      Acesse o NEXT GAME em dias seguidos pra desbloquear molduras animadas de avatar e, no
+      final, um selo oficial raro e auditável.
+    </p>
+
+    <div id="rewards-streak-summary" class="rewards-streak-summary"></div>
+    <div id="rewards-catalog" class="rewards-catalog"></div>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-close-rewards">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: verificação pública de selo (auditoria, sem precisar login) -->
+<div id="modal-verify" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>🔎 Verificar Selo</h2>
+    <p class="hint" style="margin-bottom:10px;">
+      Qualquer pessoa pode conferir aqui se um código de selo NEXT GAME é autêntico.
+    </p>
+    <div class="input-icon-wrap">
+      <span class="input-icon">🔑</span>
+      <input type="text" id="verify-code-input" placeholder="ex: NG-F8EBAFE582" />
+    </div>
+    <button type="button" id="btn-verify-code" class="home-btn-primary" style="margin-top:10px; width:100%;">Verificar</button>
+    <div id="verify-result" class="verify-result"></div>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-verify">Fechar</button>
     </div>
   </div>
 </div>

@@ -121,6 +121,7 @@ async function initDb() {
       category TEXT PRIMARY KEY,
       description TEXT,
       rules TEXT,
+      icon TEXT,
       updated_by TEXT,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -145,10 +146,24 @@ async function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(tournament_id, user_id)
     );
+
+    CREATE TABLE IF NOT EXISTS user_rewards (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      reward_key TEXT NOT NULL,
+      verification_code TEXT,
+      unlocked_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, reward_key)
+    );
   `);
 
   // Migração leve pra bancos criados antes de alguma dessas colunas existir.
   await ensureColumn('users', 'email TEXT');
+  await ensureColumn('users', 'login_streak INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'longest_streak INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'last_login_date TEXT');
+  await ensureColumn('users', 'avatar_frame TEXT');
+  await ensureColumn('servers', 'icon TEXT');
   await ensureColumn('users', 'email_verified INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'verification_code TEXT');
   await ensureColumn('users', 'verification_expires TEXT');
