@@ -150,13 +150,113 @@ const REWARDS_CATALOG = [
     days: 30,
   },
   {
-    key: 'legend',
-    name: 'Lenda NEXT GAME',
-    description: '90 dias seguidos acessando — selo oficial raro e auditável',
+    key: 'seal90',
+    name: 'Selo Membro Exclusivo',
+    description: '90 dias seguidos acessando — selo redondo oficial, auditável',
     frame: 'legend',
     type: 'streak',
     days: 90,
     rare: true,
+    image: '/assets/seal-90.png',
+  },
+  {
+    key: 'seal120',
+    name: 'Selo Membro Lendário',
+    description: '120 dias seguidos acessando — selo oficial com seu nome, auditável',
+    frame: 'diamond',
+    type: 'streak',
+    days: 120,
+    rare: true,
+    image: '/assets/seal-120.png',
+    hasName: true,
+  },
+  {
+    key: 'founder-eternal',
+    name: 'Fundador Eterno',
+    description: '365 dias seguidos acessando — selo exclusivo, só para as 2 primeiras pessoas que chegarem lá',
+    frame: 'eternal',
+    type: 'streak',
+    days: 365,
+    rare: true,
+    limitedSlots: 2,
+    hasName: true,
+  },
+];
+
+// Catálogo de missões: cada uma libera num marco de dias de sequência e vale
+// pontos se a pessoa acertar TODAS as perguntas do quiz sobre o NEXT GAME.
+const MISSIONS_CATALOG = [
+  {
+    key: 'quiz_week',
+    name: 'Quiz: Primeiros Passos',
+    description: 'Disponível após 7 dias seguidos de acesso',
+    unlockDays: 7,
+    points: 10,
+    questions: [
+      { q: 'Qual ícone abre a Loja de Recompensas na barra de cima?', options: ['🔔 Sino', '🎁 Presente', '🔍 Lupa', '⚙️ Engrenagem'], correct: 1 },
+      { q: 'O que acontece se você ficar um dia inteiro sem acessar o NEXT GAME?', options: ['Nada muda', 'Sua sequência de dias reinicia', 'Sua conta é banida', 'Você ganha pontos extra'], correct: 1 },
+      { q: 'Como você cria uma nova sala de texto ou voz?', options: ['Só admins podem criar', 'Clicando no + do menu lateral', 'Mandando e-mail pro suporte', 'Não é possível criar salas'], correct: 1 },
+    ],
+  },
+  {
+    key: 'quiz_month',
+    name: 'Quiz: Um Mês de NEXT GAME',
+    description: 'Disponível após 30 dias seguidos de acesso',
+    unlockDays: 30,
+    points: 15,
+    questions: [
+      { q: 'Qual moldura de avatar você ganha ao completar 30 dias seguidos?', options: ['Rainbow', 'Sparkle', 'Fire', 'Legend'], correct: 2 },
+      { q: 'Pra que serve o código de verificação de um selo?', options: ['É só um enfeite', 'Prova pública e auditável de que você desbloqueou aquela recompensa', 'Uma senha secreta', 'Um erro do sistema'], correct: 1 },
+      { q: 'Onde você vê quem está jogando o quê agora, em tempo real?', options: ['No painel de Início, em "Jogando Agora"', 'Não dá pra ver', 'Só no perfil de cada um', 'Na tela de login'], correct: 0 },
+    ],
+  },
+  {
+    key: 'quiz_two_months',
+    name: 'Quiz: Dois Meses de Dedicação',
+    description: 'Disponível após 60 dias seguidos de acesso',
+    unlockDays: 60,
+    points: 20,
+    questions: [
+      { q: 'Pra que serve o botão 🔊/🔇 na barra de cima?', options: ['Mutar o microfone', 'Ligar/desligar todos os sons e efeitos do site', 'Ativar modo escuro', 'Sair da conta'], correct: 1 },
+      { q: 'O que acontece quando alguém começa a compartilhar a tela numa call?', options: ['Nada muda no layout', 'A tela de quem compartilha fica em destaque (spotlight)', 'A call é encerrada', 'Só quem compartilha consegue ver'], correct: 1 },
+      { q: 'Como funciona a verificação pública de um selo?', options: ['Precisa ser admin', 'Qualquer pessoa pode conferir o código, sem precisar de login', 'Só funciona uma vez', 'É automática, ninguém precisa verificar'], correct: 1 },
+    ],
+  },
+  {
+    key: 'quiz_seal90',
+    name: 'Quiz: Rumo ao Selo de 90 Dias',
+    description: 'Disponível após 90 dias seguidos de acesso',
+    unlockDays: 90,
+    points: 25,
+    questions: [
+      { q: 'Quantos dias seguidos são precisos pro Selo Membro Exclusivo (redondo)?', options: ['30', '60', '90', '120'], correct: 2 },
+      { q: 'E pro Selo Membro Lendário (em faixa, com seu nome)?', options: ['90 dias', '100 dias', '120 dias', '365 dias'], correct: 2 },
+      { q: 'O selo raro de 1 ano é limitado a quantas pessoas no total?', options: ['Sem limite', '10', '2', '100'], correct: 2 },
+    ],
+  },
+  {
+    key: 'quiz_seal120',
+    name: 'Quiz: Rumo ao Selo de 120 Dias',
+    description: 'Disponível após 120 dias seguidos de acesso',
+    unlockDays: 120,
+    points: 30,
+    questions: [
+      { q: 'O que faz sua sequência de dias reiniciar do zero?', options: ['Trocar de avatar', 'Ficar um dia sem acessar o NEXT GAME', 'Enviar muitas mensagens', 'Entrar numa call de voz'], correct: 1 },
+      { q: 'Pra valer os pontos, o que uma missão exige?', options: ['Acertar pelo menos uma pergunta', 'Acertar TODAS as perguntas do quiz', 'Só abrir a missão', 'Pagar com dinheiro real'], correct: 1 },
+      { q: 'Pra que serve o painel de Início (dashboard)?', options: ['Só mostra propaganda', 'Mostra servidores em destaque, quem está jogando, atividade recente e mais', 'É a tela de configurações', 'Só admins acessam'], correct: 1 },
+    ],
+  },
+  {
+    key: 'quiz_veteran',
+    name: 'Quiz: Veterano NEXT GAME',
+    description: 'Disponível após 180 dias seguidos de acesso',
+    unlockDays: 180,
+    points: 40,
+    questions: [
+      { q: 'Quantos dias seguidos são precisos pro selo exclusivo de Fundador Eterno?', options: ['180', '200', '300', '365'], correct: 3 },
+      { q: 'O que torna um selo do NEXT GAME "auditável"?', options: ['A cor dourada', 'Um código público que qualquer um pode verificar', 'O tamanho da imagem', 'Nada, é só decoração'], correct: 1 },
+      { q: 'Além do streak de acesso, o que mais rende pontos no NEXT GAME?', options: ['Comprar com dinheiro real', 'Completar as missões de quiz corretamente', 'Nada mais', 'Convidar amigos'], correct: 1 },
+    ],
   },
 ];
 
@@ -227,6 +327,16 @@ async function unlockReward(userId, rewardKey) {
     rewardKey,
   ]);
   if (existing) return;
+
+  // Recompensas de "vagas limitadas" (ex.: só 2 pessoas no mundo) — checa se
+  // ainda sobra vaga antes de conceder. Quem chegar depois das vagas
+  // esgotadas simplesmente não recebe, mesmo batendo o requisito de dias.
+  const catalogEntry = REWARDS_CATALOG.find((r) => r.key === rewardKey);
+  if (catalogEntry && catalogEntry.limitedSlots) {
+    const countRow = await db.get('SELECT COUNT(*) as c FROM user_rewards WHERE reward_key = ?', [rewardKey]);
+    if (Number(countRow.c) >= catalogEntry.limitedSlots) return;
+  }
+
   const code = generateVerificationCode(userId, rewardKey);
   await db.run('INSERT INTO user_rewards (id, user_id, reward_key, verification_code) VALUES (?, ?, ?, ?)', [
     uuidv4(),
@@ -327,6 +437,7 @@ app.get(
       message_count: Number(countRow.c),
       login_streak: req.user.login_streak || 0,
       longest_streak: req.user.longest_streak || 0,
+      points: req.user.points || 0,
     });
   })
 );
@@ -416,19 +527,110 @@ app.get(
     const unlockedMap = {};
     unlocked.forEach((u) => (unlockedMap[u.reward_key] = u));
 
+    // Pra recompensas de vaga limitada, mostra quantas já foram preenchidas
+    // (mesmo pra quem ainda não desbloqueou, pra criar aquela corrida saudável).
+    const slotsInfo = {};
+    for (const r of REWARDS_CATALOG) {
+      if (r.limitedSlots) {
+        const countRow = await db.get('SELECT COUNT(*) as c FROM user_rewards WHERE reward_key = ?', [r.key]);
+        slotsInfo[r.key] = { taken: Number(countRow.c), total: r.limitedSlots };
+      }
+    }
+
     const rewards = REWARDS_CATALOG.map((r) => ({
       ...r,
       unlocked: !!unlockedMap[r.key],
       verification_code: unlockedMap[r.key] ? unlockedMap[r.key].verification_code : null,
       unlocked_at: unlockedMap[r.key] ? unlockedMap[r.key].unlocked_at : null,
+      slots: slotsInfo[r.key] || null,
     }));
 
     res.json({
       streak: req.user.login_streak || 0,
       longest_streak: req.user.longest_streak || 0,
+      points: req.user.points || 0,
       rewards,
       equipped_frame: req.user.avatar_frame || null,
+      username: req.user.username,
     });
+  })
+);
+
+// ---------- MISSÕES (quiz com pontos) ----------
+
+app.get(
+  '/api/missions',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const completedRows = await db.all(
+      'SELECT mission_key, points_awarded, completed_at FROM user_mission_progress WHERE user_id = ?',
+      [req.user.id]
+    );
+    const completedMap = {};
+    completedRows.forEach((r) => (completedMap[r.mission_key] = r));
+
+    const streak = req.user.login_streak || 0;
+    const missions = MISSIONS_CATALOG.map((m) => {
+      const completed = completedMap[m.key];
+      const available = streak >= m.unlockDays;
+      return {
+        key: m.key,
+        name: m.name,
+        description: m.description,
+        unlockDays: m.unlockDays,
+        points: m.points,
+        available,
+        completed: !!completed,
+        completed_at: completed ? completed.completed_at : null,
+        // só manda as perguntas/opções se estiver disponível e ainda não
+        // concluída — e nunca manda o índice da resposta certa, claro.
+        questions: available && !completed ? m.questions.map((q) => ({ q: q.q, options: q.options })) : undefined,
+      };
+    });
+
+    res.json({ points: req.user.points || 0, streak, missions });
+  })
+);
+
+app.post(
+  '/api/missions/:key/submit',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const mission = MISSIONS_CATALOG.find((m) => m.key === req.params.key);
+    if (!mission) return res.status(404).json({ error: 'Missão não encontrada' });
+
+    const streak = req.user.login_streak || 0;
+    if (streak < mission.unlockDays) {
+      return res.status(403).json({ error: 'Essa missão ainda não está disponível pra você' });
+    }
+
+    const already = await db.get('SELECT id FROM user_mission_progress WHERE user_id = ? AND mission_key = ?', [
+      req.user.id,
+      mission.key,
+    ]);
+    if (already) return res.status(409).json({ error: 'Você já completou essa missão' });
+
+    const answers = Array.isArray(req.body && req.body.answers) ? req.body.answers : [];
+    let correctCount = 0;
+    mission.questions.forEach((q, i) => {
+      if (answers[i] === q.correct) correctCount++;
+    });
+    const allCorrect = correctCount === mission.questions.length && answers.length === mission.questions.length;
+
+    if (!allCorrect) {
+      return res.json({ success: false, correctCount, total: mission.questions.length });
+    }
+
+    await db.run('INSERT INTO user_mission_progress (id, user_id, mission_key, points_awarded) VALUES (?, ?, ?, ?)', [
+      uuidv4(),
+      req.user.id,
+      mission.key,
+      mission.points,
+    ]);
+    await db.run('UPDATE users SET points = points + ? WHERE id = ?', [mission.points, req.user.id]);
+    const updated = await db.get('SELECT points FROM users WHERE id = ?', [req.user.id]);
+
+    res.json({ success: true, points_awarded: mission.points, total_points: updated.points });
   })
 );
 

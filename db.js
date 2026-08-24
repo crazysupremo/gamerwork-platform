@@ -155,6 +155,15 @@ async function initDb() {
       unlocked_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(user_id, reward_key)
     );
+
+    CREATE TABLE IF NOT EXISTS user_mission_progress (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      mission_key TEXT NOT NULL,
+      points_awarded INTEGER NOT NULL DEFAULT 0,
+      completed_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, mission_key)
+    );
   `);
 
   // Migração leve pra bancos criados antes de alguma dessas colunas existir.
@@ -163,6 +172,7 @@ async function initDb() {
   await ensureColumn('users', 'longest_streak INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'last_login_date TEXT');
   await ensureColumn('users', 'avatar_frame TEXT');
+  await ensureColumn('users', 'points INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('servers', 'icon TEXT');
   await ensureColumn('users', 'email_verified INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'verification_code TEXT');

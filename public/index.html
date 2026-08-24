@@ -488,7 +488,39 @@
 
     <div class="modal-actions">
       <button type="button" id="btn-close-rewards">Fechar</button>
+      <button type="button" id="btn-open-missions">🎯 Ver Missões</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: missões (quiz sobre o NEXT GAME que rende pontos) -->
+<div id="modal-missions" class="modal-overlay hidden">
+  <div class="modal-card modal-card-wide">
+    <h2>🎯 Missões</h2>
+    <p class="hint" style="margin-bottom:10px;">
+      Quanto mais tempo você fica ativo, mais missões liberam. Acerte todas as perguntas do quiz
+      pra ganhar pontos.
+    </p>
+    <div id="missions-points-summary" class="missions-points-summary"></div>
+    <div id="missions-list" class="missions-list"></div>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-missions">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: quiz de uma missão específica -->
+<div id="modal-quiz" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2 id="quiz-title">Quiz</h2>
+    <form id="form-quiz">
+      <div id="quiz-questions"></div>
+      <div class="modal-actions">
+        <button type="button" id="btn-cancel-quiz">Cancelar</button>
+        <button type="submit">Responder</button>
+      </div>
+      <div id="quiz-result"></div>
+    </form>
   </div>
 </div>
 

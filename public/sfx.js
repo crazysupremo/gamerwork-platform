@@ -126,6 +126,10 @@ const SFX = (() => {
     modalOpen() {
       tone({ freq: 500, endFreq: 640, duration: 0.06, type: 'sine', gain: 0.05 });
     },
+    // Resposta errada num quiz de missão — discreto, sem ser desanimador.
+    wrong() {
+      tone({ freq: 300, endFreq: 220, duration: 0.16, type: 'sine', gain: 0.09 });
+    },
     // Sequência subiu um dia — chime curto e positivo.
     streakUp() {
       tone({ freq: 523.25, duration: 0.1, type: 'triangle', gain: 0.12 });

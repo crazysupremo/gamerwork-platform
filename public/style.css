@@ -691,6 +691,108 @@ video:fullscreen { background: #000; object-fit: contain; }
 }
 .reward-copy-btn:hover, .reward-verify-btn:hover { background: #33353d; }
 
+/* SELOS COM IMAGEM REAL (90/120 dias) */
+.reward-card-seal { flex-direction: column; align-items: center; text-align: center; }
+.reward-card-seal .reward-info { width: 100%; }
+.reward-seal-wrap { position: relative; width: 100%; margin: 0 auto 8px; }
+.reward-seal-square { max-width: 170px; aspect-ratio: 713 / 802; }
+.reward-seal-wide { max-width: 230px; aspect-ratio: 1046 / 651; }
+.reward-seal-img {
+  width: 100%; height: 100%; object-fit: contain; display: block;
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.5));
+}
+.reward-card-locked .reward-seal-img { filter: grayscale(1) opacity(0.35); }
+.reward-seal-name {
+  position: absolute; left: 50.5%; top: 68.5%; transform: translate(-50%, -50%);
+  font-weight: 800; font-size: 13px; letter-spacing: 0.03em; color: #ffe9a8;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.85); white-space: nowrap; max-width: 68%;
+  overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+}
+.reward-seal-caption { font-size: 12px; color: #dbdee1; margin-bottom: 6px; }
+.reward-slots-brag { font-size: 12px; color: #ffd76b; font-weight: 700; margin: 0 0 8px; text-align: center; }
+
+/* SELO ULTRA RARO — FUNDADOR ETERNO (feito 100% em CSS, sem imagem externa) */
+.founder-badge {
+  position: relative; width: 150px; height: 150px; margin: 4px auto 10px; display: flex;
+  align-items: center; justify-content: center;
+}
+.founder-badge-crown {
+  position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 30px; z-index: 2;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+  animation: founderCrownBob 2.4s ease-in-out infinite;
+}
+@keyframes founderCrownBob {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(-3deg); }
+  50% { transform: translateX(-50%) translateY(-4px) rotate(3deg); }
+}
+.founder-badge-ring {
+  width: 100%; height: 100%; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff6d8, #ffd76b 35%, #b8860b 75%, #7a5c0a 100%);
+  box-shadow: 0 0 0 3px #3a2c05, 0 0 22px rgba(255,215,107,0.7), inset 0 0 18px rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center;
+  animation: founderRingGlow 2.6s ease-in-out infinite;
+}
+@keyframes founderRingGlow {
+  0%, 100% { box-shadow: 0 0 0 3px #3a2c05, 0 0 18px rgba(255,215,107,0.6), inset 0 0 18px rgba(0,0,0,0.35); }
+  50% { box-shadow: 0 0 0 3px #3a2c05, 0 0 34px rgba(255,255,255,0.9), inset 0 0 18px rgba(0,0,0,0.35); }
+}
+.founder-badge-inner {
+  width: 78%; height: 78%; border-radius: 50%; background: #14151a;
+  border: 2px solid rgba(255,215,107,0.6);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.founder-badge-diamond { font-size: 12px; }
+.founder-badge-title {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.06em; color: #ffd76b; text-align: center; line-height: 1.25;
+}
+.founder-badge-name {
+  font-size: 10px; font-weight: 700; color: #fff; margin-top: 1px; max-width: 90%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* MISSÕES E QUIZ */
+.missions-points-summary { margin-bottom: 14px; }
+.missions-points-box {
+  background: #1e1f22; border: 1px solid #35373c; border-radius: 10px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.missions-points-icon { font-size: 26px; }
+.missions-points-total { font-weight: 800; font-size: 15px; color: #e6e6e6; }
+.missions-points-hint { font-size: 12px; color: #949ba4; }
+
+.missions-list { display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; }
+.mission-card {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #1e1f22;
+  border: 1px solid #35373c; border-radius: 10px; padding: 12px;
+}
+.mission-card-locked { opacity: 0.5; }
+.mission-card-done { border-color: #23a55a; }
+.mission-info h3 { margin: 0 0 3px; font-size: 14px; color: #e6e6e6; }
+.mission-info p { margin: 0 0 6px; font-size: 12px; color: #949ba4; }
+.mission-points-tag {
+  font-size: 11px; font-weight: 700; color: #00d9c0; background: rgba(0,217,192,0.12);
+  padding: 2px 8px; border-radius: 10px;
+}
+.mission-action { flex-shrink: 0; }
+.mission-start-btn {
+  padding: 7px 14px; border-radius: 6px; border: none; background: var(--gradient-brand); color: white;
+  font-weight: 700; font-size: 12px; cursor: pointer;
+}
+.mission-done-tag { font-size: 12px; color: #23a55a; font-weight: 700; }
+.mission-locked-tag { font-size: 11px; color: #6d7178; }
+
+.quiz-question { margin-bottom: 16px; }
+.quiz-question-text { font-size: 13px; color: #e6e6e6; font-weight: 700; margin: 0 0 8px; }
+.quiz-options { display: flex; flex-direction: column; gap: 6px; }
+.quiz-option {
+  display: flex; align-items: center; gap: 8px; background: #1e1f22; border: 1px solid #35373c;
+  border-radius: 8px; padding: 8px 10px; cursor: pointer; font-size: 13px; color: #dbdee1;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.quiz-option:hover { border-color: var(--accent); }
+.quiz-option input { accent-color: var(--accent); }
+#quiz-result { margin-top: 10px; }
+
 /* VERIFICAÇÃO PÚBLICA DE SELO */
 .verify-result { margin-top: 12px; }
 .verify-valid {
@@ -875,4 +977,24 @@ video:fullscreen { background: #000; object-fit: contain; }
 @keyframes frameLegend {
   0%, 100% { box-shadow: 0 0 0 3px #ffd76b, 0 0 16px rgba(255,215,107,0.65); }
   50%      { box-shadow: 0 0 0 3px #ffffff, 0 0 26px rgba(255,215,107,0.95); }
+}
+/* Moldura do selo de 120 dias — tons de ciano/azul cristalizados. */
+.avatar-frame-diamond {
+  animation: frameDiamond 2.8s ease-in-out infinite;
+}
+@keyframes frameDiamond {
+  0%, 100% { box-shadow: 0 0 0 3px #7ee8ff, 0 0 14px rgba(126,232,255,0.6); }
+  50%      { box-shadow: 0 0 0 3px #ffffff, 0 0 24px rgba(126,232,255,0.9); }
+}
+/* Moldura do selo ultra raro (365 dias, só 2 vagas) — combina dourado com um
+   giro de cores por baixo, pra ficar visualmente acima de todas as outras. */
+.avatar-frame-eternal {
+  animation: frameEternal 3.4s linear infinite;
+  position: relative;
+}
+@keyframes frameEternal {
+  0%   { box-shadow: 0 0 0 3px #ffd76b, 0 0 20px rgba(255,215,107,0.75); }
+  33%  { box-shadow: 0 0 0 3px #fff6d8, 0 0 26px rgba(255,255,255,0.9); }
+  66%  { box-shadow: 0 0 0 3px #ffb347, 0 0 22px rgba(255,179,71,0.8); }
+  100% { box-shadow: 0 0 0 3px #ffd76b, 0 0 20px rgba(255,215,107,0.75); }
 }

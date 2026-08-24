@@ -584,6 +584,40 @@ async function refreshStreakBadge() {
   } catch (_) {}
 }
 
+// Monta o visual de cada recompensa: os selos com imagem real (90/120 dias)
+// mostram a arte enviada, com o nome da pessoa sobreposto quando a arte tem
+// espaço reservado pra isso (hasName). O selo de 365 dias (só 2 vagas no
+// mundo) não tem imagem — é construído inteiramente em CSS, já que não temos
+// um gerador de imagem disponível aqui.
+function sealVisualHtml(reward) {
+  if (reward.key === 'founder-eternal') {
+    return `
+      <div class="founder-badge">
+        <div class="founder-badge-crown">👑</div>
+        <div class="founder-badge-ring">
+          <div class="founder-badge-inner">
+            <span class="founder-badge-diamond">💎</span>
+            <span class="founder-badge-title">FUNDADOR<br/>ETERNO</span>
+            ${reward.unlocked ? `<span class="founder-badge-name">${escapeHtml(me.username)}</span>` : ''}
+            <span class="founder-badge-diamond">💎</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  if (reward.image) {
+    return `
+      <div class="reward-seal-wrap ${reward.key === 'seal90' ? 'reward-seal-square' : 'reward-seal-wide'}">
+        <img src="${reward.image}" alt="${escapeHtml(reward.name)}" class="reward-seal-img" />
+        ${reward.hasName && reward.unlocked ? `<span class="reward-seal-name">${escapeHtml(me.username)}</span>` : ''}
+      </div>
+      ${!reward.hasName && reward.unlocked ? `<div class="reward-seal-caption">🏅 Selo de <strong>${escapeHtml(me.username)}</strong></div>` : ''}
+    `;
+  }
+  const previewFrameClass = reward.unlocked && reward.frame ? 'avatar-frame-' + reward.frame : '';
+  return `<div class="reward-frame-preview member-avatar-lg ${previewFrameClass}">${renderAvatarHtml(me)}</div>`;
+}
+
 async function loadRewards() {
   const summaryEl = document.getElementById('rewards-streak-summary');
   const catalogEl = document.getElementById('rewards-catalog');
@@ -617,16 +651,24 @@ async function loadRewards() {
   `;
 
   data.rewards.forEach((r) => {
+    const isBigSeal = !!r.image || r.key === 'founder-eternal';
     const card = document.createElement('div');
-    card.className = 'reward-card' + (r.unlocked ? '' : ' reward-card-locked') + (r.rare ? ' reward-card-rare' : '');
+    card.className =
+      'reward-card' +
+      (r.unlocked ? '' : ' reward-card-locked') +
+      (r.rare ? ' reward-card-rare' : '') +
+      (isBigSeal ? ' reward-card-seal' : '');
 
-    const previewFrameClass = r.unlocked && r.frame ? 'avatar-frame-' + r.frame : '';
     const progress = r.type === 'streak' && !r.unlocked ? Math.min(data.streak, r.days) : null;
 
     let actionsHtml = '';
     if (r.unlocked) {
       const isEquipped = me.avatar_frame === r.frame;
+      const slotsBrag = r.slots
+        ? `<div class="reward-slots-brag">🏅 Você é 1 de ${r.slots.total} pessoas com esse selo no mundo!</div>`
+        : '';
       actionsHtml = `
+        ${slotsBrag}
         <div class="reward-actions">
           <button type="button" class="reward-equip-btn" ${isEquipped ? 'disabled' : ''}>
             ${isEquipped ? '✅ Equipada' : 'Equipar moldura'}
@@ -639,16 +681,14 @@ async function loadRewards() {
         </div>
       `;
     } else {
-      actionsHtml = `<div class="reward-locked-hint">🔒 ${
-        r.type === 'streak' ? `${progress}/${r.days} dias de acesso seguido` : 'Ainda não desbloqueado'
-      }</div>`;
+      const daysHint = r.type === 'streak' ? `${progress}/${r.days} dias de acesso seguido` : 'Ainda não desbloqueado';
+      const slotsHint = r.slots ? ` · ${r.slots.taken}/${r.slots.total} vagas preenchidas` : '';
+      actionsHtml = `<div class="reward-locked-hint">🔒 ${daysHint}${slotsHint}</div>`;
     }
 
     card.innerHTML = `
-      ${r.rare ? `<img src="/assets/logo.png" alt="" class="reward-rare-logo" />` : ''}
-      <div class="reward-icon-wrap">
-        <div class="reward-frame-preview member-avatar-lg ${previewFrameClass}">${renderAvatarHtml(me)}</div>
-      </div>
+      ${r.rare && !isBigSeal ? `<img src="/assets/logo.png" alt="" class="reward-rare-logo" />` : ''}
+      <div class="reward-icon-wrap">${sealVisualHtml(r)}</div>
       <div class="reward-info">
         <h3>${r.rare ? '⭐ ' : ''}${escapeHtml(r.name)}</h3>
         <p>${escapeHtml(r.description)}</p>
@@ -715,6 +755,139 @@ document.getElementById('btn-verify-code').onclick = async () => {
     `;
   } catch (_) {
     resultEl.innerHTML = `<div class="verify-invalid">Erro ao verificar. Tente de novo.</div>`;
+  }
+};
+
+// ---------- MISSÕES (quiz sobre o NEXT GAME, rende pontos) ----------
+
+const modalMissions = document.getElementById('modal-missions');
+const modalQuiz = document.getElementById('modal-quiz');
+let missionsCache = null;
+let activeQuizMission = null;
+
+document.getElementById('btn-open-missions').onclick = () => {
+  modalRewards.classList.add('hidden');
+  modalMissions.classList.remove('hidden');
+  loadMissions();
+};
+document.getElementById('btn-close-missions').onclick = () => modalMissions.classList.add('hidden');
+
+async function loadMissions() {
+  const summaryEl = document.getElementById('missions-points-summary');
+  const listEl = document.getElementById('missions-list');
+  summaryEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  listEl.innerHTML = '';
+
+  const res = await fetch('/api/missions', { credentials: 'include' });
+  const data = await res.json();
+  missionsCache = data;
+
+  summaryEl.innerHTML = `
+    <div class="missions-points-box">
+      <span class="missions-points-icon">🧠</span>
+      <div>
+        <div class="missions-points-total">${data.points} pontos</div>
+        <div class="missions-points-hint">Ganhos respondendo os quizzes certinho</div>
+      </div>
+    </div>
+  `;
+
+  data.missions.forEach((m) => {
+    const card = document.createElement('div');
+    card.className =
+      'mission-card' + (m.completed ? ' mission-card-done' : !m.available ? ' mission-card-locked' : '');
+    card.innerHTML = `
+      <div class="mission-info">
+        <h3>${m.completed ? '✅' : m.available ? '🎯' : '🔒'} ${escapeHtml(m.name)}</h3>
+        <p>${escapeHtml(m.description)}</p>
+        <span class="mission-points-tag">+${m.points} pontos</span>
+      </div>
+      <div class="mission-action">
+        ${
+          m.completed
+            ? `<span class="mission-done-tag">Concluída</span>`
+            : m.available
+              ? `<button type="button" class="mission-start-btn">Responder quiz</button>`
+              : `<span class="mission-locked-tag">${m.unlockDays} dias de sequência</span>`
+        }
+      </div>
+    `;
+    if (m.available && !m.completed) {
+      card.querySelector('.mission-start-btn').onclick = () => openQuiz(m);
+    }
+    listEl.appendChild(card);
+  });
+}
+
+function openQuiz(mission) {
+  activeQuizMission = mission;
+  document.getElementById('quiz-title').textContent = '🎯 ' + mission.name;
+  const container = document.getElementById('quiz-questions');
+  document.getElementById('quiz-result').innerHTML = '';
+  container.innerHTML = mission.questions
+    .map(
+      (q, qi) => `
+    <div class="quiz-question">
+      <p class="quiz-question-text">${qi + 1}. ${escapeHtml(q.q)}</p>
+      <div class="quiz-options">
+        ${q.options
+          .map(
+            (opt, oi) => `
+          <label class="quiz-option">
+            <input type="radio" name="quiz-q${qi}" value="${oi}" required />
+            <span>${escapeHtml(opt)}</span>
+          </label>
+        `
+          )
+          .join('')}
+      </div>
+    </div>
+  `
+    )
+    .join('');
+  modalMissions.classList.add('hidden');
+  modalQuiz.classList.remove('hidden');
+}
+
+document.getElementById('btn-cancel-quiz').onclick = () => {
+  modalQuiz.classList.add('hidden');
+  modalMissions.classList.remove('hidden');
+};
+
+document.getElementById('form-quiz').onsubmit = async (e) => {
+  e.preventDefault();
+  if (!activeQuizMission) return;
+  const resultEl = document.getElementById('quiz-result');
+  const answers = activeQuizMission.questions.map((_, qi) => {
+    const checked = document.querySelector(`input[name="quiz-q${qi}"]:checked`);
+    return checked ? Number(checked.value) : -1;
+  });
+
+  const res = await fetch(`/api/missions/${activeQuizMission.key}/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ answers }),
+  });
+  const data = await res.json();
+
+  if (!res.ok) {
+    resultEl.innerHTML = `<div class="verify-invalid">${escapeHtml(data.error || 'Erro ao enviar respostas')}</div>`;
+    return;
+  }
+
+  if (data.success) {
+    SFX.streakUp();
+    launchConfetti();
+    resultEl.innerHTML = `<div class="verify-valid">🎉 Você acertou tudo! +${data.points_awarded} pontos (total: ${data.total_points})</div>`;
+    setTimeout(() => {
+      modalQuiz.classList.add('hidden');
+      modalMissions.classList.remove('hidden');
+      loadMissions();
+    }, 1800);
+  } else {
+    SFX.wrong();
+    resultEl.innerHTML = `<div class="verify-invalid">Você acertou ${data.correctCount}/${data.total}. Precisa acertar todas — tenta de novo!</div>`;
   }
 };
 
