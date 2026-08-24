@@ -1320,7 +1320,7 @@ async function triggerAiReply(channelId) {
 
     // API da Groq — compatível com o formato da OpenAI (chat completions).
     // Gratuita sem cartão de crédito, com limite de mensagens por minuto/dia.
-    const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+    const model = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
     const systemMessage = {
       role: 'system',
       content:

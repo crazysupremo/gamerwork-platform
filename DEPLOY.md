@@ -83,7 +83,10 @@ Pra ativar:
 3. No Render, abra seu serviço → aba **Environment** → **Add Environment Variable**:
    - Key: `GROQ_API_KEY` → Value: a chave que você copiou
 4. (Opcional) Pra trocar o modelo usado, adicione também `GROQ_MODEL` com o
-   nome do modelo desejado (o padrão é `llama-3.3-70b-versatile`)
+   nome do modelo desejado (o padrão é `openai/gpt-oss-20b`) — a Groq às vezes
+   descontinua modelos antigos; se o assistente voltar a dar erro depois de
+   configurado, veja a lista atual em **console.groq.com/docs/models** e
+   atualize essa variável com um modelo ativo.
 5. Salve — o Render redeploya sozinho e o assistente passa a responder de verdade.
 
 ## Depois de publicar
