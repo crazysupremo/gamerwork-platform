@@ -921,8 +921,11 @@ async function loadTournaments() {
         <button class="${t.is_registered ? 'btn-unregister' : 'btn-register'}">
           ${t.is_registered ? 'Sair' : 'Participar'}
         </button>
+        <button class="btn-view-bracket">🏆 Ver chave</button>
+        ${t.created_by === me.id || me.is_admin ? '<button class="btn-generate-bracket">Gerar chave</button>' : ''}
         ${me.is_admin ? '<button class="btn-delete-tournament">Excluir</button>' : ''}
       </div>
+      <div class="tournament-bracket hidden"></div>
     `;
     card.querySelector(t.is_registered ? '.btn-unregister' : '.btn-register').onclick = async () => {
       const endpoint = t.is_registered ? 'unregister' : 'register';
@@ -942,7 +945,79 @@ async function loadTournaments() {
         loadTournaments();
       };
     }
+    const generateBtn = card.querySelector('.btn-generate-bracket');
+    if (generateBtn) {
+      generateBtn.onclick = async () => {
+        if (!confirm('Gerar a chave agora? Isso embaralha os inscritos e não pode ser refeito.')) return;
+        const r = await fetch(`/api/tournaments/${t.id}/generate-bracket`, { method: 'POST', credentials: 'include' });
+        const d = await r.json();
+        if (!r.ok) return alert(d.error || 'Erro ao gerar chave');
+        renderBracket(t.id, card.querySelector('.tournament-bracket'));
+      };
+    }
+    card.querySelector('.btn-view-bracket').onclick = () => {
+      const bracketEl = card.querySelector('.tournament-bracket');
+      bracketEl.classList.toggle('hidden');
+      if (!bracketEl.classList.contains('hidden')) renderBracket(t.id, bracketEl);
+    };
     list.appendChild(card);
+  });
+}
+
+async function renderBracket(tournamentId, container) {
+  container.innerHTML = '<p class="empty-hint">Carregando chave...</p>';
+  const res = await fetch(`/api/tournaments/${tournamentId}/bracket`, { credentials: 'include' });
+  const matches = await res.json();
+  if (matches.length === 0) {
+    container.innerHTML = '<p class="empty-hint">Chave ainda não foi gerada.</p>';
+    return;
+  }
+  const rounds = {};
+  matches.forEach((m) => {
+    if (!rounds[m.round]) rounds[m.round] = [];
+    rounds[m.round].push(m);
+  });
+  const roundNames = { 1: 'Primeira rodada', 2: 'Quartas', 3: 'Semifinal', 4: 'Final' };
+  container.innerHTML = Object.keys(rounds)
+    .sort((a, b) => a - b)
+    .map((round) => {
+      const label = roundNames[round] || `Rodada ${round}`;
+      const matchesHtml = rounds[round]
+        .map((m) => {
+          return `
+          <div class="bracket-match" data-match-id="${m.id}">
+            <div class="bracket-side ${m.winner_id === m.player_a_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_a_name || 'A definir')} ${m.score_a != null ? `(${m.score_a})` : ''}</div>
+            <div class="bracket-side ${m.winner_id === m.player_b_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_b_name || 'A definir')} ${m.score_b != null ? `(${m.score_b})` : ''}</div>
+            ${m.player_a_id && m.player_b_id && m.status !== 'concluida' ? '<button type="button" class="bracket-report-btn">Registrar resultado</button>' : ''}
+          </div>
+        `;
+        })
+        .join('');
+      return `<div class="bracket-round"><div class="bracket-round-label">${label}</div>${matchesHtml}</div>`;
+    })
+    .join('');
+
+  container.querySelectorAll('.bracket-report-btn').forEach((btn) => {
+    btn.onclick = async () => {
+      const matchEl = btn.closest('.bracket-match');
+      const matchId = matchEl.dataset.matchId;
+      const match = matches.find((m) => m.id === matchId);
+      const winnerName = prompt(
+        `Quem venceu? Digite exatamente:\n1) ${match.player_a_name}\n2) ${match.player_b_name}`,
+        match.player_a_name
+      );
+      if (!winnerName) return;
+      const winnerId = winnerName.trim() === match.player_a_name ? match.player_a_id : match.player_b_id;
+      const r = await fetch(`/api/tournaments/matches/${matchId}/result`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ winner_id: winnerId }),
+      });
+      const d = await r.json();
+      if (!r.ok) return alert(d.error || 'Erro ao registrar resultado');
+      renderBracket(tournamentId, container);
+    };
   });
 }
 
@@ -1646,6 +1721,18 @@ function userActionItems(user) {
   }
 
   items.push({
+    icon: '👍',
+    label: 'Endossar (reputação)',
+    onClick: async () => {
+      const res = await fetch(`/api/users/${user.id}/endorse`, { method: 'POST', credentials: 'include' });
+      if (res.ok) showCopyToast(`Você endossou ${user.username}!`);
+      else {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Erro ao endossar');
+      }
+    },
+  });
+  items.push({
     icon: '🚫',
     label: 'Bloquear usuário',
     danger: true,
@@ -1914,6 +2001,9 @@ document.getElementById('btn-edit-profile').onclick = () => {
   document.getElementById('profile-error').textContent = '';
   document.getElementById('profile-email').value = me.email || '';
   setProfileStatusFields(me.status_message);
+  document.getElementById('profile-bio').value = me.bio || '';
+  document.getElementById('profile-region').value = me.region || '';
+  document.getElementById('profile-language').value = me.language || '';
   document.getElementById('profile-new-password').value = '';
   document.getElementById('profile-current-password').value = '';
   pendingAvatar = undefined;
@@ -1939,6 +2029,12 @@ document.getElementById('form-profile').onsubmit = async (e) => {
   if (body.email || body.password) body.currentPassword = currentPassword;
   if (statusMessage !== (me.status_message || '')) body.status_message = statusMessage;
   if (pendingAvatar !== undefined) body.avatar = pendingAvatar;
+  const bio = document.getElementById('profile-bio').value.trim();
+  const region = document.getElementById('profile-region').value.trim();
+  const language = document.getElementById('profile-language').value.trim();
+  if (bio !== (me.bio || '')) body.bio = bio;
+  if (region !== (me.region || '')) body.region = region;
+  if (language !== (me.language || '')) body.language = language;
 
   if (Object.keys(body).length === 0) {
     modalProfile.classList.add('hidden');
@@ -1961,6 +2057,9 @@ document.getElementById('form-profile').onsubmit = async (e) => {
     if (body.email) me.email = email;
     if ('status_message' in data) me.status_message = data.status_message;
     if ('avatar' in data) me.avatar = data.avatar;
+    if ('bio' in data) me.bio = data.bio;
+    if ('region' in data) me.region = data.region;
+    if ('language' in data) me.language = data.language;
     loadMembers();
     alert('Perfil atualizado!');
   } catch (err) {
@@ -1982,7 +2081,10 @@ document.querySelectorAll('#modal-profile .manage-tab').forEach((tabBtn) => {
       load2FAStatus();
       loadSessions();
     }
-    if (tab === 'privacidade') loadBlockedUsers();
+    if (tab === 'privacidade') {
+      loadBlockedUsers();
+      loadIntegrations();
+    }
     if (tab === 'notificacoes') loadNotificationPrefs();
   };
 });
@@ -2365,6 +2467,736 @@ document.getElementById('nav-jogos').onclick = () => {
   setTimeout(() => document.getElementById('home-servers-grid').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 };
 document.getElementById('nav-comunidade').onclick = () => document.getElementById('btn-toggle-members').click();
+// ---------- JOGAR: LFG, MATCHMAKING, PERFIS DE JOGO, TIMES, CLÃS ----------
+
+const modalLfg = document.getElementById('modal-lfg');
+
+document.getElementById('nav-lfg').onclick = () => {
+  document.querySelectorAll('#modal-lfg .manage-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('#modal-lfg .manage-tab-panel').forEach((p, i) => p.classList.toggle('hidden', i !== 0));
+  modalLfg.classList.remove('hidden');
+  loadLfgPosts();
+};
+document.getElementById('btn-close-lfg').onclick = () => modalLfg.classList.add('hidden');
+
+document.querySelectorAll('#modal-lfg .manage-tab').forEach((tabBtn) => {
+  tabBtn.onclick = () => {
+    document.querySelectorAll('#modal-lfg .manage-tab').forEach((t) => t.classList.remove('active'));
+    tabBtn.classList.add('active');
+    document.querySelectorAll('#modal-lfg .manage-tab-panel').forEach((p) => p.classList.add('hidden'));
+    const tab = tabBtn.dataset.lfgTab;
+    document.getElementById('lfg-tab-' + tab).classList.remove('hidden');
+    if (tab === 'buscar') loadLfgPosts();
+    if (tab === 'perfis') loadGameProfiles();
+    if (tab === 'times') loadTeams();
+    if (tab === 'clas') loadClans();
+    if (tab === 'orgs') loadOrgs();
+    if (tab === 'market') loadMarketplace();
+  };
+});
+
+async function loadLfgPosts() {
+  const listEl = document.getElementById('lfg-posts-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/lfg', { credentials: 'include' });
+  const posts = await res.json();
+  if (posts.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Nenhum grupo procurando jogador agora. Crie um na aba "Criar Post"!</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  posts.forEach((p) => {
+    const card = document.createElement('div');
+    card.className = 'settings-row';
+    const authorName = p.author ? p.author.username : '?';
+    card.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">🎮 ${escapeHtml(p.game)} — ${p.players_needed} jogador(es) · <span style="color:#23a55a;">${p.compatibility}% compatível</span></span>
+        <span class="settings-row-meta">Por ${escapeHtml(authorName)} ${p.region ? '· região ' + escapeHtml(p.region) : ''} ${p.language ? '· ' + escapeHtml(p.language) : ''} ${p.role ? '· função ' + escapeHtml(p.role) : ''} · mic ${p.mic_required} · ${p.member_count} no grupo</span>
+        ${p.note ? `<span class="settings-row-meta">"${escapeHtml(p.note)}"</span>` : ''}
+      </div>
+      ${p.user_id !== me.id ? '<button type="button" class="lfg-join-btn">Entrar</button>' : '<button type="button" class="lfg-close-btn">Fechar post</button>'}
+    `;
+    const joinBtn = card.querySelector('.lfg-join-btn');
+    if (joinBtn) {
+      joinBtn.onclick = async () => {
+        const r = await fetch(`/api/lfg/${p.id}/join`, { method: 'POST', credentials: 'include' });
+        const d = await r.json();
+        if (!r.ok) return alert(d.error || 'Erro ao entrar no grupo');
+        SFX.streakUp && SFX.streakUp();
+        loadLfgPosts();
+      };
+    }
+    const closeBtn = card.querySelector('.lfg-close-btn');
+    if (closeBtn) {
+      closeBtn.onclick = async () => {
+        await fetch(`/api/lfg/${p.id}`, { method: 'DELETE', credentials: 'include' });
+        loadLfgPosts();
+      };
+    }
+    listEl.appendChild(card);
+  });
+}
+
+document.getElementById('form-lfg-create').onsubmit = async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('lfg-create-error');
+  errorEl.textContent = '';
+  const body = {
+    game: document.getElementById('lfg-game').value.trim(),
+    players_needed: document.getElementById('lfg-players').value,
+    role: document.getElementById('lfg-role').value.trim(),
+    rank_min: document.getElementById('lfg-rank-min').value.trim(),
+    rank_max: document.getElementById('lfg-rank-max').value.trim(),
+    region: document.getElementById('lfg-region').value.trim(),
+    language: document.getElementById('lfg-language').value.trim(),
+    mic_required: document.getElementById('lfg-mic').value,
+    available_time: document.getElementById('lfg-time').value.trim(),
+    note: document.getElementById('lfg-note').value.trim(),
+  };
+  const res = await fetch('/api/lfg', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Erro ao publicar';
+    return;
+  }
+  document.getElementById('form-lfg-create').reset();
+  document.querySelector('#modal-lfg .manage-tab[data-lfg-tab="buscar"]').click();
+};
+
+async function loadGameProfiles() {
+  const listEl = document.getElementById('game-profiles-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch(`/api/game-profiles/${me.id}`, { credentials: 'include' });
+  const rows = await res.json();
+  if (rows.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Nenhum perfil de jogo ainda — adicione um abaixo.</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  rows.forEach((p) => {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    row.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">🎮 ${escapeHtml(p.game)} ${p.rank ? '— ' + escapeHtml(p.rank) : ''}</span>
+        <span class="settings-row-meta">${p.role ? escapeHtml(p.role) + ' · ' : ''}${p.hours}h · ${p.wins}V/${p.losses}D</span>
+      </div>
+      <button type="button" class="gp-delete-btn">Remover</button>
+    `;
+    row.querySelector('.gp-delete-btn').onclick = async () => {
+      await fetch(`/api/me/game-profiles/${encodeURIComponent(p.game)}`, { method: 'DELETE', credentials: 'include' });
+      loadGameProfiles();
+    };
+    listEl.appendChild(row);
+  });
+}
+
+document.getElementById('form-game-profile').onsubmit = async (e) => {
+  e.preventDefault();
+  const game = document.getElementById('gp-game').value.trim();
+  if (!game) return;
+  await fetch(`/api/me/game-profiles/${encodeURIComponent(game)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      rank: document.getElementById('gp-rank').value.trim(),
+      role: document.getElementById('gp-role').value.trim(),
+      hours: document.getElementById('gp-hours').value,
+      wins: document.getElementById('gp-wins').value,
+      losses: document.getElementById('gp-losses').value,
+    }),
+  });
+  document.getElementById('form-game-profile').reset();
+  loadGameProfiles();
+};
+
+async function loadTeams() {
+  const listEl = document.getElementById('teams-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/teams/mine', { credentials: 'include' });
+  const rows = await res.json();
+  if (rows.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Você não faz parte de nenhum time ainda.</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  rows.forEach((t) => {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    row.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">🛡️ ${escapeHtml(t.name)} ${t.game ? '— ' + escapeHtml(t.game) : ''}</span>
+        <span class="settings-row-meta">Seu cargo: ${escapeHtml(t.my_role)}</span>
+      </div>
+      ${t.my_role === 'lider' ? '<button type="button" class="team-invite-btn">Convidar</button>' : ''}
+    `;
+    const inviteBtn = row.querySelector('.team-invite-btn');
+    if (inviteBtn) {
+      inviteBtn.onclick = async () => {
+        const username = prompt('Nome de usuário pra convidar:');
+        if (!username) return;
+        const r = await fetch(`/api/teams/${t.id}/invite`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ username, role: 'jogador' }),
+        });
+        const d = await r.json();
+        if (!r.ok) alert(d.error || 'Erro ao convidar');
+        else loadTeams();
+      };
+    }
+    listEl.appendChild(row);
+  });
+}
+
+document.getElementById('form-team-create').onsubmit = async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('team-create-error');
+  errorEl.textContent = '';
+  const res = await fetch('/api/teams', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      name: document.getElementById('team-name').value.trim(),
+      game: document.getElementById('team-game').value.trim(),
+      description: document.getElementById('team-description').value.trim(),
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Erro ao criar time';
+    return;
+  }
+  document.getElementById('form-team-create').reset();
+  loadTeams();
+};
+
+async function loadClans() {
+  const listEl = document.getElementById('clans-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const [allRes, mineRes] = await Promise.all([
+    fetch('/api/clans', { credentials: 'include' }),
+    fetch('/api/clans/mine', { credentials: 'include' }),
+  ]);
+  const all = await allRes.json();
+  const mine = await mineRes.json();
+  const mineIds = new Set(mine.map((c) => c.id));
+  if (all.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Nenhum clã criado ainda — crie o primeiro abaixo.</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  all.forEach((c) => {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    const isMember = mineIds.has(c.id);
+    row.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">⚔️ ${escapeHtml(c.name)} — nível ${c.level}</span>
+        <span class="settings-row-meta">${c.member_count} membro(s)${c.description ? ' · ' + escapeHtml(c.description) : ''}</span>
+      </div>
+      ${isMember ? '<span class="settings-row-badge">MEMBRO</span>' : '<button type="button" class="clan-join-btn">Entrar</button>'}
+    `;
+    const joinBtn = row.querySelector('.clan-join-btn');
+    if (joinBtn) {
+      joinBtn.onclick = async () => {
+        await fetch(`/api/clans/${c.id}/join`, { method: 'POST', credentials: 'include' });
+        loadClans();
+      };
+    }
+    listEl.appendChild(row);
+  });
+}
+
+document.getElementById('form-clan-create').onsubmit = async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('clan-create-error');
+  errorEl.textContent = '';
+  const res = await fetch('/api/clans', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      name: document.getElementById('clan-name').value.trim(),
+      description: document.getElementById('clan-description').value.trim(),
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Erro ao criar clã';
+    return;
+  }
+  document.getElementById('form-clan-create').reset();
+  loadClans();
+};
+
+async function loadOrgs() {
+  const listEl = document.getElementById('orgs-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/organizations', { credentials: 'include' });
+  const orgs = await res.json();
+  if (orgs.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Nenhuma organização criada ainda.</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  orgs.forEach((o) => {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    row.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">🏢 ${escapeHtml(o.name)}</span>
+        <span class="settings-row-meta">${o.description ? escapeHtml(o.description) : 'Organização de esports'}</span>
+      </div>
+    `;
+    listEl.appendChild(row);
+  });
+}
+
+document.getElementById('form-org-create').onsubmit = async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('org-create-error');
+  errorEl.textContent = '';
+  const res = await fetch('/api/organizations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      name: document.getElementById('org-name').value.trim(),
+      description: document.getElementById('org-description').value.trim(),
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Erro ao criar organização';
+    return;
+  }
+  document.getElementById('form-org-create').reset();
+  loadOrgs();
+};
+
+const MARKET_CATEGORY_LABELS = {
+  designer: 'Designer',
+  editor: 'Editor de vídeo',
+  coach: 'Coach',
+  desenvolvedor: 'Desenvolvedor',
+  caster: 'Caster',
+  criador_conteudo: 'Criador de conteúdo',
+};
+
+async function loadMarketplace() {
+  const listEl = document.getElementById('market-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const category = document.getElementById('market-filter-category').value;
+  const res = await fetch(`/api/marketplace${category ? '?category=' + category : ''}`, { credentials: 'include' });
+  const profiles = await res.json();
+  if (profiles.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Nenhum perfil profissional publicado ainda.</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  profiles.forEach((p) => {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    const rating = p.avg_rating ? `⭐ ${Number(p.avg_rating).toFixed(1)} (${p.review_count})` : 'sem avaliações ainda';
+    row.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">${escapeHtml(p.title)} — ${MARKET_CATEGORY_LABELS[p.category] || p.category}</span>
+        <span class="settings-row-meta">${escapeHtml(p.username)} · ${rating} ${p.rate_display ? '· ' + escapeHtml(p.rate_display) : ''}</span>
+        ${p.description ? `<span class="settings-row-meta">${escapeHtml(p.description)}</span>` : ''}
+      </div>
+      ${p.user_id !== me.id ? '<button type="button" class="market-contact-btn">💬 Contatar</button>' : ''}
+    `;
+    const contactBtn = row.querySelector('.market-contact-btn');
+    if (contactBtn) {
+      contactBtn.onclick = () => {
+        modalLfg.classList.add('hidden');
+        openDmText(p.user_id, p.username);
+      };
+    }
+    listEl.appendChild(row);
+  });
+}
+document.getElementById('market-filter-category').onchange = loadMarketplace;
+
+document.getElementById('form-market-profile').onsubmit = async (e) => {
+  e.preventDefault();
+  await fetch('/api/marketplace/profile', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      category: document.getElementById('market-category').value,
+      title: document.getElementById('market-title').value.trim(),
+      description: document.getElementById('market-description').value.trim(),
+      portfolio_url: document.getElementById('market-portfolio').value.trim(),
+      rate_display: document.getElementById('market-rate').value.trim(),
+    }),
+  });
+  document.getElementById('form-market-profile').reset();
+  loadMarketplace();
+};
+
+// ---------- LOJA NEXT COINS ----------
+
+const modalShopCoins = document.getElementById('modal-shop-coins');
+document.getElementById('btn-shop-coins').onclick = () => {
+  modalShopCoins.classList.remove('hidden');
+  loadShop();
+};
+document.getElementById('btn-close-shop-coins').onclick = () => modalShopCoins.classList.add('hidden');
+
+async function loadShop() {
+  const [coinsRes, itemsRes] = await Promise.all([
+    fetch('/api/me/coins', { credentials: 'include' }),
+    fetch('/api/shop', { credentials: 'include' }),
+  ]);
+  const coinsData = await coinsRes.json();
+  const items = await itemsRes.json();
+  document.getElementById('shop-coins-balance').textContent = coinsData.balance;
+
+  const listEl = document.getElementById('shop-items-list');
+  if (items.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Nenhum item na loja ainda — o admin pode adicionar itens.</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  items.forEach((item) => {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    row.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">${escapeHtml(item.name)} — 🪙 ${item.cost}</span>
+        <span class="settings-row-meta">${item.description ? escapeHtml(item.description) : ''}</span>
+      </div>
+      ${item.owned ? '<span class="settings-row-badge">JÁ TENHO</span>' : `<button type="button" class="shop-buy-btn" ${coinsData.balance < item.cost ? 'disabled' : ''}>Comprar</button>`}
+    `;
+    const buyBtn = row.querySelector('.shop-buy-btn');
+    if (buyBtn) {
+      buyBtn.onclick = async () => {
+        const r = await fetch(`/api/shop/${item.id}/purchase`, { method: 'POST', credentials: 'include' });
+        const d = await r.json();
+        if (!r.ok) return alert(d.error || 'Erro ao comprar');
+        SFX.reward && SFX.reward();
+        loadShop();
+      };
+    }
+    listEl.appendChild(row);
+  });
+}
+
+// ---------- INTEGRAÇÕES EXTERNAS (auto-declaradas) ----------
+
+const INTEGRATION_LABELS = {
+  steam: 'Steam',
+  twitch: 'Twitch',
+  youtube: 'YouTube',
+  riot_games: 'Riot Games',
+  epic_games: 'Epic Games',
+  xbox: 'Xbox',
+  playstation: 'PlayStation',
+  ubisoft: 'Ubisoft',
+  battlenet: 'Battle.net',
+};
+
+async function loadIntegrations() {
+  const listEl = document.getElementById('integrations-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/integrations', { credentials: 'include' });
+  const rows = await res.json();
+  listEl.innerHTML = '';
+  rows.forEach((r) => {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    row.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">${INTEGRATION_LABELS[r.provider] || r.provider}</span>
+        <span class="settings-row-meta">${r.connected ? 'Conectado: ' + escapeHtml(r.external_username) : 'Não conectado'}</span>
+      </div>
+      <button type="button" class="integration-toggle-btn">${r.connected ? 'Desconectar' : 'Conectar'}</button>
+    `;
+    row.querySelector('.integration-toggle-btn').onclick = async () => {
+      if (r.connected) {
+        await fetch(`/api/integrations/${r.provider}`, { method: 'DELETE', credentials: 'include' });
+      } else {
+        const username = prompt(`Seu nome de usuário no ${INTEGRATION_LABELS[r.provider] || r.provider}:`);
+        if (!username) return;
+        await fetch(`/api/integrations/${r.provider}/connect`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ external_username: username }),
+        });
+      }
+      loadIntegrations();
+    };
+    listEl.appendChild(row);
+  });
+}
+
+// ---------- FEED, CLIPES, AO VIVO, EVENTOS ----------
+
+const modalFeed = document.getElementById('modal-feed');
+
+document.getElementById('nav-feed').onclick = () => {
+  document.querySelectorAll('#modal-feed .manage-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('#modal-feed .manage-tab-panel').forEach((p, i) => p.classList.toggle('hidden', i !== 0));
+  modalFeed.classList.remove('hidden');
+  loadFeedPosts();
+};
+document.getElementById('btn-close-feed').onclick = () => modalFeed.classList.add('hidden');
+
+document.querySelectorAll('#modal-feed .manage-tab').forEach((tabBtn) => {
+  tabBtn.onclick = () => {
+    document.querySelectorAll('#modal-feed .manage-tab').forEach((t) => t.classList.remove('active'));
+    tabBtn.classList.add('active');
+    document.querySelectorAll('#modal-feed .manage-tab-panel').forEach((p) => p.classList.add('hidden'));
+    const tab = tabBtn.dataset.feedTab;
+    document.getElementById('feed-tab-' + tab).classList.remove('hidden');
+    if (tab === 'feed') loadFeedPosts();
+    if (tab === 'clipes') loadClips();
+    if (tab === 'aovivo') loadStreams();
+    if (tab === 'eventos') loadEvents();
+  };
+});
+
+const FEED_TYPE_LABELS = {
+  post: '',
+  clip: '🎬',
+  tournament_win: '🏆',
+  team_created: '🛡️',
+  clan_created: '⚔️',
+  event: '📅',
+};
+
+async function loadFeedPosts() {
+  const listEl = document.getElementById('feed-posts-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/feed', { credentials: 'include' });
+  const posts = await res.json();
+  if (posts.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Nada no feed ainda — seja o primeiro a publicar!</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  posts.forEach((p) => {
+    const card = document.createElement('div');
+    card.className = 'settings-row';
+    const icon = FEED_TYPE_LABELS[p.type] || '';
+    const when = new Date(p.created_at).toLocaleString('pt-BR');
+    card.innerHTML = `
+      <div class="settings-row-info" style="flex:1;">
+        <span class="settings-row-title">${icon} ${escapeHtml(p.username)} ${escapeHtml(p.text || '')}</span>
+        <span class="settings-row-meta">${when}</span>
+        <div style="display:flex; gap:10px; margin-top:4px;">
+          <button type="button" class="feed-like-btn" style="background:none; border:none; color:${p.liked_by_me ? '#f23f42' : '#949ba4'}; cursor:pointer; font-size:12px;">
+            ${p.liked_by_me ? '❤️' : '🤍'} ${p.like_count}
+          </button>
+          <span style="font-size:12px; color:#949ba4;">💬 ${p.comment_count}</span>
+        </div>
+      </div>
+    `;
+    card.querySelector('.feed-like-btn').onclick = async (e) => {
+      e.stopPropagation();
+      const method = p.liked_by_me ? 'DELETE' : 'POST';
+      await fetch(`/api/content/feed_post/${p.id}/like`, { method, credentials: 'include' });
+      loadFeedPosts();
+    };
+    listEl.appendChild(card);
+  });
+}
+
+document.getElementById('form-feed-post').onsubmit = async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('feed-post-text');
+  const text = input.value.trim();
+  if (!text) return;
+  await fetch('/api/feed', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ text }),
+  });
+  input.value = '';
+  loadFeedPosts();
+};
+
+async function loadClips() {
+  const listEl = document.getElementById('clips-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/clips?sort=trending', { credentials: 'include' });
+  const clips = await res.json();
+  if (clips.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Nenhum clipe publicado ainda.</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  clips.forEach((c) => {
+    const card = document.createElement('div');
+    card.className = 'settings-row';
+    card.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">🎬 <a href="${escapeHtml(c.video_url)}" target="_blank" rel="noopener" style="color:#e6e6e6;">${escapeHtml(c.title)}</a></span>
+        <span class="settings-row-meta">Por ${escapeHtml(c.username)} ${c.game ? '· ' + escapeHtml(c.game) : ''} · 👁️ ${c.views} views</span>
+        ${c.description ? `<span class="settings-row-meta">${escapeHtml(c.description)}</span>` : ''}
+      </div>
+    `;
+    const link = card.querySelector('a');
+    link.addEventListener('click', () => {
+      fetch(`/api/clips/${c.id}/view`, { method: 'POST', credentials: 'include' }).catch(() => {});
+    });
+    listEl.appendChild(card);
+  });
+}
+
+document.getElementById('form-clip-create').onsubmit = async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('clip-create-error');
+  errorEl.textContent = '';
+  const res = await fetch('/api/clips', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      title: document.getElementById('clip-title').value.trim(),
+      game: document.getElementById('clip-game').value.trim(),
+      video_url: document.getElementById('clip-url').value.trim(),
+      description: document.getElementById('clip-description').value.trim(),
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Erro ao publicar clipe';
+    return;
+  }
+  document.getElementById('form-clip-create').reset();
+  document.querySelector('#modal-feed .manage-tab[data-feed-tab="clipes"]').click();
+};
+
+async function loadStreams() {
+  const listEl = document.getElementById('streams-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/streams', { credentials: 'include' });
+  const streams = await res.json();
+  if (streams.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Ninguém ao vivo agora.</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  streams.forEach((s) => {
+    const card = document.createElement('div');
+    card.className = 'settings-row';
+    card.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">🔴 <a href="${escapeHtml(s.external_url)}" target="_blank" rel="noopener" style="color:#e6e6e6;">${escapeHtml(s.title)}</a></span>
+        <span class="settings-row-meta">${escapeHtml(s.username)} ${s.game ? '· ' + escapeHtml(s.game) : ''}</span>
+      </div>
+      ${s.user_id !== me.id ? '<button type="button" class="stream-follow-btn">Seguir</button>' : ''}
+    `;
+    const followBtn = card.querySelector('.stream-follow-btn');
+    if (followBtn) {
+      followBtn.onclick = async () => {
+        await fetch(`/api/streams/follow/${s.user_id}`, { method: 'POST', credentials: 'include' });
+        showCopyToast(`Seguindo ${s.username}!`);
+      };
+    }
+    listEl.appendChild(card);
+  });
+}
+
+document.getElementById('form-go-live').onsubmit = async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('stream-error');
+  errorEl.textContent = '';
+  const res = await fetch('/api/streams/go-live', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      title: document.getElementById('stream-title').value.trim(),
+      game: document.getElementById('stream-game').value.trim(),
+      external_url: document.getElementById('stream-url').value.trim(),
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Erro ao ir ao vivo';
+    return;
+  }
+  document.getElementById('form-go-live').reset();
+  loadStreams();
+};
+
+document.getElementById('btn-end-stream').onclick = async () => {
+  await fetch('/api/streams/end', { method: 'POST', credentials: 'include' });
+  loadStreams();
+};
+
+async function loadEvents() {
+  const listEl = document.getElementById('events-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/events', { credentials: 'include' });
+  const events = await res.json();
+  if (events.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Nenhum evento marcado ainda.</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  events.forEach((ev) => {
+    const card = document.createElement('div');
+    card.className = 'settings-row';
+    const dateText = ev.event_date ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'Data a definir';
+    card.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">📅 ${escapeHtml(ev.name)} ${ev.game ? '— ' + escapeHtml(ev.game) : ''}</span>
+        <span class="settings-row-meta">${dateText} · ${ev.participant_count}${ev.max_participants ? '/' + ev.max_participants : ''} participante(s)</span>
+      </div>
+      <button type="button" class="event-toggle-btn">${ev.is_registered ? 'Sair' : 'Participar'}</button>
+    `;
+    card.querySelector('.event-toggle-btn').onclick = async () => {
+      const method = ev.is_registered ? 'DELETE' : 'POST';
+      await fetch(`/api/events/${ev.id}/register`, { method, credentials: 'include' });
+      loadEvents();
+    };
+    listEl.appendChild(card);
+  });
+}
+
+document.getElementById('form-event-create').onsubmit = async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('event-create-error');
+  errorEl.textContent = '';
+  const res = await fetch('/api/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      name: document.getElementById('event-name').value.trim(),
+      game: document.getElementById('event-game').value.trim(),
+      event_date: document.getElementById('event-date').value,
+      max_participants: document.getElementById('event-max').value,
+      description: document.getElementById('event-description').value.trim(),
+      category: activeServerCategory,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Erro ao criar evento';
+    return;
+  }
+  document.getElementById('form-event-create').reset();
+  loadEvents();
+};
+
 document.getElementById('nav-torneios').onclick = () => {
   if (!activeServerCategory) {
     alert('Crie ou entre num servidor primeiro pra ver os torneios dele.');
@@ -2720,12 +3552,14 @@ function renderMessage(msg) {
           ${msg.edited ? '<span class="edited-tag">(editado)</span>' : ''}
           ${msg.pinned ? '<span class="pinned-tag">📌 fixada</span>' : ''}
         </div>
+        ${msg.thread_parent_id ? '<div class="thread-reply-tag">↪ resposta numa thread</div>' : ''}
         <div class="content">${escapeHtml(msg.content)}</div>
         <div class="message-reactions" id="reactions-${msg.id}"></div>
       </div>
     </div>
     <div class="message-actions">
       ${isBot ? '' : '<button class="act-react" title="Reagir">😀</button>'}
+      ${isBot ? '' : '<button class="act-reply" title="Responder em thread">↩️</button>'}
       <button class="act-pin" title="${msg.pinned ? 'Desafixar' : 'Fixar'}">📌</button>
       ${isOwn && !isBot ? '<button class="act-edit" title="Editar">✏️</button>' : ''}
       ${canDelete ? '<button class="act-delete" title="Apagar">🗑️</button>' : ''}
@@ -2791,6 +3625,12 @@ function renderMessage(msg) {
     e.stopPropagation();
     await fetch(`/api/messages/${msg.id}/${msg.pinned ? 'unpin' : 'pin'}`, { method: 'POST', credentials: 'include' });
   };
+  if (!isBot) {
+    el.querySelector('.act-reply').onclick = (e) => {
+      e.stopPropagation();
+      setReplyingTo({ id: msg.id, username: msg.username });
+    };
+  }
 
   container.appendChild(el);
   if (msg.reactions && msg.reactions.length > 0) renderReactions(msg.id, msg.reactions);
@@ -2886,13 +3726,34 @@ messageInput.addEventListener('input', () => {
   }, 2000);
 });
 
+// ---------- RESPONDER EM THREAD (thread simples, dentro da mesma conversa) ----------
+let replyingToMessage = null; // { id, username }
+
+function setReplyingTo(msg) {
+  replyingToMessage = msg ? { id: msg.id, username: msg.username } : null;
+  const banner = document.getElementById('reply-banner');
+  if (!banner) return;
+  banner.classList.toggle('hidden', !replyingToMessage);
+  if (replyingToMessage) {
+    banner.querySelector('.reply-banner-text').textContent = `Respondendo a ${replyingToMessage.username}`;
+    document.getElementById('message-input').focus();
+  }
+}
+
+document.getElementById('btn-cancel-reply').onclick = () => setReplyingTo(null);
+
 document.getElementById('form-message').onsubmit = (e) => {
   e.preventDefault();
   const input = document.getElementById('message-input');
   const content = input.value.trim();
   if (!content || !currentChannel) return;
-  socket.emit('chat:message', { channelId: currentChannel.id, content });
+  socket.emit('chat:message', {
+    channelId: currentChannel.id,
+    content,
+    threadParentId: replyingToMessage ? replyingToMessage.id : undefined,
+  });
   input.value = '';
+  setReplyingTo(null);
   clearTimeout(typingTimeout);
   isTyping = false;
   socket.emit('typing:stop', currentChannel.id);
@@ -2918,6 +3779,13 @@ function registerSocketHandlers() {
 
   socket.on('chat:blocked', ({ reason }) => {
     alert('⚠️ ' + reason);
+  });
+
+  // Alguém que eu sigo foi ao vivo — toast de notificação.
+  socket.on('stream:live', ({ username, title }) => {
+    if (window.notificationPrefs && window.notificationPrefs.transmissao === false) return;
+    showCopyToast(`🔴 ${username} está ao vivo: ${title}`);
+    SFX.mention && SFX.mention();
   });
 
   // Mensagem nova em algum canal de um servidor que não estou olhando agora

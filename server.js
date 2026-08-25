@@ -217,6 +217,30 @@ async function postSystemMessage(channelId, content) {
   }
 }
 
+// ---------- AUDIT LOG ----------
+// Registra toda ação administrativa/de moderação de verdade (banir, expulsar,
+// limpar canal, apagar mensagem de outro, mudar cargo, aplicar timeout) —
+// nunca ações comuns do dia a dia de um usuário normal. Não é decorativo:
+// aparece filtrável no painel admin (usuário, ação, tipo de alvo).
+async function logAudit(actor, action, targetType, targetId, details) {
+  try {
+    await db.run(
+      'INSERT INTO audit_logs (id, actor_id, actor_username, action, target_type, target_id, details) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        uuidv4(),
+        actor ? actor.id : null,
+        actor ? actor.username : null,
+        action,
+        targetType || null,
+        targetId || null,
+        details ? JSON.stringify(details) : null,
+      ]
+    );
+  } catch (err) {
+    console.error('Erro ao registrar audit log:', err);
+  }
+}
+
 // ---------- RECOMPENSAS / STREAK DE ACESSO ----------
 // Catálogo fixo (não precisa de tabela própria pra isso, só pros
 // desbloqueios de cada usuário, que ficam em user_rewards).
@@ -439,6 +463,23 @@ async function unlockReward(userId, rewardKey) {
     rewardKey,
     code,
   ]);
+  await grantCoins(userId, 25, `Recompensa desbloqueada: ${rewardKey}`);
+}
+
+// ---------- NEXT COINS (moeda virtual cosmética — nunca envolve dinheiro real) ----------
+
+async function grantCoins(userId, amount, reason) {
+  try {
+    await db.run('UPDATE users SET coins = coins + ? WHERE id = ?', [amount, userId]);
+    await db.run('INSERT INTO coin_transactions (id, user_id, amount, reason) VALUES (?, ?, ?, ?)', [
+      uuidv4(),
+      userId,
+      amount,
+      reason,
+    ]);
+  } catch (err) {
+    console.error('Erro ao conceder NEXT Coins:', err);
+  }
 }
 
 // ---------- AUTH ----------
@@ -585,6 +626,10 @@ app.get(
       login_streak: req.user.login_streak || 0,
       longest_streak: req.user.longest_streak || 0,
       points: req.user.points || 0,
+      region: req.user.region,
+      language: req.user.language,
+      bio: req.user.bio,
+      reputation: req.user.reputation || 0,
     });
   })
 );
@@ -594,7 +639,8 @@ app.patch(
   '/api/me',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { email, password, currentPassword, status_message, avatar, avatar_frame } = req.body || {};
+    const { email, password, currentPassword, status_message, avatar, avatar_frame, region, language, bio } =
+      req.body || {};
 
     if (password) {
       if (!currentPassword || !bcrypt.compareSync(currentPassword, req.user.password_hash)) {
@@ -625,6 +671,17 @@ app.patch(
         return res.status(400).json({ error: 'Status "jogando" precisa ter no máximo 60 caracteres' });
       }
       await db.run('UPDATE users SET status_message = ? WHERE id = ?', [status_message.trim() || null, req.user.id]);
+    }
+
+    if (typeof region === 'string') {
+      await db.run('UPDATE users SET region = ? WHERE id = ?', [region.trim().slice(0, 40) || null, req.user.id]);
+    }
+    if (typeof language === 'string') {
+      await db.run('UPDATE users SET language = ? WHERE id = ?', [language.trim().slice(0, 40) || null, req.user.id]);
+    }
+    if (typeof bio === 'string') {
+      if (bio.length > 300) return res.status(400).json({ error: 'Bio precisa ter no máximo 300 caracteres' });
+      await db.run('UPDATE users SET bio = ? WHERE id = ?', [bio.trim() || null, req.user.id]);
     }
 
     if (typeof avatar === 'string') {
@@ -658,6 +715,9 @@ app.patch(
       status_message: updated.status_message,
       avatar: updated.avatar,
       avatar_frame: updated.avatar_frame,
+      region: updated.region,
+      language: updated.language,
+      bio: updated.bio,
     });
   })
 );
@@ -834,6 +894,468 @@ app.put(
   })
 );
 
+// ---------- PERFIL GAMER (por jogo) ----------
+
+app.get(
+  '/api/game-profiles/:userId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all('SELECT * FROM game_profiles WHERE user_id = ? ORDER BY hours DESC', [
+      req.params.userId,
+    ]);
+    res.json(rows);
+  })
+);
+
+app.put(
+  '/api/me/game-profiles/:game',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const game = String(req.params.game || '').trim().slice(0, 60);
+    if (!game) return res.status(400).json({ error: 'Jogo inválido' });
+    const { rank, role, hours, wins, losses, kills, deaths, assists } = req.body || {};
+    const clampInt = (v) => Math.max(0, Math.min(999999, parseInt(v, 10) || 0));
+    const existing = await db.get('SELECT id FROM game_profiles WHERE user_id = ? AND game = ?', [
+      req.user.id,
+      game,
+    ]);
+    if (existing) {
+      await db.run(
+        `UPDATE game_profiles SET rank = ?, role = ?, hours = ?, wins = ?, losses = ?, kills = ?, deaths = ?, assists = ?
+         WHERE id = ?`,
+        [
+          rank || null,
+          role || null,
+          clampInt(hours),
+          clampInt(wins),
+          clampInt(losses),
+          clampInt(kills),
+          clampInt(deaths),
+          clampInt(assists),
+          existing.id,
+        ]
+      );
+    } else {
+      await db.run(
+        `INSERT INTO game_profiles (id, user_id, game, rank, role, hours, wins, losses, kills, deaths, assists)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          uuidv4(),
+          req.user.id,
+          game,
+          rank || null,
+          role || null,
+          clampInt(hours),
+          clampInt(wins),
+          clampInt(losses),
+          clampInt(kills),
+          clampInt(deaths),
+          clampInt(assists),
+        ]
+      );
+    }
+    res.json(await db.get('SELECT * FROM game_profiles WHERE user_id = ? AND game = ?', [req.user.id, game]));
+  })
+);
+
+app.delete(
+  '/api/me/game-profiles/:game',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM game_profiles WHERE user_id = ? AND game = ?', [req.user.id, req.params.game]);
+    res.json({ ok: true });
+  })
+);
+
+// ---------- LFG (PROCURANDO JOGADORES) + MATCHMAKING INTELIGENTE ----------
+
+// Compatibilidade simples entre a pessoa e um post de LFG: soma pontos por
+// região, idioma, microfone e rank em comum, normalizada em 0-100%. Não é
+// nenhum modelo sofisticado — só uma pontuação transparente e explicável.
+function computeCompatibility(user, post) {
+  let score = 0;
+  let max = 0;
+
+  max += 30;
+  if (post.region) {
+    if (user.region && user.region.toLowerCase() === post.region.toLowerCase()) score += 30;
+  } else {
+    score += 15;
+  }
+
+  max += 25;
+  if (post.language) {
+    if (user.language && user.language.toLowerCase() === post.language.toLowerCase()) score += 25;
+  } else {
+    score += 12;
+  }
+
+  max += 20;
+  if (post.mic_required === 'opcional') score += 20;
+  // se for obrigatório, não temos como confirmar client-side se a pessoa tem mic — dá metade do ponto.
+  else score += 10;
+
+  max += 25;
+  if (post.rank_min || post.rank_max) score += 12; // não temos ranking cross-game pra comparar de verdade
+  else score += 25;
+
+  return Math.round((score / max) * 100);
+}
+
+app.get(
+  '/api/lfg',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { game } = req.query;
+    const conditions = ['active = 1'];
+    const params = [];
+    if (game) {
+      conditions.push('game = ?');
+      params.push(game);
+    }
+    const posts = await db.all(
+      `SELECT * FROM lfg_posts WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT 100`,
+      params
+    );
+    const userIds = [...new Set(posts.map((p) => p.user_id))];
+    const authors = userIds.length
+      ? await db.all(
+          `SELECT id, username, avatar, avatar_frame, region, language FROM users WHERE id IN (${userIds
+            .map(() => '?')
+            .join(',')})`,
+          userIds
+        )
+      : [];
+    const authorMap = Object.fromEntries(authors.map((a) => [a.id, a]));
+
+    const withCompat = await Promise.all(
+      posts.map(async (p) => {
+        const memberCount = await db.get('SELECT COUNT(*) as c FROM lfg_group_members WHERE post_id = ?', [p.id]);
+        return {
+          ...p,
+          author: authorMap[p.user_id] || null,
+          compatibility: computeCompatibility(req.user, p),
+          member_count: Number(memberCount.c) + 1, // +1 = quem criou o post
+        };
+      })
+    );
+    withCompat.sort((a, b) => b.compatibility - a.compatibility);
+    res.json(withCompat);
+  })
+);
+
+app.post(
+  '/api/lfg',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { game, players_needed, rank_min, rank_max, region, language, mic_required, role, available_time, note } =
+      req.body || {};
+    if (!game || typeof game !== 'string' || !game.trim()) {
+      return res.status(400).json({ error: 'Escolha um jogo' });
+    }
+    const id = uuidv4();
+    await db.run(
+      `INSERT INTO lfg_posts (id, user_id, game, players_needed, rank_min, rank_max, region, language, mic_required, role, available_time, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        req.user.id,
+        game.trim().slice(0, 60),
+        Math.max(1, Math.min(20, parseInt(players_needed, 10) || 1)),
+        rank_min || null,
+        rank_max || null,
+        region || null,
+        language || null,
+        ['obrigatorio', 'opcional'].includes(mic_required) ? mic_required : 'opcional',
+        role || null,
+        available_time || null,
+        (note || '').slice(0, 300),
+      ]
+    );
+    res.json(await db.get('SELECT * FROM lfg_posts WHERE id = ?', [id]));
+  })
+);
+
+app.delete(
+  '/api/lfg/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const post = await db.get('SELECT user_id FROM lfg_posts WHERE id = ?', [req.params.id]);
+    if (!post) return res.status(404).json({ error: 'Post não encontrado' });
+    if (post.user_id !== req.user.id && !req.user.is_admin) {
+      return res.status(403).json({ error: 'Só quem criou pode fechar esse post' });
+    }
+    await db.run('UPDATE lfg_posts SET active = 0 WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  '/api/lfg/:id/join',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const post = await db.get('SELECT * FROM lfg_posts WHERE id = ? AND active = 1', [req.params.id]);
+    if (!post) return res.status(404).json({ error: 'Post não encontrado ou já fechado' });
+    if (post.user_id === req.user.id) return res.status(400).json({ error: 'Esse post é seu' });
+    await db.run('INSERT OR IGNORE INTO lfg_group_members (id, post_id, user_id) VALUES (?, ?, ?)', [
+      uuidv4(),
+      post.id,
+      req.user.id,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.get(
+  '/api/lfg/:id/members',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT u.id, u.username, u.avatar, u.avatar_frame FROM lfg_group_members m
+       JOIN users u ON u.id = m.user_id WHERE m.post_id = ?`,
+      [req.params.id]
+    );
+    res.json(rows);
+  })
+);
+
+// ---------- TIMES ----------
+
+app.post(
+  '/api/teams',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { name, description, game, logo } = req.body || {};
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
+      return res.status(400).json({ error: 'Nome do time precisa ter pelo menos 2 caracteres' });
+    }
+    const existing = await db.get('SELECT id FROM teams WHERE name = ?', [name.trim()]);
+    if (existing) return res.status(409).json({ error: 'Já existe um time com esse nome' });
+    const id = uuidv4();
+    await db.run('INSERT INTO teams (id, name, description, game, logo, leader_id) VALUES (?, ?, ?, ?, ?, ?)', [
+      id,
+      name.trim().slice(0, 60),
+      (description || '').slice(0, 500),
+      (game || '').slice(0, 60),
+      logo || null,
+      req.user.id,
+    ]);
+    await db.run('INSERT INTO team_members (id, team_id, user_id, role) VALUES (?, ?, ?, ?)', [
+      uuidv4(),
+      id,
+      req.user.id,
+      'lider',
+    ]);
+    createFeedPost(req.user, 'team_created', `criou o time "${name.trim()}"`, 'team', id);
+    res.json(await db.get('SELECT * FROM teams WHERE id = ?', [id]));
+  })
+);
+
+app.get(
+  '/api/teams/mine',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT t.*, tm.role as my_role FROM teams t
+       JOIN team_members tm ON tm.team_id = t.id WHERE tm.user_id = ?`,
+      [req.user.id]
+    );
+    res.json(rows);
+  })
+);
+
+app.get(
+  '/api/teams/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const team = await db.get('SELECT * FROM teams WHERE id = ?', [req.params.id]);
+    if (!team) return res.status(404).json({ error: 'Time não encontrado' });
+    const members = await db.all(
+      `SELECT u.id, u.username, u.avatar, u.avatar_frame, tm.role FROM team_members tm
+       JOIN users u ON u.id = tm.user_id WHERE tm.team_id = ? ORDER BY tm.role`,
+      [team.id]
+    );
+    res.json({ ...team, members });
+  })
+);
+
+app.post(
+  '/api/teams/:id/invite',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const team = await db.get('SELECT * FROM teams WHERE id = ?', [req.params.id]);
+    if (!team) return res.status(404).json({ error: 'Time não encontrado' });
+    if (team.leader_id !== req.user.id) return res.status(403).json({ error: 'Só o líder pode convidar' });
+    const { username, role } = req.body || {};
+    const target = await db.get('SELECT id FROM users WHERE username = ?', [String(username || '').trim()]);
+    if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
+    await db.run('INSERT OR IGNORE INTO team_members (id, team_id, user_id, role) VALUES (?, ?, ?, ?)', [
+      uuidv4(),
+      team.id,
+      target.id,
+      ['jogador', 'reserva', 'coach'].includes(role) ? role : 'jogador',
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/teams/:id/members/:userId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const team = await db.get('SELECT * FROM teams WHERE id = ?', [req.params.id]);
+    if (!team) return res.status(404).json({ error: 'Time não encontrado' });
+    if (team.leader_id !== req.user.id && req.params.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Sem permissão' });
+    }
+    if (req.params.userId === team.leader_id) return res.status(400).json({ error: 'O líder não pode sair — exclua o time' });
+    await db.run('DELETE FROM team_members WHERE team_id = ? AND user_id = ?', [team.id, req.params.userId]);
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/teams/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const team = await db.get('SELECT * FROM teams WHERE id = ?', [req.params.id]);
+    if (!team) return res.status(404).json({ error: 'Time não encontrado' });
+    if (team.leader_id !== req.user.id && !req.user.is_admin) return res.status(403).json({ error: 'Sem permissão' });
+    await db.run('DELETE FROM team_members WHERE team_id = ?', [team.id]);
+    await db.run('DELETE FROM teams WHERE id = ?', [team.id]);
+    res.json({ ok: true });
+  })
+);
+
+// ---------- CLÃS ----------
+
+app.post(
+  '/api/clans',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { name, description } = req.body || {};
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
+      return res.status(400).json({ error: 'Nome do clã precisa ter pelo menos 2 caracteres' });
+    }
+    const existing = await db.get('SELECT id FROM clans WHERE name = ?', [name.trim()]);
+    if (existing) return res.status(409).json({ error: 'Já existe um clã com esse nome' });
+    const id = uuidv4();
+    await db.run('INSERT INTO clans (id, name, description, created_by) VALUES (?, ?, ?, ?)', [
+      id,
+      name.trim().slice(0, 60),
+      (description || '').slice(0, 500),
+      req.user.id,
+    ]);
+    await db.run('INSERT INTO clan_members (id, clan_id, user_id, role) VALUES (?, ?, ?, ?)', [
+      uuidv4(),
+      id,
+      req.user.id,
+      'lider',
+    ]);
+    createFeedPost(req.user, 'clan_created', `fundou o clã "${name.trim()}"`, 'clan', id);
+    res.json(await db.get('SELECT * FROM clans WHERE id = ?', [id]));
+  })
+);
+
+app.get(
+  '/api/clans',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT c.*, (SELECT COUNT(*) FROM clan_members WHERE clan_id = c.id) as member_count FROM clans c ORDER BY c.level DESC, c.created_at DESC LIMIT 100`
+    );
+    res.json(rows);
+  })
+);
+
+app.get(
+  '/api/clans/mine',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT c.*, cm.role as my_role FROM clans c JOIN clan_members cm ON cm.clan_id = c.id WHERE cm.user_id = ?`,
+      [req.user.id]
+    );
+    res.json(rows);
+  })
+);
+
+app.get(
+  '/api/clans/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const clan = await db.get('SELECT * FROM clans WHERE id = ?', [req.params.id]);
+    if (!clan) return res.status(404).json({ error: 'Clã não encontrado' });
+    const members = await db.all(
+      `SELECT u.id, u.username, u.avatar, u.avatar_frame, cm.role FROM clan_members cm
+       JOIN users u ON u.id = cm.user_id WHERE cm.clan_id = ? ORDER BY cm.role`,
+      [clan.id]
+    );
+    res.json({ ...clan, members });
+  })
+);
+
+// Clãs são abertos por padrão (qualquer um entra) — mais simples que um
+// sistema de convite/aprovação separado, e cobre o "disputas entre clãs" do
+// plano sem exigir uma camada extra de moderação de entrada.
+app.post(
+  '/api/clans/:id/join',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const clan = await db.get('SELECT id FROM clans WHERE id = ?', [req.params.id]);
+    if (!clan) return res.status(404).json({ error: 'Clã não encontrado' });
+    await db.run('INSERT OR IGNORE INTO clan_members (id, clan_id, user_id, role) VALUES (?, ?, ?, ?)', [
+      uuidv4(),
+      clan.id,
+      req.user.id,
+      'membro',
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/clans/:id/members/:userId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const clan = await db.get('SELECT * FROM clans WHERE id = ?', [req.params.id]);
+    if (!clan) return res.status(404).json({ error: 'Clã não encontrado' });
+    const myRow = await db.get('SELECT role FROM clan_members WHERE clan_id = ? AND user_id = ?', [
+      clan.id,
+      req.user.id,
+    ]);
+    const canManage = req.user.is_admin || (myRow && myRow.role === 'lider');
+    if (!canManage && req.params.userId !== req.user.id) return res.status(403).json({ error: 'Sem permissão' });
+    await db.run('DELETE FROM clan_members WHERE clan_id = ? AND user_id = ?', [clan.id, req.params.userId]);
+    res.json({ ok: true });
+  })
+);
+
+// ---------- REPUTAÇÃO ----------
+// Endosso simples entre jogadores (uma vez por par de pessoas) — reflete
+// "comportamento de equipe" sem precisar de um sistema de denúncia completo.
+app.post(
+  '/api/users/:id/endorse',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Não dá pra endossar a si mesmo' });
+    const target = await db.get('SELECT id FROM users WHERE id = ?', [req.params.id]);
+    if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
+    const existing = await db.get(
+      'SELECT id FROM reputation_endorsements WHERE from_user_id = ? AND to_user_id = ?',
+      [req.user.id, req.params.id]
+    );
+    if (existing) return res.status(409).json({ error: 'Você já endossou essa pessoa' });
+    await db.run('INSERT INTO reputation_endorsements (id, from_user_id, to_user_id) VALUES (?, ?, ?)', [
+      uuidv4(),
+      req.user.id,
+      req.params.id,
+    ]);
+    await db.run('UPDATE users SET reputation = reputation + 1 WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  })
+);
+
 // ---------- RECOMPENSAS ----------
 
 app.get(
@@ -947,6 +1469,7 @@ app.post(
       mission.points,
     ]);
     await db.run('UPDATE users SET points = points + ? WHERE id = ?', [mission.points, req.user.id]);
+    await grantCoins(req.user.id, mission.points * 2, `Missão concluída: ${mission.name}`);
     const updated = await db.get('SELECT points FROM users WHERE id = ?', [req.user.id]);
 
     res.json({ success: true, points_awarded: mission.points, total_points: updated.points });
@@ -1236,6 +1759,7 @@ app.post(
       req.params.category,
       req.params.userId,
     ]);
+    logAudit(req.user, 'kick_member', 'server', req.params.category, { kicked_user_id: req.params.userId });
     res.json({ ok: true });
   })
 );
@@ -1620,6 +2144,40 @@ const AI_SELF_TOOLS = [
       parameters: { type: 'object', properties: {} },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'create_lfg_post',
+      description: 'Publica um post de "procurando jogadores" (LFG) em nome de quem está conversando.',
+      parameters: {
+        type: 'object',
+        properties: {
+          game: { type: 'string', description: 'Nome do jogo' },
+          players_needed: { type: 'number', description: 'Quantos jogadores procura' },
+          region: { type: 'string' },
+          role: { type: 'string', description: 'Função procurada (ex: suporte, IGL)' },
+        },
+        required: ['game'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_event',
+      description: 'Cria um evento comunitário ou competitivo em nome de quem está conversando.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          game: { type: 'string' },
+          event_date: { type: 'string', description: 'Data no formato AAAA-MM-DD' },
+          description: { type: 'string' },
+        },
+        required: ['name'],
+      },
+    },
+  },
 ];
 
 const AI_ADMIN_TOOLS = [
@@ -1734,6 +2292,28 @@ async function executeAiTool(name, args, user) {
       return `Sequência atual: ${user.login_streak || 0} dia(s) (recorde: ${user.longest_streak || 0}). Pontos: ${
         user.points || 0
       }. Recompensas desbloqueadas: ${Number(countRow.c)}.`;
+    }
+    case 'create_lfg_post': {
+      const game = String(args.game || '').trim().slice(0, 60);
+      if (!game) return 'Preciso saber qual jogo pra publicar o post.';
+      const id = uuidv4();
+      await db.run(
+        `INSERT INTO lfg_posts (id, user_id, game, players_needed, region, role, mic_required)
+         VALUES (?, ?, ?, ?, ?, ?, 'opcional')`,
+        [id, user.id, game, Math.max(1, Math.min(20, parseInt(args.players_needed, 10) || 1)), args.region || null, args.role || null]
+      );
+      return `Post de LFG publicado pra "${game}"! Já aparece no 🎯 Jogar pra outros jogadores verem.`;
+    }
+    case 'create_event': {
+      const name = String(args.name || '').trim().slice(0, 100);
+      if (!name) return 'Preciso de um nome pra criar o evento.';
+      const id = uuidv4();
+      await db.run(
+        'INSERT INTO events (id, name, game, description, event_date, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, name, (args.game || '').slice(0, 60), (args.description || '').slice(0, 500), args.event_date || null, user.id]
+      );
+      createFeedPost(user, 'event', `criou o evento "${name}"`, 'event', id);
+      return `Evento "${name}" criado! Já aparece na aba de Eventos.`;
     }
     case 'ban_user': {
       if (!user.is_admin) return 'Você precisa ser administrador do site pra fazer isso.';
@@ -2173,6 +2753,269 @@ app.post(
   })
 );
 
+// ---------- CHAVES DE TORNEIO (eliminatória simples, gerada automaticamente) ----------
+
+function nextPowerOfTwo(n) {
+  let p = 1;
+  while (p < n) p *= 2;
+  return p;
+}
+
+// Embaralha com o algoritmo Fisher-Yates — sorteio justo dos confrontos.
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+app.post(
+  '/api/tournaments/:id/generate-bracket',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tournament = await db.get('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
+    if (!tournament) return res.status(404).json({ error: 'Torneio não encontrado' });
+    if (tournament.created_by !== req.user.id && !req.user.is_admin) {
+      return res.status(403).json({ error: 'Só quem criou o torneio (ou um admin) pode gerar a chave' });
+    }
+    const existingMatches = await db.get('SELECT COUNT(*) as c FROM tournament_matches WHERE tournament_id = ?', [
+      tournament.id,
+    ]);
+    if (Number(existingMatches.c) > 0) {
+      return res.status(400).json({ error: 'Esse torneio já tem uma chave gerada' });
+    }
+
+    const registrations = await db.all(
+      `SELECT r.user_id, r.team_name, u.username FROM tournament_registrations r
+       JOIN users u ON u.id = r.user_id WHERE r.tournament_id = ?`,
+      [tournament.id]
+    );
+    if (registrations.length < 2) {
+      return res.status(400).json({ error: 'Precisa de pelo menos 2 inscritos pra gerar a chave' });
+    }
+
+    const players = shuffle(
+      registrations.map((r) => ({ id: r.user_id, name: r.team_name || r.username }))
+    );
+    const bracketSize = nextPowerOfTwo(players.length);
+    // Preenche vagas vazias com "bye" (avança sozinho) até completar potência de 2.
+    while (players.length < bracketSize) players.push(null);
+
+    const firstRoundMatches = [];
+    for (let i = 0; i < bracketSize / 2; i++) {
+      const a = players[i * 2];
+      const b = players[i * 2 + 1];
+      const id = uuidv4();
+      const isBye = !a || !b;
+      firstRoundMatches.push({
+        id,
+        tournament_id: tournament.id,
+        round: 1,
+        match_index: i,
+        player_a_id: a ? a.id : null,
+        player_a_name: a ? a.name : null,
+        player_b_id: b ? b.id : null,
+        player_b_name: b ? b.name : null,
+        winner_id: isBye ? (a ? a.id : b ? b.id : null) : null,
+        status: isBye ? 'concluida' : 'pendente',
+      });
+    }
+    for (const m of firstRoundMatches) {
+      await db.run(
+        `INSERT INTO tournament_matches (id, tournament_id, round, match_index, player_a_id, player_a_name, player_b_id, player_b_name, winner_id, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          m.id,
+          m.tournament_id,
+          m.round,
+          m.match_index,
+          m.player_a_id,
+          m.player_a_name,
+          m.player_b_id,
+          m.player_b_name,
+          m.winner_id,
+          m.status,
+        ]
+      );
+    }
+
+    // Cria os slots das rodadas seguintes vazios (quartas, semis, final...),
+    // já ligados entre si por round+match_index — o avanço automático só
+    // precisa preencher esses slots quando um resultado é registrado.
+    let roundSize = bracketSize / 2;
+    let round = 2;
+    while (roundSize > 1) {
+      roundSize = roundSize / 2;
+      for (let i = 0; i < roundSize; i++) {
+        await db.run(
+          'INSERT INTO tournament_matches (id, tournament_id, round, match_index, status) VALUES (?, ?, ?, ?, ?)',
+          [uuidv4(), tournament.id, round, i, 'aguardando']
+        );
+      }
+      round++;
+    }
+
+    // Já resolve avanços automáticos de "bye" da primeira rodada.
+    for (const m of firstRoundMatches) {
+      if (m.status === 'concluida' && m.winner_id) {
+        await advanceWinner(tournament.id, m.round, m.match_index, m.winner_id, m.winner_id === m.player_a_id ? m.player_a_name : m.player_b_name);
+      }
+    }
+
+    logAudit(req.user, 'generate_bracket', 'tournament', tournament.id, { players: registrations.length });
+    res.json({ ok: true });
+  })
+);
+
+// Avança o vencedor pra próxima rodada, preenchendo o slot A ou B do
+// confronto seguinte (baseado na posição matemática dentro da chave).
+async function advanceWinner(tournamentId, fromRound, fromIndex, winnerId, winnerName) {
+  const nextRound = fromRound + 1;
+  const nextIndex = Math.floor(fromIndex / 2);
+  const isSlotA = fromIndex % 2 === 0;
+  const nextMatch = await db.get(
+    'SELECT * FROM tournament_matches WHERE tournament_id = ? AND round = ? AND match_index = ?',
+    [tournamentId, nextRound, nextIndex]
+  );
+  if (!nextMatch) {
+    // Era a final — não tem próxima rodada, então essa vitória é o título
+    // do torneio. Publica no feed como "vitória" (item 23 do plano).
+    const tournament = await db.get('SELECT name FROM tournaments WHERE id = ?', [tournamentId]);
+    const champion = await db.get('SELECT * FROM users WHERE id = ?', [winnerId]);
+    if (champion && tournament) {
+      createFeedPost(champion, 'tournament_win', `venceu o torneio "${tournament.name}"! 🏆`, 'tournament', tournamentId);
+      grantCoins(winnerId, 200, `Campeão do torneio: ${tournament.name}`);
+    }
+    return;
+  }
+  if (isSlotA) {
+    await db.run('UPDATE tournament_matches SET player_a_id = ?, player_a_name = ?, status = ? WHERE id = ?', [
+      winnerId,
+      winnerName,
+      nextMatch.player_b_id ? 'pendente' : 'aguardando',
+      nextMatch.id,
+    ]);
+  } else {
+    await db.run('UPDATE tournament_matches SET player_b_id = ?, player_b_name = ?, status = ? WHERE id = ?', [
+      winnerId,
+      winnerName,
+      nextMatch.player_a_id ? 'pendente' : 'aguardando',
+      nextMatch.id,
+    ]);
+  }
+}
+
+app.get(
+  '/api/tournaments/:id/bracket',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const matches = await db.all(
+      'SELECT * FROM tournament_matches WHERE tournament_id = ? ORDER BY round, match_index',
+      [req.params.id]
+    );
+    res.json(matches);
+  })
+);
+
+// Registrar resultado: só quem criou o torneio ou um admin (papel de
+// "árbitro" do item 16 do plano) — evita disputa de resultado sem
+// necessidade de um sistema de contestação separado por enquanto.
+app.post(
+  '/api/tournaments/matches/:matchId/result',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const match = await db.get('SELECT * FROM tournament_matches WHERE id = ?', [req.params.matchId]);
+    if (!match) return res.status(404).json({ error: 'Partida não encontrada' });
+    const tournament = await db.get('SELECT * FROM tournaments WHERE id = ?', [match.tournament_id]);
+    if (tournament.created_by !== req.user.id && !req.user.is_admin) {
+      return res.status(403).json({ error: 'Só o organizador do torneio pode registrar resultado' });
+    }
+    if (!match.player_a_id || !match.player_b_id) {
+      return res.status(400).json({ error: 'Essa partida ainda não tem os dois lados definidos' });
+    }
+    const { winner_id, score_a, score_b } = req.body || {};
+    if (winner_id !== match.player_a_id && winner_id !== match.player_b_id) {
+      return res.status(400).json({ error: 'winner_id precisa ser um dos dois jogadores da partida' });
+    }
+    const winnerName = winner_id === match.player_a_id ? match.player_a_name : match.player_b_name;
+    await db.run(
+      'UPDATE tournament_matches SET winner_id = ?, score_a = ?, score_b = ?, status = ? WHERE id = ?',
+      [winner_id, score_a ?? null, score_b ?? null, 'concluida', match.id]
+    );
+    await advanceWinner(match.tournament_id, match.round, match.match_index, winner_id, winnerName);
+    logAudit(req.user, 'record_match_result', 'tournament_match', match.id, { winner_id });
+    res.json({ ok: true });
+  })
+);
+
+// ---------- TEMPORADAS ----------
+
+app.get(
+  '/api/seasons',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json(await db.all('SELECT * FROM seasons ORDER BY starts_at DESC'));
+  })
+);
+
+app.post(
+  '/api/seasons',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { name, starts_at, ends_at } = req.body || {};
+    if (!name || !starts_at) return res.status(400).json({ error: 'Nome e data de início são obrigatórios' });
+    const id = uuidv4();
+    await db.run('UPDATE seasons SET active = 0'); // só uma temporada ativa por vez
+    await db.run('INSERT INTO seasons (id, name, starts_at, ends_at, active) VALUES (?, ?, ?, ?, 1)', [
+      id,
+      String(name).slice(0, 80),
+      starts_at,
+      ends_at || null,
+    ]);
+    logAudit(req.user, 'create_season', 'season', id, { name });
+    res.json(await db.get('SELECT * FROM seasons WHERE id = ?', [id]));
+  })
+);
+
+app.post(
+  '/api/seasons/:id/close',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    await db.run("UPDATE seasons SET active = 0, ends_at = datetime('now') WHERE id = ?", [req.params.id]);
+    logAudit(req.user, 'close_season', 'season', req.params.id);
+    res.json({ ok: true });
+  })
+);
+
+// Ranking da temporada ativa (ou de uma específica via ?season_id=) — mesma
+// lógica do ranking semanal, só que usando a janela de datas da temporada
+// em vez de fixo em 7 dias.
+app.get(
+  '/api/ranking/season',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    let season;
+    if (req.query.season_id) {
+      season = await db.get('SELECT * FROM seasons WHERE id = ?', [req.query.season_id]);
+    } else {
+      season = await db.get('SELECT * FROM seasons WHERE active = 1 ORDER BY starts_at DESC LIMIT 1');
+    }
+    if (!season) return res.json({ season: null, ranking: [] });
+    const rows = await db.all(
+      `SELECT u.id, u.username, u.avatar, COUNT(m.id) as points
+       FROM users u JOIN messages m ON m.user_id = u.id
+       WHERE m.created_at >= ? AND (? IS NULL OR m.created_at <= ?) AND m.deleted = 0
+       GROUP BY u.id ORDER BY points DESC LIMIT 20`,
+      [season.starts_at, season.ends_at, season.ends_at]
+    );
+    res.json({ season, ranking: rows });
+  })
+);
+
 // ---------- RANKING SEMANAL (baseado em atividade real: mensagens enviadas) ----------
 
 app.get(
@@ -2189,6 +3032,745 @@ app.get(
        LIMIT 10`
     );
     res.json(rows);
+  })
+);
+
+// ---------- FEED SOCIAL (publicações, clipes, vitórias, conquistas...) ----------
+
+async function createFeedPost(user, type, text, refType, refId) {
+  try {
+    const id = uuidv4();
+    await db.run(
+      'INSERT INTO feed_posts (id, user_id, username, type, text, ref_type, ref_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, user.id, user.username, type, text || null, refType || null, refId || null]
+    );
+    io.emit('feed:new-post', { id });
+    return id;
+  } catch (err) {
+    console.error('Erro ao criar post no feed:', err);
+    return null;
+  }
+}
+
+app.get(
+  '/api/feed',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const posts = await db.all('SELECT * FROM feed_posts ORDER BY created_at DESC LIMIT 50');
+    if (posts.length === 0) return res.json([]);
+    const ids = posts.map((p) => p.id);
+    const placeholders = ids.map(() => '?').join(',');
+    const [likeRows, commentCountRows] = await Promise.all([
+      db.all(
+        `SELECT content_id, COUNT(*) as c, MAX(CASE WHEN user_id = ? THEN 1 ELSE 0 END) as liked_by_me
+         FROM content_likes WHERE content_type = 'feed_post' AND content_id IN (${placeholders}) GROUP BY content_id`,
+        [req.user.id, ...ids]
+      ),
+      db.all(
+        `SELECT content_id, COUNT(*) as c FROM content_comments WHERE content_type = 'feed_post' AND content_id IN (${placeholders}) GROUP BY content_id`,
+        ids
+      ),
+    ]);
+    const likeMap = Object.fromEntries(likeRows.map((r) => [r.content_id, r]));
+    const commentMap = Object.fromEntries(commentCountRows.map((r) => [r.content_id, Number(r.c)]));
+    res.json(
+      posts.map((p) => ({
+        ...p,
+        like_count: likeMap[p.id] ? Number(likeMap[p.id].c) : 0,
+        liked_by_me: likeMap[p.id] ? !!likeMap[p.id].liked_by_me : false,
+        comment_count: commentMap[p.id] || 0,
+      }))
+    );
+  })
+);
+
+app.post(
+  '/api/feed',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const text = String((req.body || {}).text || '').trim();
+    if (!text) return res.status(400).json({ error: 'Escreva algo pra publicar' });
+    if (text.length > 500) return res.status(400).json({ error: 'Máximo 500 caracteres' });
+    const id = await createFeedPost(req.user, 'post', text);
+    res.json({ id });
+  })
+);
+
+// Curtidas e comentários genéricos — reaproveitados por feed_post e clip,
+// pra não duplicar a mesma lógica duas vezes.
+app.post(
+  '/api/content/:type/:id/like',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('INSERT OR IGNORE INTO content_likes (id, content_type, content_id, user_id) VALUES (?, ?, ?, ?)', [
+      uuidv4(),
+      req.params.type,
+      req.params.id,
+      req.user.id,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/content/:type/:id/like',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM content_likes WHERE content_type = ? AND content_id = ? AND user_id = ?', [
+      req.params.type,
+      req.params.id,
+      req.user.id,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.get(
+  '/api/content/:type/:id/comments',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      'SELECT * FROM content_comments WHERE content_type = ? AND content_id = ? ORDER BY created_at ASC',
+      [req.params.type, req.params.id]
+    );
+    res.json(rows);
+  })
+);
+
+app.post(
+  '/api/content/:type/:id/comments',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const text = String((req.body || {}).text || '').trim();
+    if (!text) return res.status(400).json({ error: 'Comentário vazio' });
+    if (text.length > 300) return res.status(400).json({ error: 'Máximo 300 caracteres' });
+    const id = uuidv4();
+    await db.run(
+      'INSERT INTO content_comments (id, content_type, content_id, user_id, username, text) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, req.params.type, req.params.id, req.user.id, req.user.username, text]
+    );
+    res.json({ id });
+  })
+);
+
+// ---------- CLIPES ----------
+
+app.post(
+  '/api/clips',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { title, description, game, video_url, tags } = req.body || {};
+    if (!title || !video_url) return res.status(400).json({ error: 'Título e link do vídeo são obrigatórios' });
+    if (!/^https?:\/\//i.test(video_url)) return res.status(400).json({ error: 'Link do vídeo precisa ser uma URL válida' });
+    const id = uuidv4();
+    await db.run(
+      'INSERT INTO clips (id, user_id, username, title, description, game, video_url, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id,
+        req.user.id,
+        req.user.username,
+        String(title).slice(0, 100),
+        (description || '').slice(0, 500),
+        (game || '').slice(0, 60),
+        video_url,
+        (tags || '').slice(0, 200),
+      ]
+    );
+    createFeedPost(req.user, 'clip', `publicou um clipe: "${title}"`, 'clip', id);
+    res.json(await db.get('SELECT * FROM clips WHERE id = ?', [id]));
+  })
+);
+
+app.get(
+  '/api/clips',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { game, sort } = req.query;
+    const conditions = [];
+    const params = [];
+    if (game) {
+      conditions.push('game = ?');
+      params.push(game);
+    }
+    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+    const orderBy = sort === 'trending' ? 'views DESC' : 'created_at DESC';
+    const rows = await db.all(`SELECT * FROM clips ${where} ORDER BY ${orderBy} LIMIT 50`, params);
+    res.json(rows);
+  })
+);
+
+app.post(
+  '/api/clips/:id/view',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('UPDATE clips SET views = views + 1 WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/clips/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const clip = await db.get('SELECT user_id FROM clips WHERE id = ?', [req.params.id]);
+    if (!clip) return res.status(404).json({ error: 'Clipe não encontrado' });
+    if (clip.user_id !== req.user.id && !req.user.is_admin) return res.status(403).json({ error: 'Sem permissão' });
+    await db.run('DELETE FROM clips WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  })
+);
+
+// ---------- STREAMING (área de transmissões ao vivo, via link externo) ----------
+// Não hospedamos vídeo/stream de verdade aqui — cada streamer usa a
+// plataforma que já usa (Twitch, YouTube etc) e só linka pra cá, que vira um
+// diretório com "ao vivo agora", seguir streamer e notificação de quando
+// entrar ao vivo.
+
+app.post(
+  '/api/streams/go-live',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { title, game, external_url } = req.body || {};
+    if (!title || !external_url) return res.status(400).json({ error: 'Título e link da transmissão são obrigatórios' });
+    if (!/^https?:\/\//i.test(external_url)) return res.status(400).json({ error: 'Link precisa ser uma URL válida' });
+    await db.run('UPDATE streams SET is_live = 0 WHERE user_id = ?', [req.user.id]); // encerra streams antigas
+    const id = uuidv4();
+    await db.run(
+      'INSERT INTO streams (id, user_id, username, title, game, external_url, is_live) VALUES (?, ?, ?, ?, ?, ?, 1)',
+      [id, req.user.id, req.user.username, String(title).slice(0, 100), (game || '').slice(0, 60), external_url]
+    );
+    // Notifica quem segue esse streamer.
+    const followers = await db.all('SELECT follower_id FROM stream_follows WHERE streamer_id = ?', [req.user.id]);
+    followers.forEach((f) => {
+      io.to('user:' + f.follower_id).emit('stream:live', { username: req.user.username, title, streamId: id });
+    });
+    res.json({ id });
+  })
+);
+
+app.post(
+  '/api/streams/end',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('UPDATE streams SET is_live = 0 WHERE user_id = ?', [req.user.id]);
+    res.json({ ok: true });
+  })
+);
+
+app.get(
+  '/api/streams',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { game } = req.query;
+    const conditions = ['is_live = 1'];
+    const params = [];
+    if (game) {
+      conditions.push('game = ?');
+      params.push(game);
+    }
+    const rows = await db.all(
+      `SELECT * FROM streams WHERE ${conditions.join(' AND ')} ORDER BY started_at DESC LIMIT 50`,
+      params
+    );
+    res.json(rows);
+  })
+);
+
+app.post(
+  '/api/streams/follow/:userId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('INSERT OR IGNORE INTO stream_follows (id, follower_id, streamer_id) VALUES (?, ?, ?)', [
+      uuidv4(),
+      req.user.id,
+      req.params.userId,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/streams/follow/:userId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM stream_follows WHERE follower_id = ? AND streamer_id = ?', [req.user.id, req.params.userId]);
+    res.json({ ok: true });
+  })
+);
+
+// ---------- EVENTOS ----------
+
+app.post(
+  '/api/events',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { name, game, description, event_date, max_participants, category } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'Nome do evento é obrigatório' });
+    const id = uuidv4();
+    await db.run(
+      'INSERT INTO events (id, category, name, game, description, event_date, max_participants, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id,
+        category || activeServerCategoryFallback(req),
+        String(name).slice(0, 100),
+        (game || '').slice(0, 60),
+        (description || '').slice(0, 500),
+        event_date || null,
+        max_participants ? Math.max(1, parseInt(max_participants, 10)) : null,
+        req.user.id,
+      ]
+    );
+    createFeedPost(req.user, 'event', `criou o evento "${name}"`, 'event', id);
+    res.json(await db.get('SELECT * FROM events WHERE id = ?', [id]));
+  })
+);
+function activeServerCategoryFallback(req) {
+  return (req.body && req.body.category) || null;
+}
+
+app.get(
+  '/api/events',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const events = await db.all(
+      "SELECT * FROM events WHERE event_date IS NULL OR event_date >= date('now') ORDER BY event_date IS NULL, event_date ASC LIMIT 50"
+    );
+    if (events.length === 0) return res.json([]);
+    const ids = events.map((e) => e.id);
+    const placeholders = ids.map(() => '?').join(',');
+    const countRows = await db.all(
+      `SELECT event_id, COUNT(*) as c FROM event_participants WHERE event_id IN (${placeholders}) GROUP BY event_id`,
+      ids
+    );
+    const myRows = await db.all(
+      `SELECT event_id FROM event_participants WHERE event_id IN (${placeholders}) AND user_id = ?`,
+      [...ids, req.user.id]
+    );
+    const countMap = Object.fromEntries(countRows.map((r) => [r.event_id, Number(r.c)]));
+    const myIds = new Set(myRows.map((r) => r.event_id));
+    res.json(events.map((e) => ({ ...e, participant_count: countMap[e.id] || 0, is_registered: myIds.has(e.id) })));
+  })
+);
+
+app.post(
+  '/api/events/:id/register',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const event = await db.get('SELECT * FROM events WHERE id = ?', [req.params.id]);
+    if (!event) return res.status(404).json({ error: 'Evento não encontrado' });
+    if (event.max_participants) {
+      const countRow = await db.get('SELECT COUNT(*) as c FROM event_participants WHERE event_id = ?', [event.id]);
+      if (Number(countRow.c) >= event.max_participants) return res.status(400).json({ error: 'Evento lotado' });
+    }
+    await db.run('INSERT OR IGNORE INTO event_participants (id, event_id, user_id) VALUES (?, ?, ?)', [
+      uuidv4(),
+      event.id,
+      req.user.id,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/events/:id/register',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM event_participants WHERE event_id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    res.json({ ok: true });
+  })
+);
+
+// ---------- LOJA (gasta NEXT Coins em itens cosméticos) ----------
+
+app.get(
+  '/api/me/coins',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const history = await db.all(
+      'SELECT * FROM coin_transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 20',
+      [req.user.id]
+    );
+    res.json({ balance: req.user.coins || 0, history });
+  })
+);
+
+app.get(
+  '/api/shop',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const items = await db.all('SELECT * FROM shop_items WHERE active = 1 ORDER BY cost ASC');
+    const owned = await db.all('SELECT item_id FROM coin_purchases WHERE user_id = ?', [req.user.id]);
+    const ownedIds = new Set(owned.map((o) => o.item_id));
+    res.json(items.map((i) => ({ ...i, owned: ownedIds.has(i.id) })));
+  })
+);
+
+app.post(
+  '/api/shop/:id/purchase',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const item = await db.get('SELECT * FROM shop_items WHERE id = ? AND active = 1', [req.params.id]);
+    if (!item) return res.status(404).json({ error: 'Item não encontrado' });
+    const already = await db.get('SELECT id FROM coin_purchases WHERE user_id = ? AND item_id = ?', [
+      req.user.id,
+      item.id,
+    ]);
+    if (already) return res.status(409).json({ error: 'Você já tem esse item' });
+    if ((req.user.coins || 0) < item.cost) return res.status(400).json({ error: 'NEXT Coins insuficientes' });
+    await db.run('UPDATE users SET coins = coins - ? WHERE id = ?', [item.cost, req.user.id]);
+    await db.run('INSERT INTO coin_transactions (id, user_id, amount, reason) VALUES (?, ?, ?, ?)', [
+      uuidv4(),
+      req.user.id,
+      -item.cost,
+      `Compra: ${item.name}`,
+    ]);
+    await db.run('INSERT INTO coin_purchases (id, user_id, item_id) VALUES (?, ?, ?)', [uuidv4(), req.user.id, item.id]);
+    res.json({ ok: true });
+  })
+);
+
+// Controle administrativo da economia (item 22 do plano) — só admin cria
+// item na loja ou concede moedas manualmente.
+app.post(
+  '/api/admin/shop-items',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { name, description, type, cost, image } = req.body || {};
+    if (!name || !cost) return res.status(400).json({ error: 'Nome e custo são obrigatórios' });
+    const id = uuidv4();
+    await db.run('INSERT INTO shop_items (id, name, description, type, cost, image) VALUES (?, ?, ?, ?, ?, ?)', [
+      id,
+      String(name).slice(0, 80),
+      (description || '').slice(0, 300),
+      type || 'cosmetico',
+      Math.max(1, parseInt(cost, 10) || 1),
+      image || null,
+    ]);
+    logAudit(req.user, 'create_shop_item', 'shop_item', id, { name });
+    res.json(await db.get('SELECT * FROM shop_items WHERE id = ?', [id]));
+  })
+);
+
+app.delete(
+  '/api/admin/shop-items/:id',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    await db.run('UPDATE shop_items SET active = 0 WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  '/api/admin/users/:id/grant-coins',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const amount = parseInt((req.body || {}).amount, 10);
+    if (!amount) return res.status(400).json({ error: 'Quantidade inválida' });
+    await grantCoins(req.params.id, amount, `Concedido por admin: ${req.user.username}`);
+    logAudit(req.user, 'grant_coins', 'user', req.params.id, { amount });
+    res.json({ ok: true });
+  })
+);
+
+// ---------- ORGANIZAÇÕES DE ESPORTS ----------
+
+app.post(
+  '/api/organizations',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { name, description, logo } = req.body || {};
+    if (!name || name.trim().length < 2) return res.status(400).json({ error: 'Nome inválido' });
+    const existing = await db.get('SELECT id FROM organizations WHERE name = ?', [name.trim()]);
+    if (existing) return res.status(409).json({ error: 'Já existe uma organização com esse nome' });
+    const id = uuidv4();
+    await db.run('INSERT INTO organizations (id, name, description, logo, owner_id) VALUES (?, ?, ?, ?, ?)', [
+      id,
+      name.trim().slice(0, 80),
+      (description || '').slice(0, 500),
+      logo || null,
+      req.user.id,
+    ]);
+    res.json(await db.get('SELECT * FROM organizations WHERE id = ?', [id]));
+  })
+);
+
+app.get(
+  '/api/organizations',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json(await db.all('SELECT * FROM organizations ORDER BY created_at DESC LIMIT 100'));
+  })
+);
+
+app.get(
+  '/api/organizations/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const org = await db.get('SELECT * FROM organizations WHERE id = ?', [req.params.id]);
+    if (!org) return res.status(404).json({ error: 'Organização não encontrada' });
+    const teams = await db.all(
+      `SELECT t.* FROM organization_teams ot JOIN teams t ON t.id = ot.team_id WHERE ot.org_id = ?`,
+      [org.id]
+    );
+    const sponsors = await db.all('SELECT * FROM organization_sponsors WHERE org_id = ?', [org.id]);
+    const tryouts = await db.all('SELECT * FROM org_tryouts WHERE org_id = ? ORDER BY created_at DESC', [org.id]);
+    res.json({ ...org, teams, sponsors, tryouts });
+  })
+);
+
+app.post(
+  '/api/organizations/:id/sponsors',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const org = await db.get('SELECT * FROM organizations WHERE id = ?', [req.params.id]);
+    if (!org) return res.status(404).json({ error: 'Organização não encontrada' });
+    if (org.owner_id !== req.user.id && !req.user.is_admin) return res.status(403).json({ error: 'Sem permissão' });
+    const { name, logo_url } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'Nome do patrocinador é obrigatório' });
+    await db.run('INSERT INTO organization_sponsors (id, org_id, name, logo_url) VALUES (?, ?, ?, ?)', [
+      uuidv4(),
+      org.id,
+      String(name).slice(0, 80),
+      logo_url || null,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  '/api/organizations/:id/teams',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const org = await db.get('SELECT * FROM organizations WHERE id = ?', [req.params.id]);
+    if (!org) return res.status(404).json({ error: 'Organização não encontrada' });
+    if (org.owner_id !== req.user.id && !req.user.is_admin) return res.status(403).json({ error: 'Sem permissão' });
+    const { team_id } = req.body || {};
+    const team = await db.get('SELECT id FROM teams WHERE id = ?', [team_id]);
+    if (!team) return res.status(404).json({ error: 'Time não encontrado' });
+    await db.run('INSERT OR IGNORE INTO organization_teams (id, org_id, team_id) VALUES (?, ?, ?)', [
+      uuidv4(),
+      org.id,
+      team_id,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+// Seletivas ("publicação de seletivas" + "busca de jogadores" do item 29)
+app.post(
+  '/api/organizations/:id/tryouts',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const org = await db.get('SELECT * FROM organizations WHERE id = ?', [req.params.id]);
+    if (!org) return res.status(404).json({ error: 'Organização não encontrada' });
+    if (org.owner_id !== req.user.id && !req.user.is_admin) return res.status(403).json({ error: 'Sem permissão' });
+    const { title, game, description } = req.body || {};
+    if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
+    const id = uuidv4();
+    await db.run('INSERT INTO org_tryouts (id, org_id, title, game, description) VALUES (?, ?, ?, ?, ?)', [
+      id,
+      org.id,
+      String(title).slice(0, 100),
+      (game || '').slice(0, 60),
+      (description || '').slice(0, 500),
+    ]);
+    res.json(await db.get('SELECT * FROM org_tryouts WHERE id = ?', [id]));
+  })
+);
+
+app.get(
+  '/api/tryouts',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT t.*, o.name as org_name FROM org_tryouts t JOIN organizations o ON o.id = t.org_id ORDER BY t.created_at DESC LIMIT 50`
+    );
+    res.json(rows);
+  })
+);
+
+app.post(
+  '/api/tryouts/:id/apply',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tryout = await db.get('SELECT * FROM org_tryouts WHERE id = ?', [req.params.id]);
+    if (!tryout) return res.status(404).json({ error: 'Seletiva não encontrada' });
+    await db.run('INSERT OR IGNORE INTO org_tryout_applications (id, tryout_id, user_id, message) VALUES (?, ?, ?, ?)', [
+      uuidv4(),
+      tryout.id,
+      req.user.id,
+      ((req.body || {}).message || '').slice(0, 300),
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.get(
+  '/api/tryouts/:id/applications',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tryout = await db.get('SELECT * FROM org_tryouts WHERE id = ?', [req.params.id]);
+    if (!tryout) return res.status(404).json({ error: 'Seletiva não encontrada' });
+    const org = await db.get('SELECT owner_id FROM organizations WHERE id = ?', [tryout.org_id]);
+    if (org.owner_id !== req.user.id && !req.user.is_admin) return res.status(403).json({ error: 'Sem permissão' });
+    const rows = await db.all(
+      `SELECT a.*, u.username, u.avatar FROM org_tryout_applications a JOIN users u ON u.id = a.user_id WHERE a.tryout_id = ?`,
+      [tryout.id]
+    );
+    res.json(rows);
+  })
+);
+
+// ---------- MARKETPLACE GAMER (divulgação de perfis profissionais — sem processar pagamento) ----------
+
+app.put(
+  '/api/marketplace/profile',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { category, title, description, portfolio_url, rate_display } = req.body || {};
+    const validCategories = ['designer', 'editor', 'coach', 'desenvolvedor', 'caster', 'criador_conteudo'];
+    if (!validCategories.includes(category)) return res.status(400).json({ error: 'Categoria inválida' });
+    if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
+    const existing = await db.get('SELECT id FROM marketplace_profiles WHERE user_id = ?', [req.user.id]);
+    if (existing) {
+      await db.run(
+        'UPDATE marketplace_profiles SET category = ?, title = ?, description = ?, portfolio_url = ?, rate_display = ? WHERE id = ?',
+        [category, title.slice(0, 100), (description || '').slice(0, 500), portfolio_url || null, rate_display || null, existing.id]
+      );
+    } else {
+      await db.run(
+        `INSERT INTO marketplace_profiles (id, user_id, category, title, description, portfolio_url, rate_display)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [uuidv4(), req.user.id, category, title.slice(0, 100), (description || '').slice(0, 500), portfolio_url || null, rate_display || null]
+      );
+    }
+    res.json(await db.get('SELECT * FROM marketplace_profiles WHERE user_id = ?', [req.user.id]));
+  })
+);
+
+app.delete(
+  '/api/marketplace/profile',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM marketplace_profiles WHERE user_id = ?', [req.user.id]);
+    res.json({ ok: true });
+  })
+);
+
+app.get(
+  '/api/marketplace',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { category } = req.query;
+    const conditions = [];
+    const params = [];
+    if (category) {
+      conditions.push('mp.category = ?');
+      params.push(category);
+    }
+    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+    const rows = await db.all(
+      `SELECT mp.*, u.username, u.avatar,
+        (SELECT AVG(rating) FROM marketplace_reviews WHERE profile_id = mp.id) as avg_rating,
+        (SELECT COUNT(*) FROM marketplace_reviews WHERE profile_id = mp.id) as review_count
+       FROM marketplace_profiles mp JOIN users u ON u.id = mp.user_id ${where} ORDER BY mp.created_at DESC LIMIT 100`,
+      params
+    );
+    res.json(rows);
+  })
+);
+
+app.post(
+  '/api/marketplace/:profileId/review',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const profile = await db.get('SELECT * FROM marketplace_profiles WHERE id = ?', [req.params.profileId]);
+    if (!profile) return res.status(404).json({ error: 'Perfil não encontrado' });
+    if (profile.user_id === req.user.id) return res.status(400).json({ error: 'Não dá pra avaliar seu próprio perfil' });
+    const rating = Math.max(1, Math.min(5, parseInt((req.body || {}).rating, 10) || 0));
+    if (!rating) return res.status(400).json({ error: 'Nota precisa ser de 1 a 5' });
+    await db.run(
+      `INSERT INTO marketplace_reviews (id, profile_id, reviewer_id, rating, comment) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(profile_id, reviewer_id) DO UPDATE SET rating = excluded.rating, comment = excluded.comment`,
+      [uuidv4(), profile.id, req.user.id, rating, ((req.body || {}).comment || '').slice(0, 300)]
+    );
+    res.json({ ok: true });
+  })
+);
+
+// ---------- INTEGRAÇÕES EXTERNAS ----------
+// IMPORTANTE: isso NÃO é OAuth de verdade — não temos (nem poderíamos gerar
+// sozinhos) credenciais de desenvolvedor da Steam/Twitch/Riot/Epic/Xbox/
+// PlayStation/Ubisoft/Battle.net. O que existe aqui é um diretório onde a
+// pessoa informa seu nome de usuário em cada plataforma (auto-declarado, sem
+// verificação), só pra aparecer no perfil — igual muita gente já faz com
+// "meu Steam: fulano123" na bio. Pra virar OAuth de verdade, o dono do site
+// precisa registrar um app em cada plataforma e configurar as credenciais
+// (client id/secret) como variável de ambiente aqui no servidor; o código
+// server-side ficaria pronto pra receber isso, mas não inventamos a conexão.
+const SUPPORTED_INTEGRATION_PROVIDERS = [
+  'steam',
+  'twitch',
+  'youtube',
+  'riot_games',
+  'epic_games',
+  'xbox',
+  'playstation',
+  'ubisoft',
+  'battlenet',
+];
+
+app.get(
+  '/api/integrations',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all('SELECT provider, external_username, connected_at FROM external_integrations WHERE user_id = ?', [
+      req.user.id,
+    ]);
+    const connected = Object.fromEntries(rows.map((r) => [r.provider, r]));
+    res.json(
+      SUPPORTED_INTEGRATION_PROVIDERS.map((p) => ({
+        provider: p,
+        connected: !!connected[p],
+        external_username: connected[p] ? connected[p].external_username : null,
+      }))
+    );
+  })
+);
+
+app.post(
+  '/api/integrations/:provider/connect',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!SUPPORTED_INTEGRATION_PROVIDERS.includes(req.params.provider)) {
+      return res.status(400).json({ error: 'Plataforma não suportada' });
+    }
+    const { external_username } = req.body || {};
+    if (!external_username) return res.status(400).json({ error: 'Informe seu nome de usuário nessa plataforma' });
+    await db.run(
+      `INSERT INTO external_integrations (id, user_id, provider, external_username) VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, provider) DO UPDATE SET external_username = excluded.external_username`,
+      [uuidv4(), req.user.id, req.params.provider, String(external_username).slice(0, 60)]
+    );
+    res.json({
+      ok: true,
+      note: 'Conexão auto-declarada (sem OAuth verificado) — o administrador do site pode configurar OAuth real depois.',
+    });
+  })
+);
+
+app.delete(
+  '/api/integrations/:provider',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM external_integrations WHERE user_id = ? AND provider = ?', [
+      req.user.id,
+      req.params.provider,
+    ]);
+    res.json({ ok: true });
   })
 );
 
@@ -2234,7 +3816,7 @@ app.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const rows = await db.all(
-      'SELECT id, channel_id, user_id, username, content, edited, pinned, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 50',
+      'SELECT id, channel_id, user_id, username, content, edited, pinned, thread_parent_id, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 50',
       [req.params.id]
     );
     const messages = rows.reverse();
@@ -2271,6 +3853,7 @@ app.post(
   asyncHandler(async (req, res) => {
     await db.run('UPDATE messages SET deleted = 1 WHERE channel_id = ?', [req.params.id]);
     io.to(req.params.id).emit('chat:cleared', { channel_id: req.params.id });
+    logAudit(req.user, 'clear_channel', 'channel', req.params.id);
     res.json({ ok: true });
   })
 );
@@ -2455,6 +4038,7 @@ app.post(
     res.json({ ok: true });
     const banned = await db.get('SELECT username FROM users WHERE id = ?', [req.params.id]);
     if (banned) postSystemMessage(WELCOME_CHANNEL_ID, `🔨 ${banned.username} foi banido(a) por um moderador.`);
+    logAudit(req.user, 'ban_user', 'user', req.params.id, { username: banned && banned.username });
   })
 );
 
@@ -2465,6 +4049,66 @@ app.post(
   asyncHandler(async (req, res) => {
     await db.run('UPDATE users SET is_banned = 0 WHERE id = ?', [req.params.id]);
     res.json({ ok: true });
+    logAudit(req.user, 'unban_user', 'user', req.params.id);
+  })
+);
+
+// Timeout: mute temporário (diferente de banir — a conta continua acessível,
+// só fica impedida de mandar mensagem até o prazo passar). É o "timeout" do
+// item 9 do plano de desenvolvimento.
+app.post(
+  '/api/admin/users/:id/timeout',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const minutes = Math.max(1, Math.min(10080, parseInt((req.body || {}).minutes, 10) || 10));
+    const until = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+    await db.run('UPDATE users SET timeout_until = ? WHERE id = ?', [until, req.params.id]);
+    const target = await db.get('SELECT username FROM users WHERE id = ?', [req.params.id]);
+    logAudit(req.user, 'timeout_user', 'user', req.params.id, { minutes, username: target && target.username });
+    res.json({ ok: true, timeout_until: until });
+  })
+);
+
+app.post(
+  '/api/admin/users/:id/untimeout',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    await db.run('UPDATE users SET timeout_until = NULL WHERE id = ?', [req.params.id]);
+    logAudit(req.user, 'untimeout_user', 'user', req.params.id);
+    res.json({ ok: true });
+  })
+);
+
+// ---------- AUDIT LOG (painel admin) ----------
+
+app.get(
+  '/api/admin/audit-logs',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { actor, action, target_type } = req.query;
+    const conditions = [];
+    const params = [];
+    if (actor) {
+      conditions.push('actor_username LIKE ?');
+      params.push(`%${actor}%`);
+    }
+    if (action) {
+      conditions.push('action = ?');
+      params.push(action);
+    }
+    if (target_type) {
+      conditions.push('target_type = ?');
+      params.push(target_type);
+    }
+    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+    const rows = await db.all(
+      `SELECT * FROM audit_logs ${where} ORDER BY created_at DESC LIMIT 200`,
+      params
+    );
+    res.json(rows);
   })
 );
 
@@ -2473,7 +4117,134 @@ app.get(
   requireAuth,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    res.json(await db.all('SELECT id, username, is_admin, is_banned, created_at FROM users ORDER BY created_at DESC'));
+    res.json(
+      await db.all(
+        'SELECT id, username, is_admin, is_banned, timeout_until, coins, reputation, created_at FROM users ORDER BY created_at DESC'
+      )
+    );
+  })
+);
+
+// ---------- DASHBOARD ADMINISTRATIVO: ANALYTICS ----------
+
+app.get(
+  '/api/admin/analytics',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const [
+      totalUsers,
+      bannedUsers,
+      totalServers,
+      totalChannels,
+      messagesToday,
+      messagesWeek,
+      totalTournaments,
+      activeSessions,
+      totalClips,
+      totalTeams,
+      totalClans,
+      totalOrgs,
+      totalEvents,
+      newUsersByDay,
+    ] = await Promise.all([
+      db.get('SELECT COUNT(*) as c FROM users WHERE id != ?', [AI_BOT_USER_ID]),
+      db.get('SELECT COUNT(*) as c FROM users WHERE is_banned = 1'),
+      db.get('SELECT COUNT(DISTINCT category) as c FROM channels'),
+      db.get('SELECT COUNT(*) as c FROM channels'),
+      db.get("SELECT COUNT(*) as c FROM messages WHERE created_at >= date('now') AND deleted = 0"),
+      db.get("SELECT COUNT(*) as c FROM messages WHERE created_at >= datetime('now', '-7 days') AND deleted = 0"),
+      db.get('SELECT COUNT(*) as c FROM tournaments'),
+      db.get('SELECT COUNT(*) as c FROM user_sessions WHERE revoked = 0'),
+      db.get('SELECT COUNT(*) as c FROM clips'),
+      db.get('SELECT COUNT(*) as c FROM teams'),
+      db.get('SELECT COUNT(*) as c FROM clans'),
+      db.get('SELECT COUNT(*) as c FROM organizations'),
+      db.get('SELECT COUNT(*) as c FROM events'),
+      db.all(
+        `SELECT date(created_at) as day, COUNT(*) as c FROM users
+         WHERE created_at >= datetime('now', '-14 days') AND id != ?
+         GROUP BY date(created_at) ORDER BY day ASC`,
+        [AI_BOT_USER_ID]
+      ),
+    ]);
+    res.json({
+      total_users: Number(totalUsers.c),
+      banned_users: Number(bannedUsers.c),
+      total_servers: Number(totalServers.c),
+      total_channels: Number(totalChannels.c),
+      messages_today: Number(messagesToday.c),
+      messages_week: Number(messagesWeek.c),
+      total_tournaments: Number(totalTournaments.c),
+      active_sessions: Number(activeSessions.c),
+      total_clips: Number(totalClips.c),
+      total_teams: Number(totalTeams.c),
+      total_clans: Number(totalClans.c),
+      total_orgs: Number(totalOrgs.c),
+      total_events: Number(totalEvents.c),
+      new_users_by_day: newUsersByDay,
+    });
+  })
+);
+
+// Contas que compartilham IP com outra conta — só um sinal pra revisão
+// humana (contas na mesma casa/faculdade/lan house são normais e não devem
+// ser banidas automaticamente por isso).
+app.get(
+  '/api/admin/suspicious-accounts',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(`
+      SELECT s.ip, GROUP_CONCAT(DISTINCT u.username) as usernames, COUNT(DISTINCT s.user_id) as account_count
+      FROM user_sessions s JOIN users u ON u.id = s.user_id
+      WHERE s.ip IS NOT NULL AND s.ip != ''
+      GROUP BY s.ip HAVING account_count > 1
+      ORDER BY account_count DESC
+    `);
+    res.json(rows);
+  })
+);
+
+// ---------- CONTROLE DE CONTEÚDO (admin) ----------
+
+app.get(
+  '/api/admin/clips',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    res.json(await db.all('SELECT * FROM clips ORDER BY created_at DESC LIMIT 100'));
+  })
+);
+
+app.delete(
+  '/api/admin/clips/:id',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM clips WHERE id = ?', [req.params.id]);
+    logAudit(req.user, 'delete_clip', 'clip', req.params.id);
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/admin/feed/:id',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM feed_posts WHERE id = ?', [req.params.id]);
+    logAudit(req.user, 'delete_feed_post', 'feed_post', req.params.id);
+    res.json({ ok: true });
+  })
+);
+
+app.get(
+  '/api/admin/shop-items',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    res.json(await db.all('SELECT * FROM shop_items ORDER BY created_at DESC'));
   })
 );
 
@@ -2582,7 +4353,7 @@ io.on('connection', (socket) => {
     socket.to(channelId).emit('presence:leave', { userId: user.id, username: user.username });
   });
 
-  socket.on('chat:message', async ({ channelId, content }) => {
+  socket.on('chat:message', async ({ channelId, content, threadParentId }) => {
     try {
       if (!channelId || !content || typeof content !== 'string' || !content.trim()) return;
       if (content.length > 2000) {
@@ -2591,6 +4362,19 @@ io.on('connection', (socket) => {
       }
       if (isRateLimited(socket.id)) {
         socket.emit('chat:blocked', { reason: 'Você está enviando mensagens rápido demais. Aguarde um pouco.', categories: [] });
+        return;
+      }
+
+      // Timeout (mute temporário aplicado por um admin) — checa fresco no
+      // banco a cada mensagem, já que o "user" da conexão pode estar
+      // desatualizado se o timeout foi aplicado depois de conectar.
+      const freshUser = await db.get('SELECT timeout_until FROM users WHERE id = ?', [user.id]);
+      if (freshUser && freshUser.timeout_until && new Date(freshUser.timeout_until) > new Date()) {
+        const remainingMin = Math.ceil((new Date(freshUser.timeout_until) - new Date()) / 60000);
+        socket.emit('chat:blocked', {
+          reason: `Você está em timeout por mais ${remainingMin} minuto(s) e não pode mandar mensagens.`,
+          categories: [],
+        });
         return;
       }
 
@@ -2641,10 +4425,37 @@ io.on('connection', (socket) => {
         return;
       }
 
+      // Anti-link "leve": só marca a mensagem (fica visível pro remetente e
+      // consultável por um admin), não bloqueia — link é uso legítimo demais
+      // nesse app (convites, clipes, etc) pra travar todo mundo.
+      const hasLink = /https?:\/\/|www\./i.test(content);
+
+      // Se veio com threadParentId, precisa ser uma resposta válida a uma
+      // mensagem existente do MESMO canal (não deixa criar thread cruzando
+      // canais/DMs por engano).
+      let validThreadParentId = null;
+      if (threadParentId) {
+        const parentMsg = await db.get('SELECT id FROM messages WHERE id = ? AND channel_id = ? AND deleted = 0', [
+          threadParentId,
+          channelId,
+        ]);
+        if (parentMsg) validThreadParentId = parentMsg.id;
+      }
+
       const id = uuidv4();
       await db.run(
-        'INSERT INTO messages (id, channel_id, user_id, username, content, flagged, flag_categories) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [id, channelId, user.id, user.username, content, scan.flagged ? 1 : 0, JSON.stringify(scan.categories)]
+        'INSERT INTO messages (id, channel_id, user_id, username, content, flagged, flag_categories, has_link, thread_parent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          id,
+          channelId,
+          user.id,
+          user.username,
+          content,
+          scan.flagged ? 1 : 0,
+          JSON.stringify(scan.categories),
+          hasLink ? 1 : 0,
+          validThreadParentId,
+        ]
       );
 
       const payload = {
@@ -2654,8 +4465,12 @@ io.on('connection', (socket) => {
         username: user.username,
         content,
         created_at: new Date().toISOString(),
+        thread_parent_id: validThreadParentId,
       };
       io.to(channelId).emit('chat:message', payload);
+      if (validThreadParentId) {
+        io.to(channelId).emit('thread:reply', { parent_id: validThreadParentId, message: payload });
+      }
 
       // Avisa (só um evento leve, sem o conteúdo) todo mundo que é membro do
       // MESMO SERVIDOR desse canal, mesmo quem não está com ele aberto agora

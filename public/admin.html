@@ -15,6 +15,12 @@
   button.action:hover { background: #4a4d55; }
   button.danger { background: #f23f42; color: white; }
   .back-link { color: #949ba4; text-decoration: none; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 14px; }
+  .stat-card { background: #2b2d31; border-radius: 8px; padding: 12px; }
+  .stat-card .num { font-size: 22px; font-weight: 800; color: #5865f2; }
+  .stat-card .label { font-size: 11px; color: #949ba4; text-transform: uppercase; }
+  .admin-form-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .admin-form-row input { flex: 1; min-width: 100px; padding: 6px; border-radius: 4px; border: 1px solid #3a3c42; background: #1e1f22; color: #e6e6e6; }
 </style>
 </head>
 <body>
@@ -24,6 +30,34 @@
   <p id="admin-guard" class="auth-error"></p>
 
   <div id="admin-content" class="hidden">
+    <h2>📊 Analytics</h2>
+    <div id="analytics-grid" class="stats-grid"></div>
+
+    <h2>🚩 Contas suspeitas (mesmo IP)</h2>
+    <p style="color:#949ba4; font-size:13px;">Só um sinal pra revisão humana — contas do mesmo endereço podem ser legítimas (mesma casa, faculdade, lan house).</p>
+    <table id="suspicious-table">
+      <thead><tr><th>IP</th><th>Contas</th><th>Quantidade</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>🎬 Clipes publicados</h2>
+    <table id="clips-admin-table">
+      <thead><tr><th>Data</th><th>Usuário</th><th>Título</th><th>Views</th><th>Ações</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>🪙 Itens da loja NEXT Coins</h2>
+    <table id="shop-admin-table">
+      <thead><tr><th>Nome</th><th>Custo</th><th>Ações</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="admin-form-row">
+      <input type="text" id="shop-new-name" placeholder="Nome do item" />
+      <input type="text" id="shop-new-description" placeholder="Descrição" />
+      <input type="number" id="shop-new-cost" placeholder="Custo em coins" min="1" style="max-width:120px;" />
+      <button type="button" id="btn-shop-add" class="action">+ Adicionar item</button>
+    </div>
+
     <h2>Denúncias pendentes</h2>
     <table id="reports-table">
       <thead><tr><th>Data</th><th>Motivo</th><th>Denunciante</th><th>Usuário denunciado</th><th>Status</th><th>Ações</th></tr></thead>
@@ -58,6 +92,18 @@
     <h2>Usuários</h2>
     <table id="users-table">
       <thead><tr><th>Usuário</th><th>Criado em</th><th>Admin</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>Audit Log</h2>
+    <p style="color:#949ba4; font-size:13px;">Todas as ações de moderação/administração ficam registradas aqui — banir, expulsar, aplicar timeout, limpar canal etc.</p>
+    <div style="display:flex; gap:8px; margin-top:10px;">
+      <input type="text" id="audit-filter-actor" placeholder="Filtrar por quem fez a ação" style="flex:1; padding:6px; border-radius:4px; border:1px solid #3a3c42; background:#1e1f22; color:#e6e6e6;" />
+      <input type="text" id="audit-filter-action" placeholder="Filtrar por ação (ex: ban_user)" style="flex:1; padding:6px; border-radius:4px; border:1px solid #3a3c42; background:#1e1f22; color:#e6e6e6;" />
+      <button type="button" id="btn-audit-filter" class="action">Filtrar</button>
+    </div>
+    <table id="audit-table">
+      <thead><tr><th>Data</th><th>Quem fez</th><th>Ação</th><th>Tipo do alvo</th><th>Alvo</th><th>Detalhes</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>

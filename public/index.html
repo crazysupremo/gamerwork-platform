@@ -99,6 +99,8 @@
       <nav class="navbar-links">
         <button class="navbar-link active" id="nav-inicio">Início</button>
         <button class="navbar-link" id="nav-jogos">Jogos</button>
+        <button class="navbar-link" id="nav-lfg">🎯 Jogar</button>
+        <button class="navbar-link" id="nav-feed">📰 Feed</button>
         <button class="navbar-link" id="nav-comunidade">Comunidade</button>
         <button class="navbar-link" id="nav-torneios">Torneios</button>
         <button class="navbar-link" id="nav-sobre">Sobre</button>
@@ -137,6 +139,7 @@
       <span id="active-server-name">NEXT GAME</span>
       <div class="sidebar-header-actions">
         <button id="btn-tournaments" title="Torneios">🏆</button>
+        <button id="btn-shop-coins" title="Loja NEXT Coins">🪙</button>
         <button id="btn-ranking" title="Ranking semanal">📊</button>
         <button id="btn-server-info" title="Informações e regras do servidor">ℹ️</button>
         <button id="btn-server-manage" title="Membros, cargos e convite">⚙️</button>
@@ -226,6 +229,10 @@
     <section id="text-panel" class="text-panel hidden">
       <div id="messages" class="messages"></div>
       <div id="typing-indicator" class="typing-indicator"></div>
+      <div id="reply-banner" class="reply-banner hidden">
+        <span class="reply-banner-text"></span>
+        <button type="button" id="btn-cancel-reply">✕</button>
+      </div>
       <form id="form-message" class="message-form">
         <input type="text" id="message-input" placeholder="Escreva uma mensagem..." autocomplete="off" />
         <button type="submit">Enviar</button>
@@ -429,6 +436,21 @@
         <select id="profile-status-select"></select>
         <input type="text" id="profile-status" placeholder="Digite o jogo/status" maxlength="60" class="hidden" />
 
+        <label>Bio</label>
+        <textarea id="profile-bio" rows="2" maxlength="300" placeholder="Fale um pouco sobre você..."></textarea>
+
+        <div style="display:flex; gap:8px;">
+          <div style="flex:1;">
+            <label>Região</label>
+            <input type="text" id="profile-region" placeholder="ex: BR, NA, EU" />
+          </div>
+          <div style="flex:1;">
+            <label>Idioma</label>
+            <input type="text" id="profile-language" placeholder="ex: Português" />
+          </div>
+        </div>
+        <p class="hint">Região e idioma ajudam o matchmaking do "🎯 Jogar" a te encontrar parceiros compatíveis.</p>
+
         <label>E-mail atual</label>
         <input type="email" id="profile-email" placeholder="seu@email.com" />
 
@@ -478,10 +500,268 @@
     <div id="settings-tab-privacidade" class="manage-tab-panel hidden">
       <p class="hint" style="margin-bottom:10px;">Usuários bloqueados não conseguem te mandar mensagem, pedido de amizade ou convite.</p>
       <div id="blocked-users-list"></div>
+
+      <p class="hint" style="margin:18px 0 10px; border-top:1px solid #3a3c42; padding-top:14px;">
+        Conexões — nome de usuário nas outras plataformas (auto-declarado, sem verificação OAuth ainda).
+      </p>
+      <div id="integrations-list"></div>
     </div>
 
     <div id="settings-tab-notificacoes" class="manage-tab-panel hidden">
       <div id="notification-prefs-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Jogar — LFG, Matchmaking, Times e Clãs -->
+<div id="modal-lfg" class="modal-overlay hidden">
+  <div class="modal-card modal-card-wide">
+    <h2>🎯 Jogar</h2>
+    <div class="manage-tabs">
+      <button type="button" class="manage-tab active" data-lfg-tab="buscar">🔍 Buscar Grupos</button>
+      <button type="button" class="manage-tab" data-lfg-tab="criar">➕ Criar Post</button>
+      <button type="button" class="manage-tab" data-lfg-tab="perfis">🎮 Meus Perfis</button>
+      <button type="button" class="manage-tab" data-lfg-tab="times">🛡️ Times</button>
+      <button type="button" class="manage-tab" data-lfg-tab="clas">⚔️ Clãs</button>
+      <button type="button" class="manage-tab" data-lfg-tab="orgs">🏢 Organizações</button>
+      <button type="button" class="manage-tab" data-lfg-tab="market">💼 Marketplace</button>
+    </div>
+
+    <div id="lfg-tab-buscar" class="manage-tab-panel">
+      <div id="lfg-posts-list"></div>
+    </div>
+
+    <div id="lfg-tab-criar" class="manage-tab-panel hidden">
+      <form id="form-lfg-create">
+        <label>Jogo</label>
+        <input type="text" id="lfg-game" placeholder="ex: Valorant" required />
+        <label>Jogadores procurados</label>
+        <input type="number" id="lfg-players" min="1" max="20" value="1" />
+        <label>Função (opcional)</label>
+        <input type="text" id="lfg-role" placeholder="ex: suporte, IGL, duelista" />
+        <label>Rank mín. / máx. (opcional)</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="lfg-rank-min" placeholder="mín." style="flex:1;" />
+          <input type="text" id="lfg-rank-max" placeholder="máx." style="flex:1;" />
+        </div>
+        <label>Região</label>
+        <input type="text" id="lfg-region" placeholder="ex: BR, NA, EU" />
+        <label>Idioma</label>
+        <input type="text" id="lfg-language" placeholder="ex: Português" />
+        <label>Microfone</label>
+        <select id="lfg-mic">
+          <option value="opcional">Opcional</option>
+          <option value="obrigatorio">Obrigatório</option>
+        </select>
+        <label>Horário disponível (opcional)</label>
+        <input type="text" id="lfg-time" placeholder="ex: noites, fins de semana" />
+        <label>Observação (opcional)</label>
+        <textarea id="lfg-note" rows="2" maxlength="300"></textarea>
+        <div class="modal-actions">
+          <button type="submit">Publicar</button>
+        </div>
+        <p id="lfg-create-error" class="auth-error"></p>
+      </form>
+    </div>
+
+    <div id="lfg-tab-perfis" class="manage-tab-panel hidden">
+      <div id="game-profiles-list"></div>
+      <form id="form-game-profile" style="margin-top:14px; border-top:1px solid #3a3c42; padding-top:14px;">
+        <label>Jogo</label>
+        <input type="text" id="gp-game" placeholder="ex: League of Legends" required />
+        <label>Rank</label>
+        <input type="text" id="gp-rank" placeholder="ex: Diamante II" />
+        <label>Função</label>
+        <input type="text" id="gp-role" placeholder="ex: Suporte" />
+        <div style="display:flex; gap:8px;">
+          <div style="flex:1;"><label>Horas</label><input type="number" id="gp-hours" min="0" /></div>
+          <div style="flex:1;"><label>Vitórias</label><input type="number" id="gp-wins" min="0" /></div>
+          <div style="flex:1;"><label>Derrotas</label><input type="number" id="gp-losses" min="0" /></div>
+        </div>
+        <div class="modal-actions">
+          <button type="submit">Salvar perfil de jogo</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="lfg-tab-times" class="manage-tab-panel hidden">
+      <div id="teams-list"></div>
+      <form id="form-team-create" style="margin-top:14px; border-top:1px solid #3a3c42; padding-top:14px;">
+        <label>Nome do time</label>
+        <input type="text" id="team-name" required />
+        <label>Jogo principal</label>
+        <input type="text" id="team-game" />
+        <label>Descrição</label>
+        <textarea id="team-description" rows="2" maxlength="500"></textarea>
+        <div class="modal-actions">
+          <button type="submit">Criar time</button>
+        </div>
+        <p id="team-create-error" class="auth-error"></p>
+      </form>
+    </div>
+
+    <div id="lfg-tab-clas" class="manage-tab-panel hidden">
+      <div id="clans-list"></div>
+      <form id="form-clan-create" style="margin-top:14px; border-top:1px solid #3a3c42; padding-top:14px;">
+        <label>Nome do clã</label>
+        <input type="text" id="clan-name" required />
+        <label>Descrição</label>
+        <textarea id="clan-description" rows="2" maxlength="500"></textarea>
+        <div class="modal-actions">
+          <button type="submit">Criar clã</button>
+        </div>
+        <p id="clan-create-error" class="auth-error"></p>
+      </form>
+    </div>
+
+    <div id="lfg-tab-orgs" class="manage-tab-panel hidden">
+      <div id="orgs-list"></div>
+      <form id="form-org-create" style="margin-top:14px; border-top:1px solid #3a3c42; padding-top:14px;">
+        <label>Nome da organização</label>
+        <input type="text" id="org-name" required />
+        <label>Descrição</label>
+        <textarea id="org-description" rows="2" maxlength="500"></textarea>
+        <div class="modal-actions">
+          <button type="submit">Criar organização</button>
+        </div>
+        <p id="org-create-error" class="auth-error"></p>
+      </form>
+    </div>
+
+    <div id="lfg-tab-market" class="manage-tab-panel hidden">
+      <p class="hint" style="margin-bottom:10px;">Divulgação de perfis profissionais (designers, editores, coaches, devs, casters). Contato é feito por mensagem direta — a plataforma não processa pagamento.</p>
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <select id="market-filter-category" style="flex:1;">
+          <option value="">Todas as categorias</option>
+          <option value="designer">Designer</option>
+          <option value="editor">Editor de vídeo</option>
+          <option value="coach">Coach</option>
+          <option value="desenvolvedor">Desenvolvedor</option>
+          <option value="caster">Caster</option>
+          <option value="criador_conteudo">Criador de conteúdo</option>
+        </select>
+      </div>
+      <div id="market-list"></div>
+      <form id="form-market-profile" style="margin-top:14px; border-top:1px solid #3a3c42; padding-top:14px;">
+        <label>Meu perfil profissional</label>
+        <select id="market-category" required>
+          <option value="">Escolha uma categoria</option>
+          <option value="designer">Designer</option>
+          <option value="editor">Editor de vídeo</option>
+          <option value="coach">Coach</option>
+          <option value="desenvolvedor">Desenvolvedor</option>
+          <option value="caster">Caster</option>
+          <option value="criador_conteudo">Criador de conteúdo</option>
+        </select>
+        <label>Título</label>
+        <input type="text" id="market-title" required placeholder="ex: Editor de clipes de Valorant" />
+        <label>Descrição / portfólio</label>
+        <textarea id="market-description" rows="2" maxlength="500"></textarea>
+        <input type="url" id="market-portfolio" placeholder="Link do portfólio (opcional)" />
+        <label>Valor (texto livre, opcional)</label>
+        <input type="text" id="market-rate" placeholder="ex: a combinar, R$50/hora" />
+        <div class="modal-actions">
+          <button type="submit">Publicar perfil</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-close-lfg">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Loja NEXT Coins -->
+<div id="modal-shop-coins" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>🪙 Loja NEXT Coins</h2>
+    <p class="hint">Seu saldo: <strong id="shop-coins-balance">0</strong> NEXT Coins — ganhe completando missões, desbloqueando recompensas e vencendo torneios.</p>
+    <div id="shop-items-list"></div>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-shop-coins">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Feed — publicações, clipes, ao vivo, eventos -->
+<div id="modal-feed" class="modal-overlay hidden">
+  <div class="modal-card modal-card-wide">
+    <h2>📰 Feed</h2>
+    <div class="manage-tabs">
+      <button type="button" class="manage-tab active" data-feed-tab="feed">📰 Feed</button>
+      <button type="button" class="manage-tab" data-feed-tab="clipes">🎬 Clipes</button>
+      <button type="button" class="manage-tab" data-feed-tab="aovivo">🔴 Ao Vivo</button>
+      <button type="button" class="manage-tab" data-feed-tab="eventos">📅 Eventos</button>
+    </div>
+
+    <div id="feed-tab-feed" class="manage-tab-panel">
+      <form id="form-feed-post" style="margin-bottom:14px;">
+        <textarea id="feed-post-text" rows="2" maxlength="500" placeholder="Compartilhe algo com a comunidade..."></textarea>
+        <div class="modal-actions" style="justify-content:flex-start;">
+          <button type="submit">Publicar</button>
+        </div>
+      </form>
+      <div id="feed-posts-list"></div>
+    </div>
+
+    <div id="feed-tab-clipes" class="manage-tab-panel hidden">
+      <div id="clips-list"></div>
+      <form id="form-clip-create" style="margin-top:14px; border-top:1px solid #3a3c42; padding-top:14px;">
+        <label>Título</label>
+        <input type="text" id="clip-title" required maxlength="100" />
+        <label>Jogo</label>
+        <input type="text" id="clip-game" maxlength="60" />
+        <label>Link do vídeo (YouTube, Twitch clip, Streamable etc)</label>
+        <input type="url" id="clip-url" required placeholder="https://..." />
+        <label>Descrição</label>
+        <textarea id="clip-description" rows="2" maxlength="500"></textarea>
+        <div class="modal-actions">
+          <button type="submit">Publicar clipe</button>
+        </div>
+        <p id="clip-create-error" class="auth-error"></p>
+      </form>
+    </div>
+
+    <div id="feed-tab-aovivo" class="manage-tab-panel hidden">
+      <div id="streams-list"></div>
+      <form id="form-go-live" style="margin-top:14px; border-top:1px solid #3a3c42; padding-top:14px;">
+        <label>Título da transmissão</label>
+        <input type="text" id="stream-title" required maxlength="100" />
+        <label>Jogo</label>
+        <input type="text" id="stream-game" maxlength="60" />
+        <label>Link (Twitch, YouTube etc)</label>
+        <input type="url" id="stream-url" required placeholder="https://twitch.tv/seucanal" />
+        <div class="modal-actions">
+          <button type="submit">🔴 Ir ao vivo</button>
+          <button type="button" id="btn-end-stream">Encerrar transmissão</button>
+        </div>
+        <p id="stream-error" class="auth-error"></p>
+      </form>
+    </div>
+
+    <div id="feed-tab-eventos" class="manage-tab-panel hidden">
+      <div id="events-list"></div>
+      <form id="form-event-create" style="margin-top:14px; border-top:1px solid #3a3c42; padding-top:14px;">
+        <label>Nome do evento</label>
+        <input type="text" id="event-name" required maxlength="100" />
+        <label>Jogo</label>
+        <input type="text" id="event-game" maxlength="60" />
+        <label>Data</label>
+        <input type="date" id="event-date" />
+        <label>Limite de participantes (opcional)</label>
+        <input type="number" id="event-max" min="1" />
+        <label>Descrição</label>
+        <textarea id="event-description" rows="2" maxlength="500"></textarea>
+        <div class="modal-actions">
+          <button type="submit">Criar evento</button>
+        </div>
+        <p id="event-create-error" class="auth-error"></p>
+      </form>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-close-feed">Fechar</button>
     </div>
   </div>
 </div>

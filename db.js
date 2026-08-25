@@ -248,6 +248,311 @@ async function initDb() {
       user_id TEXT PRIMARY KEY,
       prefs TEXT NOT NULL DEFAULT '{}'
     );
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      actor_id TEXT,
+      actor_username TEXT,
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      details TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS game_profiles (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      game TEXT NOT NULL,
+      rank TEXT,
+      role TEXT,
+      hours INTEGER NOT NULL DEFAULT 0,
+      wins INTEGER NOT NULL DEFAULT 0,
+      losses INTEGER NOT NULL DEFAULT 0,
+      kills INTEGER NOT NULL DEFAULT 0,
+      deaths INTEGER NOT NULL DEFAULT 0,
+      assists INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, game)
+    );
+
+    CREATE TABLE IF NOT EXISTS lfg_posts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      game TEXT NOT NULL,
+      players_needed INTEGER NOT NULL DEFAULT 1,
+      rank_min TEXT,
+      rank_max TEXT,
+      region TEXT,
+      language TEXT,
+      mic_required TEXT NOT NULL DEFAULT 'opcional',
+      role TEXT,
+      available_time TEXT,
+      note TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS lfg_group_members (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(post_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS teams (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      logo TEXT,
+      banner TEXT,
+      description TEXT,
+      game TEXT,
+      leader_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS team_members (
+      id TEXT PRIMARY KEY,
+      team_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'jogador',
+      joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(team_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS clans (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      description TEXT,
+      logo TEXT,
+      level INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS clan_members (
+      id TEXT PRIMARY KEY,
+      clan_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'membro',
+      joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(clan_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS reputation_endorsements (
+      id TEXT PRIMARY KEY,
+      from_user_id TEXT NOT NULL,
+      to_user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(from_user_id, to_user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS tournament_matches (
+      id TEXT PRIMARY KEY,
+      tournament_id TEXT NOT NULL,
+      round INTEGER NOT NULL,
+      match_index INTEGER NOT NULL,
+      player_a_id TEXT,
+      player_a_name TEXT,
+      player_b_id TEXT,
+      player_b_name TEXT,
+      winner_id TEXT,
+      score_a INTEGER,
+      score_b INTEGER,
+      status TEXT NOT NULL DEFAULT 'pendente',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS seasons (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      starts_at TEXT NOT NULL,
+      ends_at TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS feed_posts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      type TEXT NOT NULL,
+      text TEXT,
+      ref_type TEXT,
+      ref_id TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS clips (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      game TEXT,
+      video_url TEXT NOT NULL,
+      tags TEXT,
+      views INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS content_comments (
+      id TEXT PRIMARY KEY,
+      content_type TEXT NOT NULL,
+      content_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      text TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS content_likes (
+      id TEXT PRIMARY KEY,
+      content_type TEXT NOT NULL,
+      content_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(content_type, content_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS streams (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      title TEXT NOT NULL,
+      game TEXT,
+      external_url TEXT NOT NULL,
+      is_live INTEGER NOT NULL DEFAULT 1,
+      started_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS stream_follows (
+      id TEXT PRIMARY KEY,
+      follower_id TEXT NOT NULL,
+      streamer_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(follower_id, streamer_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS events (
+      id TEXT PRIMARY KEY,
+      category TEXT,
+      name TEXT NOT NULL,
+      game TEXT,
+      description TEXT,
+      event_date TEXT,
+      max_participants INTEGER,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS event_participants (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(event_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS coin_transactions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS shop_items (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      type TEXT NOT NULL DEFAULT 'cosmetico',
+      cost INTEGER NOT NULL,
+      image TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS coin_purchases (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, item_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS organizations (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      logo TEXT,
+      banner TEXT,
+      description TEXT,
+      owner_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS organization_teams (
+      id TEXT PRIMARY KEY,
+      org_id TEXT NOT NULL,
+      team_id TEXT NOT NULL,
+      UNIQUE(org_id, team_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS organization_sponsors (
+      id TEXT PRIMARY KEY,
+      org_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      logo_url TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS org_tryouts (
+      id TEXT PRIMARY KEY,
+      org_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      game TEXT,
+      description TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS org_tryout_applications (
+      id TEXT PRIMARY KEY,
+      tryout_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      message TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(tryout_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS marketplace_profiles (
+      id TEXT PRIMARY KEY,
+      user_id TEXT UNIQUE NOT NULL,
+      category TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      portfolio_url TEXT,
+      rate_display TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS marketplace_reviews (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL,
+      reviewer_id TEXT NOT NULL,
+      rating INTEGER NOT NULL,
+      comment TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(profile_id, reviewer_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS external_integrations (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      external_username TEXT,
+      connected_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, provider)
+    );
   `);
 
   // Migração leve pra bancos criados antes de alguma dessas colunas existir.
@@ -273,6 +578,14 @@ async function initDb() {
   await ensureColumn('channels', 'read_only INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'totp_secret TEXT');
   await ensureColumn('users', 'totp_enabled INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'timeout_until TEXT');
+  await ensureColumn('messages', 'thread_parent_id TEXT');
+  await ensureColumn('messages', 'has_link INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'reputation INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'region TEXT');
+  await ensureColumn('users', 'bio TEXT');
+  await ensureColumn('users', 'language TEXT');
+  await ensureColumn('users', 'coins INTEGER NOT NULL DEFAULT 0');
 
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },

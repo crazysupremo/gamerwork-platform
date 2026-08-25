@@ -379,6 +379,32 @@ body {
 .message .meta strong { color: #e6e6e6; }
 .message .meta .edited-tag { font-size: 10px; color: #6d7178; }
 .message .meta .pinned-tag { font-size: 10px; color: #f0b232; font-weight: 700; }
+.tournament-bracket {
+  display: flex; gap: 16px; overflow-x: auto; padding: 12px 0; margin-top: 10px;
+  border-top: 1px solid #2c2e36;
+}
+.bracket-round { display: flex; flex-direction: column; gap: 10px; min-width: 180px; justify-content: space-around; }
+.bracket-round-label { font-size: 11px; font-weight: 800; color: #949ba4; text-transform: uppercase; }
+.bracket-match { background: #1e1f22; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.bracket-side { font-size: 13px; color: #949ba4; padding: 2px 4px; }
+.bracket-side.bracket-winner { color: #23a55a; font-weight: 700; }
+.bracket-report-btn {
+  margin-top: 4px; font-size: 11px; padding: 4px 8px; border-radius: 4px; border: none;
+  background: var(--gradient-brand); color: white; cursor: pointer;
+}
+.thread-reply-tag {
+  font-size: 11px; color: #6d7178; margin-bottom: 2px; padding-left: 6px;
+  border-left: 2px solid #3a3c42;
+}
+.reply-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #26272e; padding: 8px 14px; font-size: 12px; color: #dbdee1;
+  border-top: 1px solid #33353d;
+}
+.reply-banner button {
+  background: none; border: none; color: #949ba4; cursor: pointer; font-size: 14px;
+}
+.reply-banner button:hover { color: #f2f3f5; }
 .message.bot-message { background: rgba(0, 217, 192, 0.05); border-left: 2px solid var(--accent-3); padding-left: 8px; }
 .message.bot-message .message-avatar { background: linear-gradient(135deg, #00d9c0, #00a3ff); }
 .bot-tag {

@@ -12,12 +12,123 @@ async function init() {
     return;
   }
   document.getElementById('admin-content').classList.remove('hidden');
+  loadAnalytics();
+  loadSuspiciousAccounts();
+  loadClipsAdmin();
+  loadShopAdmin();
   loadReports();
   loadBlocked();
   loadFlaggedFrames();
   loadFlagged();
   loadUsers();
+  loadAuditLogs();
 }
+
+async function loadAnalytics() {
+  const res = await fetch('/api/admin/analytics', { credentials: 'include' });
+  const a = await res.json();
+  const grid = document.getElementById('analytics-grid');
+  const stats = [
+    ['Usuários', a.total_users],
+    ['Banidos', a.banned_users],
+    ['Servidores', a.total_servers],
+    ['Canais', a.total_channels],
+    ['Msgs hoje', a.messages_today],
+    ['Msgs 7 dias', a.messages_week],
+    ['Torneios', a.total_tournaments],
+    ['Sessões ativas', a.active_sessions],
+    ['Clipes', a.total_clips],
+    ['Times', a.total_teams],
+    ['Clãs', a.total_clans],
+    ['Organizações', a.total_orgs],
+    ['Eventos', a.total_events],
+  ];
+  grid.innerHTML = stats
+    .map(([label, num]) => `<div class="stat-card"><div class="num">${num}</div><div class="label">${label}</div></div>`)
+    .join('');
+}
+
+async function loadSuspiciousAccounts() {
+  const res = await fetch('/api/admin/suspicious-accounts', { credentials: 'include' });
+  const rows = await res.json();
+  const tbody = document.querySelector('#suspicious-table tbody');
+  tbody.innerHTML = '';
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="color:#949ba4;">Nenhum sinal de contas duplicadas.</td></tr>';
+    return;
+  }
+  rows.forEach((r) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(r.ip)}</td><td>${escapeHtml(r.usernames)}</td><td>${r.account_count}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function loadClipsAdmin() {
+  const res = await fetch('/api/admin/clips', { credentials: 'include' });
+  const rows = await res.json();
+  const tbody = document.querySelector('#clips-admin-table tbody');
+  tbody.innerHTML = '';
+  rows.forEach((c) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${new Date(c.created_at).toLocaleString('pt-BR')}</td>
+      <td>${escapeHtml(c.username)}</td>
+      <td>${escapeHtml(c.title)}</td>
+      <td>${c.views}</td>
+      <td><button class="action danger" data-action="delete-clip" data-id="${c.id}">Excluir</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('button[data-action="delete-clip"]').forEach((btn) =>
+    btn.addEventListener('click', async () => {
+      if (!confirm('Excluir esse clipe?')) return;
+      await fetch(`/api/admin/clips/${btn.dataset.id}`, { method: 'DELETE', credentials: 'include' });
+      loadClipsAdmin();
+    })
+  );
+}
+
+async function loadShopAdmin() {
+  const res = await fetch('/api/admin/shop-items', { credentials: 'include' });
+  const rows = await res.json();
+  const tbody = document.querySelector('#shop-admin-table tbody');
+  tbody.innerHTML = '';
+  rows
+    .filter((i) => i.active)
+    .forEach((i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(i.name)}</td>
+        <td>🪙 ${i.cost}</td>
+        <td><button class="action danger" data-action="delete-item" data-id="${i.id}">Remover</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  tbody.querySelectorAll('button[data-action="delete-item"]').forEach((btn) =>
+    btn.addEventListener('click', async () => {
+      await fetch(`/api/admin/shop-items/${btn.dataset.id}`, { method: 'DELETE', credentials: 'include' });
+      loadShopAdmin();
+    })
+  );
+}
+
+document.getElementById('btn-shop-add').addEventListener('click', async () => {
+  const name = document.getElementById('shop-new-name').value.trim();
+  const description = document.getElementById('shop-new-description').value.trim();
+  const cost = document.getElementById('shop-new-cost').value;
+  if (!name || !cost) return alert('Preencha nome e custo');
+  await fetch('/api/admin/shop-items', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ name, description, cost }),
+  });
+  document.getElementById('shop-new-name').value = '';
+  document.getElementById('shop-new-description').value = '';
+  document.getElementById('shop-new-cost').value = '';
+  loadShopAdmin();
+});
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -176,6 +287,7 @@ async function loadUsers() {
         ${u.is_banned
           ? `<button class="action" data-action="unban" data-id="${u.id}">Desbanir</button>`
           : `<button class="action danger" data-action="ban" data-id="${u.id}">Banir</button>`}
+        <button class="action" data-action="timeout" data-id="${u.id}">Timeout 10min</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -187,6 +299,9 @@ async function loadUsers() {
   tbody.querySelectorAll('button[data-action="unban"]').forEach((btn) =>
     btn.addEventListener('click', () => unbanUser(btn.dataset.id))
   );
+  tbody.querySelectorAll('button[data-action="timeout"]').forEach((btn) =>
+    btn.addEventListener('click', () => timeoutUser(btn.dataset.id))
+  );
 }
 
 async function banUser(id) {
@@ -196,11 +311,57 @@ async function banUser(id) {
   loadReports();
   loadBlocked();
   loadFlaggedFrames();
+  loadAuditLogs();
 }
 
 async function unbanUser(id) {
   await fetch(`/api/admin/users/${id}/unban`, { method: 'POST', credentials: 'include' });
   loadUsers();
+  loadAuditLogs();
 }
+
+async function timeoutUser(id) {
+  const minutes = prompt('Timeout de quantos minutos?', '10');
+  if (minutes === null) return;
+  await fetch(`/api/admin/users/${id}/timeout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ minutes: parseInt(minutes, 10) || 10 }),
+  });
+  loadAuditLogs();
+  alert('Timeout aplicado.');
+}
+
+async function loadAuditLogs() {
+  const actor = document.getElementById('audit-filter-actor').value.trim();
+  const action = document.getElementById('audit-filter-action').value.trim();
+  const params = new URLSearchParams();
+  if (actor) params.set('actor', actor);
+  if (action) params.set('action', action);
+  const res = await fetch(`/api/admin/audit-logs?${params.toString()}`, { credentials: 'include' });
+  const rows = await res.json();
+  const tbody = document.querySelector('#audit-table tbody');
+  tbody.innerHTML = '';
+  rows.forEach((r) => {
+    const tr = document.createElement('tr');
+    let details = '';
+    try {
+      details = r.details ? JSON.stringify(JSON.parse(r.details)) : '';
+    } catch (_) {
+      details = r.details || '';
+    }
+    tr.innerHTML = `
+      <td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
+      <td>${escapeHtml(r.actor_username || '-')}</td>
+      <td>${escapeHtml(r.action)}</td>
+      <td>${escapeHtml(r.target_type || '-')}</td>
+      <td>${escapeHtml(r.target_id || '-')}</td>
+      <td>${escapeHtml(details)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+document.getElementById('btn-audit-filter').addEventListener('click', loadAuditLogs);
 
 init();
