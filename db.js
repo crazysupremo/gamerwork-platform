@@ -225,6 +225,29 @@ async function initDb() {
       reviewed INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS blocked_users (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      blocked_user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, blocked_user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      user_agent TEXT,
+      ip TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+      revoked INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS notification_prefs (
+      user_id TEXT PRIMARY KEY,
+      prefs TEXT NOT NULL DEFAULT '{}'
+    );
   `);
 
   // Migração leve pra bancos criados antes de alguma dessas colunas existir.
@@ -245,6 +268,11 @@ async function initDb() {
   await ensureColumn('channels', 'created_by TEXT');
   await ensureColumn('messages', 'edited INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('messages', 'deleted INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('messages', 'pinned INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('channels', 'slow_mode_seconds INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('channels', 'read_only INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'totp_secret TEXT');
+  await ensureColumn('users', 'totp_enabled INTEGER NOT NULL DEFAULT 0');
 
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },

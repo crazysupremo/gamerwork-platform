@@ -13,6 +13,8 @@ const { Server } = require('socket.io');
 const db = require('./db');
 const { AI_BOT_USER_ID, AI_BOT_USERNAME } = require('./db');
 const { scanText } = require('./moderation');
+const { authenticator } = require('otplib');
+const QRCode = require('qrcode');
 
 const app = express();
 const httpServer = createServer(app);
@@ -73,12 +75,39 @@ function asyncHandler(fn) {
   };
 }
 
+// Cada login/registro cria uma linha em user_sessions, além do cookie
+// assinado de sempre — é o que permite listar "sessões ativas" de verdade e
+// derrubar um dispositivo remotamente (revoked=1), coisa que um cookie
+// sozinho (sem estado no servidor) não permitiria fazer.
+async function createUserSession(userId, req) {
+  const id = uuidv4();
+  await db.run('INSERT INTO user_sessions (id, user_id, user_agent, ip) VALUES (?, ?, ?, ?)', [
+    id,
+    userId,
+    String(req.headers['user-agent'] || '').slice(0, 300),
+    req.ip || '',
+  ]);
+  return id;
+}
+
 async function requireAuth(req, res, next) {
   try {
-    if (!req.session.userId) return res.status(401).json({ error: 'Não autenticado' });
+    if (!req.session.userId || !req.session.sessionId) {
+      return res.status(401).json({ error: 'Não autenticado' });
+    }
     const user = await db.get('SELECT * FROM users WHERE id = ?', [req.session.userId]);
     if (!user || user.is_banned) return res.status(403).json({ error: 'Conta banida ou inválida' });
+    const sessionRow = await db.get('SELECT * FROM user_sessions WHERE id = ? AND user_id = ?', [
+      req.session.sessionId,
+      user.id,
+    ]);
+    if (!sessionRow || sessionRow.revoked) {
+      return res.status(401).json({ error: 'Sua sessão foi encerrada — faça login de novo' });
+    }
+    // Atualiza "visto por último" sem travar a resposta nisso.
+    db.run("UPDATE user_sessions SET last_seen_at = datetime('now') WHERE id = ?", [sessionRow.id]).catch(() => {});
     req.user = user;
+    req.currentSessionId = sessionRow.id;
     next();
   } catch (err) {
     console.error(err);
@@ -89,6 +118,16 @@ async function requireAuth(req, res, next) {
 function requireAdmin(req, res, next) {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Somente admins' });
   next();
+}
+
+// Tokens temporários pra segunda etapa do login com 2FA — vivem só na
+// memória do processo (não precisam persistir, expiram sozinhos em minutos).
+const pending2FALogins = new Map(); // tempToken -> { userId, expires }
+const PENDING_2FA_TTL_MS = 5 * 60 * 1000;
+function createPending2FAToken(userId) {
+  const token = crypto.randomBytes(24).toString('hex');
+  pending2FALogins.set(token, { userId, expires: Date.now() + PENDING_2FA_TTL_MS });
+  return token;
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -446,6 +485,7 @@ app.post(
     );
 
     req.session.userId = id;
+    req.session.sessionId = await createUserSession(id, req);
     res.json({ id, username, is_admin: isFirstUser ? 1 : 0 });
 
     // Toda conta nova já entra automaticamente nos dois servidores públicos
@@ -475,13 +515,51 @@ app.post(
     }
     if (user.is_banned) return res.status(403).json({ error: 'Esta conta foi banida' });
 
+    // Conta com 2FA ligado: não loga direto — devolve um token temporário
+    // que o cliente troca por uma sessão de verdade em /api/login/2fa,
+    // depois de digitar o código do app autenticador.
+    if (user.totp_enabled) {
+      const tempToken = createPending2FAToken(user.id);
+      return res.json({ requires2fa: true, tempToken });
+    }
+
     req.session.userId = user.id;
+    req.session.sessionId = await createUserSession(user.id, req);
+    res.json({ id: user.id, username: user.username, is_admin: user.is_admin });
+    updateStreakAndRewards(user).catch((err) => console.error('Erro ao atualizar streak:', err));
+  })
+);
+
+app.post(
+  '/api/login/2fa',
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { tempToken, code } = req.body || {};
+    const pending = tempToken && pending2FALogins.get(tempToken);
+    if (!pending || pending.expires < Date.now()) {
+      if (tempToken) pending2FALogins.delete(tempToken);
+      return res.status(401).json({ error: 'Login expirado — tente novamente desde o início.' });
+    }
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [pending.userId]);
+    if (!user || user.is_banned || !user.totp_enabled) {
+      pending2FALogins.delete(tempToken);
+      return res.status(401).json({ error: 'Não foi possível concluir o login' });
+    }
+    const valid = code && authenticator.check(String(code).trim(), user.totp_secret);
+    if (!valid) return res.status(401).json({ error: 'Código incorreto' });
+
+    pending2FALogins.delete(tempToken);
+    req.session.userId = user.id;
+    req.session.sessionId = await createUserSession(user.id, req);
     res.json({ id: user.id, username: user.username, is_admin: user.is_admin });
     updateStreakAndRewards(user).catch((err) => console.error('Erro ao atualizar streak:', err));
   })
 );
 
 app.post('/api/logout', (req, res) => {
+  if (req.session && req.session.sessionId) {
+    db.run('UPDATE user_sessions SET revoked = 1 WHERE id = ?', [req.session.sessionId]).catch(() => {});
+  }
   req.session = null;
   res.json({ ok: true });
 });
@@ -581,6 +659,178 @@ app.patch(
       avatar: updated.avatar,
       avatar_frame: updated.avatar_frame,
     });
+  })
+);
+
+// ---------- 2FA (autenticação em duas etapas via app autenticador, TOTP) ----------
+
+app.post(
+  '/api/2fa/setup',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.user.totp_enabled) return res.status(400).json({ error: '2FA já está ativado nessa conta' });
+    const secret = authenticator.generateSecret();
+    // Guarda o segredo já, mas totp_enabled só vira 1 depois de confirmar com
+    // um código válido em /api/2fa/verify — assim não trava a conta se a
+    // pessoa fechar a tela no meio do processo.
+    await db.run('UPDATE users SET totp_secret = ? WHERE id = ?', [secret, req.user.id]);
+    const otpauth = authenticator.keyuri(req.user.username, 'NEXT GAME', secret);
+    const qrDataUrl = await QRCode.toDataURL(otpauth);
+    res.json({ secret, qr: qrDataUrl });
+  })
+);
+
+app.post(
+  '/api/2fa/verify',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { code } = req.body || {};
+    if (!req.user.totp_secret) return res.status(400).json({ error: 'Comece pelo /2fa/setup primeiro' });
+    const valid = code && authenticator.check(String(code).trim(), req.user.totp_secret);
+    if (!valid) return res.status(400).json({ error: 'Código incorreto — confira o app autenticador' });
+    await db.run('UPDATE users SET totp_enabled = 1 WHERE id = ?', [req.user.id]);
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  '/api/2fa/disable',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { currentPassword } = req.body || {};
+    if (!currentPassword || !bcrypt.compareSync(currentPassword, req.user.password_hash)) {
+      return res.status(401).json({ error: 'Senha atual incorreta' });
+    }
+    await db.run('UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?', [req.user.id]);
+    res.json({ ok: true });
+  })
+);
+
+app.get(
+  '/api/2fa/status',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json({ enabled: !!req.user.totp_enabled });
+  })
+);
+
+// ---------- SESSÕES ATIVAS / LOGOUT REMOTO ----------
+
+app.get(
+  '/api/sessions',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const sessions = await db.all(
+      'SELECT id, user_agent, ip, created_at, last_seen_at FROM user_sessions WHERE user_id = ? AND revoked = 0 ORDER BY last_seen_at DESC',
+      [req.user.id]
+    );
+    res.json(sessions.map((s) => ({ ...s, is_current: s.id === req.currentSessionId })));
+  })
+);
+
+app.post(
+  '/api/sessions/:id/revoke',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('UPDATE user_sessions SET revoked = 1 WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  '/api/sessions/revoke-others',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('UPDATE user_sessions SET revoked = 1 WHERE user_id = ? AND id != ?', [
+      req.user.id,
+      req.currentSessionId,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+// ---------- BLOQUEIO DE USUÁRIOS ----------
+
+app.get(
+  '/api/blocked-users',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT u.id, u.username, u.avatar FROM blocked_users b
+       JOIN users u ON u.id = b.blocked_user_id
+       WHERE b.user_id = ? ORDER BY b.created_at DESC`,
+      [req.user.id]
+    );
+    res.json(rows);
+  })
+);
+
+app.post(
+  '/api/blocked-users/:userId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.params.userId === req.user.id) return res.status(400).json({ error: 'Você não pode bloquear a si mesmo' });
+    await db.run('INSERT OR IGNORE INTO blocked_users (id, user_id, blocked_user_id) VALUES (?, ?, ?)', [
+      uuidv4(),
+      req.user.id,
+      req.params.userId,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/blocked-users/:userId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM blocked_users WHERE user_id = ? AND blocked_user_id = ?', [
+      req.user.id,
+      req.params.userId,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+// ---------- PREFERÊNCIAS DE NOTIFICAÇÃO ----------
+
+const DEFAULT_NOTIFICATION_PREFS = {
+  mensagem: true,
+  convite_amizade: true,
+  convite_servidor: true,
+  torneio: true,
+  conquista: true,
+  transmissao: true,
+};
+
+app.get(
+  '/api/notification-prefs',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const row = await db.get('SELECT prefs FROM notification_prefs WHERE user_id = ?', [req.user.id]);
+    let prefs = { ...DEFAULT_NOTIFICATION_PREFS };
+    if (row) {
+      try {
+        prefs = { ...prefs, ...JSON.parse(row.prefs) };
+      } catch (_) {}
+    }
+    res.json(prefs);
+  })
+);
+
+app.put(
+  '/api/notification-prefs',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const prefs = { ...DEFAULT_NOTIFICATION_PREFS };
+    Object.keys(DEFAULT_NOTIFICATION_PREFS).forEach((key) => {
+      if (typeof req.body[key] === 'boolean') prefs[key] = req.body[key];
+    });
+    await db.run(
+      `INSERT INTO notification_prefs (user_id, prefs) VALUES (?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET prefs = excluded.prefs`,
+      [req.user.id, JSON.stringify(prefs)]
+    );
+    res.json(prefs);
   })
 );
 
@@ -1164,6 +1414,12 @@ app.post(
     if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
     if (target.id === req.user.id) return res.status(400).json({ error: 'Você não pode adicionar a si mesmo' });
 
+    const blockedEitherWay = await db.get(
+      'SELECT id FROM blocked_users WHERE (user_id = ? AND blocked_user_id = ?) OR (user_id = ? AND blocked_user_id = ?)',
+      [req.user.id, target.id, target.id, req.user.id]
+    );
+    if (blockedEitherWay) return res.status(403).json({ error: 'Não é possível enviar esse pedido de amizade' });
+
     const [userA, userB] = [req.user.id, target.id].sort();
     const existing = await db.get('SELECT id, status FROM friendships WHERE user_a = ? AND user_b = ?', [userA, userB]);
     if (existing) {
@@ -1227,6 +1483,12 @@ app.get(
   asyncHandler(async (req, res) => {
     const targetId = req.params.userId;
     if (targetId === req.user.id) return res.status(400).json({ error: 'Não dá pra mandar mensagem pra você mesmo' });
+
+    const blockedEitherWay = await db.get(
+      'SELECT id FROM blocked_users WHERE (user_id = ? AND blocked_user_id = ?) OR (user_id = ? AND blocked_user_id = ?)',
+      [req.user.id, targetId, targetId, req.user.id]
+    );
+    if (blockedEitherWay) return res.status(403).json({ error: 'Não é possível conversar com esse usuário' });
 
     if (targetId !== AI_BOT_USER_ID) {
       const [a, b] = [req.user.id, targetId].sort();
@@ -1972,7 +2234,7 @@ app.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const rows = await db.all(
-      'SELECT id, channel_id, user_id, username, content, edited, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 50',
+      'SELECT id, channel_id, user_id, username, content, edited, pinned, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 50',
       [req.params.id]
     );
     const messages = rows.reverse();
@@ -2010,6 +2272,105 @@ app.post(
     await db.run('UPDATE messages SET deleted = 1 WHERE channel_id = ?', [req.params.id]);
     io.to(req.params.id).emit('chat:cleared', { channel_id: req.params.id });
     res.json({ ok: true });
+  })
+);
+
+// Confere se a pessoa pode gerenciar mensagens (fixar, apagar de outros) num
+// canal — tanto salas de servidor quanto DMs (nas DMs, qualquer um dos dois
+// participantes pode fixar/desfixar, já que não existe cargo lá).
+async function canManageChannelMessages(channelId, user) {
+  if (channelId.startsWith('dm::')) {
+    const parts = channelId.split('::');
+    return parts[1] === user.id || parts[2] === user.id;
+  }
+  const channel = await db.get('SELECT category FROM channels WHERE id = ?', [channelId]);
+  if (!channel) return false;
+  return hasServerPermission(channel.category, user, 'manage_channels');
+}
+
+// ---------- MENSAGENS FIXADAS ----------
+
+app.post(
+  '/api/messages/:id/pin',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const message = await db.get('SELECT id, channel_id FROM messages WHERE id = ? AND deleted = 0', [req.params.id]);
+    if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' });
+    if (!(await canManageChannelMessages(message.channel_id, req.user))) {
+      return res.status(403).json({ error: 'Você não tem permissão pra fixar mensagens nesse canal' });
+    }
+    await db.run('UPDATE messages SET pinned = 1 WHERE id = ?', [message.id]);
+    io.to(message.channel_id).emit('message:pinned', { id: message.id, channel_id: message.channel_id, pinned: true });
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  '/api/messages/:id/unpin',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const message = await db.get('SELECT id, channel_id FROM messages WHERE id = ?', [req.params.id]);
+    if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' });
+    if (!(await canManageChannelMessages(message.channel_id, req.user))) {
+      return res.status(403).json({ error: 'Você não tem permissão pra desfixar mensagens nesse canal' });
+    }
+    await db.run('UPDATE messages SET pinned = 0 WHERE id = ?', [message.id]);
+    io.to(message.channel_id).emit('message:pinned', { id: message.id, channel_id: message.channel_id, pinned: false });
+    res.json({ ok: true });
+  })
+);
+
+app.get(
+  '/api/channels/:id/pinned',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      'SELECT id, channel_id, user_id, username, content, created_at FROM messages WHERE channel_id = ? AND pinned = 1 AND deleted = 0 ORDER BY created_at DESC',
+      [req.params.id]
+    );
+    res.json(rows);
+  })
+);
+
+// ---------- BUSCA DE MENSAGENS ----------
+
+app.get(
+  '/api/channels/:id/search',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const q = String(req.query.q || '').trim();
+    if (q.length < 2) return res.json([]);
+    const rows = await db.all(
+      `SELECT id, channel_id, user_id, username, content, created_at FROM messages
+       WHERE channel_id = ? AND deleted = 0 AND content LIKE ? ORDER BY created_at DESC LIMIT 50`,
+      [req.params.id, `%${q}%`]
+    );
+    res.json(rows);
+  })
+);
+
+// ---------- SLOW MODE E CANAL SOMENTE-LEITURA ----------
+
+app.patch(
+  '/api/channels/:id/settings',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const channel = await db.get('SELECT id, category FROM channels WHERE id = ?', [req.params.id]);
+    if (!channel) return res.status(404).json({ error: 'Canal não encontrado' });
+    const canManage = await hasServerPermission(channel.category, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra configurar esse canal' });
+
+    const { slow_mode_seconds, read_only } = req.body || {};
+    if (typeof slow_mode_seconds === 'number') {
+      const clamped = Math.max(0, Math.min(21600, Math.floor(slow_mode_seconds)));
+      await db.run('UPDATE channels SET slow_mode_seconds = ? WHERE id = ?', [clamped, channel.id]);
+    }
+    if (typeof read_only === 'boolean') {
+      await db.run('UPDATE channels SET read_only = ? WHERE id = ?', [read_only ? 1 : 0, channel.id]);
+    }
+    const updated = await db.get('SELECT id, slow_mode_seconds, read_only FROM channels WHERE id = ?', [channel.id]);
+    io.to(channel.id).emit('channel:settings-updated', updated);
+    res.json(updated);
   })
 );
 
@@ -2138,6 +2499,7 @@ io.use(async (socket, next) => {
 const MESSAGE_RATE_LIMIT = 8; // mensagens
 const MESSAGE_RATE_WINDOW_MS = 10 * 1000;
 const messageTimestamps = new Map(); // socket.id -> array de timestamps
+const slowModeLastMessage = new Map(); // "channelId::userId" -> timestamp da última mensagem
 
 function isRateLimited(socketId) {
   const now = Date.now();
@@ -2230,6 +2592,35 @@ io.on('connection', (socket) => {
       if (isRateLimited(socket.id)) {
         socket.emit('chat:blocked', { reason: 'Você está enviando mensagens rápido demais. Aguarde um pouco.', categories: [] });
         return;
+      }
+
+      // Canal somente-leitura e slow mode — só se aplicam a salas de
+      // servidor de verdade (não a DMs, que não têm linha em "channels").
+      // Admin do site e quem tem manage_channels passam direto por cima.
+      if (!channelId.startsWith('dm::')) {
+        const channelRow = await db.get('SELECT category, read_only, slow_mode_seconds FROM channels WHERE id = ?', [
+          channelId,
+        ]);
+        if (channelRow) {
+          const bypass = user.is_admin || (await hasServerPermission(channelRow.category, user, 'manage_channels'));
+          if (channelRow.read_only && !bypass) {
+            socket.emit('chat:blocked', { reason: 'Esse canal está em modo somente-leitura.', categories: [] });
+            return;
+          }
+          if (channelRow.slow_mode_seconds > 0 && !bypass) {
+            const key = channelId + '::' + user.id;
+            const lastSentAt = slowModeLastMessage.get(key) || 0;
+            const waitMs = channelRow.slow_mode_seconds * 1000 - (Date.now() - lastSentAt);
+            if (waitMs > 0) {
+              socket.emit('chat:blocked', {
+                reason: `Modo lento ativo — aguarde ${Math.ceil(waitMs / 1000)}s pra mandar outra mensagem.`,
+                categories: [],
+              });
+              return;
+            }
+            slowModeLastMessage.set(key, Date.now());
+          }
+        }
       }
 
       const scan = scanText(content);

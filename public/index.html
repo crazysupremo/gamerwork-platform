@@ -16,17 +16,10 @@
   <canvas id="auth-bg-canvas" class="auth-bg-canvas"></canvas>
   <div class="auth-bg-overlay"></div>
 
-  <!-- Música de fundo (Infraction, via InAudio — licença gratuita com crédito
-       obrigatório, por isso o texto de atribuição fixo no rodapé abaixo). -->
-  <audio id="login-music" loop preload="none">
-    <source src="/assets/music/heroes.mp3" type="audio/mpeg" />
-  </audio>
-
   <div class="landing-content">
     <header class="landing-nav">
       <img src="/assets/logo.png" alt="NEXT GAME" class="navbar-logo-img" />
       <div class="landing-nav-actions">
-        <button class="landing-nav-btn" id="btn-toggle-login-music" title="Ligar/desligar música">🔊 Música</button>
         <button class="landing-nav-btn" id="landing-nav-login">Entrar</button>
         <button class="landing-nav-btn landing-nav-btn-primary" id="landing-nav-register">Criar conta</button>
       </div>
@@ -46,13 +39,6 @@
       <div class="home-stats landing-stats" id="landing-stats"></div>
     </section>
   </div>
-
-  <!-- Crédito exigido pela licença gratuita da InAudio (Creative Commons
-       Attribution) — não remover sem trocar a música ou comprar a licença.
-       Fica bem discreto, no cantinho, mas precisa continuar visível. -->
-  <p class="landing-music-credit">
-    <a href="https://inaudio.org/" target="_blank" rel="noopener">#InAudio</a>
-  </p>
 
   <div class="auth-card" id="auth-card">
     <img src="/assets/logo.png" alt="NEXT GAME" class="auth-logo-img" />
@@ -91,6 +77,14 @@
       <button type="submit">🎮 Criar conta</button>
     </form>
 
+    <form id="form-2fa" class="auth-form hidden">
+      <p class="hint" style="margin-bottom:10px;">Digite o código de 6 dígitos do seu app autenticador.</p>
+      <div class="input-icon-wrap">
+        <span class="input-icon">🔐</span>
+        <input type="text" id="login-2fa-code" placeholder="000000" maxlength="6" style="text-align:center; letter-spacing:4px;" required />
+      </div>
+      <button type="submit">✅ Confirmar</button>
+    </form>
 
     <p id="auth-error" class="auth-error"></p>
   </div>
@@ -181,6 +175,8 @@
   <main class="main">
     <header class="main-header">
       <span id="current-channel-name">Início</span>
+      <button id="btn-search-messages" title="Buscar mensagens" class="header-icon-btn">🔍</button>
+      <button id="btn-pinned-messages" title="Mensagens fixadas" class="header-icon-btn">📌</button>
       <button id="btn-clear-channel" title="Limpar conversa (admin)" class="header-icon-btn hidden">🗑️</button>
       <button id="btn-toggle-members" title="Membros" class="header-icon-btn">👥</button>
     </header>
@@ -406,39 +402,113 @@
 
 <!-- MODAL: editar perfil (email, senha, avatar, status) -->
 <div id="modal-profile" class="modal-overlay hidden">
-  <div class="modal-card">
-    <h2>Editar perfil</h2>
-    <form id="form-profile">
-      <div class="avatar-editor">
-        <div id="profile-avatar-preview" class="avatar-preview">?</div>
-        <div class="avatar-editor-actions">
-          <label class="avatar-upload-btn">
-            📷 Enviar foto
-            <input type="file" id="profile-avatar-file" accept="image/*" class="hidden" />
-          </label>
-          <div class="avatar-emoji-row" id="avatar-emoji-row"></div>
+  <div class="modal-card modal-card-wide">
+    <h2>Configurações</h2>
+
+    <div class="manage-tabs">
+      <button type="button" class="manage-tab active" data-settings-tab="conta">👤 Conta</button>
+      <button type="button" class="manage-tab" data-settings-tab="seguranca">🔒 Segurança</button>
+      <button type="button" class="manage-tab" data-settings-tab="privacidade">🚫 Privacidade</button>
+      <button type="button" class="manage-tab" data-settings-tab="notificacoes">🔔 Notificações</button>
+    </div>
+
+    <div id="settings-tab-conta" class="manage-tab-panel">
+      <form id="form-profile">
+        <div class="avatar-editor">
+          <div id="profile-avatar-preview" class="avatar-preview">?</div>
+          <div class="avatar-editor-actions">
+            <label class="avatar-upload-btn">
+              📷 Enviar foto
+              <input type="file" id="profile-avatar-file" accept="image/*" class="hidden" />
+            </label>
+            <div class="avatar-emoji-row" id="avatar-emoji-row"></div>
+          </div>
+        </div>
+
+        <label>Jogando agora (aparece do seu lado)</label>
+        <select id="profile-status-select"></select>
+        <input type="text" id="profile-status" placeholder="Digite o jogo/status" maxlength="60" class="hidden" />
+
+        <label>E-mail atual</label>
+        <input type="email" id="profile-email" placeholder="seu@email.com" />
+
+        <label>Nova senha (deixe em branco pra não trocar)</label>
+        <input type="password" id="profile-new-password" placeholder="Nova senha" />
+
+        <label>Senha atual (obrigatória pra trocar e-mail ou senha)</label>
+        <input type="password" id="profile-current-password" placeholder="Senha atual" />
+
+        <div class="modal-actions">
+          <button type="button" id="btn-cancel-profile">Fechar</button>
+          <button type="submit">Salvar</button>
+        </div>
+        <p id="profile-error" class="auth-error"></p>
+      </form>
+    </div>
+
+    <div id="settings-tab-seguranca" class="manage-tab-panel hidden">
+      <p class="hint" style="margin-bottom:10px;">Autenticação em duas etapas (2FA) com app autenticador (Google Authenticator, Authy etc).</p>
+      <div id="twofa-off-view">
+        <button type="button" id="btn-2fa-start">🔐 Ativar 2FA</button>
+      </div>
+      <div id="twofa-setup-view" class="hidden">
+        <img id="twofa-qr" alt="QR code do 2FA" style="width:180px; height:180px; border-radius:8px; background:white; padding:8px; display:block; margin:0 auto 10px;" />
+        <p class="hint">Escaneia o QR com o app autenticador e digita o código de 6 dígitos abaixo pra confirmar.</p>
+        <input type="text" id="twofa-confirm-code" placeholder="000000" maxlength="6" style="text-align:center; letter-spacing:4px; font-size:18px;" />
+        <div class="modal-actions" style="justify-content:flex-start; margin-top:8px;">
+          <button type="button" id="btn-2fa-confirm">Confirmar</button>
+        </div>
+        <p id="twofa-error" class="auth-error"></p>
+      </div>
+      <div id="twofa-on-view" class="hidden">
+        <p class="hint">✅ 2FA está ativado nessa conta.</p>
+        <input type="password" id="twofa-disable-password" placeholder="Senha atual, pra desativar" />
+        <div class="modal-actions" style="justify-content:flex-start; margin-top:8px;">
+          <button type="button" id="btn-2fa-disable" class="danger-action">Desativar 2FA</button>
         </div>
       </div>
 
-      <label>Jogando agora (aparece do seu lado)</label>
-      <select id="profile-status-select"></select>
-      <input type="text" id="profile-status" placeholder="Digite o jogo/status" maxlength="60" class="hidden" />
-
-      <label>E-mail atual</label>
-      <input type="email" id="profile-email" placeholder="seu@email.com" />
-
-      <label>Nova senha (deixe em branco pra não trocar)</label>
-      <input type="password" id="profile-new-password" placeholder="Nova senha" />
-
-      <label>Senha atual (obrigatória pra trocar e-mail ou senha)</label>
-      <input type="password" id="profile-current-password" placeholder="Senha atual" />
-
-      <div class="modal-actions">
-        <button type="button" id="btn-cancel-profile">Cancelar</button>
-        <button type="submit">Salvar</button>
+      <p class="hint" style="margin:18px 0 10px; border-top:1px solid #3a3c42; padding-top:14px;">Sessões ativas — os dispositivos onde sua conta está conectada agora.</p>
+      <div id="sessions-list"></div>
+      <div class="modal-actions" style="justify-content:flex-start; margin-top:8px;">
+        <button type="button" id="btn-revoke-other-sessions">Encerrar todas as outras sessões</button>
       </div>
-      <p id="profile-error" class="auth-error"></p>
-    </form>
+    </div>
+
+    <div id="settings-tab-privacidade" class="manage-tab-panel hidden">
+      <p class="hint" style="margin-bottom:10px;">Usuários bloqueados não conseguem te mandar mensagem, pedido de amizade ou convite.</p>
+      <div id="blocked-users-list"></div>
+    </div>
+
+    <div id="settings-tab-notificacoes" class="manage-tab-panel hidden">
+      <div id="notification-prefs-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: mensagens fixadas do canal atual -->
+<div id="modal-pinned-messages" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>📌 Mensagens fixadas</h2>
+    <div id="pinned-messages-list"></div>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-pinned-messages">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: busca de mensagens no canal atual -->
+<div id="modal-search-messages" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>🔍 Buscar mensagens</h2>
+    <div class="input-icon-wrap">
+      <span class="input-icon">🔍</span>
+      <input type="text" id="search-messages-input" placeholder="Digite pra buscar nessa conversa..." />
+    </div>
+    <div id="search-messages-results" style="margin-top:12px; max-height:340px; overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-search-messages">Fechar</button>
+    </div>
   </div>
 </div>
 

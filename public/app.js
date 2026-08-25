@@ -121,41 +121,6 @@ document.getElementById('landing-cta-login').onclick = () => scrollToAuthCard('l
 document.getElementById('landing-nav-register').onclick = () => scrollToAuthCard('register');
 document.getElementById('landing-cta-register').onclick = () => scrollToAuthCard('register');
 
-// ---------- MÚSICA DE FUNDO (tela de login) ----------
-// Faixa de verdade (Infraction, via InAudio — licença gratuita com crédito,
-// já incluído no rodapé da landing). Toca em loop com volume baixo; precisa
-// de um clique/tecla do usuário antes, por causa da política de autoplay
-// dos navegadores.
-const loginMusicEl = document.getElementById('login-music');
-loginMusicEl.volume = 0.35;
-let loginMusicEnabled = localStorage.getItem('ng_login_music') !== 'off'; // ligado por padrão
-
-function updateLoginMusicButton() {
-  const btn = document.getElementById('btn-toggle-login-music');
-  btn.textContent = loginMusicEnabled ? '🔊 Música' : '🔇 Música';
-}
-
-function tryStartLoginMusic() {
-  const authScreen = document.getElementById('auth-screen');
-  if (!loginMusicEnabled || !authScreen || authScreen.classList.contains('hidden')) return;
-  loginMusicEl.play().catch(() => {});
-}
-
-document.getElementById('btn-toggle-login-music').onclick = (e) => {
-  e.stopPropagation();
-  loginMusicEnabled = !loginMusicEnabled;
-  localStorage.setItem('ng_login_music', loginMusicEnabled ? 'on' : 'off');
-  updateLoginMusicButton();
-  if (loginMusicEnabled) tryStartLoginMusic();
-  else loginMusicEl.pause();
-};
-updateLoginMusicButton();
-
-// Mesmo gesto que já destrava os efeitos sonoros (sfx.js) também inicia a música.
-['click', 'keydown'].forEach((evt) => {
-  window.addEventListener(evt, tryStartLoginMusic, { once: true, passive: true });
-});
-
 // Estatísticas públicas (sem precisar estar logado) pra landing.
 fetch('/api/stats')
   .then((res) => res.json())
@@ -183,6 +148,8 @@ formRegister.onsubmit = async (e) => {
   await authRequest('/api/register', { username, email, password });
 };
 
+let pending2FALoginToken = null;
+
 async function authRequest(url, body) {
   authError.textContent = '';
   try {
@@ -197,12 +164,27 @@ async function authRequest(url, body) {
       authError.textContent = data.error || 'Erro ao autenticar';
       return;
     }
+    if (data.requires2fa) {
+      pending2FALoginToken = data.tempToken;
+      formLogin.classList.add('hidden');
+      formRegister.classList.add('hidden');
+      document.getElementById('form-2fa').classList.remove('hidden');
+      document.getElementById('login-2fa-code').value = '';
+      document.getElementById('login-2fa-code').focus();
+      return;
+    }
     me = data;
     startApp();
   } catch (err) {
     authError.textContent = 'Erro de conexão com o servidor';
   }
 }
+
+document.getElementById('form-2fa').onsubmit = async (e) => {
+  e.preventDefault();
+  const code = document.getElementById('login-2fa-code').value.trim();
+  await authRequest('/api/login/2fa', { tempToken: pending2FALoginToken, code });
+};
 
 document.getElementById('btn-logout').onclick = async () => {
   await fetch('/api/logout', { method: 'POST', credentials: 'include' });
@@ -224,7 +206,6 @@ async function tryResumeSession() {
 function startApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  document.getElementById('login-music').pause();
   document.getElementById('me-username').textContent = me.username;
   renderAvatarInto(document.getElementById('me-avatar'), me);
   if (me.is_admin) document.getElementById('admin-link').classList.remove('hidden');
@@ -456,9 +437,14 @@ function renderCategories(channels) {
 
       const label = document.createElement('span');
       label.className = 'channel-item-label';
-      label.textContent = (ch.type === 'voz' ? '🔊 ' : '# ') + ch.name;
+      label.textContent = (ch.type === 'voz' ? '🔊 ' : '# ') + ch.name + (ch.read_only ? ' 🔒' : '');
       el.appendChild(label);
       el.onclick = () => selectChannel(ch);
+      el.oncontextmenu = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showContextMenu(e.clientX, e.clientY, buildChannelContextMenuItems(ch));
+      };
 
       // Ícones que só aparecem passando o mouse em cima — igual Discord.
       const actions = document.createElement('span');
@@ -1659,6 +1645,17 @@ function userActionItems(user) {
     });
   }
 
+  items.push({
+    icon: '🚫',
+    label: 'Bloquear usuário',
+    danger: true,
+    onClick: async () => {
+      if (!confirm(`Bloquear ${user.username}? Vocês não vão mais conseguir se mandar mensagem, convite ou pedido de amizade.`)) return;
+      await blockUser(user.id);
+      refreshFriendsBadge();
+    },
+  });
+
   if (me.is_admin) {
     items.push({ separator: true });
     items.push({
@@ -1675,6 +1672,58 @@ function userActionItems(user) {
   }
 
   return items;
+}
+
+// Menu de contexto (botão direito) de um canal — modo lento e somente-leitura
+// são reforçados de novo no servidor (o botão aparece pra todo mundo, mas só
+// quem tem permissão de fato consegue salvar; sem permissão, o servidor
+// devolve erro e a gente só mostra um alerta).
+function buildChannelContextMenuItems(ch) {
+  return [
+    {
+      icon: '🔗',
+      label: 'Copiar link do canal',
+      onClick: () => {
+        navigator.clipboard.writeText(`${window.location.origin}/?channel=${ch.id}`).catch(() => {});
+        showCopyToast('Link do canal copiado!');
+      },
+    },
+    { separator: true },
+    {
+      icon: '🐢',
+      label: 'Configurar modo lento',
+      onClick: async () => {
+        const seconds = prompt('Modo lento: quantos segundos entre mensagens? (0 pra desligar)', '0');
+        if (seconds === null) return;
+        const parsed = Math.max(0, parseInt(seconds, 10) || 0);
+        const res = await fetch(`/api/channels/${ch.id}/settings`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ slow_mode_seconds: parsed }),
+        });
+        const data = await res.json();
+        if (!res.ok) alert(data.error || 'Erro ao configurar modo lento');
+        else showCopyToast(parsed > 0 ? `Modo lento: ${parsed}s` : 'Modo lento desligado');
+      },
+    },
+    {
+      icon: '🔒',
+      label: 'Alternar canal somente-leitura',
+      onClick: async () => {
+        const wantsReadOnly = confirm('Deixar esse canal SOMENTE-LEITURA (só quem gerencia consegue postar)? Cancelar = tirar o somente-leitura.');
+        const res = await fetch(`/api/channels/${ch.id}/settings`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ read_only: wantsReadOnly }),
+        });
+        const data = await res.json();
+        if (!res.ok) alert(data.error || 'Erro ao configurar canal');
+        else showCopyToast(wantsReadOnly ? 'Canal em somente-leitura' : 'Canal normal de novo');
+      },
+    },
+  ];
 }
 
 function buildUserContextMenuItems(user) {
@@ -1869,6 +1918,8 @@ document.getElementById('btn-edit-profile').onclick = () => {
   document.getElementById('profile-current-password').value = '';
   pendingAvatar = undefined;
   updateAvatarPreview();
+  document.querySelectorAll('#modal-profile .manage-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('#modal-profile .manage-tab-panel').forEach((p, i) => p.classList.toggle('hidden', i !== 0));
   modalProfile.classList.remove('hidden');
 };
 document.getElementById('btn-cancel-profile').onclick = () => modalProfile.classList.add('hidden');
@@ -1915,6 +1966,272 @@ document.getElementById('form-profile').onsubmit = async (e) => {
   } catch (err) {
     errorEl.textContent = 'Erro de conexão com o servidor';
   }
+};
+
+// ---------- ABAS DE CONFIGURAÇÕES: Segurança (2FA + sessões), Privacidade
+// (bloqueados) e Notificações ----------
+
+document.querySelectorAll('#modal-profile .manage-tab').forEach((tabBtn) => {
+  tabBtn.onclick = async () => {
+    document.querySelectorAll('#modal-profile .manage-tab').forEach((t) => t.classList.remove('active'));
+    tabBtn.classList.add('active');
+    document.querySelectorAll('#modal-profile .manage-tab-panel').forEach((p) => p.classList.add('hidden'));
+    const tab = tabBtn.dataset.settingsTab;
+    document.getElementById('settings-tab-' + tab).classList.remove('hidden');
+    if (tab === 'seguranca') {
+      load2FAStatus();
+      loadSessions();
+    }
+    if (tab === 'privacidade') loadBlockedUsers();
+    if (tab === 'notificacoes') loadNotificationPrefs();
+  };
+});
+
+async function load2FAStatus() {
+  const res = await fetch('/api/2fa/status', { credentials: 'include' });
+  const data = await res.json();
+  document.getElementById('twofa-off-view').classList.toggle('hidden', data.enabled);
+  document.getElementById('twofa-setup-view').classList.add('hidden');
+  document.getElementById('twofa-on-view').classList.toggle('hidden', !data.enabled);
+}
+
+document.getElementById('btn-2fa-start').onclick = async () => {
+  const res = await fetch('/api/2fa/setup', { method: 'POST', credentials: 'include' });
+  const data = await res.json();
+  if (!res.ok) return alert(data.error || 'Erro ao iniciar 2FA');
+  document.getElementById('twofa-qr').src = data.qr;
+  document.getElementById('twofa-confirm-code').value = '';
+  document.getElementById('twofa-error').textContent = '';
+  document.getElementById('twofa-off-view').classList.add('hidden');
+  document.getElementById('twofa-setup-view').classList.remove('hidden');
+};
+
+document.getElementById('btn-2fa-confirm').onclick = async () => {
+  const code = document.getElementById('twofa-confirm-code').value.trim();
+  const errorEl = document.getElementById('twofa-error');
+  errorEl.textContent = '';
+  const res = await fetch('/api/2fa/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ code }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Código incorreto';
+    return;
+  }
+  SFX.reward && SFX.reward();
+  load2FAStatus();
+};
+
+document.getElementById('btn-2fa-disable').onclick = async () => {
+  const currentPassword = document.getElementById('twofa-disable-password').value;
+  if (!currentPassword) return alert('Digite a senha atual pra desativar');
+  if (!confirm('Tem certeza que quer desativar o 2FA?')) return;
+  const res = await fetch('/api/2fa/disable', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ currentPassword }),
+  });
+  const data = await res.json();
+  if (!res.ok) return alert(data.error || 'Erro ao desativar');
+  document.getElementById('twofa-disable-password').value = '';
+  load2FAStatus();
+};
+
+async function loadSessions() {
+  const listEl = document.getElementById('sessions-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/sessions', { credentials: 'include' });
+  const sessions = await res.json();
+  listEl.innerHTML = '';
+  sessions.forEach((s) => {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    const when = new Date(s.last_seen_at).toLocaleString('pt-BR');
+    row.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">${escapeHtml((s.user_agent || 'Dispositivo desconhecido').slice(0, 60))}</span>
+        <span class="settings-row-meta">Visto por último: ${when}${s.is_current ? ' — este dispositivo' : ''}</span>
+      </div>
+      ${s.is_current ? '<span class="settings-row-badge">ATUAL</span>' : '<button type="button" class="session-revoke-btn">Encerrar</button>'}
+    `;
+    const revokeBtn = row.querySelector('.session-revoke-btn');
+    if (revokeBtn) {
+      revokeBtn.onclick = async () => {
+        await fetch(`/api/sessions/${s.id}/revoke`, { method: 'POST', credentials: 'include' });
+        loadSessions();
+      };
+    }
+    listEl.appendChild(row);
+  });
+}
+
+document.getElementById('btn-revoke-other-sessions').onclick = async () => {
+  if (!confirm('Isso desconecta sua conta de todos os outros dispositivos. Continuar?')) return;
+  await fetch('/api/sessions/revoke-others', { method: 'POST', credentials: 'include' });
+  loadSessions();
+};
+
+async function loadBlockedUsers() {
+  const listEl = document.getElementById('blocked-users-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/blocked-users', { credentials: 'include' });
+  const rows = await res.json();
+  if (rows.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Você não bloqueou ninguém.</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  rows.forEach((u) => {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    row.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">${escapeHtml(u.username)}</span>
+      </div>
+      <button type="button" class="unblock-btn">Desbloquear</button>
+    `;
+    row.querySelector('.unblock-btn').onclick = async () => {
+      await fetch(`/api/blocked-users/${u.id}`, { method: 'DELETE', credentials: 'include' });
+      loadBlockedUsers();
+    };
+    listEl.appendChild(row);
+  });
+}
+
+// Chamado pelo menu de contexto (botão direito num usuário) — ver mais abaixo.
+async function blockUser(userId) {
+  await fetch(`/api/blocked-users/${userId}`, { method: 'POST', credentials: 'include' });
+}
+
+const NOTIFICATION_PREF_LABELS = {
+  mensagem: 'Mensagem recebida',
+  convite_amizade: 'Convite de amizade',
+  convite_servidor: 'Convite para servidor',
+  torneio: 'Torneio próximo',
+  conquista: 'Conquista desbloqueada',
+  transmissao: 'Transmissão ao vivo',
+};
+
+async function loadNotificationPrefs() {
+  const listEl = document.getElementById('notification-prefs-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch('/api/notification-prefs', { credentials: 'include' });
+  const prefs = await res.json();
+  listEl.innerHTML = '';
+  Object.keys(NOTIFICATION_PREF_LABELS).forEach((key) => {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    row.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">${NOTIFICATION_PREF_LABELS[key]}</span>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" ${prefs[key] ? 'checked' : ''} />
+        <span class="toggle-switch-track"></span>
+      </label>
+    `;
+    row.querySelector('input').onchange = async (e) => {
+      const updated = { ...prefs, [key]: e.target.checked };
+      await fetch('/api/notification-prefs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(updated),
+      });
+      window.notificationPrefs = updated;
+    };
+    listEl.appendChild(row);
+  });
+  window.notificationPrefs = prefs;
+}
+
+// ---------- MENSAGENS FIXADAS ----------
+
+async function loadPinnedMessages(channelId) {
+  const listEl = document.getElementById('pinned-messages-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const res = await fetch(`/api/channels/${channelId}/pinned`, { credentials: 'include' });
+  const rows = await res.json();
+  if (rows.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Nenhuma mensagem fixada nesse canal ainda.</p>';
+    return;
+  }
+  listEl.innerHTML = '';
+  rows.forEach((m) => {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    const when = new Date(m.created_at).toLocaleString('pt-BR');
+    row.innerHTML = `
+      <div class="settings-row-info">
+        <span class="settings-row-title">${escapeHtml(m.username)}</span>
+        <span class="settings-row-meta">${escapeHtml(m.content).slice(0, 140)}</span>
+        <span class="settings-row-meta">${when}</span>
+      </div>
+    `;
+    listEl.appendChild(row);
+  });
+}
+
+document.getElementById('btn-pinned-messages').onclick = () => {
+  if (!currentChannel) return;
+  document.getElementById('modal-pinned-messages').dataset.channelId = currentChannel.id;
+  loadPinnedMessages(currentChannel.id);
+  document.getElementById('modal-pinned-messages').classList.remove('hidden');
+};
+document.getElementById('btn-close-pinned-messages').onclick = () =>
+  document.getElementById('modal-pinned-messages').classList.add('hidden');
+
+// ---------- BUSCA DE MENSAGENS ----------
+
+let searchDebounceTimer = null;
+
+document.getElementById('btn-search-messages').onclick = () => {
+  if (!currentChannel) return;
+  document.getElementById('search-messages-input').value = '';
+  document.getElementById('search-messages-results').innerHTML = '';
+  document.getElementById('modal-search-messages').classList.remove('hidden');
+  document.getElementById('search-messages-input').focus();
+};
+document.getElementById('btn-close-search-messages').onclick = () =>
+  document.getElementById('modal-search-messages').classList.add('hidden');
+
+document.getElementById('search-messages-input').oninput = (e) => {
+  clearTimeout(searchDebounceTimer);
+  const q = e.target.value.trim();
+  const resultsEl = document.getElementById('search-messages-results');
+  if (q.length < 2) {
+    resultsEl.innerHTML = '';
+    return;
+  }
+  searchDebounceTimer = setTimeout(async () => {
+    if (!currentChannel) return;
+    const res = await fetch(`/api/channels/${currentChannel.id}/search?q=${encodeURIComponent(q)}`, {
+      credentials: 'include',
+    });
+    const rows = await res.json();
+    resultsEl.innerHTML = '';
+    if (rows.length === 0) {
+      resultsEl.innerHTML = '<p class="empty-hint">Nada encontrado.</p>';
+      return;
+    }
+    rows.forEach((m) => {
+      const row = document.createElement('div');
+      row.className = 'settings-row';
+      const when = new Date(m.created_at).toLocaleString('pt-BR');
+      row.innerHTML = `
+        <div class="settings-row-info">
+          <span class="settings-row-title">${escapeHtml(m.username)}</span>
+          <span class="settings-row-meta">${escapeHtml(m.content).slice(0, 140)}</span>
+          <span class="settings-row-meta">${when}</span>
+        </div>
+      `;
+      resultsEl.appendChild(row);
+    });
+  }, 300);
 };
 
 // Clicar num canal SEMPRE troca o que aparece no painel principal. Só entra
@@ -2401,6 +2718,7 @@ function renderMessage(msg) {
           ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
           · ${time}
           ${msg.edited ? '<span class="edited-tag">(editado)</span>' : ''}
+          ${msg.pinned ? '<span class="pinned-tag">📌 fixada</span>' : ''}
         </div>
         <div class="content">${escapeHtml(msg.content)}</div>
         <div class="message-reactions" id="reactions-${msg.id}"></div>
@@ -2408,6 +2726,7 @@ function renderMessage(msg) {
     </div>
     <div class="message-actions">
       ${isBot ? '' : '<button class="act-react" title="Reagir">😀</button>'}
+      <button class="act-pin" title="${msg.pinned ? 'Desafixar' : 'Fixar'}">📌</button>
       ${isOwn && !isBot ? '<button class="act-edit" title="Editar">✏️</button>' : ''}
       ${canDelete ? '<button class="act-delete" title="Apagar">🗑️</button>' : ''}
       ${isBot ? '' : '<button class="act-report" title="Denunciar">🚩</button>'}
@@ -2468,6 +2787,10 @@ function renderMessage(msg) {
       reportMessage(msg.id, msg.user_id);
     };
   }
+  el.querySelector('.act-pin').onclick = async (e) => {
+    e.stopPropagation();
+    await fetch(`/api/messages/${msg.id}/${msg.pinned ? 'unpin' : 'pin'}`, { method: 'POST', credentials: 'include' });
+  };
 
   container.appendChild(el);
   if (msg.reactions && msg.reactions.length > 0) renderReactions(msg.id, msg.reactions);
@@ -2710,6 +3033,28 @@ function registerSocketHandlers() {
       clearMessagesView(channel_id);
     } else if (channel_id === connectedVoiceRoomId) {
       clearMessagesView(channel_id);
+    }
+  });
+
+  // Alguém fixou/desafixou uma mensagem — atualiza a tag "📌 fixada" na hora,
+  // sem precisar recarregar a conversa inteira.
+  socket.on('message:pinned', ({ id, pinned }) => {
+    document.querySelectorAll(`.message[data-id="${id}"]`).forEach((el) => {
+      const meta = el.querySelector('.meta');
+      const existingTag = meta.querySelector('.pinned-tag');
+      if (pinned && !existingTag) {
+        const tag = document.createElement('span');
+        tag.className = 'pinned-tag';
+        tag.textContent = '📌 fixada';
+        meta.appendChild(tag);
+      } else if (!pinned && existingTag) {
+        existingTag.remove();
+      }
+      const pinBtn = el.querySelector('.act-pin');
+      if (pinBtn) pinBtn.title = pinned ? 'Desafixar' : 'Fixar';
+    });
+    if (currentChannel && currentChannel.id === document.getElementById('modal-pinned-messages')?.dataset.channelId) {
+      loadPinnedMessages(currentChannel.id);
     }
   });
 
