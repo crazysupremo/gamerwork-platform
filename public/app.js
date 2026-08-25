@@ -716,9 +716,53 @@ const modalJoinInvite = document.getElementById('modal-join-invite');
 document.getElementById('btn-join-invite').onclick = () => {
   document.getElementById('join-invite-input').value = '';
   document.getElementById('join-invite-error').textContent = '';
+  document.getElementById('join-password-category-input').value = '';
+  document.getElementById('join-password-input').value = '';
+  document.getElementById('join-password-error').textContent = '';
+  document.querySelectorAll('#modal-join-invite [data-join-mode]').forEach((t) => t.classList.toggle('active', t.dataset.joinMode === 'convite'));
+  document.getElementById('join-mode-convite-panel').classList.remove('hidden');
+  document.getElementById('join-mode-senha-panel').classList.add('hidden');
   modalJoinInvite.classList.remove('hidden');
 };
 document.getElementById('btn-close-join-invite').onclick = () => modalJoinInvite.classList.add('hidden');
+
+document.querySelectorAll('#modal-join-invite [data-join-mode]').forEach((tab) => {
+  tab.onclick = () => {
+    const mode = tab.dataset.joinMode;
+    document.querySelectorAll('#modal-join-invite [data-join-mode]').forEach((t) => t.classList.toggle('active', t === tab));
+    document.getElementById('join-mode-convite-panel').classList.toggle('hidden', mode !== 'convite');
+    document.getElementById('join-mode-senha-panel').classList.toggle('hidden', mode !== 'senha');
+  };
+});
+
+document.getElementById('btn-submit-password').onclick = async () => {
+  const errorEl = document.getElementById('join-password-error');
+  errorEl.textContent = '';
+  const category = document.getElementById('join-password-category-input').value.trim();
+  const password = document.getElementById('join-password-input').value;
+  if (!category || !password) {
+    errorEl.textContent = 'Preencha o nome do servidor e a senha.';
+    return;
+  }
+  try {
+    const res = await fetch(`/api/servers/${encodeURIComponent(category)}/join-by-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ password }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Não foi possível entrar';
+      return;
+    }
+    modalJoinInvite.classList.add('hidden');
+    activeServerCategory = data.category;
+    await loadChannels();
+  } catch (_) {
+    errorEl.textContent = 'Erro de conexão';
+  }
+};
 
 // Aceita tanto o código puro quanto um link completo (?invite=CODIGO).
 function extractInviteCode(raw) {
@@ -826,6 +870,63 @@ async function loadManageInvite() {
       body: JSON.stringify({ discoverable: toggle.checked }),
     });
     showCopyToast(toggle.checked ? 'Servidor agora é público!' : 'Servidor voltou a ser privado.');
+  };
+
+  // Modo de acesso: convite ou senha — mostra a aba que já está ativa hoje
+  // pro servidor, e troca de modo direto na hora que a pessoa clica na outra.
+  const accessTabs = document.querySelectorAll('#manage-tab-invite [data-access-mode]');
+  const convitePanel = document.getElementById('access-mode-convite-panel');
+  const senhaPanel = document.getElementById('access-mode-senha-panel');
+  document.getElementById('server-password-input').value = '';
+  document.getElementById('server-password-error').textContent = '';
+
+  function showAccessPanel(mode) {
+    accessTabs.forEach((t) => t.classList.toggle('active', t.dataset.accessMode === mode));
+    convitePanel.classList.toggle('hidden', mode !== 'convite');
+    senhaPanel.classList.toggle('hidden', mode !== 'senha');
+  }
+  showAccessPanel(info.access_mode === 'senha' ? 'senha' : 'convite');
+
+  accessTabs.forEach((tab) => {
+    tab.onclick = async () => {
+      const mode = tab.dataset.accessMode;
+      showAccessPanel(mode);
+      if (!canManage) return;
+      if (mode === 'convite') {
+        // Volta pra convite não precisa de senha nova — só muda o modo.
+        await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ access_mode: 'convite' }),
+        });
+        showCopyToast('Servidor agora usa convite pra entrar.');
+      }
+      // Modo "senha" só é salvo quando a pessoa digita e clica em "Salvar senha".
+    };
+  });
+
+  document.getElementById('btn-save-server-password').onclick = async () => {
+    const errorEl = document.getElementById('server-password-error');
+    errorEl.textContent = '';
+    const password = document.getElementById('server-password-input').value;
+    if (password.length < 4) {
+      errorEl.textContent = 'A senha precisa ter pelo menos 4 caracteres.';
+      return;
+    }
+    const r = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ access_mode: 'senha', password }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      errorEl.textContent = d.error || 'Erro ao salvar a senha';
+      return;
+    }
+    document.getElementById('server-password-input').value = '';
+    showCopyToast('Servidor agora usa senha pra entrar.');
   };
 }
 

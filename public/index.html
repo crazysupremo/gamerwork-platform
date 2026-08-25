@@ -933,18 +933,38 @@
     </div>
 
     <div id="manage-tab-invite" class="manage-tab-panel">
-      <p class="hint" style="margin-bottom:10px;">Compartilhe esse link pra convidar qualquer pessoa pro servidor.</p>
-      <div class="input-icon-wrap">
-        <span class="input-icon">🔗</span>
-        <input type="text" id="invite-link-display" readonly />
+      <p class="hint" style="margin-bottom:10px;">Como as pessoas entram nesse servidor:</p>
+      <div class="tournament-filter-tabs" style="margin-bottom:14px;">
+        <button type="button" class="tournament-filter-tab active" data-access-mode="convite">🔗 Por convite</button>
+        <button type="button" class="tournament-filter-tab" data-access-mode="senha">🔒 Por senha</button>
       </div>
-      <div class="modal-actions" style="margin-top:10px; justify-content:flex-start;">
-        <button type="button" id="btn-copy-invite">📋 Copiar link</button>
-        <button type="button" id="btn-regenerate-invite" class="hidden">🔄 Gerar novo código</button>
+
+      <div id="access-mode-convite-panel">
+        <p class="hint" style="margin-bottom:10px;">Compartilhe esse link pra convidar qualquer pessoa pro servidor.</p>
+        <div class="input-icon-wrap">
+          <span class="input-icon">🔗</span>
+          <input type="text" id="invite-link-display" readonly />
+        </div>
+        <div class="modal-actions" style="margin-top:10px; justify-content:flex-start;">
+          <button type="button" id="btn-copy-invite">📋 Copiar link</button>
+          <button type="button" id="btn-regenerate-invite" class="hidden">🔄 Gerar novo código</button>
+        </div>
+      </div>
+
+      <div id="access-mode-senha-panel" class="hidden">
+        <p class="hint" style="margin-bottom:10px;">Qualquer pessoa com o nome do servidor e essa senha consegue entrar, sem precisar de link.</p>
+        <div class="input-icon-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="server-password-input" placeholder="Definir/trocar a senha do servidor" maxlength="60" />
+        </div>
+        <div class="modal-actions" style="margin-top:10px; justify-content:flex-start;">
+          <button type="button" id="btn-save-server-password">💾 Salvar senha</button>
+        </div>
+        <p id="server-password-error" class="auth-error"></p>
       </div>
 
       <p class="hint" style="margin:18px 0 10px; border-top:1px solid #3a3c42; padding-top:14px;">
-        Deixar esse servidor visível em "🔍 Explorar" pra qualquer pessoa entrar sem precisar de convite.
+        Deixar esse servidor visível em "🔍 Explorar" pra qualquer pessoa entrar sem precisar de convite ou senha.
       </p>
       <label class="checkbox-row">
         <input type="checkbox" id="server-discoverable-toggle" />
@@ -983,14 +1003,37 @@
 <!-- MODAL: entrar com código/link de convite -->
 <div id="modal-join-invite" class="modal-overlay hidden">
   <div class="modal-card">
-    <h2>🔗 Entrar com convite</h2>
-    <p class="hint" style="margin-bottom:10px;">Cole o código ou o link de convite que te mandaram.</p>
-    <div class="input-icon-wrap">
-      <span class="input-icon">🔗</span>
-      <input type="text" id="join-invite-input" placeholder="ex: a1b2c3d4e5 ou o link completo" />
+    <h2>🔗 Entrar num servidor</h2>
+
+    <div class="tournament-filter-tabs" style="margin-bottom:14px;">
+      <button type="button" class="tournament-filter-tab active" data-join-mode="convite">🔗 Por convite</button>
+      <button type="button" class="tournament-filter-tab" data-join-mode="senha">🔒 Por senha</button>
     </div>
-    <button type="button" id="btn-submit-invite" class="home-btn-primary" style="margin-top:10px; width:100%;">Entrar</button>
-    <p id="join-invite-error" class="auth-error"></p>
+
+    <div id="join-mode-convite-panel">
+      <p class="hint" style="margin-bottom:10px;">Cole o código ou o link de convite que te mandaram.</p>
+      <div class="input-icon-wrap">
+        <span class="input-icon">🔗</span>
+        <input type="text" id="join-invite-input" placeholder="ex: a1b2c3d4e5 ou o link completo" />
+      </div>
+      <button type="button" id="btn-submit-invite" class="home-btn-primary" style="margin-top:10px; width:100%;">Entrar</button>
+      <p id="join-invite-error" class="auth-error"></p>
+    </div>
+
+    <div id="join-mode-senha-panel" class="hidden">
+      <p class="hint" style="margin-bottom:10px;">Digite o nome do servidor e a senha que te passaram.</p>
+      <div class="input-icon-wrap">
+        <span class="input-icon">🎮</span>
+        <input type="text" id="join-password-category-input" placeholder="Nome do servidor" />
+      </div>
+      <div class="input-icon-wrap" style="margin-top:8px;">
+        <span class="input-icon">🔒</span>
+        <input type="password" id="join-password-input" placeholder="Senha" />
+      </div>
+      <button type="button" id="btn-submit-password" class="home-btn-primary" style="margin-top:10px; width:100%;">Entrar</button>
+      <p id="join-password-error" class="auth-error"></p>
+    </div>
+
     <div class="modal-actions">
       <button type="button" id="btn-close-join-invite">Fechar</button>
     </div>

@@ -598,6 +598,8 @@ async function initDb() {
   await ensureColumn('tournament_registrations', 'checked_in INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('tournament_registrations', 'checked_in_at TEXT');
   await ensureColumn('tournament_matches', 'evidence_url TEXT');
+  await ensureColumn('servers', "access_mode TEXT NOT NULL DEFAULT 'convite'");
+  await ensureColumn('servers', 'password_hash TEXT');
 
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },

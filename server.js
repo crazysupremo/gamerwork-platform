@@ -1768,8 +1768,43 @@ app.post(
   '/api/invite/:code/join',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const server = await db.get('SELECT category FROM servers WHERE invite_code = ?', [req.params.code]);
+    const server = await db.get('SELECT category, access_mode FROM servers WHERE invite_code = ?', [
+      req.params.code,
+    ]);
     if (!server) return res.status(404).json({ error: 'Convite inválido ou expirado' });
+    if (server.access_mode === 'senha') {
+      // Dono trocou pra modo senha — o link de convite antigo para de valer,
+      // já que os dois modos são mutuamente exclusivos.
+      return res.status(400).json({
+        error: 'Esse servidor agora usa senha em vez de convite. Peça a senha pra quem administra.',
+      });
+    }
+    await db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+      uuidv4(),
+      server.category,
+      req.user.id,
+    ]);
+    res.json({ category: server.category });
+  })
+);
+
+// Entrar num servidor por senha (alternativa ao convite, item 6 do plano) —
+// só precisa saber o nome do servidor e a senha, não precisa de link.
+app.post(
+  '/api/servers/:category/join-by-password',
+  authLimiter,
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const server = await db.get('SELECT category, access_mode, password_hash FROM servers WHERE category = ?', [
+      req.params.category,
+    ]);
+    if (!server || server.access_mode !== 'senha' || !server.password_hash) {
+      return res.status(404).json({ error: 'Servidor não encontrado ou não usa senha' });
+    }
+    const { password } = req.body || {};
+    if (!password || !bcrypt.compareSync(String(password), server.password_hash)) {
+      return res.status(403).json({ error: 'Senha incorreta' });
+    }
     await db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
       uuidv4(),
       server.category,
@@ -1865,6 +1900,7 @@ app.get(
     const isMember = await isServerMember(req.params.category, req.user.id);
     if (!isMember && !req.user.is_admin) return res.status(403).json({ error: 'Você não é membro desse servidor' });
     const info = await db.get('SELECT * FROM servers WHERE category = ?', [req.params.category]);
+    if (info) delete info.password_hash; // nunca expõe o hash, nem pra quem é dono
     const perms = await getServerPermissions(req.params.category, req.user.id);
     res.json({
       ...(info || { category: req.params.category, description: null, rules: null }),
@@ -1880,7 +1916,7 @@ app.patch(
   asyncHandler(async (req, res) => {
     const canManage = await hasServerPermission(req.params.category, req.user, 'manage_server');
     if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar esse servidor' });
-    const { description, rules, icon, discoverable } = req.body || {};
+    const { description, rules, icon, discoverable, access_mode, password } = req.body || {};
     if ((description && description.length > 500) || (rules && rules.length > 2000)) {
       return res.status(400).json({ error: 'Descrição (máx. 500) ou regras (máx. 2000) muito longas' });
     }
@@ -1897,6 +1933,22 @@ app.patch(
     );
     if (typeof discoverable === 'boolean') {
       await db.run('UPDATE servers SET discoverable = ? WHERE category = ?', [discoverable ? 1 : 0, req.params.category]);
+    }
+    // Modo de acesso do servidor (item 6 do plano): convite (padrão, como
+    // sempre foi) ou senha — são mutuamente exclusivos, o dono escolhe um.
+    if (access_mode === 'convite') {
+      await db.run("UPDATE servers SET access_mode = 'convite', password_hash = NULL WHERE category = ?", [
+        req.params.category,
+      ]);
+    } else if (access_mode === 'senha') {
+      if (!password || String(password).length < 4 || String(password).length > 60) {
+        return res.status(400).json({ error: 'Senha precisa ter entre 4 e 60 caracteres' });
+      }
+      const passwordHash = bcrypt.hashSync(String(password), 10);
+      await db.run("UPDATE servers SET access_mode = 'senha', password_hash = ? WHERE category = ?", [
+        passwordHash,
+        req.params.category,
+      ]);
     }
     res.json({ ok: true });
   })

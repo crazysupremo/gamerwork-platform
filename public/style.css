@@ -18,8 +18,23 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg-app);
   color: #e6e6e6;
+  cursor: url('/assets/cursor-default.png') 4 2, auto;
 }
 .hidden { display: none !important; }
+
+/* Cursor customizado do NEXT GAME — a setinha degradê troca por uma versão
+   com o "brilho" verde-água em cima de qualquer coisa clicável. */
+a, button, [role="button"], .clickable, select,
+.server-icon, .navbar-icon-btn, .navbar-profile, .manage-tab, .settings-sidebar-item,
+.tournament-filter-tab, .search-result-item, .explore-card-btn, .channel-item,
+.member-item, .home-quick-action, .wizard-tag-chip, .wizard-choice-btn, label.checkbox-row,
+input[type="checkbox"], input[type="radio"], input[type="range"], input[type="submit"] {
+  cursor: url('/assets/cursor-pointer.png') 4 2, pointer;
+}
+input[type="text"], input[type="email"], input[type="password"], input[type="number"],
+input[type="search"], input[type="date"], input[type="file"], textarea, [contenteditable="true"] {
+  cursor: text;
+}
 
 /* AUTH */
 .auth-screen {
