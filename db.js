@@ -593,6 +593,11 @@ async function initDb() {
   await ensureColumn('users', 'play_style TEXT');
   await ensureColumn('users', 'favorite_games TEXT');
   await ensureColumn('users', 'preferred_rank TEXT');
+  await ensureColumn('tournaments', "format TEXT NOT NULL DEFAULT 'eliminacao'");
+  await ensureColumn('tournaments', 'checkin_opens_minutes INTEGER NOT NULL DEFAULT 30');
+  await ensureColumn('tournament_registrations', 'checked_in INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('tournament_registrations', 'checked_in_at TEXT');
+  await ensureColumn('tournament_matches', 'evidence_url TEXT');
 
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },

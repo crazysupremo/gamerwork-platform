@@ -2854,13 +2854,22 @@ app.get(
       const ids = tournaments.map((t) => t.id);
       const placeholders = ids.map(() => '?').join(',');
       const regRows = await db.all(
-        `SELECT tournament_id, user_id, team_name FROM tournament_registrations WHERE tournament_id IN (${placeholders})`,
+        `SELECT tournament_id, user_id, team_name, checked_in FROM tournament_registrations WHERE tournament_id IN (${placeholders})`,
         ids
       );
+      const bracketRows = await db.all(
+        `SELECT DISTINCT tournament_id FROM tournament_matches WHERE tournament_id IN (${placeholders})`,
+        ids
+      );
+      const bracketSet = new Set(bracketRows.map((b) => b.tournament_id));
       tournaments.forEach((t) => {
         const regs = regRows.filter((r) => r.tournament_id === t.id);
+        const myReg = regs.find((r) => r.user_id === req.user.id);
         t.registered_count = regs.length;
-        t.is_registered = regs.some((r) => r.user_id === req.user.id);
+        t.checked_in_count = regs.filter((r) => r.checked_in).length;
+        t.is_registered = !!myReg;
+        t.is_checked_in = !!myReg && !!myReg.checked_in;
+        t.bracket_generated = bracketSet.has(t.id);
       });
     }
     res.json(tournaments);
@@ -2872,13 +2881,14 @@ app.post(
   requireAuth,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const { category, name, game, event_date, prize, max_slots } = req.body || {};
+    const { category, name, game, event_date, prize, max_slots, format } = req.body || {};
     if (!category || !name || !game || !String(name).trim() || !String(game).trim()) {
       return res.status(400).json({ error: 'Categoria, nome e jogo são obrigatórios' });
     }
+    const cleanFormat = format === 'liga' ? 'liga' : 'eliminacao';
     const id = uuidv4();
     await db.run(
-      'INSERT INTO tournaments (id, category, name, game, event_date, prize, max_slots, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO tournaments (id, category, name, game, event_date, prize, max_slots, created_by, format) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         id,
         category,
@@ -2888,6 +2898,7 @@ app.post(
         (prize || '').slice(0, 60) || null,
         Math.min(Math.max(Number(max_slots) || 32, 2), 500),
         req.user.id,
+        cleanFormat,
       ]
     );
     res.json({ id });
@@ -2943,6 +2954,47 @@ app.post(
   })
 );
 
+// ---------- CHECK-IN (item 9 do plano) ----------
+// Quem se inscreveu precisa confirmar presença antes da chave ser sorteada —
+// evita gerar confrontos com gente que nem vai aparecer.
+
+app.get(
+  '/api/tournaments/:id/registrations',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT r.user_id, r.team_name, r.checked_in, r.checked_in_at, u.username, u.avatar
+       FROM tournament_registrations r JOIN users u ON u.id = r.user_id
+       WHERE r.tournament_id = ? ORDER BY r.created_at ASC`,
+      [req.params.id]
+    );
+    res.json(rows);
+  })
+);
+
+app.post(
+  '/api/tournaments/:id/check-in',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const reg = await db.get('SELECT * FROM tournament_registrations WHERE tournament_id = ? AND user_id = ?', [
+      req.params.id,
+      req.user.id,
+    ]);
+    if (!reg) return res.status(404).json({ error: 'Você não está inscrito nesse torneio' });
+    const existingMatches = await db.get('SELECT COUNT(*) as c FROM tournament_matches WHERE tournament_id = ?', [
+      req.params.id,
+    ]);
+    if (Number(existingMatches.c) > 0) {
+      return res.status(400).json({ error: 'A chave desse torneio já foi sorteada, check-in não é mais possível' });
+    }
+    await db.run(
+      "UPDATE tournament_registrations SET checked_in = 1, checked_in_at = datetime('now') WHERE tournament_id = ? AND user_id = ?",
+      [req.params.id, req.user.id]
+    );
+    res.json({ ok: true });
+  })
+);
+
 // ---------- CHAVES DE TORNEIO (eliminatória simples, gerada automaticamente) ----------
 
 function nextPowerOfTwo(n) {
@@ -2977,18 +3029,52 @@ app.post(
       return res.status(400).json({ error: 'Esse torneio já tem uma chave gerada' });
     }
 
+    // Só entra na chave quem fez check-in — evita sortear confronto com
+    // gente que se inscreveu e nem apareceu (item 9 do plano).
     const registrations = await db.all(
       `SELECT r.user_id, r.team_name, u.username FROM tournament_registrations r
-       JOIN users u ON u.id = r.user_id WHERE r.tournament_id = ?`,
+       JOIN users u ON u.id = r.user_id WHERE r.tournament_id = ? AND r.checked_in = 1`,
       [tournament.id]
     );
     if (registrations.length < 2) {
-      return res.status(400).json({ error: 'Precisa de pelo menos 2 inscritos pra gerar a chave' });
+      return res
+        .status(400)
+        .json({ error: 'Precisa de pelo menos 2 inscritos com check-in confirmado pra gerar a chave' });
     }
 
-    const players = shuffle(
-      registrations.map((r) => ({ id: r.user_id, name: r.team_name || r.username }))
-    );
+    const shuffledPlayers = shuffle(registrations.map((r) => ({ id: r.user_id, name: r.team_name || r.username })));
+
+    // Formato "liga" (item 9 do plano): todos contra todos, sem chave de
+    // eliminação — cada dupla joga uma vez, classificação por vitórias.
+    if (tournament.format === 'liga') {
+      const matchesToInsert = [];
+      let idx = 0;
+      for (let i = 0; i < shuffledPlayers.length; i++) {
+        for (let j = i + 1; j < shuffledPlayers.length; j++) {
+          matchesToInsert.push({
+            id: uuidv4(),
+            round: 1,
+            match_index: idx++,
+            a: shuffledPlayers[i],
+            b: shuffledPlayers[j],
+          });
+        }
+      }
+      for (const m of matchesToInsert) {
+        await db.run(
+          `INSERT INTO tournament_matches (id, tournament_id, round, match_index, player_a_id, player_a_name, player_b_id, player_b_name, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendente')`,
+          [m.id, tournament.id, m.round, m.match_index, m.a.id, m.a.name, m.b.id, m.b.name]
+        );
+      }
+      logAudit(req.user, 'generate_bracket', 'tournament', tournament.id, {
+        players: registrations.length,
+        format: 'liga',
+      });
+      return res.json({ ok: true });
+    }
+
+    const players = shuffledPlayers;
     const bracketSize = nextPowerOfTwo(players.length);
     // Preenche vagas vazias com "bye" (avança sozinho) até completar potência de 2.
     while (players.length < bracketSize) players.push(null);
@@ -3125,18 +3211,75 @@ app.post(
     if (!match.player_a_id || !match.player_b_id) {
       return res.status(400).json({ error: 'Essa partida ainda não tem os dois lados definidos' });
     }
-    const { winner_id, score_a, score_b } = req.body || {};
+    const { winner_id, score_a, score_b, evidence } = req.body || {};
     if (winner_id !== match.player_a_id && winner_id !== match.player_b_id) {
       return res.status(400).json({ error: 'winner_id precisa ser um dos dois jogadores da partida' });
     }
+    // Evidência (print do resultado) é opcional, mas se vier precisa ser uma
+    // imagem de verdade — mesmo padrão de validação usado no avatar (item 9
+    // do plano: "evidência/screenshot de resultado").
+    let evidenceUrl = null;
+    if (evidence) {
+      if (typeof evidence !== 'string' || evidence.length > 500000 || !evidence.startsWith('data:image/')) {
+        return res.status(400).json({ error: 'Evidência precisa ser uma imagem válida (máx. ~350KB)' });
+      }
+      evidenceUrl = evidence;
+    }
     const winnerName = winner_id === match.player_a_id ? match.player_a_name : match.player_b_name;
     await db.run(
-      'UPDATE tournament_matches SET winner_id = ?, score_a = ?, score_b = ?, status = ? WHERE id = ?',
-      [winner_id, score_a ?? null, score_b ?? null, 'concluida', match.id]
+      'UPDATE tournament_matches SET winner_id = ?, score_a = ?, score_b = ?, status = ?, evidence_url = COALESCE(?, evidence_url) WHERE id = ?',
+      [winner_id, score_a ?? null, score_b ?? null, 'concluida', evidenceUrl, match.id]
     );
-    await advanceWinner(match.tournament_id, match.round, match.match_index, winner_id, winnerName);
+    // Liga é todos-contra-todos, sem rodadas seguintes pra avançar — cada
+    // resultado só entra na classificação (calculada sob demanda em
+    // /standings). Eliminatória sim precisa empurrar o vencedor pro próximo
+    // confronto da chave.
+    if (tournament.format !== 'liga') {
+      await advanceWinner(match.tournament_id, match.round, match.match_index, winner_id, winnerName);
+    }
     logAudit(req.user, 'record_match_result', 'tournament_match', match.id, { winner_id });
     res.json({ ok: true });
+  })
+);
+
+// Classificação da liga: vitórias, derrotas e pontos (3 por vitória, 1 por
+// empate — como não há empate real em jogos 1x1, na prática é 3/0, mas
+// deixamos a regra pronta caso algum jogo registre placar igual).
+app.get(
+  '/api/tournaments/:id/standings',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tournament = await db.get('SELECT * FROM tournaments WHERE id = ?', [req.params.id]);
+    if (!tournament) return res.status(404).json({ error: 'Torneio não encontrado' });
+    const matches = await db.all('SELECT * FROM tournament_matches WHERE tournament_id = ?', [req.params.id]);
+    const table = {};
+    const ensure = (id, name) => {
+      if (!table[id]) table[id] = { id, name, wins: 0, losses: 0, draws: 0, played: 0, points: 0 };
+    };
+    matches.forEach((m) => {
+      if (!m.player_a_id || !m.player_b_id) return;
+      ensure(m.player_a_id, m.player_a_name);
+      ensure(m.player_b_id, m.player_b_name);
+      if (m.status !== 'concluida') return;
+      table[m.player_a_id].played++;
+      table[m.player_b_id].played++;
+      if (!m.winner_id) {
+        table[m.player_a_id].draws++;
+        table[m.player_b_id].draws++;
+        table[m.player_a_id].points += 1;
+        table[m.player_b_id].points += 1;
+      } else if (m.winner_id === m.player_a_id) {
+        table[m.player_a_id].wins++;
+        table[m.player_b_id].losses++;
+        table[m.player_a_id].points += 3;
+      } else {
+        table[m.player_b_id].wins++;
+        table[m.player_a_id].losses++;
+        table[m.player_b_id].points += 3;
+      }
+    });
+    const standings = Object.values(table).sort((a, b) => b.points - a.points || b.wins - a.wins);
+    res.json(standings);
   })
 );
 
@@ -4150,6 +4293,54 @@ app.get(
       [req.params.id, `%${q}%`]
     );
     res.json(rows);
+  })
+);
+
+// ---------- BUSCA GLOBAL (item 13 do plano) ----------
+// Uma busca só no topo que cobre jogadores, servidores, torneios e clipes de
+// uma vez, com resultados separados por categoria — pensada tanto pro
+// dropdown de sugestões (poucos resultados, digitando) quanto pra uma
+// eventual página de resultados completa.
+
+app.get(
+  '/api/search',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const q = String(req.query.q || '').trim();
+    if (q.length < 2) return res.json({ players: [], servers: [], tournaments: [], clips: [] });
+    const like = `%${q}%`;
+    const limit = Math.min(Number(req.query.limit) || 6, 20);
+
+    const [players, serversRaw, tournaments, clips] = await Promise.all([
+      db.all(
+        `SELECT id, username, avatar, avatar_frame, status_message, is_admin
+         FROM users WHERE is_banned = 0 AND username LIKE ? AND id != ? ORDER BY username LIMIT ?`,
+        [like, req.user.id, limit]
+      ),
+      db.all(
+        `SELECT s.category, s.icon, s.description,
+          (SELECT COUNT(*) FROM server_members WHERE category = s.category) as member_count
+         FROM servers s WHERE s.discoverable = 1 AND s.category LIKE ? ORDER BY member_count DESC LIMIT ?`,
+        [like, limit]
+      ),
+      db.all(
+        `SELECT id, category, name, game, event_date, max_slots,
+          (SELECT COUNT(*) FROM tournament_registrations WHERE tournament_id = tournaments.id) as registered
+         FROM tournaments WHERE name LIKE ? OR game LIKE ? ORDER BY created_at DESC LIMIT ?`,
+        [like, like, limit]
+      ),
+      db.all(
+        `SELECT id, user_id, username, title, game, video_url, views, created_at
+         FROM clips WHERE title LIKE ? OR game LIKE ? ORDER BY views DESC LIMIT ?`,
+        [like, like, limit]
+      ),
+    ]);
+
+    const myMemberships = await db.all('SELECT category FROM server_members WHERE user_id = ?', [req.user.id]);
+    const myCategories = new Set(myMemberships.map((m) => m.category));
+    const servers = serversRaw.map((s) => ({ ...s, is_member: myCategories.has(s.category) }));
+
+    res.json({ players, servers, tournaments, clips });
   })
 );
 
