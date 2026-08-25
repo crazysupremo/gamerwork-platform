@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>NEXT GAME</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="/assets/favicon-512.png" />
+<link rel="apple-touch-icon" href="/assets/favicon-180.png" />
 <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -182,7 +185,8 @@
     <div class="navbar-right">
       <div class="navbar-search">
         <span>🔍</span>
-        <input type="text" id="navbar-search-input" placeholder="Buscar servidores..." />
+        <input type="text" id="navbar-search-input" placeholder="Buscar jogadores, servidores, torneios, clipes..." autocomplete="off" />
+        <div id="navbar-search-dropdown" class="navbar-search-dropdown hidden"></div>
       </div>
       <button class="navbar-icon-btn" id="nav-bell" title="Atividade recente">🔔<span id="navbar-bell-badge" class="navbar-badge hidden">0</span></button>
       <button class="navbar-icon-btn" id="nav-rewards" title="Loja de recompensas">🎁<span id="navbar-streak-badge" class="navbar-badge hidden">0</span></button>
@@ -1018,6 +1022,11 @@
       <input type="text" id="tournament-prize" maxlength="60" placeholder="ex: R$ 500" />
       <label>Vagas (times/jogadores)</label>
       <input type="number" id="tournament-slots" min="2" max="500" value="32" />
+      <label>Formato</label>
+      <select id="tournament-format">
+        <option value="eliminacao">Eliminação simples (chave)</option>
+        <option value="liga">Liga (todos contra todos)</option>
+      </select>
       <div class="modal-actions">
         <button type="button" id="btn-cancel-tournament">Cancelar</button>
         <button type="submit">Criar torneio</button>

@@ -1100,22 +1100,38 @@ async function loadTournaments() {
       <div class="tournament-info">
         <h3>🏆 ${escapeHtml(t.name)}</h3>
         <div class="tournament-meta">
+          <span>${t.format === 'liga' ? '🔁 Liga' : '⚔️ Eliminação'}</span>
           <span>🎮 ${escapeHtml(t.game)}</span>
           <span>📅 ${dateText}</span>
           ${t.prize ? `<span>💰 ${escapeHtml(t.prize)}</span>` : ''}
           <span>👥 ${t.registered_count}/${t.max_slots}</span>
+          ${t.registered_count > 0 ? `<span>✅ ${t.checked_in_count} check-in</span>` : ''}
         </div>
       </div>
       <div class="tournament-actions">
         <button class="${t.is_registered ? 'btn-unregister' : 'btn-register'}">
           ${t.is_registered ? 'Sair' : 'Participar'}
         </button>
+        ${
+          t.is_registered && !t.bracket_generated
+            ? `<button class="btn-checkin" ${t.is_checked_in ? 'disabled' : ''}>${t.is_checked_in ? '✅ Check-in feito' : 'Fazer check-in'}</button>`
+            : ''
+        }
         <button class="btn-view-bracket">🏆 Ver chave</button>
         ${t.created_by === me.id || me.is_admin ? '<button class="btn-generate-bracket">Gerar chave</button>' : ''}
         ${me.is_admin ? '<button class="btn-delete-tournament">Excluir</button>' : ''}
       </div>
       <div class="tournament-bracket hidden"></div>
     `;
+    const checkinBtn = card.querySelector('.btn-checkin');
+    if (checkinBtn) {
+      checkinBtn.onclick = async () => {
+        const r = await fetch(`/api/tournaments/${t.id}/check-in`, { method: 'POST', credentials: 'include' });
+        const d = await r.json();
+        if (!r.ok) return alert(d.error || 'Erro ao fazer check-in');
+        loadTournaments();
+      };
+    }
     card.querySelector(t.is_registered ? '.btn-unregister' : '.btn-register').onclick = async () => {
       const endpoint = t.is_registered ? 'unregister' : 'register';
       const res2 = await fetch(`/api/tournaments/${t.id}/${endpoint}`, { method: 'POST', credentials: 'include' });
@@ -1141,24 +1157,46 @@ async function loadTournaments() {
         const r = await fetch(`/api/tournaments/${t.id}/generate-bracket`, { method: 'POST', credentials: 'include' });
         const d = await r.json();
         if (!r.ok) return alert(d.error || 'Erro ao gerar chave');
-        renderBracket(t.id, card.querySelector('.tournament-bracket'));
+        renderBracket(t.id, card.querySelector('.tournament-bracket'), t.format);
       };
     }
     card.querySelector('.btn-view-bracket').onclick = () => {
       const bracketEl = card.querySelector('.tournament-bracket');
       bracketEl.classList.toggle('hidden');
-      if (!bracketEl.classList.contains('hidden')) renderBracket(t.id, bracketEl);
+      if (!bracketEl.classList.contains('hidden')) renderBracket(t.id, bracketEl, t.format);
     };
     list.appendChild(card);
   });
 }
 
-async function renderBracket(tournamentId, container) {
+async function renderBracket(tournamentId, container, format) {
   container.innerHTML = '<p class="empty-hint">Carregando chave...</p>';
+
+  let standingsHtml = '';
+  if (format === 'liga') {
+    const standingsRes = await fetch(`/api/tournaments/${tournamentId}/standings`, { credentials: 'include' });
+    const standings = await standingsRes.json();
+    if (standings.length > 0) {
+      standingsHtml = `
+        <div class="liga-standings">
+          <div class="liga-standings-header">
+            <span>#</span><span>Jogador</span><span>PJ</span><span>V</span><span>D</span><span>Pts</span>
+          </div>
+          ${standings
+            .map(
+              (s, i) => `<div class="liga-standings-row">
+                <span>${i + 1}</span><span>${escapeHtml(s.name)}</span><span>${s.played}</span><span>${s.wins}</span><span>${s.losses}</span><span><strong>${s.points}</strong></span>
+              </div>`
+            )
+            .join('')}
+        </div>`;
+    }
+  }
+
   const res = await fetch(`/api/tournaments/${tournamentId}/bracket`, { credentials: 'include' });
   const matches = await res.json();
   if (matches.length === 0) {
-    container.innerHTML = '<p class="empty-hint">Chave ainda não foi gerada.</p>';
+    container.innerHTML = standingsHtml || '<p class="empty-hint">Chave ainda não foi gerada.</p>';
     return;
   }
   const rounds = {};
@@ -1166,18 +1204,37 @@ async function renderBracket(tournamentId, container) {
     if (!rounds[m.round]) rounds[m.round] = [];
     rounds[m.round].push(m);
   });
-  const roundNames = { 1: 'Primeira rodada', 2: 'Quartas', 3: 'Semifinal', 4: 'Final' };
-  container.innerHTML = Object.keys(rounds)
+  const roundNames =
+    format === 'liga' ? { 1: 'Confrontos' } : { 1: 'Primeira rodada', 2: 'Quartas', 3: 'Semifinal', 4: 'Final' };
+  container.innerHTML = standingsHtml + Object.keys(rounds)
     .sort((a, b) => a - b)
     .map((round) => {
       const label = roundNames[round] || `Rodada ${round}`;
       const matchesHtml = rounds[round]
         .map((m) => {
+          const canReport = m.player_a_id && m.player_b_id && m.status !== 'concluida';
           return `
           <div class="bracket-match" data-match-id="${m.id}">
             <div class="bracket-side ${m.winner_id === m.player_a_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_a_name || 'A definir')} ${m.score_a != null ? `(${m.score_a})` : ''}</div>
             <div class="bracket-side ${m.winner_id === m.player_b_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_b_name || 'A definir')} ${m.score_b != null ? `(${m.score_b})` : ''}</div>
-            ${m.player_a_id && m.player_b_id && m.status !== 'concluida' ? '<button type="button" class="bracket-report-btn">Registrar resultado</button>' : ''}
+            ${m.evidence_url ? `<a href="${m.evidence_url}" target="_blank" class="bracket-evidence-link">📷 Ver evidência</a>` : ''}
+            ${canReport ? '<button type="button" class="bracket-report-btn">Registrar resultado</button>' : ''}
+            ${
+              canReport
+                ? `<form class="bracket-report-form hidden">
+                     <label class="bracket-report-radio"><input type="radio" name="winner-${m.id}" value="a" checked /> ${escapeHtml(m.player_a_name)} venceu</label>
+                     <label class="bracket-report-radio"><input type="radio" name="winner-${m.id}" value="b" /> ${escapeHtml(m.player_b_name)} venceu</label>
+                     <div class="bracket-report-scores">
+                       <input type="number" min="0" class="bracket-score-a" placeholder="Placar ${escapeHtml(m.player_a_name)}" />
+                       <input type="number" min="0" class="bracket-score-b" placeholder="Placar ${escapeHtml(m.player_b_name)}" />
+                     </div>
+                     <label class="bracket-report-evidence-label">📷 Evidência (print do resultado, opcional)
+                       <input type="file" accept="image/*" class="bracket-evidence-file" />
+                     </label>
+                     <button type="submit" class="bracket-report-submit">Confirmar resultado</button>
+                   </form>`
+                : ''
+            }
           </div>
         `;
         })
@@ -1187,26 +1244,73 @@ async function renderBracket(tournamentId, container) {
     .join('');
 
   container.querySelectorAll('.bracket-report-btn').forEach((btn) => {
-    btn.onclick = async () => {
-      const matchEl = btn.closest('.bracket-match');
+    btn.onclick = () => btn.nextElementSibling.classList.toggle('hidden');
+  });
+
+  container.querySelectorAll('.bracket-report-form').forEach((form) => {
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const matchEl = form.closest('.bracket-match');
       const matchId = matchEl.dataset.matchId;
       const match = matches.find((m) => m.id === matchId);
-      const winnerName = prompt(
-        `Quem venceu? Digite exatamente:\n1) ${match.player_a_name}\n2) ${match.player_b_name}`,
-        match.player_a_name
-      );
-      if (!winnerName) return;
-      const winnerId = winnerName.trim() === match.player_a_name ? match.player_a_id : match.player_b_id;
+      const side = form.querySelector('input[type="radio"]:checked').value;
+      const winnerId = side === 'a' ? match.player_a_id : match.player_b_id;
+      const scoreA = form.querySelector('.bracket-score-a').value;
+      const scoreB = form.querySelector('.bracket-score-b').value;
+      const fileInput = form.querySelector('.bracket-evidence-file');
+
+      let evidence = null;
+      if (fileInput.files && fileInput.files[0]) {
+        evidence = await resizeImageToDataUrl(fileInput.files[0], 900);
+      }
+
+      const submitBtn = form.querySelector('.bracket-report-submit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Enviando...';
       const r = await fetch(`/api/tournaments/matches/${matchId}/result`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ winner_id: winnerId }),
+        body: JSON.stringify({
+          winner_id: winnerId,
+          score_a: scoreA === '' ? null : Number(scoreA),
+          score_b: scoreB === '' ? null : Number(scoreB),
+          evidence,
+        }),
       });
       const d = await r.json();
-      if (!r.ok) return alert(d.error || 'Erro ao registrar resultado');
-      renderBracket(tournamentId, container);
+      if (!r.ok) {
+        alert(d.error || 'Erro ao registrar resultado');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Confirmar resultado';
+        return;
+      }
+      renderBracket(tournamentId, container, format);
     };
+  });
+}
+
+// Reaproveita o mesmo esquema de redimensionar-e-exportar-como-JPEG usado no
+// avatar, só que num tamanho maior (print de resultado precisa ser legível).
+function resizeImageToDataUrl(file, maxSize) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 }
 
@@ -1221,6 +1325,7 @@ document.getElementById('form-new-tournament').onsubmit = async (e) => {
     event_date: document.getElementById('tournament-date').value || null,
     prize: document.getElementById('tournament-prize').value.trim(),
     max_slots: document.getElementById('tournament-slots').value,
+    format: document.getElementById('tournament-format').value,
   };
   const res = await fetch('/api/tournaments', {
     method: 'POST',
@@ -3591,7 +3696,11 @@ new MutationObserver((mutations) => {
   });
 }).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
 
-document.getElementById('navbar-search-input').addEventListener('input', (e) => {
+const navbarSearchInput = document.getElementById('navbar-search-input');
+const navbarSearchDropdown = document.getElementById('navbar-search-dropdown');
+let navbarSearchTimer = null;
+
+navbarSearchInput.addEventListener('input', (e) => {
   const term = e.target.value.trim().toLowerCase();
   document.querySelectorAll('.server-icon:not(.server-icon-add)').forEach((el) => {
     el.style.opacity = !term || el.title.toLowerCase().includes(term) ? '1' : '0.25';
@@ -3599,7 +3708,119 @@ document.getElementById('navbar-search-input').addEventListener('input', (e) => 
   document.querySelectorAll('.home-server-card').forEach((el) => {
     el.style.display = !term || el.dataset.name.includes(term) ? '' : 'none';
   });
+
+  clearTimeout(navbarSearchTimer);
+  if (term.length < 2) {
+    navbarSearchDropdown.classList.add('hidden');
+    return;
+  }
+  navbarSearchTimer = setTimeout(() => runGlobalSearch(term), 300);
 });
+navbarSearchInput.addEventListener('focus', () => {
+  if (navbarSearchInput.value.trim().length >= 2 && navbarSearchDropdown.innerHTML) {
+    navbarSearchDropdown.classList.remove('hidden');
+  }
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.navbar-search')) navbarSearchDropdown.classList.add('hidden');
+});
+navbarSearchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { navbarSearchDropdown.classList.add('hidden'); navbarSearchInput.blur(); }
+});
+
+// Busca global (item 13 do plano): jogadores, servidores, torneios e clipes
+// num dropdown só, sugestões enquanto digita.
+async function runGlobalSearch(term) {
+  let data;
+  try {
+    const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`, { credentials: 'include' });
+    data = await res.json();
+  } catch {
+    return;
+  }
+  const totalResults = data.players.length + data.servers.length + data.tournaments.length + data.clips.length;
+  if (totalResults === 0) {
+    navbarSearchDropdown.innerHTML = `<div class="search-empty">Nada encontrado pra "${escapeHtml(term)}"</div>`;
+    navbarSearchDropdown.classList.remove('hidden');
+    return;
+  }
+
+  let html = '';
+  if (data.players.length) {
+    html += `<div class="search-group"><div class="search-group-label">Jogadores</div>${data.players
+      .map(
+        (u) => `<div class="search-result-item" data-kind="player" data-id="${u.id}">
+          <div class="search-result-icon round">${renderAvatarHtml(u)}</div>
+          <div class="search-result-text"><span class="search-result-title">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}</span><span class="search-result-meta">${u.status_message ? '🎮 ' + escapeHtml(u.status_message) : 'Jogador'}</span></div>
+        </div>`
+      )
+      .join('')}</div>`;
+  }
+  if (data.servers.length) {
+    html += `<div class="search-group"><div class="search-group-label">Servidores</div>${data.servers
+      .map(
+        (s) => `<div class="search-result-item" data-kind="server" data-category="${escapeHtml(s.category)}" data-member="${s.is_member ? '1' : '0'}">
+          <div class="search-result-icon">${s.icon || serverInitials(s.category)}</div>
+          <div class="search-result-text"><span class="search-result-title">${escapeHtml(s.category)}</span><span class="search-result-meta">👥 ${s.member_count} membros</span></div>
+        </div>`
+      )
+      .join('')}</div>`;
+  }
+  if (data.tournaments.length) {
+    html += `<div class="search-group"><div class="search-group-label">Torneios</div>${data.tournaments
+      .map(
+        (t) => `<div class="search-result-item" data-kind="tournament" data-category="${escapeHtml(t.category)}">
+          <div class="search-result-icon">🏆</div>
+          <div class="search-result-text"><span class="search-result-title">${escapeHtml(t.name)}</span><span class="search-result-meta">${escapeHtml(t.game)} · ${t.registered} inscritos</span></div>
+        </div>`
+      )
+      .join('')}</div>`;
+  }
+  if (data.clips.length) {
+    html += `<div class="search-group"><div class="search-group-label">Clipes</div>${data.clips
+      .map(
+        (c) => `<div class="search-result-item" data-kind="clip">
+          <div class="search-result-icon">🎬</div>
+          <div class="search-result-text"><span class="search-result-title">${escapeHtml(c.title)}</span><span class="search-result-meta">${escapeHtml(c.username)} · 👁️ ${c.views}</span></div>
+        </div>`
+      )
+      .join('')}</div>`;
+  }
+
+  navbarSearchDropdown.innerHTML = html;
+  navbarSearchDropdown.classList.remove('hidden');
+
+  navbarSearchDropdown.querySelectorAll('.search-result-item').forEach((item) => {
+    item.onclick = async () => {
+      navbarSearchDropdown.classList.add('hidden');
+      navbarSearchInput.value = '';
+      const kind = item.dataset.kind;
+      if (kind === 'player') {
+        const u = [...data.players].find((p) => p.id === item.dataset.id);
+        if (u) openProfilePreview(u);
+      } else if (kind === 'server' || kind === 'tournament') {
+        const category = item.dataset.category;
+        if (kind === 'server' && item.dataset.member !== '1') {
+          const r = await fetch(`/api/servers/discover/${encodeURIComponent(category)}/join`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+          if (!r.ok) {
+            const d = await r.json().catch(() => ({}));
+            alert(d.error || 'Não foi possível entrar nesse servidor (pode ser privado).');
+            return;
+          }
+        }
+        activeServerCategory = category;
+        await loadChannels();
+        goHome();
+        if (kind === 'tournament') document.getElementById('btn-tournaments').click();
+      } else if (kind === 'clip') {
+        document.getElementById('nav-feed').click();
+      }
+    };
+  });
+}
 
 // ---------- PAINEL DE INÍCIO (dashboard com dados reais) ----------
 
@@ -4202,6 +4423,7 @@ function registerSocketHandlers() {
   });
 
   socket.on('rtc:peer-left', ({ socketId, username }) => {
+    clearReconnectAttempt(socketId);
     if (peers[socketId]) {
       peers[socketId].close();
       delete peers[socketId];
@@ -4317,6 +4539,7 @@ function disconnectVoice() {
   socket.emit('rtc:leave', connectedVoiceRoomId);
   socket.emit('channel:leave', connectedVoiceRoomId);
   Object.keys(peers).forEach((id) => {
+    clearReconnectAttempt(id);
     peers[id].close();
     delete peers[id];
     stopConnectionQualityMonitor(id);
@@ -4485,15 +4708,104 @@ function createPeerConnection(peerId, username) {
   };
 
   pc.onconnectionstatechange = () => {
-    if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
+    const state = pc.connectionState;
+    if (state === 'connected') {
+      // Reconectou — cancela qualquer tentativa pendente e tira o aviso da tile.
+      clearReconnectAttempt(peerId);
+      const tile = document.getElementById('tile-' + peerId);
+      if (tile) tile.classList.remove('tile-reconnecting');
+      return;
+    }
+    if (state === 'closed') {
+      // pc.close() já foi chamado de propósito (saiu da sala, peer saiu) —
+      // não tenta reconectar, só limpa.
+      clearReconnectAttempt(peerId);
       delete remoteStreams[peerId];
       removeVideoTile(peerId);
+      return;
+    }
+    if (state === 'disconnected' || state === 'failed') {
+      // Queda de conexão real (rede caiu, wifi oscilou etc) — tenta
+      // reconectar sozinho antes de desistir e tirar a pessoa da call
+      // (item 7 do plano: "Reconexão e tratamento de falhas").
+      scheduleReconnectAttempt(peerId, pc, username);
     }
   };
 
   startConnectionQualityMonitor(peerId, pc);
 
   return pc;
+}
+
+// ---------- RECONEXÃO AUTOMÁTICA DE VOZ ----------
+// failed/disconnected nem sempre é queda definitiva — WebRTC costuma dar um
+// "disconnected" passageiro em qualquer soluço de rede. Em vez de tirar a
+// pessoa da call na hora, tenta ICE restart algumas vezes com espera
+// crescente, e só remove a tile de verdade se todas as tentativas falharem.
+const reconnectTimers = {};
+const reconnectAttempts = {};
+const MAX_RECONNECT_ATTEMPTS = 4;
+
+function clearReconnectAttempt(peerId) {
+  if (reconnectTimers[peerId]) {
+    clearTimeout(reconnectTimers[peerId]);
+    delete reconnectTimers[peerId];
+  }
+  delete reconnectAttempts[peerId];
+}
+
+function scheduleReconnectAttempt(peerId, pc, username) {
+  // Já tem uma tentativa agendada pra esse peer — não empilha outra.
+  if (reconnectTimers[peerId]) return;
+
+  const tile = document.getElementById('tile-' + peerId);
+  if (tile) tile.classList.add('tile-reconnecting');
+
+  const attempt = (reconnectAttempts[peerId] || 0) + 1;
+  reconnectAttempts[peerId] = attempt;
+
+  if (attempt > MAX_RECONNECT_ATTEMPTS) {
+    logVoiceActivity(`${username || 'Alguém'} caiu da chamada`);
+    clearReconnectAttempt(peerId);
+    delete remoteStreams[peerId];
+    if (peers[peerId]) {
+      try {
+        peers[peerId].close();
+      } catch (_) {}
+      delete peers[peerId];
+    }
+    removeVideoTile(peerId);
+    return;
+  }
+
+  const delay = Math.min(1500 * attempt, 6000); // 1.5s, 3s, 4.5s, 6s
+  reconnectTimers[peerId] = setTimeout(async () => {
+    delete reconnectTimers[peerId];
+    // Peer já sumiu (saiu de verdade nesse meio tempo) — nada a fazer.
+    if (!peers[peerId] || peers[peerId] !== pc) return;
+    if (pc.connectionState === 'connected') {
+      clearReconnectAttempt(peerId);
+      return;
+    }
+    try {
+      if (typeof pc.restartIce === 'function') {
+        pc.restartIce();
+      } else {
+        // Navegadores mais antigos: renegocia com iceRestart explícito.
+        const offer = await pc.createOffer({ iceRestart: true });
+        await pc.setLocalDescription(offer);
+        socket.emit('rtc:signal', { to: peerId, data: pc.localDescription });
+      }
+    } catch (err) {
+      console.error('Falha ao tentar reconectar com', username, err);
+    }
+    // Se depois dessa tentativa ainda não conectou, agenda a próxima.
+    setTimeout(() => {
+      if (peers[peerId] === pc && pc.connectionState !== 'connected' && pc.connectionState !== 'closed') {
+        scheduleReconnectAttempt(peerId, pc, username);
+      }
+    }, 2500);
+  }, delay);
 }
 
 // Checa a qualidade da conexão (perda de pacotes) a cada poucos segundos e

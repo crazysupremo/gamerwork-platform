@@ -270,12 +270,36 @@ body {
 .navbar-link.active { color: white; background: #1a1b20; box-shadow: inset 0 -2px 0 var(--accent); }
 .navbar-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 .navbar-search {
-  display: flex; align-items: center; gap: 6px; background: #1a1b20; border-radius: 20px;
+  position: relative; display: flex; align-items: center; gap: 6px; background: #1a1b20; border-radius: 20px;
   padding: 7px 14px; font-size: 12px;
 }
 .navbar-search input {
   background: none; border: none; color: #e6e6e6; outline: none; font-size: 13px; width: 160px;
 }
+.navbar-search-dropdown {
+  position: absolute; top: calc(100% + 8px); left: 0; width: 340px; max-height: 70vh; overflow-y: auto;
+  background: #1a1b20; border: 1px solid #26272e; border-radius: 12px; padding: 8px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5); z-index: 60;
+}
+.search-group { margin-bottom: 6px; }
+.search-group:last-child { margin-bottom: 0; }
+.search-group-label {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; color: #6d7178; padding: 6px 8px 4px;
+}
+.search-result-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; cursor: pointer;
+  transition: background 0.12s ease;
+}
+.search-result-item:hover { background: rgba(255,255,255,0.05); }
+.search-result-icon {
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center;
+  justify-content: center; font-size: 15px; background: rgba(88,101,242,0.15); overflow: hidden;
+}
+.search-result-icon img, .search-result-icon.round { border-radius: 50%; }
+.search-result-text { min-width: 0; flex: 1; }
+.search-result-title { display: block; font-size: 13px; color: #e6e6e6; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-result-meta { display: block; font-size: 11px; color: #8b909a; }
+.search-empty { padding: 14px; text-align: center; font-size: 12px; color: #6d7178; }
 .navbar-icon-btn {
   position: relative; background: #1a1b20; border: none; color: #e6e6e6; width: 34px; height: 34px;
   border-radius: 50%; cursor: pointer; font-size: 15px;
@@ -561,6 +585,32 @@ body {
   margin-top: 4px; font-size: 11px; padding: 4px 8px; border-radius: 4px; border: none;
   background: var(--gradient-brand); color: white; cursor: pointer;
 }
+.bracket-evidence-link { font-size: 11px; color: var(--accent-3); text-decoration: none; }
+.bracket-evidence-link:hover { text-decoration: underline; }
+.bracket-report-form {
+  display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding: 8px;
+  background: #16171b; border-radius: 6px; border: 1px solid #26272e;
+}
+.bracket-report-radio { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #dbdee1; cursor: pointer; }
+.bracket-report-scores { display: flex; gap: 6px; }
+.bracket-report-scores input {
+  flex: 1; min-width: 0; padding: 6px; border-radius: 4px; border: 1px solid #26272e; background: #1e1f22;
+  color: #e6e6e6; font-size: 12px;
+}
+.bracket-report-evidence-label { font-size: 11px; color: #9aa0ab; display: flex; flex-direction: column; gap: 4px; }
+.bracket-report-evidence-label input { font-size: 11px; color: #9aa0ab; }
+.bracket-report-submit {
+  padding: 6px; border-radius: 4px; border: none; background: #23a55a; color: white;
+  font-weight: 700; font-size: 12px; cursor: pointer;
+}
+.bracket-report-submit:disabled { opacity: 0.6; cursor: default; }
+.liga-standings { margin-bottom: 14px; background: #1a1b20; border-radius: 8px; overflow: hidden; border: 1px solid #26272e; }
+.liga-standings-header, .liga-standings-row {
+  display: grid; grid-template-columns: 28px 1fr 36px 36px 36px 44px; gap: 4px; padding: 7px 10px; font-size: 12px;
+}
+.liga-standings-header { background: #16171b; color: #6d7178; font-weight: 800; text-transform: uppercase; font-size: 10px; }
+.liga-standings-row { color: #dbdee1; border-top: 1px solid #26272e; }
+.liga-standings-row:first-child { border-top: none; }
 .thread-reply-tag {
   font-size: 11px; color: #6d7178; margin-bottom: 2px; padding-left: 6px;
   border-left: 2px solid #3a3c42;
@@ -766,6 +816,16 @@ body {
 /* "Ampliar": a tile ocupa o espaço da grade inteira, as outras somem —
    feito só com CSS, então sempre funciona (sem depender de permissão do navegador). */
 .video-grid.grid-has-expanded { display: block; }
+.video-tile.tile-reconnecting { box-shadow: 0 0 0 2px #f0b232; animation: tileReconnectPulse 1.4s ease-in-out infinite; }
+.video-tile.tile-reconnecting::after {
+  content: 'Reconectando...'; position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+  background: rgba(240,178,50,0.92); color: #16171b; font-size: 10px; font-weight: 800; padding: 3px 8px;
+  border-radius: 20px; z-index: 3; white-space: nowrap;
+}
+@keyframes tileReconnectPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(240,178,50,0.4); }
+  50% { box-shadow: 0 0 0 2px rgba(240,178,50,1); }
+}
 .video-grid.grid-has-expanded .video-tile { display: none; }
 .video-grid.grid-has-expanded .video-tile.tile-expanded {
   display: flex; width: 100%; height: calc(100vh - 220px); min-height: 360px;
