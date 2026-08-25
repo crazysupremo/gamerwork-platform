@@ -108,19 +108,20 @@ function switchTab(which) {
   formLogin.classList.toggle('hidden', which !== 'login');
   formRegister.classList.toggle('hidden', which !== 'register');
   authError.textContent = '';
+  const titleEl = document.getElementById('auth-card-title');
+  const subtitleEl = document.getElementById('auth-card-subtitle');
+  if (titleEl && subtitleEl) {
+    if (which === 'login') {
+      titleEl.textContent = 'BEM-VINDO DE VOLTA';
+      subtitleEl.innerHTML = 'Entre para continuar sua jornada no <strong>NEXT GAME</strong>.';
+    } else {
+      titleEl.textContent = 'CRIAR CONTA';
+      subtitleEl.innerHTML = 'É grátis — junte-se à comunidade em segundos.';
+    }
+  }
 }
 
 // ---------- LANDING PÚBLICA (antes do login) ----------
-
-function scrollToAuthCard(which) {
-  switchTab(which);
-  document.getElementById('auth-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-document.getElementById('landing-nav-login').onclick = () => scrollToAuthCard('login');
-document.getElementById('landing-cta-login').onclick = () => scrollToAuthCard('login');
-document.getElementById('landing-nav-register').onclick = () => scrollToAuthCard('register');
-document.getElementById('landing-cta-register').onclick = () => scrollToAuthCard('register');
-
 // Estatísticas públicas (sem precisar estar logado) pra landing.
 fetch('/api/stats')
   .then((res) => res.json())
