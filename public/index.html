@@ -171,7 +171,7 @@
       <img src="/assets/logo.png" alt="NEXT GAME" class="navbar-logo-img" />
       <nav class="navbar-links">
         <button class="navbar-link active" id="nav-inicio">Início</button>
-        <button class="navbar-link" id="nav-jogos">Jogos</button>
+        <button class="navbar-link" id="nav-jogos">🔍 Explorar</button>
         <button class="navbar-link" id="nav-lfg">🎯 Jogar</button>
         <button class="navbar-link" id="nav-feed">📰 Feed</button>
         <button class="navbar-link" id="nav-comunidade">Comunidade</button>
@@ -259,16 +259,27 @@
 
     <!-- Painel Início: dashboard com dados reais da comunidade -->
     <section id="home-panel" class="home-panel">
-      <div class="home-hero">
-        <div class="home-hero-text">
-          <span class="home-hero-kicker">BEM-VINDO AO</span>
-          <h1 class="home-hero-title">NEXT <span class="navbar-logo-accent">GAME</span></h1>
-          <p class="home-hero-sub">Conecte-se, jogue e trabalhe em equipe. Faça parte da comunidade.</p>
-          <div class="home-hero-actions">
-            <button id="home-btn-explore" class="home-btn-primary">🎮 Explorar Servidores</button>
-            <button id="home-btn-community" class="home-btn-secondary">👥 Entrar na Comunidade</button>
-          </div>
-        </div>
+      <!-- Banner de torneio em destaque, no topo — o cartão principal da tela -->
+      <div id="home-tournament-banner" class="home-tournament-banner"></div>
+
+      <div class="home-section-title" style="margin-top:22px;">⚡ Atividades rápidas</div>
+      <div class="home-quick-actions">
+        <button type="button" class="home-quick-action" id="home-quick-lfg">
+          <span class="home-quick-action-icon">🔍</span>
+          <span class="home-quick-action-text"><strong>Procurar Jogadores</strong><span>Encontre gente pro seu nível</span></span>
+        </button>
+        <button type="button" class="home-quick-action" id="home-quick-join">
+          <span class="home-quick-action-icon">🔗</span>
+          <span class="home-quick-action-text"><strong>Entrar em Servidor</strong><span>Participe de uma comunidade</span></span>
+        </button>
+        <button type="button" class="home-quick-action" id="home-quick-team">
+          <span class="home-quick-action-icon">🛡️</span>
+          <span class="home-quick-action-text"><strong>Criar Time</strong><span>Monte seu esquad</span></span>
+        </button>
+        <button type="button" class="home-quick-action" id="home-quick-tournaments">
+          <span class="home-quick-action-icon">🏆</span>
+          <span class="home-quick-action-text"><strong>Ver Torneios</strong><span>Confira torneios abertos</span></span>
+        </button>
       </div>
 
       <div class="home-stats" id="home-stats"></div>
@@ -286,10 +297,6 @@
         </div>
         <div class="home-col-side">
           <div class="home-side-card home-streak-card" id="home-streak-card"></div>
-          <div class="home-side-card">
-            <div class="home-section-title">🏆 Torneio em Destaque</div>
-            <div id="home-tournament"></div>
-          </div>
           <div class="home-side-card">
             <div class="home-section-title">📊 Ranking Semanal</div>
             <div id="home-ranking" class="ranking-list"></div>
@@ -482,15 +489,17 @@
 
 <!-- MODAL: editar perfil (email, senha, avatar, status) -->
 <div id="modal-profile" class="modal-overlay hidden">
-  <div class="modal-card modal-card-wide">
+  <div class="modal-card modal-card-wide settings-modal-card">
     <h2>Configurações</h2>
 
-    <div class="manage-tabs">
-      <button type="button" class="manage-tab active" data-settings-tab="conta">👤 Conta</button>
-      <button type="button" class="manage-tab" data-settings-tab="seguranca">🔒 Segurança</button>
-      <button type="button" class="manage-tab" data-settings-tab="privacidade">🚫 Privacidade</button>
-      <button type="button" class="manage-tab" data-settings-tab="notificacoes">🔔 Notificações</button>
+    <div class="settings-layout">
+    <div class="settings-sidebar">
+      <button type="button" class="settings-sidebar-item active" data-settings-tab="conta">👤 Conta</button>
+      <button type="button" class="settings-sidebar-item" data-settings-tab="seguranca">🔒 Segurança</button>
+      <button type="button" class="settings-sidebar-item" data-settings-tab="privacidade">🚫 Privacidade</button>
+      <button type="button" class="settings-sidebar-item" data-settings-tab="notificacoes">🔔 Notificações</button>
     </div>
+    <div class="settings-content">
 
     <div id="settings-tab-conta" class="manage-tab-panel">
       <form id="form-profile">
@@ -582,6 +591,23 @@
 
     <div id="settings-tab-notificacoes" class="manage-tab-panel hidden">
       <div id="notification-prefs-list"></div>
+    </div>
+    </div><!-- /.settings-content -->
+    </div><!-- /.settings-layout -->
+  </div>
+</div>
+
+<!-- MODAL: Explorar Servidores (descoberta pública) -->
+<div id="modal-explore" class="modal-overlay hidden">
+  <div class="modal-card modal-card-wide">
+    <h2>🔍 Explorar Servidores</h2>
+    <div class="input-icon-wrap" style="margin-bottom:12px;">
+      <span class="input-icon">🔍</span>
+      <input type="text" id="explore-search" placeholder="Buscar servidores..." />
+    </div>
+    <div id="explore-grid" class="explore-grid"></div>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-explore">Fechar</button>
     </div>
   </div>
 </div>
@@ -912,6 +938,14 @@
         <button type="button" id="btn-copy-invite">📋 Copiar link</button>
         <button type="button" id="btn-regenerate-invite" class="hidden">🔄 Gerar novo código</button>
       </div>
+
+      <p class="hint" style="margin:18px 0 10px; border-top:1px solid #3a3c42; padding-top:14px;">
+        Deixar esse servidor visível em "🔍 Explorar" pra qualquer pessoa entrar sem precisar de convite.
+      </p>
+      <label class="checkbox-row">
+        <input type="checkbox" id="server-discoverable-toggle" />
+        Servidor público (aparece na busca)
+      </label>
     </div>
 
     <div id="manage-tab-members" class="manage-tab-panel hidden">
@@ -964,6 +998,13 @@
   <div class="modal-card modal-card-wide">
     <h2>🏆 Torneios</h2>
 
+    <div class="tournament-filter-tabs">
+      <button type="button" class="tournament-filter-tab active" data-filter="todos">Todos</button>
+      <button type="button" class="tournament-filter-tab" data-filter="inscritos">Inscritos</button>
+      <button type="button" class="tournament-filter-tab" data-filter="andamento">Em andamento</button>
+      <button type="button" class="tournament-filter-tab" data-filter="finalizados">Finalizados</button>
+    </div>
+
     <div id="tournaments-list" class="tournaments-list"></div>
 
     <form id="form-new-tournament" class="hidden tournament-create-form">
@@ -996,6 +1037,12 @@
   <div class="modal-card">
     <h2>📊 Ranking Semanal</h2>
     <p class="hint" style="margin-bottom:10px;">Baseado em mensagens enviadas nos últimos 7 dias.</p>
+    <div class="tournament-filter-tabs">
+      <button type="button" class="tournament-filter-tab active" data-scope="global">Global</button>
+      <button type="button" class="tournament-filter-tab" data-scope="pais">País</button>
+      <button type="button" class="tournament-filter-tab" data-scope="amigos">Amigos</button>
+      <button type="button" class="tournament-filter-tab" data-scope="servidor">Servidor</button>
+    </div>
     <div id="ranking-list" class="ranking-list"></div>
     <div class="modal-actions">
       <button type="button" id="btn-close-ranking">Fechar</button>
@@ -1055,11 +1102,28 @@
 
 <!-- MODAL: preview de perfil (clicar num avatar/nome, estilo Discord) -->
 <div id="modal-profile-preview" class="modal-overlay hidden">
-  <div class="modal-card profile-preview-card">
-    <div id="profile-preview-avatar" class="profile-preview-avatar"></div>
-    <h2 id="profile-preview-username"></h2>
+  <div class="modal-card modal-card-wide profile-preview-card">
+    <div class="profile-banner">
+      <div id="profile-preview-avatar" class="profile-preview-avatar"></div>
+    </div>
+    <h2 id="profile-preview-username" style="margin-top:44px;"></h2>
     <p id="profile-preview-status" class="profile-preview-status"></p>
     <div id="profile-preview-actions" class="profile-preview-actions"></div>
+
+    <div class="profile-stats-row" id="profile-stats-row"></div>
+
+    <div class="manage-tabs" style="justify-content:center;">
+      <button type="button" class="manage-tab active" data-profile-tab="geral">Visão geral</button>
+      <button type="button" class="manage-tab" data-profile-tab="estatisticas">Estatísticas</button>
+      <button type="button" class="manage-tab" data-profile-tab="jogos">Jogos</button>
+      <button type="button" class="manage-tab" data-profile-tab="atividade">Atividade</button>
+    </div>
+
+    <div id="profile-tab-geral" class="manage-tab-panel"></div>
+    <div id="profile-tab-estatisticas" class="manage-tab-panel hidden"></div>
+    <div id="profile-tab-jogos" class="manage-tab-panel hidden"></div>
+    <div id="profile-tab-atividade" class="manage-tab-panel hidden"></div>
+
     <div class="modal-actions">
       <button type="button" id="btn-close-profile-preview">Fechar</button>
     </div>

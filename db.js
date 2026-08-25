@@ -563,6 +563,7 @@ async function initDb() {
   await ensureColumn('users', 'avatar_frame TEXT');
   await ensureColumn('users', 'points INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('servers', 'icon TEXT');
+  await ensureColumn('servers', 'discoverable INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('servers', 'owner_id TEXT');
   await ensureColumn('servers', 'invite_code TEXT');
   await ensureColumn('users', 'email_verified INTEGER NOT NULL DEFAULT 0');

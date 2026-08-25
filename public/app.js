@@ -812,6 +812,21 @@ async function loadManageInvite() {
   const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/invite`, { credentials: 'include' });
   const data = await res.json();
   document.getElementById('invite-link-display').value = `${window.location.origin}/?invite=${data.invite_code}`;
+
+  const infoRes = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, { credentials: 'include' });
+  const info = await infoRes.json();
+  const toggle = document.getElementById('server-discoverable-toggle');
+  toggle.checked = !!info.discoverable;
+  toggle.disabled = !canManage;
+  toggle.onchange = async () => {
+    await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ discoverable: toggle.checked }),
+    });
+    showCopyToast(toggle.checked ? 'Servidor agora é público!' : 'Servidor voltou a ser privado.');
+  };
 }
 
 document.getElementById('btn-copy-invite').onclick = () => {
@@ -1036,17 +1051,44 @@ document.getElementById('btn-cancel-tournament').onclick = () => {
   document.getElementById('form-new-tournament').classList.add('hidden');
 };
 
+let tournamentFilter = 'todos';
+document.querySelectorAll('.tournament-filter-tab').forEach((tab) => {
+  tab.onclick = () => {
+    document.querySelectorAll('.tournament-filter-tab').forEach((t) => t.classList.remove('active'));
+    tab.classList.add('active');
+    tournamentFilter = tab.dataset.filter;
+    loadTournaments();
+  };
+});
+
 async function loadTournaments() {
   const list = document.getElementById('tournaments-list');
   list.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch(`/api/tournaments?category=${encodeURIComponent(activeServerCategory)}`, {
     credentials: 'include',
   });
-  const tournaments = await res.json();
+  let tournaments = await res.json();
+
+  // Filtro por aba — "andamento"/"finalizados" usam a data como referência,
+  // já que o torneio não guarda um status separado além dos jogos da chave.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (tournamentFilter === 'inscritos') {
+    tournaments = tournaments.filter((t) => t.is_registered);
+  } else if (tournamentFilter === 'andamento') {
+    tournaments = tournaments.filter((t) => t.event_date && new Date(t.event_date + 'T00:00:00') <= today);
+  } else if (tournamentFilter === 'finalizados') {
+    tournaments = tournaments.filter((t) => {
+      if (!t.event_date) return false;
+      const diffDays = (today - new Date(t.event_date + 'T00:00:00')) / 86400000;
+      return diffDays > 3;
+    });
+  }
+
   list.innerHTML = '';
 
   if (tournaments.length === 0) {
-    list.innerHTML = '<p class="empty-hint">Nenhum torneio criado ainda nesse servidor.</p>';
+    list.innerHTML = '<p class="empty-hint">Nenhum torneio nessa categoria.</p>';
     return;
   }
 
@@ -1199,15 +1241,24 @@ document.getElementById('form-new-tournament').onsubmit = async (e) => {
 // ---------- RANKING SEMANAL ----------
 
 const modalRanking = document.getElementById('modal-ranking');
-document.getElementById('btn-ranking').onclick = async () => {
-  modalRanking.classList.remove('hidden');
+let rankingScope = 'global';
+
+async function loadRankingModal() {
   const list = document.getElementById('ranking-list');
   list.innerHTML = '<p class="empty-hint">Carregando...</p>';
-  const res = await fetch('/api/ranking', { credentials: 'include' });
+  const params = new URLSearchParams({ scope: rankingScope });
+  if (rankingScope === 'servidor') {
+    if (!activeServerCategory) {
+      list.innerHTML = '<p class="empty-hint">Entre num servidor primeiro pra ver o ranking dele.</p>';
+      return;
+    }
+    params.set('category', activeServerCategory);
+  }
+  const res = await fetch(`/api/ranking?${params.toString()}`, { credentials: 'include' });
   const ranking = await res.json();
   list.innerHTML = '';
   if (ranking.length === 0) {
-    list.innerHTML = '<p class="empty-hint">Ainda sem atividade suficiente essa semana.</p>';
+    list.innerHTML = '<p class="empty-hint">Ainda sem atividade suficiente essa semana nessa categoria.</p>';
     return;
   }
   const medals = ['🥇', '🥈', '🥉'];
@@ -1222,7 +1273,20 @@ document.getElementById('btn-ranking').onclick = async () => {
     `;
     list.appendChild(row);
   });
+}
+
+document.getElementById('btn-ranking').onclick = () => {
+  modalRanking.classList.remove('hidden');
+  loadRankingModal();
 };
+document.querySelectorAll('#modal-ranking .tournament-filter-tab').forEach((tab) => {
+  tab.onclick = () => {
+    document.querySelectorAll('#modal-ranking .tournament-filter-tab').forEach((t) => t.classList.remove('active'));
+    tab.classList.add('active');
+    rankingScope = tab.dataset.scope;
+    loadRankingModal();
+  };
+});
 document.getElementById('btn-close-ranking').onclick = () => modalRanking.classList.add('hidden');
 
 // ---------- LOJA DE RECOMPENSAS (streak de acesso, molduras, selo raro) ----------
@@ -1971,7 +2035,7 @@ function buildUserContextMenuItems(user) {
 
 const modalProfilePreview = document.getElementById('modal-profile-preview');
 
-function openProfilePreview(user) {
+async function openProfilePreview(user) {
   const avatarEl = document.getElementById('profile-preview-avatar');
   avatarEl.innerHTML = renderAvatarHtml(user);
   avatarEl.className = 'profile-preview-avatar ' + avatarFrameClass(user);
@@ -1990,9 +2054,80 @@ function openProfilePreview(user) {
     actionsEl.appendChild(btn);
   });
 
+  document.querySelectorAll('#modal-profile-preview .manage-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('#modal-profile-preview .manage-tab-panel').forEach((p, i) => p.classList.toggle('hidden', i !== 0));
   modalProfilePreview.classList.remove('hidden');
+
+  const [profileRes, gamesRes] = await Promise.all([
+    fetch(`/api/users/${user.id}/profile`, { credentials: 'include' }),
+    fetch(`/api/game-profiles/${user.id}`, { credentials: 'include' }),
+  ]);
+  const profile = await profileRes.json();
+  const games = await gamesRes.json();
+  if (!profileRes.ok) return;
+
+  document.getElementById('profile-stats-row').innerHTML = `
+    <div class="profile-stat"><span class="profile-stat-num">${profile.level}</span><span class="profile-stat-label">Nível</span></div>
+    <div class="profile-stat"><span class="profile-stat-num">${profile.points}</span><span class="profile-stat-label">XP</span></div>
+    <div class="profile-stat"><span class="profile-stat-num">${profile.tournament_wins}</span><span class="profile-stat-label">🏆 Troféus</span></div>
+    <div class="profile-stat"><span class="profile-stat-num">${profile.badge_count}</span><span class="profile-stat-label">🎖️ Conquistas</span></div>
+  `;
+
+  const memberSince = new Date(profile.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  document.getElementById('profile-tab-geral').innerHTML = `
+    ${profile.bio ? `<p style="color:#dbdee1; font-size:13px;">${escapeHtml(profile.bio)}</p>` : '<p class="empty-hint">Sem bio ainda.</p>'}
+    <p class="hint">📍 ${profile.country ? escapeHtml(profile.country) : 'País não informado'} · Membro desde ${memberSince}</p>
+    ${profile.favorite_games.length ? `<p class="hint">🎮 Jogos favoritos: ${profile.favorite_games.map(escapeHtml).join(', ')}</p>` : ''}
+  `;
+
+  document.getElementById('profile-tab-estatisticas').innerHTML = `
+    <div class="profile-stats-row" style="margin-bottom:0;">
+      <div class="profile-stat"><span class="profile-stat-num">${profile.message_count}</span><span class="profile-stat-label">Mensagens</span></div>
+      <div class="profile-stat"><span class="profile-stat-num">${profile.login_streak || 0}</span><span class="profile-stat-label">Sequência</span></div>
+      <div class="profile-stat"><span class="profile-stat-num">${profile.longest_streak || 0}</span><span class="profile-stat-label">Recorde</span></div>
+      <div class="profile-stat"><span class="profile-stat-num">${profile.reputation || 0}</span><span class="profile-stat-label">👍 Reputação</span></div>
+    </div>
+  `;
+
+  const gamesTab = document.getElementById('profile-tab-jogos');
+  if (games.length === 0) {
+    gamesTab.innerHTML = '<p class="empty-hint">Nenhum perfil de jogo cadastrado ainda.</p>';
+  } else {
+    gamesTab.innerHTML = games
+      .map(
+        (g) => `
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <span class="settings-row-title">🎮 ${escapeHtml(g.game)} ${g.rank ? '— ' + escapeHtml(g.rank) : ''}</span>
+          <span class="settings-row-meta">${g.role ? escapeHtml(g.role) + ' · ' : ''}${g.hours}h · ${g.wins}V/${g.losses}D</span>
+        </div>
+      </div>`
+      )
+      .join('');
+  }
+
+  const activityRes = await fetch('/api/feed', { credentials: 'include' });
+  const feed = await activityRes.json();
+  const myFeed = feed.filter((p) => p.user_id === user.id).slice(0, 10);
+  const activityTab = document.getElementById('profile-tab-atividade');
+  activityTab.innerHTML =
+    myFeed.length === 0
+      ? '<p class="empty-hint">Nenhuma atividade recente.</p>'
+      : myFeed
+          .map(
+            (p) => `<div class="settings-row"><div class="settings-row-info"><span class="settings-row-title">${escapeHtml(p.text || '')}</span><span class="settings-row-meta">${new Date(p.created_at).toLocaleString('pt-BR')}</span></div></div>`
+          )
+          .join('');
 }
 document.getElementById('btn-close-profile-preview').onclick = () => modalProfilePreview.classList.add('hidden');
+document.querySelectorAll('#modal-profile-preview .manage-tab').forEach((tabBtn) => {
+  tabBtn.onclick = () => {
+    document.querySelectorAll('#modal-profile-preview .manage-tab').forEach((t) => t.classList.remove('active'));
+    tabBtn.classList.add('active');
+    document.querySelectorAll('#modal-profile-preview .manage-tab-panel').forEach((p) => p.classList.add('hidden'));
+    document.getElementById('profile-tab-' + tabBtn.dataset.profileTab).classList.remove('hidden');
+  };
+});
 
 function updateCategoryDatalist(channels) {
   const datalist = document.getElementById('category-options');
@@ -2155,7 +2290,7 @@ document.getElementById('btn-edit-profile').onclick = () => {
   document.getElementById('profile-current-password').value = '';
   pendingAvatar = undefined;
   updateAvatarPreview();
-  document.querySelectorAll('#modal-profile .manage-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('#modal-profile .settings-sidebar-item').forEach((t, i) => t.classList.toggle('active', i === 0));
   document.querySelectorAll('#modal-profile .manage-tab-panel').forEach((p, i) => p.classList.toggle('hidden', i !== 0));
   modalProfile.classList.remove('hidden');
 };
@@ -2217,9 +2352,9 @@ document.getElementById('form-profile').onsubmit = async (e) => {
 // ---------- ABAS DE CONFIGURAÇÕES: Segurança (2FA + sessões), Privacidade
 // (bloqueados) e Notificações ----------
 
-document.querySelectorAll('#modal-profile .manage-tab').forEach((tabBtn) => {
+document.querySelectorAll('#modal-profile .settings-sidebar-item').forEach((tabBtn) => {
   tabBtn.onclick = async () => {
-    document.querySelectorAll('#modal-profile .manage-tab').forEach((t) => t.classList.remove('active'));
+    document.querySelectorAll('#modal-profile .settings-sidebar-item').forEach((t) => t.classList.remove('active'));
     tabBtn.classList.add('active');
     document.querySelectorAll('#modal-profile .manage-tab-panel').forEach((p) => p.classList.add('hidden'));
     const tab = tabBtn.dataset.settingsTab;
@@ -2609,10 +2744,65 @@ function updateNavbarProfile() {
 }
 
 document.getElementById('nav-inicio').onclick = () => goHome();
+// ---------- EXPLORAR SERVIDORES (descoberta pública) ----------
+
+const modalExplore = document.getElementById('modal-explore');
+
 document.getElementById('nav-jogos').onclick = () => {
-  goHome();
-  setTimeout(() => document.getElementById('home-servers-grid').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  modalExplore.classList.remove('hidden');
+  loadExplore();
 };
+document.getElementById('btn-close-explore').onclick = () => modalExplore.classList.add('hidden');
+
+let exploreSearchTimer = null;
+document.getElementById('explore-search').oninput = () => {
+  clearTimeout(exploreSearchTimer);
+  exploreSearchTimer = setTimeout(loadExplore, 300);
+};
+
+async function loadExplore() {
+  const grid = document.getElementById('explore-grid');
+  grid.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const q = document.getElementById('explore-search').value.trim();
+  const res = await fetch(`/api/servers/discover${q ? '?q=' + encodeURIComponent(q) : ''}`, { credentials: 'include' });
+  const servers = await res.json();
+  if (servers.length === 0) {
+    grid.innerHTML = '<p class="empty-hint">Nenhum servidor público encontrado. Servidores só aparecem aqui se o dono marcar como público em "Gerenciar Servidor".</p>';
+    return;
+  }
+  grid.innerHTML = '';
+  servers.forEach((s) => {
+    const card = document.createElement('div');
+    card.className = 'explore-card';
+    card.innerHTML = `
+      <div class="explore-card-icon">${s.icon || serverInitials(s.category)}</div>
+      <div class="explore-card-info">
+        <strong>${escapeHtml(s.category)}</strong>
+        <p>${s.description ? escapeHtml(s.description) : 'Sem descrição ainda.'}</p>
+        <span class="explore-card-meta"># ${s.text_channels} texto · 🔊 ${s.voice_channels} voz · 👥 ${s.member_count} membros</span>
+      </div>
+      <button type="button" class="home-btn-primary explore-card-btn">${s.is_member ? 'Acessar' : 'Entrar'}</button>
+    `;
+    card.querySelector('.explore-card-btn').onclick = async () => {
+      if (!s.is_member) {
+        const r = await fetch(`/api/servers/discover/${encodeURIComponent(s.category)}/join`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          alert(d.error || 'Erro ao entrar');
+          return;
+        }
+      }
+      modalExplore.classList.add('hidden');
+      activeServerCategory = s.category;
+      await loadChannels();
+      goHome();
+    };
+    grid.appendChild(card);
+  });
+}
 document.getElementById('nav-comunidade').onclick = () => document.getElementById('btn-toggle-members').click();
 // ---------- JOGAR: LFG, MATCHMAKING, PERFIS DE JOGO, TIMES, CLÃS ----------
 
@@ -3413,17 +3603,28 @@ document.getElementById('navbar-search-input').addEventListener('input', (e) => 
 
 // ---------- PAINEL DE INÍCIO (dashboard com dados reais) ----------
 
-document.getElementById('home-btn-explore').onclick = () => {
-  document.getElementById('home-servers-grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+// Atividades rápidas: cada botão já leva pra uma ação de verdade do app,
+// reaproveitando modais/painéis que já existem — nada de link decorativo.
+document.getElementById('home-quick-lfg').onclick = () => document.getElementById('nav-lfg').click();
+document.getElementById('home-quick-join').onclick = () => document.getElementById('btn-join-invite').click();
+document.getElementById('home-quick-team').onclick = () => {
+  document.getElementById('nav-lfg').click();
+  setTimeout(() => document.querySelector('#modal-lfg .manage-tab[data-lfg-tab="times"]')?.click(), 50);
 };
-document.getElementById('home-btn-community').onclick = () => document.getElementById('btn-toggle-members').click();
+document.getElementById('home-quick-tournaments').onclick = () => {
+  if (!activeServerCategory) {
+    alert('Crie ou entre num servidor primeiro pra ver os torneios dele.');
+    return;
+  }
+  document.getElementById('btn-tournaments').click();
+};
 
 async function loadHomeDashboard() {
   loadHomeStats();
   loadHomeServers();
   loadHomePlayingNow();
   loadHomeActivity();
-  loadHomeTournament();
+  loadHomeTournamentBanner();
   loadHomeRanking();
   loadHomeStreakCard();
 }
@@ -3567,43 +3768,56 @@ function timeAgo(dateStr) {
   return `${Math.floor(hours / 24)}d atrás`;
 }
 
-async function loadHomeTournament() {
-  const el = document.getElementById('home-tournament');
+// Banner grande no topo da tela de Início — destaca o próximo torneio de
+// verdade (dados reais de /api/tournaments), igual ao cartão de destaque do
+// esboço. Sem torneio nenhum marcado, mostra um convite genérico pra criar um.
+async function loadHomeTournamentBanner() {
+  const el = document.getElementById('home-tournament-banner');
   const res = await fetch('/api/tournaments', { credentials: 'include' });
   const tournaments = await res.json();
   const upcoming = tournaments.filter((t) => !t.event_date || new Date(t.event_date) >= new Date()).slice(0, 1)[0];
+
   if (!upcoming) {
-    el.innerHTML = '<p class="empty-hint">Nenhum torneio marcado ainda.</p>';
+    el.innerHTML = `
+      <div class="home-tournament-banner-inner">
+        <div class="home-tournament-banner-icon">🏆</div>
+        <div class="home-tournament-banner-text">
+          <span class="home-tournament-banner-kicker">SEM TORNEIOS NO MOMENTO</span>
+          <h2>Que tal organizar o primeiro?</h2>
+        </div>
+        <button class="home-btn-primary" id="home-tournament-banner-cta">Ver Torneios</button>
+      </div>
+    `;
+    document.getElementById('home-tournament-banner-cta').onclick = () => document.getElementById('home-quick-tournaments').click();
     return;
   }
+
   const dateText = upcoming.event_date
     ? new Date(upcoming.event_date + 'T00:00:00').toLocaleDateString('pt-BR')
     : 'Data a definir';
   el.innerHTML = `
-    <div class="home-tournament-card">
-      <h3>🏆 ${escapeHtml(upcoming.name)}</h3>
-      <div class="tournament-meta">
-        <span>🎮 ${escapeHtml(upcoming.game)}</span>
-        <span>📅 ${dateText}</span>
+    <div class="home-tournament-banner-inner">
+      <div class="home-tournament-banner-icon">🏆</div>
+      <div class="home-tournament-banner-text">
+        <span class="home-tournament-banner-kicker">${escapeHtml(upcoming.game.toUpperCase())} · ${dateText}</span>
+        <h2>${escapeHtml(upcoming.name)}</h2>
+        ${upcoming.prize ? `<p class="home-tournament-banner-prize">Premiação total <strong>${escapeHtml(upcoming.prize)}</strong></p>` : ''}
+        <span class="home-tournament-banner-slots">👥 ${upcoming.registered_count}/${upcoming.max_slots} inscritos</span>
       </div>
-      <div class="tournament-meta">
-        ${upcoming.prize ? `<span>💰 ${escapeHtml(upcoming.prize)}</span>` : ''}
-        <span>👥 ${upcoming.registered_count}/${upcoming.max_slots}</span>
-      </div>
-      <button class="home-btn-primary" id="home-tournament-join" style="width:100%; margin-top:8px;">
-        ${upcoming.is_registered ? 'Você já está inscrito ✅' : 'Inscrever-se Agora'}
+      <button class="home-btn-primary" id="home-tournament-banner-join">
+        ${upcoming.is_registered ? 'Você já está inscrito ✅' : 'PARTICIPAR'}
       </button>
     </div>
   `;
   if (!upcoming.is_registered) {
-    document.getElementById('home-tournament-join').onclick = async () => {
+    document.getElementById('home-tournament-banner-join').onclick = async () => {
       const res2 = await fetch(`/api/tournaments/${upcoming.id}/register`, { method: 'POST', credentials: 'include' });
       const data = await res2.json();
       if (!res2.ok) {
         alert(data.error || 'Erro');
         return;
       }
-      loadHomeTournament();
+      loadHomeTournamentBanner();
     };
   }
 }

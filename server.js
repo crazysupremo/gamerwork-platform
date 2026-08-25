@@ -995,6 +995,41 @@ app.put(
   })
 );
 
+// Perfil público — versão segura pra ver o perfil de QUALQUER pessoa (não só
+// o seu), sem expor dados sensíveis (e-mail, senha etc). Usado na tela de
+// perfil completo (banner, nível, troféus, conquistas).
+app.get(
+  '/api/users/:id/profile',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = await db.get(
+      `SELECT id, username, avatar, avatar_frame, status_message, is_admin, bio, country, language,
+        region, reputation, points, login_streak, longest_streak, created_at, favorite_games, platforms,
+        preferred_rank, play_style
+       FROM users WHERE id = ? AND is_banned = 0`,
+      [req.params.id]
+    );
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+    const messageCount = await db.get('SELECT COUNT(*) as c FROM messages WHERE user_id = ? AND deleted = 0', [
+      user.id,
+    ]);
+    const rewardCount = await db.get('SELECT COUNT(*) as c FROM user_rewards WHERE user_id = ?', [user.id]);
+    const tournamentWins = await db.get(
+      "SELECT COUNT(*) as c FROM feed_posts WHERE user_id = ? AND type = 'tournament_win'",
+      [user.id]
+    );
+    res.json({
+      ...user,
+      favorite_games: user.favorite_games ? JSON.parse(user.favorite_games) : [],
+      platforms: user.platforms ? JSON.parse(user.platforms) : [],
+      message_count: Number(messageCount.c),
+      badge_count: Number(rewardCount.c),
+      tournament_wins: Number(tournamentWins.c),
+      level: Math.max(1, Math.floor(Number(messageCount.c) / 10) + 1),
+    });
+  })
+);
+
 // ---------- PERFIL GAMER (por jogo) ----------
 
 app.get(
@@ -1770,6 +1805,57 @@ app.post(
   })
 );
 
+// ---------- EXPLORAR SERVIDORES (descoberta pública) ----------
+// Precisa vir ANTES de '/api/servers/:category' — senão o Express casa
+// "discover" como se fosse o nome de uma categoria (rota genérica captura
+// primeiro quem for registrada primeiro). Só servidores que o dono marcou
+// como "descobrível" aparecem aqui — o padrão continua sendo privado.
+app.get(
+  '/api/servers/discover',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { game, q } = req.query;
+    const rows = await db.all(
+      `SELECT s.category, s.icon, s.description,
+        (SELECT COUNT(*) FROM server_members WHERE category = s.category) as member_count,
+        (SELECT COUNT(*) FROM channels WHERE category = s.category AND type = 'texto') as text_channels,
+        (SELECT COUNT(*) FROM channels WHERE category = s.category AND type = 'voz') as voice_channels
+       FROM servers s WHERE s.discoverable = 1 ORDER BY member_count DESC LIMIT 100`
+    );
+    const myMemberships = await db.all('SELECT category FROM server_members WHERE user_id = ?', [req.user.id]);
+    const myCategories = new Set(myMemberships.map((m) => m.category));
+    let filtered = rows.map((r) => ({ ...r, is_member: myCategories.has(r.category) }));
+    if (q) {
+      const term = String(q).toLowerCase();
+      filtered = filtered.filter((r) => r.category.toLowerCase().includes(term));
+    }
+    if (game) {
+      filtered = filtered.filter((r) => r.category.toLowerCase().includes(String(game).toLowerCase()));
+    }
+    res.json(filtered);
+  })
+);
+
+// Entrar direto (sem código de convite) num servidor que o dono deixou
+// descobrível — o mesmo servidor continua exigindo convite pra quem não
+// achou ele por aqui, já que descoberta pública é opt-in por servidor.
+app.post(
+  '/api/servers/discover/:category/join',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const server = await db.get('SELECT category FROM servers WHERE category = ? AND discoverable = 1', [
+      req.params.category,
+    ]);
+    if (!server) return res.status(404).json({ error: 'Servidor não encontrado ou não é público' });
+    await db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+      uuidv4(),
+      server.category,
+      req.user.id,
+    ]);
+    res.json({ ok: true, category: server.category });
+  })
+);
+
 // Informações/regras do servidor (categoria) — igual tela de boas-vindas do Discord.
 // Só membros conseguem ver (servidor é privado).
 app.get(
@@ -1794,7 +1880,7 @@ app.patch(
   asyncHandler(async (req, res) => {
     const canManage = await hasServerPermission(req.params.category, req.user, 'manage_server');
     if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar esse servidor' });
-    const { description, rules, icon } = req.body || {};
+    const { description, rules, icon, discoverable } = req.body || {};
     if ((description && description.length > 500) || (rules && rules.length > 2000)) {
       return res.status(400).json({ error: 'Descrição (máx. 500) ou regras (máx. 2000) muito longas' });
     }
@@ -1809,6 +1895,9 @@ app.patch(
          updated_at = excluded.updated_at`,
       [req.params.category, description || null, rules || null, icon && icon.length <= 8 ? icon : null, req.user.id]
     );
+    if (typeof discoverable === 'boolean') {
+      await db.run('UPDATE servers SET discoverable = ? WHERE category = ?', [discoverable ? 1 : 0, req.params.category]);
+    }
     res.json({ ok: true });
   })
 );
@@ -3123,14 +3212,45 @@ app.get(
   '/api/ranking',
   requireAuth,
   asyncHandler(async (req, res) => {
+    // scope: global (padrão) | pais | amigos | servidor — todos usam a mesma
+    // métrica (mensagens dos últimos 7 dias), só muda quem entra na conta.
+    const { scope, category } = req.query;
+    let userFilterSql = '';
+    let params = [];
+
+    if (scope === 'pais' && req.user.country) {
+      userFilterSql = 'AND u.country = ?';
+      params.push(req.user.country);
+    } else if (scope === 'amigos') {
+      const friendRows = await db.all(
+        "SELECT user_a, user_b FROM friendships WHERE status = 'accepted' AND (user_a = ? OR user_b = ?)",
+        [req.user.id, req.user.id]
+      );
+      const friendIds = new Set([req.user.id]);
+      friendRows.forEach((f) => {
+        friendIds.add(f.user_a === req.user.id ? f.user_b : f.user_a);
+      });
+      const ids = [...friendIds];
+      if (ids.length === 0) return res.json([]);
+      userFilterSql = `AND u.id IN (${ids.map(() => '?').join(',')})`;
+      params = ids;
+    } else if (scope === 'servidor' && category) {
+      const memberRows = await db.all('SELECT user_id FROM server_members WHERE category = ?', [category]);
+      const ids = memberRows.map((m) => m.user_id);
+      if (ids.length === 0) return res.json([]);
+      userFilterSql = `AND u.id IN (${ids.map(() => '?').join(',')})`;
+      params = ids;
+    }
+
     const rows = await db.all(
       `SELECT u.id, u.username, u.avatar, COUNT(m.id) as points
        FROM users u
        JOIN messages m ON m.user_id = u.id
-       WHERE m.created_at >= datetime('now', '-7 days') AND m.deleted = 0
+       WHERE m.created_at >= datetime('now', '-7 days') AND m.deleted = 0 ${userFilterSql}
        GROUP BY u.id
        ORDER BY points DESC
-       LIMIT 10`
+       LIMIT 20`,
+      params
     );
     res.json(rows);
   })
