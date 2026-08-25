@@ -488,7 +488,19 @@ app.post(
   '/api/register',
   authLimiter,
   asyncHandler(async (req, res) => {
-    const { username, email, password } = req.body || {};
+    const {
+      username,
+      email,
+      password,
+      full_name,
+      avatar,
+      country,
+      language,
+      favorite_games,
+      platforms,
+      preferred_rank,
+      play_style,
+    } = req.body || {};
     if (
       !username ||
       !password ||
@@ -512,6 +524,22 @@ app.post(
     const existingEmail = await db.get('SELECT id FROM users WHERE email = ?', [email]);
     if (existingEmail) return res.status(409).json({ error: 'Já existe uma conta com esse e-mail' });
 
+    // Campos do assistente de cadastro (passos 2 e 3) — todos opcionais, só
+    // enriquecem o perfil gamer desde o início. Favoritos/plataforma vêm como
+    // array e são guardados como JSON (lista curta, não precisa de tabela própria).
+    let avatarValue = null;
+    if (typeof avatar === 'string' && avatar.length <= 350000 && (avatar.startsWith('data:image/') || avatar.startsWith('emoji:'))) {
+      avatarValue = avatar;
+    }
+    const favoriteGamesValue =
+      Array.isArray(favorite_games) && favorite_games.length > 0
+        ? JSON.stringify(favorite_games.slice(0, 10).map((g) => String(g).slice(0, 40)))
+        : null;
+    const platformsValue =
+      Array.isArray(platforms) && platforms.length > 0
+        ? JSON.stringify(platforms.slice(0, 6).map((p) => String(p).slice(0, 20)))
+        : null;
+
     // Não conta o usuário-bot da IA aqui, senão a primeira pessoa de verdade
     // que se cadastra nunca vira admin (o bot já ocupa a "vaga" de primeiro).
     const countRow = await db.get('SELECT COUNT(*) as c FROM users WHERE id != ?', [AI_BOT_USER_ID]);
@@ -521,8 +549,25 @@ app.post(
     // email_verified fica 1 direto — sem etapa de confirmação por código, o
     // e-mail é salvo só como dado de cadastro (a pedido do usuário).
     await db.run(
-      'INSERT INTO users (id, username, password_hash, email, email_verified, is_admin) VALUES (?, ?, ?, ?, 1, ?)',
-      [id, username, password_hash, email, isFirstUser ? 1 : 0]
+      `INSERT INTO users (
+        id, username, password_hash, email, email_verified, is_admin, avatar, full_name,
+        country, language, favorite_games, platforms, preferred_rank, play_style
+      ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        username,
+        password_hash,
+        email,
+        isFirstUser ? 1 : 0,
+        avatarValue,
+        (full_name || '').slice(0, 80) || null,
+        (country || '').slice(0, 60) || null,
+        (language || '').slice(0, 40) || null,
+        favoriteGamesValue,
+        platformsValue,
+        (preferred_rank || '').slice(0, 40) || null,
+        ['competitivo', 'casual', 'ambos'].includes(play_style) ? play_style : null,
+      ]
     );
 
     req.session.userId = id;
@@ -630,6 +675,13 @@ app.get(
       language: req.user.language,
       bio: req.user.bio,
       reputation: req.user.reputation || 0,
+      full_name: req.user.full_name,
+      country: req.user.country,
+      platforms: req.user.platforms ? JSON.parse(req.user.platforms) : [],
+      favorite_games: req.user.favorite_games ? JSON.parse(req.user.favorite_games) : [],
+      preferred_rank: req.user.preferred_rank,
+      play_style: req.user.play_style,
+      coins: req.user.coins || 0,
     });
   })
 );
@@ -639,8 +691,51 @@ app.patch(
   '/api/me',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { email, password, currentPassword, status_message, avatar, avatar_frame, region, language, bio } =
-      req.body || {};
+    const {
+      email,
+      password,
+      currentPassword,
+      status_message,
+      avatar,
+      avatar_frame,
+      region,
+      language,
+      bio,
+      full_name,
+      country,
+      platforms,
+      favorite_games,
+      preferred_rank,
+      play_style,
+    } = req.body || {};
+
+    if (typeof full_name === 'string') {
+      await db.run('UPDATE users SET full_name = ? WHERE id = ?', [full_name.trim().slice(0, 80) || null, req.user.id]);
+    }
+    if (typeof country === 'string') {
+      await db.run('UPDATE users SET country = ? WHERE id = ?', [country.trim().slice(0, 60) || null, req.user.id]);
+    }
+    if (Array.isArray(platforms)) {
+      await db.run('UPDATE users SET platforms = ? WHERE id = ?', [
+        platforms.length ? JSON.stringify(platforms.slice(0, 6).map((p) => String(p).slice(0, 20))) : null,
+        req.user.id,
+      ]);
+    }
+    if (Array.isArray(favorite_games)) {
+      await db.run('UPDATE users SET favorite_games = ? WHERE id = ?', [
+        favorite_games.length ? JSON.stringify(favorite_games.slice(0, 10).map((g) => String(g).slice(0, 40))) : null,
+        req.user.id,
+      ]);
+    }
+    if (typeof preferred_rank === 'string') {
+      await db.run('UPDATE users SET preferred_rank = ? WHERE id = ?', [
+        preferred_rank.trim().slice(0, 40) || null,
+        req.user.id,
+      ]);
+    }
+    if (typeof play_style === 'string' && ['competitivo', 'casual', 'ambos', ''].includes(play_style)) {
+      await db.run('UPDATE users SET play_style = ? WHERE id = ?', [play_style || null, req.user.id]);
+    }
 
     if (password) {
       if (!currentPassword || !bcrypt.compareSync(currentPassword, req.user.password_hash)) {
@@ -718,6 +813,12 @@ app.patch(
       region: updated.region,
       language: updated.language,
       bio: updated.bio,
+      full_name: updated.full_name,
+      country: updated.country,
+      platforms: updated.platforms ? JSON.parse(updated.platforms) : [],
+      favorite_games: updated.favorite_games ? JSON.parse(updated.favorite_games) : [],
+      preferred_rank: updated.preferred_rank,
+      play_style: updated.play_style,
     });
   })
 );

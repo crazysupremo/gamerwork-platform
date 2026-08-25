@@ -117,6 +117,7 @@ function switchTab(which) {
     } else {
       titleEl.textContent = 'CRIAR CONTA';
       subtitleEl.innerHTML = 'É grátis — junte-se à comunidade em segundos.';
+      if (typeof resetWizard === 'function') resetWizard();
     }
   }
 }
@@ -141,12 +142,157 @@ formLogin.onsubmit = async (e) => {
   await authRequest('/api/login', { username, password });
 };
 
-formRegister.onsubmit = async (e) => {
-  e.preventDefault();
-  const username = document.getElementById('register-username').value.trim();
-  const email = document.getElementById('register-email').value.trim();
-  const password = document.getElementById('register-password').value;
-  await authRequest('/api/register', { username, email, password });
+// ---------- ASSISTENTE DE CADASTRO EM 3 PASSOS ----------
+
+const WIZARD_COUNTRIES = [
+  'Brasil', 'Portugal', 'Estados Unidos', 'Argentina', 'México', 'Chile',
+  'Colômbia', 'Espanha', 'Alemanha', 'França', 'Reino Unido', 'Canadá', 'Outro',
+];
+const WIZARD_LANGUAGES = ['Português (Brasil)', 'Português (Portugal)', 'English', 'Español', 'Français', 'Deutsch'];
+const WIZARD_GAMES = [
+  'Valorant', 'League of Legends', 'CS2', 'Fortnite', 'Apex Legends', 'Minecraft',
+  'GTA V', 'Free Fire', 'Overwatch 2', 'Dota 2', 'Rocket League', 'Call of Duty',
+];
+const WIZARD_PLATFORMS = [
+  { value: 'pc', label: '💻 PC' },
+  { value: 'playstation', label: '🎮 PlayStation' },
+  { value: 'xbox', label: '🎮 Xbox' },
+];
+
+const wizardState = { favoriteGames: [], platforms: [], playStyle: null, avatar: undefined };
+
+function populateSelect(select, options) {
+  select.innerHTML =
+    '<option value="">Selecione</option>' + options.map((o) => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+}
+populateSelect(document.getElementById('wiz-country'), WIZARD_COUNTRIES);
+populateSelect(document.getElementById('wiz-language'), WIZARD_LANGUAGES);
+
+function buildWizardTagPicker(containerId, options, stateKey, multi) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  options.forEach((opt) => {
+    const value = typeof opt === 'string' ? opt : opt.value;
+    const label = typeof opt === 'string' ? opt : opt.label;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'wizard-tag-chip';
+    chip.textContent = label;
+    chip.onclick = () => {
+      const list = wizardState[stateKey];
+      const idx = list.indexOf(value);
+      if (idx >= 0) {
+        list.splice(idx, 1);
+        chip.classList.remove('active');
+      } else {
+        if (!multi) list.length = 0;
+        list.push(value);
+        chip.classList.toggle('active', true);
+        if (!multi) {
+          container.querySelectorAll('.wizard-tag-chip').forEach((c) => {
+            if (c !== chip) c.classList.remove('active');
+          });
+        }
+      }
+    };
+    container.appendChild(chip);
+  });
+}
+buildWizardTagPicker('wiz-games-picker', WIZARD_GAMES, 'favoriteGames', true);
+buildWizardTagPicker('wiz-platform-picker', WIZARD_PLATFORMS, 'platforms', true);
+
+document.querySelectorAll('#wiz-playstyle-group .wizard-choice-btn').forEach((btn) => {
+  btn.onclick = () => {
+    wizardState.playStyle = btn.dataset.value;
+    document.querySelectorAll('#wiz-playstyle-group .wizard-choice-btn').forEach((b) => b.classList.toggle('active', b === btn));
+  };
+});
+
+document.getElementById('wiz-avatar-upload').onclick = (e) => {
+  if (e.target.tagName !== 'INPUT') document.getElementById('wiz-avatar-file').click();
+};
+document.getElementById('wiz-avatar-file').onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const size = 160;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(size / img.width, size / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      wizardState.avatar = canvas.toDataURL('image/jpeg', 0.82);
+      document.getElementById('wiz-avatar-preview').innerHTML = `<img src="${wizardState.avatar}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;" />`;
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+function goToWizardStep(step) {
+  [1, 2, 3].forEach((n) => {
+    document.getElementById('wizard-panel-' + n).classList.toggle('hidden', n !== step);
+    const dot = document.getElementById('wizard-step-dot-' + n);
+    dot.classList.toggle('active', n === step);
+    dot.classList.toggle('done', n < step);
+  });
+}
+
+function resetWizard() {
+  goToWizardStep(1);
+  wizardState.favoriteGames = [];
+  wizardState.platforms = [];
+  wizardState.playStyle = null;
+  wizardState.avatar = undefined;
+  document.querySelectorAll('.wizard-tag-chip.active, .wizard-choice-btn.active').forEach((el) => el.classList.remove('active'));
+  document.getElementById('wiz-avatar-preview').innerHTML = '📷';
+  ['wiz-fullname', 'wiz-username', 'wiz-email', 'wiz-password', 'wiz-password-confirm', 'wiz-rank'].forEach((id) => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('register-error').textContent = '';
+}
+
+document.getElementById('wiz-goto-login').onclick = () => switchTab('login');
+
+document.getElementById('wiz-step1-next').onclick = () => {
+  const errorEl = document.getElementById('register-error');
+  errorEl.textContent = '';
+  const username = document.getElementById('wiz-username').value.trim();
+  const email = document.getElementById('wiz-email').value.trim();
+  const password = document.getElementById('wiz-password').value;
+  const confirm = document.getElementById('wiz-password-confirm').value;
+  if (username.length < 3) return (errorEl.textContent = 'Username precisa ter pelo menos 3 caracteres.');
+  if (!email.includes('@')) return (errorEl.textContent = 'Digite um e-mail válido.');
+  if (password.length < 6) return (errorEl.textContent = 'Senha precisa ter pelo menos 6 caracteres.');
+  if (password !== confirm) return (errorEl.textContent = 'As senhas não são iguais.');
+  goToWizardStep(2);
+};
+
+document.getElementById('wiz-step2-back').onclick = () => goToWizardStep(1);
+document.getElementById('wiz-step2-next').onclick = () => goToWizardStep(3);
+document.getElementById('wiz-step3-back').onclick = () => goToWizardStep(2);
+
+document.getElementById('wiz-submit').onclick = async () => {
+  const body = {
+    username: document.getElementById('wiz-username').value.trim(),
+    email: document.getElementById('wiz-email').value.trim(),
+    password: document.getElementById('wiz-password').value,
+    full_name: document.getElementById('wiz-fullname').value.trim(),
+    country: document.getElementById('wiz-country').value,
+    language: document.getElementById('wiz-language').value,
+    favorite_games: wizardState.favoriteGames,
+    platforms: wizardState.platforms,
+    preferred_rank: document.getElementById('wiz-rank').value.trim(),
+    play_style: wizardState.playStyle,
+    avatar: wizardState.avatar,
+  };
+  await authRequest('/api/register', body);
 };
 
 let pending2FALoginToken = null;

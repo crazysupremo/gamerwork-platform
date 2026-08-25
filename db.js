@@ -586,6 +586,12 @@ async function initDb() {
   await ensureColumn('users', 'bio TEXT');
   await ensureColumn('users', 'language TEXT');
   await ensureColumn('users', 'coins INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'full_name TEXT');
+  await ensureColumn('users', 'country TEXT');
+  await ensureColumn('users', 'platforms TEXT');
+  await ensureColumn('users', 'play_style TEXT');
+  await ensureColumn('users', 'favorite_games TEXT');
+  await ensureColumn('users', 'preferred_rank TEXT');
 
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },

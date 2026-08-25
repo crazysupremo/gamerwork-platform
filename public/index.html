@@ -21,7 +21,6 @@
       <div class="auth-left-corner auth-left-corner-tl"></div>
       <div class="auth-left-corner auth-left-corner-br"></div>
 
-      <img src="/assets/logo.png" alt="NEXT GAME" class="auth-left-logo" />
       <p class="auth-left-tagline">A próxima geração da comunidade gamer.</p>
 
       <div class="auth-features">
@@ -81,21 +80,74 @@
       <button type="submit">🚀 Entrar</button>
     </form>
 
-    <form id="form-register" class="auth-form hidden">
-      <div class="input-icon-wrap">
-        <span class="input-icon">👤</span>
-        <input type="text" id="register-username" placeholder="Usuário (min. 3 caracteres)" required />
+    <div id="form-register" class="auth-form hidden register-wizard">
+      <div class="wizard-steps">
+        <div class="wizard-step active" id="wizard-step-dot-1"><span class="wizard-step-num">1</span><span class="wizard-step-label">Conta</span></div>
+        <div class="wizard-step-line"></div>
+        <div class="wizard-step" id="wizard-step-dot-2"><span class="wizard-step-num">2</span><span class="wizard-step-label">Perfil</span></div>
+        <div class="wizard-step-line"></div>
+        <div class="wizard-step" id="wizard-step-dot-3"><span class="wizard-step-num">3</span><span class="wizard-step-label">Preferências</span></div>
       </div>
-      <div class="input-icon-wrap">
-        <span class="input-icon">✉️</span>
-        <input type="email" id="register-email" placeholder="E-mail" required />
+
+      <div id="wizard-panel-1" class="wizard-panel">
+        <h2 class="wizard-title">CRIAR SUA CONTA</h2>
+        <p class="wizard-subtitle">Vamos criar suas informações básicas.</p>
+        <label class="wizard-label">Nome completo</label>
+        <input type="text" id="wiz-fullname" placeholder="Digite seu nome" />
+        <label class="wizard-label">Username</label>
+        <input type="text" id="wiz-username" placeholder="Escolha seu username" required />
+        <label class="wizard-label">E-mail</label>
+        <input type="email" id="wiz-email" placeholder="Digite seu e-mail" required />
+        <label class="wizard-label">Senha</label>
+        <input type="password" id="wiz-password" placeholder="Crie uma senha (mín. 6 caracteres)" required />
+        <label class="wizard-label">Confirmar senha</label>
+        <input type="password" id="wiz-password-confirm" placeholder="Confirme sua senha" required />
+        <button type="button" id="wiz-step1-next" class="wizard-next-btn">CONTINUAR</button>
+        <p class="wizard-footer-link">Já tem uma conta? <a id="wiz-goto-login">Entrar</a></p>
       </div>
-      <div class="input-icon-wrap">
-        <span class="input-icon">🔒</span>
-        <input type="password" id="register-password" placeholder="Senha (min. 6 caracteres)" required />
+
+      <div id="wizard-panel-2" class="wizard-panel hidden">
+        <h2 class="wizard-title">MONTE SEU PERFIL GAMER</h2>
+        <p class="wizard-subtitle">Personalize seu perfil para a comunidade.</p>
+        <label class="wizard-avatar-upload" id="wiz-avatar-upload">
+          <div id="wiz-avatar-preview" class="wizard-avatar-preview">📷</div>
+          <span>Clique para enviar uma imagem</span>
+          <input type="file" id="wiz-avatar-file" accept="image/*" class="hidden" />
+        </label>
+        <label class="wizard-label">País</label>
+        <select id="wiz-country"></select>
+        <label class="wizard-label">Idioma</label>
+        <select id="wiz-language"></select>
+        <label class="wizard-label">Jogos favoritos</label>
+        <div class="wizard-tag-picker" id="wiz-games-picker"></div>
+        <div class="wizard-actions">
+          <button type="button" id="wiz-step2-back" class="wizard-back-btn">Voltar</button>
+          <button type="button" id="wiz-step2-next" class="wizard-next-btn">CONTINUAR</button>
+        </div>
       </div>
-      <button type="submit">🎮 Criar conta</button>
-    </form>
+
+      <div id="wizard-panel-3" class="wizard-panel hidden">
+        <h2 class="wizard-title">ENCONTRE SUA COMUNIDADE</h2>
+        <p class="wizard-subtitle">Conte-nos suas preferências para conectar com os jogadores certos.</p>
+        <label class="wizard-label">Plataforma</label>
+        <div class="wizard-tag-picker" id="wiz-platform-picker"></div>
+        <label class="wizard-label">Rank atual (opcional)</label>
+        <input type="text" id="wiz-rank" placeholder="ex: Diamante, Imortal, Ouro..." />
+        <label class="wizard-label">Como você prefere jogar?</label>
+        <div class="wizard-choice-group" id="wiz-playstyle-group">
+          <button type="button" class="wizard-choice-btn" data-value="competitivo">Competitivo</button>
+          <button type="button" class="wizard-choice-btn" data-value="casual">Casual</button>
+          <button type="button" class="wizard-choice-btn" data-value="ambos">Ambos</button>
+        </div>
+        <div class="wizard-actions">
+          <button type="button" id="wiz-step3-back" class="wizard-back-btn">Voltar</button>
+          <button type="button" id="wiz-submit" class="wizard-next-btn">CRIAR CONTA</button>
+        </div>
+        <p class="wizard-consent">Ao criar conta, você concorda com os Termos de Uso e a Política de Privacidade.</p>
+      </div>
+
+      <p id="register-error" class="auth-error"></p>
+    </div>
 
     <form id="form-2fa" class="auth-form hidden">
       <p class="hint" style="margin-bottom:10px;">Digite o código de 6 dígitos do seu app autenticador.</p>
