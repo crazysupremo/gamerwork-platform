@@ -2,6 +2,11 @@
 // emojis de interface por algo mais limpo/profissional/consistente entre navegadores.
 // Fonte: lucide-static (ISC license) - https://lucide.dev
 const NG_ICONS = {
+  'music': "<path d='M9 18V5l12-2v13' /> <circle cx='6' cy='18' r='3' /> <circle cx='18' cy='16' r='3' />",
+  'play': "<path d='M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z' />",
+  'pause': "<rect x='14' y='3' width='5' height='18' rx='1' /> <rect x='5' y='3' width='5' height='18' rx='1' />",
+  'skip-forward': "<path d='M21 4v16' /> <path d='M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z' />",
+  'list-music': "<path d='M16 5H3' /> <path d='M11 12H3' /> <path d='M11 19H3' /> <path d='M21 16V5' /> <circle cx='18' cy='16' r='3' />",
   'users': "<path d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2' /> <path d='M16 3.128a4 4 0 0 1 0 7.744' /> <path d='M22 21v-2a4 4 0 0 0-3-3.87' /> <circle cx='9' cy='7' r='4' />",
   'trophy': "<path d='M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2' /> <path d='M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2' /> <path d='M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3' /> <path d='M4 22h16' /> <path d='M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z' /> <path d='M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3' />",
   'trending-up': "<path d='M16 7h6v6' /> <path d='m22 7-8.5 8.5-5-5L2 17' />",

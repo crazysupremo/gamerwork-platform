@@ -344,6 +344,7 @@
           <div class="voice-room-header">
             <span id="voice-participant-count" class="voice-participant-badge">0 na chamada</span>
             <div class="voice-room-header-actions">
+              <button id="btn-toggle-voice-music" class="header-icon-btn" title="Mostrar/esconder NEXT Music"><span class="ng-icon-wrap" data-icon="music"></span></button>
               <button id="btn-toggle-voice-chat" class="header-icon-btn" title="Mostrar/esconder chat da sala"><span class="ng-icon-wrap" data-icon="message-circle"></span></button>
             </div>
           </div>
@@ -380,6 +381,26 @@
             <input type="text" id="voice-message-input" placeholder="Mensagem..." autocomplete="off" />
             <button type="submit"><span class="ng-icon-wrap" data-icon="send"></span></button>
           </form>
+        </div>
+
+        <!-- NEXT Music: fila compartilhada da sala de voz. Só toca via player
+             oficial do YouTube (iframe embed) — nunca baixa nem guarda áudio
+             no servidor, só a URL do vídeo e quem adicionou. -->
+        <div id="voice-music-col" class="voice-chat-col hidden">
+          <div class="voice-chat-header"><span class="ng-icon-wrap" data-icon="music"></span> NEXT Music</div>
+          <div id="music-now-playing" class="music-now-playing">
+            <div id="music-player-mount"></div>
+            <div id="music-now-playing-info" class="music-now-playing-info">Fila vazia — adicione uma música</div>
+            <div class="music-controls">
+              <button type="button" id="btn-music-playpause" class="control-icon-btn" title="Tocar/Pausar"><span class="ng-icon-wrap" data-icon="play"></span></button>
+              <button type="button" id="btn-music-skip" class="control-icon-btn" title="Pular"><span class="ng-icon-wrap" data-icon="skip-forward"></span></button>
+            </div>
+          </div>
+          <form id="form-music-add" class="message-form">
+            <input type="text" id="music-add-input" placeholder="Cole o link do YouTube..." autocomplete="off" />
+            <button type="submit"><span class="ng-icon-wrap" data-icon="plus"></span></button>
+          </form>
+          <div id="music-queue-list" class="music-queue-list"></div>
         </div>
 
         <div class="voice-controls-bar">
@@ -522,6 +543,14 @@
           </div>
         </div>
 
+        <label>Seu status</label>
+        <select id="profile-presence-select">
+          <option value="online">🟢 Online</option>
+          <option value="ausente">🌙 Ausente</option>
+          <option value="ocupado">⛔ Ocupado (não perturbe)</option>
+          <option value="invisivel">⚪ Invisível (aparece offline pros outros)</option>
+        </select>
+
         <label>Jogando agora (aparece do seu lado)</label>
         <select id="profile-status-select"></select>
         <input type="text" id="profile-status" placeholder="Digite o jogo/status" maxlength="60" class="hidden" />
@@ -602,6 +631,19 @@
     </div>
     </div><!-- /.settings-content -->
     </div><!-- /.settings-layout -->
+  </div>
+</div>
+
+<!-- MODAL: restringir canal por cargo -->
+<div id="modal-channel-access" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2><span class="ng-icon-wrap" data-icon="lock"></span> Canal privado por cargo</h2>
+    <p class="hint" style="margin-bottom:10px;">Marque os cargos que podem ver e acessar esse canal. Sem nenhum marcado, o canal fica visível pra todo mundo do servidor (padrão).</p>
+    <div id="channel-access-roles-list" class="server-roles-list"></div>
+    <div class="modal-actions">
+      <button type="button" id="btn-save-channel-access" class="home-btn-primary">Salvar</button>
+      <button type="button" id="btn-close-channel-access">Fechar</button>
+    </div>
   </div>
 </div>
 
@@ -949,9 +991,27 @@
           <span class="input-icon"><span class="ng-icon-wrap" data-icon="link"></span></span>
           <input type="text" id="invite-link-display" readonly />
         </div>
+        <p id="invite-status-line" class="hint" style="margin-top:8px;"></p>
         <div class="modal-actions" style="margin-top:10px; justify-content:flex-start;">
           <button type="button" id="btn-copy-invite"><span class="ng-icon-wrap" data-icon="copy"></span> Copiar link</button>
           <button type="button" id="btn-regenerate-invite" class="hidden"><span class="ng-icon-wrap" data-icon="refresh-cw"></span> Gerar novo código</button>
+          <button type="button" id="btn-revoke-invite" class="hidden"><span class="ng-icon-wrap" data-icon="shield-off"></span> Revogar</button>
+          <button type="button" id="btn-reactivate-invite" class="hidden"><span class="ng-icon-wrap" data-icon="shield-check"></span> Reativar</button>
+        </div>
+
+        <p class="hint" style="margin:16px 0 8px; border-top:1px solid #3a3c42; padding-top:12px;">Validade e limite de usos (deixe em branco pra ilimitado)</p>
+        <div style="display:flex; gap:8px;">
+          <div style="flex:1;">
+            <label>Expira em (minutos)</label>
+            <input type="number" id="invite-minutes-valid" min="1" placeholder="ex: 1440 (1 dia)" />
+          </div>
+          <div style="flex:1;">
+            <label>Limite de usos</label>
+            <input type="number" id="invite-max-uses" min="1" placeholder="ex: 10" />
+          </div>
+        </div>
+        <div class="modal-actions" style="margin-top:8px; justify-content:flex-start;">
+          <button type="button" id="btn-save-invite-limits"><span class="ng-icon-wrap" data-icon="save"></span> Salvar validade/limite</button>
         </div>
       </div>
 
@@ -1238,6 +1298,10 @@
   </div>
 </div>
 
+<!-- NEXT Music usa o player oficial embutido do YouTube (iframe API) — o
+     áudio/vídeo é transmitido direto do YouTube pro navegador de cada
+     pessoa, nunca passa nem fica salvo no nosso servidor. -->
+<script src="https://www.youtube.com/iframe_api"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/icons.js"></script>
 <script src="/sfx.js"></script>

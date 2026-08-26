@@ -10,11 +10,13 @@ let micMuted = false;
 let isDeafened = false;
 const peers = {}; // socketId -> RTCPeerConnection
 const remoteStreams = {}; // socketId -> MediaStream combinada (áudio + vídeo do peer)
+const remotePeerInfo = {}; // socketId -> { username, avatar, avatar_frame } — pra mostrar a foto de perfil na tile
 let voiceParticipants = {}; // channelId -> [{socketId, userId, username}]
 let cameraStream = null; // vídeo da webcam (separado da tela compartilhada)
 let allUsers = []; // cache de /api/users pro painel de membros
 let serverIcons = {}; // category -> emoji real escolhido por quem criou o servidor
 let onlineUserIds = new Set();
+let presenceStatusMap = {}; // userId -> 'online' | 'ausente' | 'ocupado' (quem tá invisível não entra aqui)
 let typingUsers = {}; // channelId -> { userId: username }
 let typingTimeout = null;
 let homeRefreshInterval = null; // atualiza ranking/atividade/jogando-agora sozinho enquanto a Início está aberta
@@ -408,10 +410,11 @@ function renderMembers() {
     users.forEach((u) => {
       const row = document.createElement('div');
       row.className = 'member-row' + (isOffline ? ' offline' : '');
+      const presence = presenceStatusMap[u.id] || (isOffline ? 'offline' : 'online');
       row.innerHTML = `
         <div class="member-avatar-wrap">
           <div class="member-avatar ${avatarFrameClass(u)}">${renderAvatarHtml(u)}</div>
-          <span class="member-status-dot"></span>
+          <span class="member-status-dot member-status-${presence}"></span>
         </div>
         <div class="member-info">
           <div class="member-name">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}</div>
@@ -857,6 +860,56 @@ async function loadManageInvite() {
   const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/invite`, { credentials: 'include' });
   const data = await res.json();
   document.getElementById('invite-link-display').value = `${window.location.origin}/?invite=${data.invite_code}`;
+
+  // Status do convite: ativo/revogado, quantos usos, validade — item 4 do plano.
+  const statusLine = document.getElementById('invite-status-line');
+  const parts = [];
+  parts.push(data.invite_active ? '✅ Ativo' : '⛔ Revogado');
+  parts.push(`${data.invite_uses || 0} uso${data.invite_uses === 1 ? '' : 's'}${data.invite_max_uses ? ` de ${data.invite_max_uses}` : ' (ilimitado)'}`);
+  if (data.invite_expires_at) {
+    const expires = new Date(data.invite_expires_at);
+    parts.push(expires < new Date() ? 'expirado' : `expira em ${expires.toLocaleString('pt-BR')}`);
+  } else {
+    parts.push('sem prazo de validade');
+  }
+  statusLine.textContent = parts.join(' · ');
+  document.getElementById('invite-minutes-valid').value = '';
+  document.getElementById('invite-max-uses').value = data.invite_max_uses || '';
+  document.getElementById('btn-revoke-invite').classList.toggle('hidden', !canManage || !data.invite_active);
+  document.getElementById('btn-reactivate-invite').classList.toggle('hidden', !canManage || !!data.invite_active);
+
+  document.getElementById('btn-revoke-invite').onclick = async () => {
+    if (!confirm('Revogar o convite? O link atual para de funcionar até você reativar ou gerar um novo.')) return;
+    await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/invite/revoke`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    loadManageInvite();
+  };
+  document.getElementById('btn-reactivate-invite').onclick = async () => {
+    await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/invite/reactivate`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    loadManageInvite();
+  };
+  document.getElementById('btn-save-invite-limits').onclick = async () => {
+    const minutes_valid = document.getElementById('invite-minutes-valid').value || null;
+    const max_uses = document.getElementById('invite-max-uses').value || null;
+    const r = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/invite`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ minutes_valid, max_uses }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      alert(d.error || 'Erro ao salvar');
+      return;
+    }
+    showCopyToast('Validade/limite do convite atualizados!');
+    loadManageInvite();
+  };
 
   const infoRes = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, { credentials: 'include' });
   const info = await infoRes.json();
@@ -2228,8 +2281,77 @@ function buildChannelContextMenuItems(ch) {
         else showCopyToast(wantsReadOnly ? 'Canal em somente-leitura' : 'Canal normal de novo');
       },
     },
+    {
+      icon: '🎭',
+      label: 'Restringir por cargo',
+      onClick: () => openChannelAccessModal(ch),
+    },
   ];
 }
+
+// ---------- CANAL PRIVADO POR CARGO ----------
+
+const modalChannelAccess = document.getElementById('modal-channel-access');
+let channelAccessTarget = null;
+
+async function openChannelAccessModal(ch) {
+  channelAccessTarget = ch;
+  const listEl = document.getElementById('channel-access-roles-list');
+  listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  modalChannelAccess.classList.remove('hidden');
+
+  const [rolesRes, accessRes] = await Promise.all([
+    fetch(`/api/servers/${encodeURIComponent(ch.category)}/roles`, { credentials: 'include' }),
+    fetch(`/api/channels/${ch.id}/access`, { credentials: 'include' }),
+  ]);
+  if (!rolesRes.ok || !accessRes.ok) {
+    const d = await (rolesRes.ok ? accessRes : rolesRes).json().catch(() => ({}));
+    listEl.innerHTML = `<p class="empty-hint">${escapeHtml(d.error || 'Erro ao carregar')}</p>`;
+    return;
+  }
+  const roles = await rolesRes.json();
+  const access = await accessRes.json();
+  const allowedIds = new Set(access.role_ids || []);
+
+  if (roles.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Esse servidor ainda não tem cargos criados — crie um cargo em "Gerenciar Servidor" primeiro.</p>';
+    return;
+  }
+  listEl.innerHTML = roles
+    .map(
+      (r) => `
+    <label class="checkbox-row">
+      <input type="checkbox" value="${r.id}" ${allowedIds.has(r.id) ? 'checked' : ''} />
+      <span style="color:${escapeHtml(r.color || '#99aab5')};">●</span> ${escapeHtml(r.name)}
+    </label>
+  `
+    )
+    .join('');
+}
+
+document.getElementById('btn-close-channel-access').onclick = () => modalChannelAccess.classList.add('hidden');
+document.getElementById('btn-save-channel-access').onclick = async () => {
+  if (!channelAccessTarget) return;
+  const roleIds = [...document.querySelectorAll('#channel-access-roles-list input[type=checkbox]:checked')].map(
+    (el) => el.value
+  );
+  const res = await fetch(`/api/channels/${channelAccessTarget.id}/access`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ role_ids: roleIds }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    alert(data.error || 'Erro ao salvar');
+    return;
+  }
+  modalChannelAccess.classList.add('hidden');
+  showCopyToast(roleIds.length > 0 ? 'Canal restrito por cargo!' : 'Canal voltou a ser visível pra todo mundo.');
+  // A lista de canais pode ter mudado (um canal restrito pode sumir/aparecer
+  // pra você mesmo, dependendo do cargo que você tem) — recarrega.
+  loadChannels();
+};
 
 function buildUserContextMenuItems(user) {
   const items = [{ icon: '👤', label: 'Ver perfil', onClick: () => openProfilePreview(user) }];
@@ -2489,6 +2611,7 @@ document.getElementById('profile-avatar-file').onchange = (e) => {
 document.getElementById('btn-edit-profile').onclick = () => {
   document.getElementById('profile-error').textContent = '';
   document.getElementById('profile-email').value = me.email || '';
+  document.getElementById('profile-presence-select').value = me.presence_status || 'online';
   setProfileStatusFields(me.status_message);
   document.getElementById('profile-bio').value = me.bio || '';
   document.getElementById('profile-region').value = me.region || '';
@@ -2502,6 +2625,22 @@ document.getElementById('btn-edit-profile').onclick = () => {
   modalProfile.classList.remove('hidden');
 };
 document.getElementById('btn-cancel-profile').onclick = () => modalProfile.classList.add('hidden');
+
+// Status (Online/Ausente/Ocupado/Invisível) aplica na hora, sem esperar
+// salvar o resto do formulário — igual um seletor de presença de verdade.
+document.getElementById('profile-presence-select').onchange = async (e) => {
+  const presence_status = e.target.value;
+  const res = await fetch('/api/me', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ presence_status }),
+  });
+  if (res.ok) {
+    me.presence_status = presence_status;
+    showCopyToast('Status atualizado!');
+  }
+};
 
 document.getElementById('form-profile').onsubmit = async (e) => {
   e.preventDefault();
@@ -4568,13 +4707,17 @@ function registerSocketHandlers() {
     renderTypingIndicator();
   });
 
-  socket.on('presence:online', (userIds) => {
-    onlineUserIds = new Set(userIds);
+  socket.on('presence:online', (entries) => {
+    // entries: [{id, status}] — quem está invisível nem aparece aqui (o
+    // backend já filtra), então "está na lista" = "está visível pros outros".
+    onlineUserIds = new Set(entries.map((e) => e.id));
+    presenceStatusMap = {};
+    entries.forEach((e) => (presenceStatusMap[e.id] = e.status));
     renderMembers();
   });
 
-  socket.on('rtc:peer-joined', ({ socketId, username }) => {
-    const pc = createPeerConnection(socketId, username);
+  socket.on('rtc:peer-joined', ({ socketId, username, avatar, avatar_frame }) => {
+    const pc = createPeerConnection(socketId, username, { username, avatar, avatar_frame });
     addLocalTracksToPeer(pc);
     logVoiceActivity(`${username} entrou na sala`);
     updateVoiceParticipantCount();
@@ -4588,6 +4731,7 @@ function registerSocketHandlers() {
       delete peers[socketId];
     }
     delete remoteStreams[socketId];
+    delete remotePeerInfo[socketId];
     stopConnectionQualityMonitor(socketId);
     logVoiceActivity(`${username || 'Alguém'} saiu da sala`);
     updateVoiceParticipantCount();
@@ -4595,10 +4739,10 @@ function registerSocketHandlers() {
     SFX.peerLeave();
   });
 
-  socket.on('rtc:signal', async ({ from, username, data }) => {
+  socket.on('rtc:signal', async ({ from, username, avatar, avatar_frame, data }) => {
     let pc = peers[from];
     if (!pc) {
-      pc = createPeerConnection(from, username);
+      pc = createPeerConnection(from, username, { username, avatar, avatar_frame });
       addLocalTracksToPeer(pc);
     }
     if (data.type === 'offer') {
@@ -4629,6 +4773,16 @@ function registerSocketHandlers() {
     if (currentChannel && currentChannel.type === 'voz' && currentChannel.id === roomId) {
       updateVoicePanelView(currentChannel);
     }
+  });
+
+  // NEXT Music — o servidor manda o estado completo (fila + o que tá
+  // tocando + posição) toda vez que algo muda, então o cliente só precisa
+  // "obedecer": não guarda estado próprio de verdade, só espelha o do servidor.
+  socket.on('music:state', (state) => {
+    if (state.roomId && state.roomId !== connectedVoiceRoomId) return;
+    currentMusicState = state;
+    renderMusicPanel(state);
+    syncMusicPlayer(state);
   });
 
   // Alguém te ligou diretamente (DM) — mostra um toast com som pra atender.
@@ -4733,7 +4887,152 @@ function disconnectVoice() {
   updateVoiceBar();
   renderCategories(allChannels);
   updateVoiceParticipantCount();
+  // Saiu da sala — a música dela não é mais "sua", para o player local.
+  currentMusicState = null;
+  if (ytPlayer && ytPlayerReady) {
+    try { ytPlayer.stopVideo(); } catch (_) {}
+  }
 }
+
+// ---------- NEXT MUSIC (item 14 do plano) ----------
+// Player oficial embutido do YouTube (iframe API) — nunca baixa nem guarda
+// áudio, só toca o vídeo público direto do YouTube no navegador de cada
+// pessoa. O servidor é só o "maestro" que sincroniza fila/posição/play-pause
+// entre todo mundo na mesma sala de voz.
+
+let ytPlayer = null;
+let ytPlayerReady = false;
+let currentMusicState = null;
+let musicLastEndedIndex = -1; // evita mandar "acabou" mais de uma vez pro mesmo índice
+
+function ensureMusicPlayerReady() {
+  if (ytPlayer || typeof YT === 'undefined' || !YT.Player) return;
+  ytPlayer = new YT.Player('music-player-mount', {
+    height: '100%',
+    width: '100%',
+    playerVars: { playsinline: 1, controls: 1, modestbranding: 1, rel: 0 },
+    events: {
+      onReady: () => {
+        ytPlayerReady = true;
+        if (currentMusicState) syncMusicPlayer(currentMusicState);
+      },
+      onStateChange: (e) => {
+        if (e.data === YT.PlayerState.ENDED && currentMusicState && currentMusicState.currentIndex !== musicLastEndedIndex) {
+          musicLastEndedIndex = currentMusicState.currentIndex;
+          socket.emit('music:track-ended', { roomId: connectedVoiceRoomId, atIndex: currentMusicState.currentIndex });
+        }
+      },
+    },
+  });
+}
+
+// Chamado pelo callback global da API do YouTube quando o script termina de
+// carregar (pode acontecer antes ou depois da sala de voz abrir) — o
+// elemento de destino (#music-player-mount) já existe no HTML desde o
+// início, só fica escondido dentro de um painel fechado.
+window.onYouTubeIframeAPIReady = function () {
+  ensureMusicPlayerReady();
+};
+
+function syncMusicPlayer(state) {
+  if (!ytPlayer || !ytPlayerReady) return;
+  if (!state.currentTrack) {
+    try { ytPlayer.stopVideo(); } catch (_) {}
+    return;
+  }
+  const targetSeconds = Math.max(0, state.positionMs / 1000);
+  let loadedId = null;
+  try {
+    const url = ytPlayer.getVideoUrl ? ytPlayer.getVideoUrl() : '';
+    const m = url && url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+    loadedId = m ? m[1] : null;
+  } catch (_) {}
+
+  if (loadedId !== state.currentTrack.videoId) {
+    if (state.isPlaying) ytPlayer.loadVideoById({ videoId: state.currentTrack.videoId, startSeconds: targetSeconds });
+    else ytPlayer.cueVideoById({ videoId: state.currentTrack.videoId, startSeconds: targetSeconds });
+    return;
+  }
+  // Já é o mesmo vídeo — só corrige deriva grande de posição (>3s) e
+  // play/pause, sem recarregar o player à toa a cada atualização.
+  try {
+    const currentSeconds = ytPlayer.getCurrentTime ? ytPlayer.getCurrentTime() : targetSeconds;
+    if (Math.abs(currentSeconds - targetSeconds) > 3) ytPlayer.seekTo(targetSeconds, true);
+  } catch (_) {}
+  if (state.isPlaying) ytPlayer.playVideo();
+  else ytPlayer.pauseVideo();
+}
+
+function renderMusicPanel(state) {
+  const infoEl = document.getElementById('music-now-playing-info');
+  const playPauseBtn = document.getElementById('btn-music-playpause');
+  const queueEl = document.getElementById('music-queue-list');
+
+  if (!state.currentTrack) {
+    infoEl.textContent = 'Fila vazia — cole um link do YouTube abaixo pra começar.';
+    playPauseBtn.innerHTML = icon('play');
+  } else {
+    infoEl.innerHTML = `<strong>${escapeHtml(state.currentTrack.title)}</strong><br/>adicionado por ${escapeHtml(state.currentTrack.addedByUsername)}`;
+    playPauseBtn.innerHTML = icon(state.isPlaying ? 'pause' : 'play');
+  }
+
+  const upcoming = state.queue || [];
+  if (upcoming.length === 0) {
+    queueEl.innerHTML = '<p class="empty-hint">Nada na fila ainda.</p>';
+    return;
+  }
+  queueEl.innerHTML = upcoming
+    .map(
+      (track, i) => `
+    <div class="music-queue-item ${i === state.currentIndex ? 'current' : ''}">
+      <div class="music-queue-item-info">
+        <span class="music-queue-item-title">${i === state.currentIndex ? '▶ ' : ''}${escapeHtml(track.title)}</span>
+        <span class="music-queue-item-by">${escapeHtml(track.addedByUsername)}</span>
+      </div>
+      <button type="button" class="music-queue-item-remove" data-queue-id="${track.id}" title="Remover">${icon('x')}</button>
+    </div>
+  `
+    )
+    .join('');
+  queueEl.querySelectorAll('.music-queue-item-remove').forEach((btn) => {
+    btn.onclick = () => socket.emit('music:remove', { roomId: connectedVoiceRoomId, queueId: btn.dataset.queueId });
+  });
+}
+
+// Aceita link completo do YouTube (watch?v=, youtu.be/, /embed/) ou o ID puro.
+function extractYouTubeId(raw) {
+  const trimmed = raw.trim();
+  const patterns = [/[?&]v=([a-zA-Z0-9_-]{11})/, /youtu\.be\/([a-zA-Z0-9_-]{11})/, /embed\/([a-zA-Z0-9_-]{11})/];
+  for (const re of patterns) {
+    const m = trimmed.match(re);
+    if (m) return m[1];
+  }
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  return null;
+}
+
+document.getElementById('form-music-add').onsubmit = (e) => {
+  e.preventDefault();
+  if (!connectedVoiceRoomId) return;
+  const input = document.getElementById('music-add-input');
+  const videoId = extractYouTubeId(input.value);
+  if (!videoId) {
+    alert('Não reconheci esse link do YouTube. Cole o link completo ou só o ID do vídeo.');
+    return;
+  }
+  socket.emit('music:add', { roomId: connectedVoiceRoomId, videoId });
+  input.value = '';
+};
+
+document.getElementById('btn-music-playpause').onclick = () => {
+  if (!connectedVoiceRoomId) return;
+  socket.emit('music:playpause', { roomId: connectedVoiceRoomId });
+};
+
+document.getElementById('btn-music-skip').onclick = () => {
+  if (!connectedVoiceRoomId) return;
+  socket.emit('music:skip', { roomId: connectedVoiceRoomId });
+};
 
 // ---------- EXTRAS DA SALA DE VOZ: convite, atividade, participantes, qualidade ----------
 
@@ -4779,11 +5078,23 @@ function updateVoiceParticipantCount() {
 }
 
 document.getElementById('btn-toggle-voice-chat').onclick = () => {
-  document.getElementById('voice-incall').classList.toggle('chat-open');
-  document.getElementById('btn-toggle-voice-chat').classList.toggle(
-    'active-state',
-    document.getElementById('voice-incall').classList.contains('chat-open')
-  );
+  const wrap = document.getElementById('voice-incall');
+  wrap.classList.remove('music-open');
+  document.getElementById('btn-toggle-voice-music').classList.remove('active-state');
+  wrap.classList.toggle('chat-open');
+  document.getElementById('btn-toggle-voice-chat').classList.toggle('active-state', wrap.classList.contains('chat-open'));
+};
+
+// NEXT Music e chat da sala dividem a mesma coluna lateral (só um por vez,
+// igual abas) — abrir um fecha o outro.
+document.getElementById('btn-toggle-voice-music').onclick = () => {
+  const wrap = document.getElementById('voice-incall');
+  wrap.classList.remove('chat-open');
+  document.getElementById('btn-toggle-voice-chat').classList.remove('active-state');
+  wrap.classList.toggle('music-open');
+  const isOpen = wrap.classList.contains('music-open');
+  document.getElementById('btn-toggle-voice-music').classList.toggle('active-state', isOpen);
+  if (isOpen) ensureMusicPlayerReady();
 };
 
 document.getElementById('form-voice-message').onsubmit = (e) => {
@@ -4836,9 +5147,12 @@ function addLocalTracksToPeer(pc) {
   }
 }
 
-function createPeerConnection(peerId, username) {
+function createPeerConnection(peerId, username, userInfo) {
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
   peers[peerId] = pc;
+  // Guarda avatar/moldura de quem é esse peer — a tile usa isso pra mostrar a
+  // FOTO de perfil de verdade (não só a inicial) quando a câmera tá desligada.
+  remotePeerInfo[peerId] = userInfo || { username };
 
   pc.onicecandidate = (e) => {
     if (e.candidate) socket.emit('rtc:signal', { to: peerId, data: e.candidate });
@@ -4853,7 +5167,7 @@ function createPeerConnection(peerId, username) {
       remoteStreams[peerId] = stream;
     }
     if (!stream.getTracks().includes(e.track)) stream.addTrack(e.track);
-    addVideoTile(peerId, username, stream);
+    addVideoTile(peerId, username, stream, remotePeerInfo[peerId]);
   };
 
   pc.onnegotiationneeded = async () => {
@@ -5016,7 +5330,7 @@ function stopConnectionQualityMonitor(peerId) {
 
 const speakingDetectors = {}; // peerId -> { ctx, rafId }
 
-function addVideoTile(peerId, username, stream) {
+function addVideoTile(peerId, username, stream, userInfo) {
   let tile = document.getElementById('tile-' + peerId);
   const isNew = !tile;
   const isRemote = peerId !== 'local' && peerId !== 'local-camera';
@@ -5024,10 +5338,12 @@ function addVideoTile(peerId, username, stream) {
     tile = document.createElement('div');
     tile.className = 'video-tile tile-enter';
     tile.id = 'tile-' + peerId;
-    const initial = escapeHtml((username || '?')[0].toUpperCase());
+    // Foto de perfil de verdade quando a câmera tá desligada (item 11 da
+    // especificação) — em vez de só a inicial do nome num círculo genérico.
+    const avatarUser = userInfo || { username };
     tile.innerHTML = `
       <video autoplay playsinline></video>
-      <div class="tile-avatar"><span>${initial}</span></div>
+      <div class="tile-avatar ${avatarFrameClass(avatarUser)}">${renderAvatarHtml(avatarUser)}</div>
       <div class="tile-waveform"><span></span><span></span><span></span><span></span></div>
       ${isRemote ? '<span class="quality-dot quality-good" title="Qualidade da conexão"></span>' : ''}
       <span class="label">${escapeHtml(username || 'Participante')}</span>
@@ -5341,10 +5657,10 @@ function updateLocalTile() {
   const combined = new MediaStream();
   if (micStream) getOutgoingMicStream().getAudioTracks().forEach((t) => combined.addTrack(t));
   if (localStream) localStream.getVideoTracks().forEach((t) => combined.addTrack(t));
-  addVideoTile('local', me.username + ' (você)', combined);
+  addVideoTile('local', me.username + ' (você)', combined, me);
 
   if (cameraStream) {
-    addVideoTile('local-camera', me.username + ' (câmera)', cameraStream);
+    addVideoTile('local-camera', me.username + ' (câmera)', cameraStream, me);
   } else {
     removeVideoTile('local-camera');
   }

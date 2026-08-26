@@ -179,6 +179,42 @@ async function getServerPermissions(category, userId) {
   return perms;
 }
 
+// Canal privado por cargo (item 5 do plano): sem nenhuma linha em
+// channel_role_access, o canal é visível pra todo mundo do servidor, igual
+// sempre foi. Com pelo menos uma linha, só quem tem um daqueles cargos (ou
+// é dono/admin do site) enxerga/acessa — verificado aqui no backend, não só
+// escondido na tela.
+async function canAccessChannel(channel, user) {
+  if (user.is_admin) return true;
+  const restrictions = await db.all('SELECT role_id FROM channel_role_access WHERE channel_id = ?', [channel.id]);
+  if (restrictions.length === 0) return true;
+  const server = await db.get('SELECT owner_id FROM servers WHERE category = ?', [channel.category]);
+  if (server && server.owner_id === user.id) return true;
+  const myRoles = await db.all('SELECT role_id FROM server_member_roles WHERE category = ? AND user_id = ?', [
+    channel.category,
+    user.id,
+  ]);
+  const myRoleIds = new Set(myRoles.map((r) => r.role_id));
+  return restrictions.some((r) => myRoleIds.has(r.role_id));
+}
+
+async function filterChannelsByAccess(channels, user) {
+  const results = [];
+  for (const ch of channels) {
+    if (await canAccessChannel(ch, user)) results.push(ch);
+  }
+  return results;
+}
+
+async function requireChannelAccess(channelId, user) {
+  const channel = await db.get('SELECT * FROM channels WHERE id = ?', [channelId]);
+  if (!channel) return { ok: false, status: 404, error: 'Canal não encontrado' };
+  if (!(await canAccessChannel(channel, user))) {
+    return { ok: false, status: 403, error: 'Você não tem acesso a esse canal' };
+  }
+  return { ok: true, channel };
+}
+
 // Site admins (o painel /admin.html) sempre podem gerenciar qualquer
 // servidor, pra fins de moderação — além do dono e de quem tem o cargo certo.
 async function hasServerPermission(category, user, permission) {
@@ -682,6 +718,7 @@ app.get(
       preferred_rank: req.user.preferred_rank,
       play_style: req.user.play_style,
       coins: req.user.coins || 0,
+      presence_status: req.user.presence_status || 'online',
     });
   })
 );
@@ -707,7 +744,16 @@ app.patch(
       favorite_games,
       preferred_rank,
       play_style,
+      presence_status,
     } = req.body || {};
+
+    if (typeof presence_status === 'string') {
+      if (!['online', 'ausente', 'ocupado', 'invisivel'].includes(presence_status)) {
+        return res.status(400).json({ error: 'Status inválido' });
+      }
+      await db.run('UPDATE users SET presence_status = ? WHERE id = ?', [presence_status, req.user.id]);
+      setUserPresenceStatus(req.user.id, presence_status);
+    }
 
     if (typeof full_name === 'string') {
       await db.run('UPDATE users SET full_name = ? WHERE id = ?', [full_name.trim().slice(0, 80) || null, req.user.id]);
@@ -819,6 +865,7 @@ app.patch(
       favorite_games: updated.favorite_games ? JSON.parse(updated.favorite_games) : [],
       preferred_rank: updated.preferred_rank,
       play_style: updated.play_style,
+      presence_status: updated.presence_status,
     });
   })
 );
@@ -1647,9 +1694,12 @@ app.get(
     const categories = memberships.map((m) => m.category);
     if (categories.length === 0) return res.json([]);
     const placeholders = categories.map(() => '?').join(',');
-    res.json(
-      await db.all(`SELECT * FROM channels WHERE category IN (${placeholders}) ORDER BY category, type, name`, categories)
+    const channels = await db.all(
+      `SELECT * FROM channels WHERE category IN (${placeholders}) ORDER BY category, type, name`,
+      categories
     );
+    const visible = await filterChannelsByAccess(channels, req.user);
+    res.json(visible);
   })
 );
 
@@ -1752,15 +1802,37 @@ app.get(
 
 // Convite: qualquer um com o código consegue ver uma prévia do servidor sem
 // precisar estar logado — só entra de fato com POST (aí sim exige login).
+// Confere se um convite ainda vale: existe, não foi revogado, não expirou
+// e não bateu no limite de usos. Devolve um motivo legível quando não vale,
+// pra mostrar pro usuário em vez de um genérico "convite inválido".
+function inviteValidity(server) {
+  if (!server) return { ok: false, reason: 'Convite inválido ou expirado' };
+  if (!server.invite_active) return { ok: false, reason: 'Esse convite foi revogado por quem administra o servidor' };
+  if (server.invite_expires_at && new Date(server.invite_expires_at) < new Date()) {
+    return { ok: false, reason: 'Esse convite expirou' };
+  }
+  if (server.invite_max_uses != null && server.invite_uses >= server.invite_max_uses) {
+    return { ok: false, reason: 'Esse convite já atingiu o limite de usos' };
+  }
+  return { ok: true };
+}
+
 app.get(
   '/api/invite/:code',
   asyncHandler(async (req, res) => {
-    const server = await db.get('SELECT category, icon, description FROM servers WHERE invite_code = ?', [
-      req.params.code,
-    ]);
-    if (!server) return res.status(404).json({ error: 'Convite inválido ou expirado' });
+    const server = await db.get(
+      'SELECT category, icon, description, invite_active, invite_expires_at, invite_max_uses, invite_uses FROM servers WHERE invite_code = ?',
+      [req.params.code]
+    );
+    const validity = inviteValidity(server);
+    if (!validity.ok) return res.status(404).json({ error: validity.reason });
     const countRow = await db.get('SELECT COUNT(*) as c FROM server_members WHERE category = ?', [server.category]);
-    res.json({ ...server, member_count: Number(countRow.c) });
+    res.json({
+      category: server.category,
+      icon: server.icon,
+      description: server.description,
+      member_count: Number(countRow.c),
+    });
   })
 );
 
@@ -1768,10 +1840,12 @@ app.post(
   '/api/invite/:code/join',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const server = await db.get('SELECT category, access_mode FROM servers WHERE invite_code = ?', [
-      req.params.code,
-    ]);
-    if (!server) return res.status(404).json({ error: 'Convite inválido ou expirado' });
+    const server = await db.get(
+      'SELECT category, access_mode, invite_active, invite_expires_at, invite_max_uses, invite_uses FROM servers WHERE invite_code = ?',
+      [req.params.code]
+    );
+    const validity = inviteValidity(server);
+    if (!validity.ok) return res.status(404).json({ error: validity.reason });
     if (server.access_mode === 'senha') {
       // Dono trocou pra modo senha — o link de convite antigo para de valer,
       // já que os dois modos são mutuamente exclusivos.
@@ -1779,11 +1853,15 @@ app.post(
         error: 'Esse servidor agora usa senha em vez de convite. Peça a senha pra quem administra.',
       });
     }
-    await db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
-      uuidv4(),
-      server.category,
-      req.user.id,
-    ]);
+    const result = await db.run(
+      'INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)',
+      [uuidv4(), server.category, req.user.id]
+    );
+    // Só conta uso se a pessoa realmente entrou agora (não recontava se já
+    // era membro e clicou no link de novo).
+    if (result.changes > 0) {
+      await db.run('UPDATE servers SET invite_uses = invite_uses + 1 WHERE category = ?', [server.category]);
+    }
     res.json({ category: server.category });
   })
 );
@@ -1822,9 +1900,12 @@ app.get(
   asyncHandler(async (req, res) => {
     const isMember = await isServerMember(req.params.category, req.user.id);
     if (!isMember) return res.status(403).json({ error: 'Você não é membro desse servidor' });
-    const server = await db.get('SELECT invite_code FROM servers WHERE category = ?', [req.params.category]);
+    const server = await db.get(
+      'SELECT invite_code, invite_expires_at, invite_max_uses, invite_uses, invite_active FROM servers WHERE category = ?',
+      [req.params.category]
+    );
     if (!server) return res.status(404).json({ error: 'Servidor não encontrado' });
-    res.json({ invite_code: server.invite_code });
+    res.json(server);
   })
 );
 
@@ -1835,8 +1916,76 @@ app.post(
     const canManage = await hasServerPermission(req.params.category, req.user, 'manage_server');
     if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar esse servidor' });
     const newCode = generateInviteCode();
-    await db.run('UPDATE servers SET invite_code = ? WHERE category = ?', [newCode, req.params.category]);
+    // Gerar um código novo reseta os contadores e reativa — é um convite
+    // novo de verdade, não faz sentido carregar o uso/expiração do anterior.
+    await db.run(
+      "UPDATE servers SET invite_code = ?, invite_uses = 0, invite_active = 1, invite_expires_at = NULL, invite_max_uses = NULL WHERE category = ?",
+      [newCode, req.params.category]
+    );
+    logAudit(req.user, 'regenerate_invite', 'server', req.params.category, {});
     res.json({ invite_code: newCode });
+  })
+);
+
+// Revoga o convite sem gerar um código novo — o link atual simplesmente
+// para de funcionar até alguém reativar ou regenerar.
+app.post(
+  '/api/servers/:category/invite/revoke',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_server');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar esse servidor' });
+    await db.run('UPDATE servers SET invite_active = 0 WHERE category = ?', [req.params.category]);
+    logAudit(req.user, 'revoke_invite', 'server', req.params.category, {});
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  '/api/servers/:category/invite/reactivate',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_server');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar esse servidor' });
+    await db.run('UPDATE servers SET invite_active = 1 WHERE category = ?', [req.params.category]);
+    res.json({ ok: true });
+  })
+);
+
+// Define validade e/ou limite de usos do convite atual (item 4 do plano).
+// minutes_valid: null = nunca expira. max_uses: null = usos ilimitados.
+app.patch(
+  '/api/servers/:category/invite',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_server');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar esse servidor' });
+    const { minutes_valid, max_uses } = req.body || {};
+
+    let expiresAt = null;
+    if (minutes_valid !== undefined && minutes_valid !== null && minutes_valid !== '') {
+      const minutes = Number(minutes_valid);
+      if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 60 * 24 * 365) {
+        return res.status(400).json({ error: 'Validade inválida' });
+      }
+      expiresAt = new Date(Date.now() + minutes * 60000).toISOString();
+    }
+
+    let maxUses = null;
+    if (max_uses !== undefined && max_uses !== null && max_uses !== '') {
+      const uses = Number(max_uses);
+      if (!Number.isInteger(uses) || uses < 1 || uses > 100000) {
+        return res.status(400).json({ error: 'Limite de usos inválido' });
+      }
+      maxUses = uses;
+    }
+
+    await db.run('UPDATE servers SET invite_expires_at = ?, invite_max_uses = ? WHERE category = ?', [
+      expiresAt,
+      maxUses,
+      req.params.category,
+    ]);
+    res.json({ invite_expires_at: expiresAt, invite_max_uses: maxUses });
   })
 );
 
@@ -4231,6 +4380,8 @@ app.get(
   '/api/channels/:id/messages',
   requireAuth,
   asyncHandler(async (req, res) => {
+    const access = await requireChannelAccess(req.params.id, req.user);
+    if (!access.ok) return res.status(access.status).json({ error: access.error });
     const rows = await db.all(
       'SELECT id, channel_id, user_id, username, content, edited, pinned, thread_parent_id, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 50',
       [req.params.id]
@@ -4418,6 +4569,53 @@ app.patch(
     const updated = await db.get('SELECT id, slow_mode_seconds, read_only FROM channels WHERE id = ?', [channel.id]);
     io.to(channel.id).emit('channel:settings-updated', updated);
     res.json(updated);
+  })
+);
+
+// ---------- CANAL PRIVADO POR CARGO ----------
+
+app.get(
+  '/api/channels/:id/access',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const channel = await db.get('SELECT id, category FROM channels WHERE id = ?', [req.params.id]);
+    if (!channel) return res.status(404).json({ error: 'Canal não encontrado' });
+    const canManage = await hasServerPermission(channel.category, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra configurar esse canal' });
+    const rows = await db.all('SELECT role_id FROM channel_role_access WHERE channel_id = ?', [channel.id]);
+    res.json({ role_ids: rows.map((r) => r.role_id) });
+  })
+);
+
+// Substitui a lista inteira de cargos com acesso. role_ids: [] = remove a
+// restrição (canal volta a ser visível pra todo mundo do servidor).
+app.put(
+  '/api/channels/:id/access',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const channel = await db.get('SELECT id, category FROM channels WHERE id = ?', [req.params.id]);
+    if (!channel) return res.status(404).json({ error: 'Canal não encontrado' });
+    const canManage = await hasServerPermission(channel.category, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra configurar esse canal' });
+
+    const { role_ids } = req.body || {};
+    if (!Array.isArray(role_ids)) return res.status(400).json({ error: 'role_ids precisa ser uma lista' });
+
+    // Só aceita cargos que realmente existem nesse servidor — evita lixo/id inventado.
+    const validRoles = await db.all('SELECT id FROM server_roles WHERE category = ?', [channel.category]);
+    const validIds = new Set(validRoles.map((r) => r.id));
+    const clean = [...new Set(role_ids.filter((id) => validIds.has(id)))];
+
+    await db.run('DELETE FROM channel_role_access WHERE channel_id = ?', [channel.id]);
+    for (const roleId of clean) {
+      await db.run('INSERT INTO channel_role_access (id, channel_id, role_id) VALUES (?, ?, ?)', [
+        uuidv4(),
+        channel.id,
+        roleId,
+      ]);
+    }
+    logAudit(req.user, 'set_channel_access', 'channel', channel.id, { role_ids: clean });
+    res.json({ role_ids: clean });
   })
 );
 
@@ -4759,6 +4957,35 @@ function voiceStateSnapshot() {
   return snapshot;
 }
 
+// NEXT Music (item 14 do plano): fila e estado de reprodução por sala de
+// voz, só em memória — não é histórico permanente, é só "o que tá tocando
+// agora nessa sala", zera quando o servidor reinicia (igual voiceRooms).
+const musicRooms = new Map();
+
+function musicRoomState(roomId, createIfMissing) {
+  if (!musicRooms.has(roomId)) {
+    if (!createIfMissing) return { queue: [], currentIndex: -1, isPlaying: false, positionMs: 0, lastUpdate: Date.now() };
+    musicRooms.set(roomId, { queue: [], currentIndex: -1, isPlaying: false, positionMs: 0, lastUpdate: Date.now() });
+  }
+  return musicRooms.get(roomId);
+}
+
+// Versão pra mandar pro cliente: calcula a posição atual (se tocando, soma o
+// tempo que passou desde a última atualização) em vez de mandar timestamps
+// crus que cada navegador teria que reinterpretar.
+function musicRoomStateForClient(roomId) {
+  const room = musicRoomState(roomId);
+  const positionMs = room.isPlaying ? room.positionMs + (Date.now() - room.lastUpdate) : room.positionMs;
+  return {
+    roomId,
+    queue: room.queue,
+    currentIndex: room.currentIndex,
+    isPlaying: room.isPlaying,
+    positionMs,
+    currentTrack: room.currentIndex >= 0 ? room.queue[room.currentIndex] : null,
+  };
+}
+
 function broadcastVoiceRoom(roomId) {
   const participants = voiceRooms.has(roomId) ? [...voiceRooms.get(roomId).values()] : [];
   io.emit('voice:update', { roomId, participants });
@@ -4773,9 +5000,25 @@ function removeFromAllVoiceRooms(socketId) {
 // Presença online global (quem está com o site aberto, em qualquer tela) —
 // userId -> quantidade de conexões abertas (várias abas contam como 1 online).
 const onlineUsers = new Map();
+// userId -> status escolhido pela pessoa (online/ausente/ocupado/invisivel).
+// Carregado do banco na conexão, atualizado na hora quando a pessoa troca no
+// perfil — sem precisar reconectar o socket.
+const userPresenceStatus = new Map();
 
+function setUserPresenceStatus(userId, status) {
+  userPresenceStatus.set(userId, status);
+  broadcastOnlineUsers();
+}
+
+// Quem está "invisível" continua contando como conectado pra tudo (recebe
+// mensagens, aparece em salas de voz etc.) mas não aparece na lista pública
+// de presença — pros outros, ele parece offline. É assim que o item 1 da
+// especificação define o status Invisível.
 function broadcastOnlineUsers() {
-  io.emit('presence:online', [...onlineUsers.keys()]);
+  const visible = [...onlineUsers.keys()]
+    .filter((id) => userPresenceStatus.get(id) !== 'invisivel')
+    .map((id) => ({ id, status: userPresenceStatus.get(id) || 'online' }));
+  io.emit('presence:online', visible);
 }
 
 io.on('connection', (socket) => {
@@ -4795,15 +5038,21 @@ io.on('connection', (socket) => {
   socket.emit('voice:state', voiceStateSnapshot());
 
   onlineUsers.set(user.id, (onlineUsers.get(user.id) || 0) + 1);
+  if (!userPresenceStatus.has(user.id)) {
+    userPresenceStatus.set(user.id, user.presence_status || 'online');
+  }
   broadcastOnlineUsers();
-  socket.emit('presence:online', [...onlineUsers.keys()]);
 
   socket.on('disconnect', () => {
     messageTimestamps.delete(socket.id);
     removeFromAllVoiceRooms(socket.id);
     const count = (onlineUsers.get(user.id) || 1) - 1;
-    if (count <= 0) onlineUsers.delete(user.id);
-    else onlineUsers.set(user.id, count);
+    if (count <= 0) {
+      onlineUsers.delete(user.id);
+      userPresenceStatus.delete(user.id);
+    } else {
+      onlineUsers.set(user.id, count);
+    }
     broadcastOnlineUsers();
   });
 
@@ -4846,6 +5095,13 @@ io.on('connection', (socket) => {
       // servidor de verdade (não a DMs, que não têm linha em "channels").
       // Admin do site e quem tem manage_channels passam direto por cima.
       if (!channelId.startsWith('dm::')) {
+        // Canal privado por cargo (item 5 do plano) — verificado aqui no
+        // backend, não só escondido da lista no frontend.
+        const channelForAccess = await db.get('SELECT * FROM channels WHERE id = ?', [channelId]);
+        if (!channelForAccess || !(await canAccessChannel(channelForAccess, user))) {
+          socket.emit('chat:blocked', { reason: 'Você não tem acesso a esse canal.', categories: [] });
+          return;
+        }
         const channelRow = await db.get('SELECT category, read_only, slow_mode_seconds FROM channels WHERE id = ?', [
           channelId,
         ]);
@@ -5055,16 +5311,29 @@ io.on('connection', (socket) => {
 
   // --- Sinalização WebRTC para voz/vídeo/compartilhamento de tela ---
   // Modelo simples: mesh entre participantes de uma sala de voz.
-  socket.on('rtc:join', (roomId) => {
+  socket.on('rtc:join', async (roomId) => {
+    // Canal de voz privado por cargo — mesma checagem do texto.
+    const voiceChannel = await db.get('SELECT * FROM channels WHERE id = ?', [roomId]);
+    if (voiceChannel && !(await canAccessChannel(voiceChannel, user))) return;
+
     // Sai de qualquer outra sala de voz antes (só dá pra estar em uma por vez)
     removeFromAllVoiceRooms(socket.id);
 
     socket.join('rtc:' + roomId);
-    socket.to('rtc:' + roomId).emit('rtc:peer-joined', { socketId: socket.id, username: user.username });
+    socket.to('rtc:' + roomId).emit('rtc:peer-joined', {
+      socketId: socket.id,
+      username: user.username,
+      avatar: user.avatar,
+      avatar_frame: user.avatar_frame,
+    });
 
     if (!voiceRooms.has(roomId)) voiceRooms.set(roomId, new Map());
     voiceRooms.get(roomId).set(socket.id, { socketId: socket.id, userId: user.id, username: user.username });
     broadcastVoiceRoom(roomId);
+
+    // Manda o estado atual da fila de música pra quem acabou de entrar, pra
+    // ele já cair sincronizado com o resto da sala.
+    socket.emit('music:state', musicRoomStateForClient(roomId));
   });
 
   socket.on('rtc:leave', (roomId) => {
@@ -5074,6 +5343,113 @@ io.on('connection', (socket) => {
       voiceRooms.get(roomId).delete(socket.id);
       broadcastVoiceRoom(roomId);
     }
+  });
+
+  // ---------- NEXT MUSIC (item 14 do plano) ----------
+  // Fila de música por sala de voz, tocada via player oficial embutido do
+  // YouTube em cada navegador — nunca baixa nem guarda áudio no servidor,
+  // só a lista de vídeos (id + título) e o estado de reprodução (o quê,
+  // pausado/tocando, em que posição), pra sincronizar todo mundo na sala.
+
+  socket.on('music:add', async ({ roomId, videoId }) => {
+    if (!roomId || !videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return;
+    // Busca o título de verdade pelo oEmbed público do YouTube (sem precisar
+    // de chave de API, sem baixar o vídeo — só metadados públicos).
+    let title = 'Vídeo do YouTube';
+    try {
+      const oembedRes = await fetch(
+        `https://www.youtube.com/oembed?url=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}&format=json`
+      );
+      if (oembedRes.ok) {
+        const oembed = await oembedRes.json();
+        if (oembed.title) title = String(oembed.title).slice(0, 120);
+      } else {
+        return; // vídeo não existe/privado/removido — não adiciona lixo na fila
+      }
+    } catch (_) {
+      // Rede falhou — segue com título genérico em vez de travar a fila.
+    }
+    const room = musicRoomState(roomId, true);
+    room.queue.push({
+      id: uuidv4(),
+      videoId,
+      title,
+      addedBy: user.id,
+      addedByUsername: user.username,
+    });
+    // Fila tava vazia — começa a tocar direto, sem precisar de "play" manual.
+    if (room.currentIndex === -1) {
+      room.currentIndex = 0;
+      room.isPlaying = true;
+      room.positionMs = 0;
+      room.lastUpdate = Date.now();
+    }
+    io.to('rtc:' + roomId).emit('music:state', musicRoomStateForClient(roomId));
+  });
+
+  async function canControlMusic(roomId) {
+    if (user.is_admin) return true;
+    const channel = await db.get('SELECT category FROM channels WHERE id = ?', [roomId]);
+    if (!channel) return false;
+    return hasServerPermission(channel.category, user, 'manage_channels');
+  }
+
+  socket.on('music:remove', async ({ roomId, queueId }) => {
+    if (!(await canControlMusic(roomId))) return;
+    const room = musicRoomState(roomId, true);
+    const idx = room.queue.findIndex((t) => t.id === queueId);
+    if (idx === -1) return;
+    room.queue.splice(idx, 1);
+    if (idx === room.currentIndex) {
+      room.positionMs = 0;
+      room.lastUpdate = Date.now();
+      room.isPlaying = room.queue.length > 0 && room.currentIndex < room.queue.length;
+      if (room.currentIndex >= room.queue.length) room.currentIndex = room.queue.length > 0 ? 0 : -1;
+    } else if (idx < room.currentIndex) {
+      room.currentIndex--;
+    }
+    io.to('rtc:' + roomId).emit('music:state', musicRoomStateForClient(roomId));
+  });
+
+  socket.on('music:playpause', async ({ roomId }) => {
+    if (!(await canControlMusic(roomId))) return;
+    const room = musicRoomState(roomId, true);
+    if (room.currentIndex === -1) return;
+    if (room.isPlaying) {
+      room.positionMs += Date.now() - room.lastUpdate;
+      room.isPlaying = false;
+    } else {
+      room.isPlaying = true;
+    }
+    room.lastUpdate = Date.now();
+    io.to('rtc:' + roomId).emit('music:state', musicRoomStateForClient(roomId));
+  });
+
+  socket.on('music:skip', async ({ roomId }) => {
+    if (!(await canControlMusic(roomId))) return;
+    const room = musicRoomState(roomId, true);
+    if (room.currentIndex === -1) return;
+    room.currentIndex++;
+    room.positionMs = 0;
+    room.lastUpdate = Date.now();
+    room.isPlaying = room.currentIndex < room.queue.length;
+    if (!room.isPlaying) room.currentIndex = -1;
+    io.to('rtc:' + roomId).emit('music:state', musicRoomStateForClient(roomId));
+  });
+
+  // Quando o vídeo termina naturalmente, qualquer pessoa na sala pode avisar
+  // (não precisa de permissão de moderador pra isso — é só "acabou, próxima")
+  // — mas só avança de verdade se o índice bater com o estado atual, pra não
+  // pular duas vezes quando várias pessoas percebem o fim ao mesmo tempo.
+  socket.on('music:track-ended', ({ roomId, atIndex }) => {
+    const room = musicRoomState(roomId, true);
+    if (room.currentIndex !== atIndex) return;
+    room.currentIndex++;
+    room.positionMs = 0;
+    room.lastUpdate = Date.now();
+    room.isPlaying = room.currentIndex < room.queue.length;
+    if (!room.isPlaying) room.currentIndex = -1;
+    io.to('rtc:' + roomId).emit('music:state', musicRoomStateForClient(roomId));
   });
 
   // Notifica a pessoa específica que alguém está ligando pra ela (DM de voz)
@@ -5087,7 +5463,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('rtc:signal', ({ to, data }) => {
-    io.to(to).emit('rtc:signal', { from: socket.id, username: user.username, data });
+    io.to(to).emit('rtc:signal', {
+      from: socket.id,
+      username: user.username,
+      avatar: user.avatar,
+      avatar_frame: user.avatar_frame,
+      data,
+    });
   });
 
   socket.on('disconnect', () => {
