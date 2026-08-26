@@ -495,6 +495,19 @@ async function loadChannels() {
   renderCategories(allChannels);
 }
 
+// Lista de servidores retrátil — fica fechada por padrão (mais espaço na
+// sidebar), abre ao clicar em "Servidores". Lembra a última escolha.
+const SERVERS_COLLAPSED_KEY = 'ng_servers_collapsed';
+function setServersCollapsed(collapsed) {
+  document.getElementById('server-rail').classList.toggle('hidden', collapsed);
+  document.getElementById('servers-toggle-chevron').classList.toggle('open', !collapsed);
+  localStorage.setItem(SERVERS_COLLAPSED_KEY, collapsed ? '1' : '0');
+}
+document.getElementById('btn-toggle-servers').onclick = () => {
+  setServersCollapsed(!document.getElementById('server-rail').classList.contains('hidden'));
+};
+setServersCollapsed(localStorage.getItem(SERVERS_COLLAPSED_KEY) !== '0');
+
 // Busca os ícones reais escolhidos por quem criou cada servidor (um só
 // request pra todos, em vez de um por categoria).
 async function loadServerIcons() {

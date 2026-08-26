@@ -331,6 +331,12 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .app-sidebar-servers-header .app-sidebar-section-label { padding: 6px 8px; }
 .app-sidebar-servers-actions { display: flex; gap: 4px; }
+.app-sidebar-servers-toggle {
+  display: flex; align-items: center; gap: 2px; background: none; border: none; cursor: pointer; padding: 0;
+}
+.app-sidebar-servers-toggle:hover .app-sidebar-section-label { color: #dbdee1; }
+#servers-toggle-chevron { color: #6d7178; transition: transform 0.15s ease; }
+#servers-toggle-chevron.open { transform: rotate(90deg); }
 .app-sidebar-icon-btn {
   background: #1a1b20; border: none; color: #8b909a; width: 26px; height: 26px; border-radius: 7px;
   cursor: pointer; display: flex; align-items: center; justify-content: center;

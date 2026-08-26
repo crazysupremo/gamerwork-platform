@@ -213,15 +213,19 @@
     </div>
 
     <div class="app-sidebar-servers-header">
-      <span class="app-sidebar-section-label">Servidores</span>
+      <button type="button" id="btn-toggle-servers" class="app-sidebar-servers-toggle">
+        <span class="ng-icon-wrap" data-icon="chevron-right" id="servers-toggle-chevron"></span>
+        <span class="app-sidebar-section-label">Servidores</span>
+      </button>
       <div class="app-sidebar-servers-actions">
         <button id="btn-new-server" class="app-sidebar-icon-btn" title="Criar servidor"><span class="ng-icon-wrap" data-icon="plus"></span></button>
         <button id="btn-join-invite" class="app-sidebar-icon-btn" title="Entrar com convite"><span class="ng-icon-wrap" data-icon="link"></span></button>
       </div>
     </div>
     <!-- Trilho de servidores: uma linha por "servidor" (categoria). Clica pra
-         trocar de servidor. -->
-    <div id="server-rail" class="app-sidebar-servers">
+         trocar de servidor. Fica fechado por padrão pra sobrar mais espaço
+         (abre num popup ao clicar em "Servidores" ou ao trocar de servidor). -->
+    <div id="server-rail" class="app-sidebar-servers hidden">
       <div id="server-rail-list" class="server-rail-list"></div>
     </div>
 
