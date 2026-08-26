@@ -106,6 +106,12 @@ async function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Toda leitura de histórico (canal de servidor OU DM) faz
+    -- "WHERE channel_id = ? ORDER BY created_at" — sem índice isso vira
+    -- table scan completo conforme a tabela de mensagens cresce (item 5 do
+    -- PDF de auditoria: "criar índices pra evitar lentidão").
+    CREATE INDEX IF NOT EXISTS idx_messages_channel_created ON messages(channel_id, created_at);
+
     CREATE TABLE IF NOT EXISTS blocked_messages (
       id TEXT PRIMARY KEY,
       channel_id TEXT NOT NULL,
@@ -225,6 +231,22 @@ async function initDb() {
       user_b TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE INDEX IF NOT EXISTS idx_dm_channels_user_a ON dm_channels(user_a);
+    CREATE INDEX IF NOT EXISTS idx_dm_channels_user_b ON dm_channels(user_b);
+    CREATE INDEX IF NOT EXISTS idx_friendships_user_a ON friendships(user_a);
+    CREATE INDEX IF NOT EXISTS idx_friendships_user_b ON friendships(user_b);
+
+    -- Marca de "última leitura" por usuário/canal — usada pra calcular
+    -- contador de mensagens não lidas nas DMs (item 3 do PDF de auditoria).
+    -- Serve tanto pra DM (channel_id = 'dm::a::b') quanto, no futuro, pra
+    -- canal de servidor, sem precisar de tabela nova pra cada tipo.
+    CREATE TABLE IF NOT EXISTS channel_reads (
+      channel_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      last_read_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (channel_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_channel_reads_user ON channel_reads(user_id);
 
     CREATE TABLE IF NOT EXISTS flagged_frames (
       id TEXT PRIMARY KEY,
@@ -622,6 +644,11 @@ async function initDb() {
   await ensureColumn('channels', "voice_type TEXT NOT NULL DEFAULT 'conversa'");
   await ensureColumn('channels', 'voice_game TEXT');
   await ensureColumn('channels', 'is_quick INTEGER NOT NULL DEFAULT 0');
+  // "Apagar conversa" da auditoria — na verdade oculta só pro usuário que
+  // pediu (igual Discord "Fechar DM"): se chegar mensagem nova depois disso,
+  // a conversa reaparece sozinha pra essa pessoa.
+  await ensureColumn('dm_channels', 'hidden_for_a TEXT');
+  await ensureColumn('dm_channels', 'hidden_for_b TEXT');
 
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },

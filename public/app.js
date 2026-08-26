@@ -423,6 +423,7 @@ function startApp() {
   updateNavbarProfile();
   refreshStreakBadge();
   refreshFriendsBadge();
+  refreshMessagesBadge();
 
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
@@ -2039,9 +2040,25 @@ const modalFriends = document.getElementById('modal-friends');
 
 document.getElementById('nav-friends').onclick = () => {
   modalFriends.classList.remove('hidden');
+  setFriendsModalTab('amigos');
   loadFriends();
 };
 document.getElementById('btn-close-friends').onclick = () => modalFriends.classList.add('hidden');
+
+// Aba "Amigos" x "Mensagens" dentro do mesmo modal — item 7 da auditoria
+// ("área MENSAGENS com lista de conversas, avatar, prévia, contador de não
+// lidas"), sem precisar duplicar modal nem mexer no visual do resto do app.
+function setFriendsModalTab(tab) {
+  document.querySelectorAll('#modal-friends [data-friends-tab]').forEach((t) =>
+    t.classList.toggle('active', t.dataset.friendsTab === tab)
+  );
+  document.getElementById('friends-tab-amigos').classList.toggle('hidden', tab !== 'amigos');
+  document.getElementById('friends-tab-mensagens').classList.toggle('hidden', tab !== 'mensagens');
+  if (tab === 'mensagens') loadDmConversations();
+}
+document.querySelectorAll('#modal-friends [data-friends-tab]').forEach((tabBtn) => {
+  tabBtn.onclick = () => setFriendsModalTab(tabBtn.dataset.friendsTab);
+});
 
 let friendsCache = { friends: [], incoming: [], outgoing: [] };
 
@@ -2059,6 +2076,74 @@ async function refreshFriendsBadge() {
       badge.classList.add('hidden');
     }
   } catch (_) {}
+}
+
+// Contador de mensagens não lidas em todas as DMs — soma o unread_count de
+// cada conversa e mostra no sininho de Mensagens (item 3/6 da auditoria).
+async function refreshMessagesBadge() {
+  try {
+    const res = await fetch('/api/dm', { credentials: 'include' });
+    if (!res.ok) return;
+    const conversations = await res.json();
+    const total = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+    const navBadge = document.getElementById('navbar-messages-badge');
+    const tabBadge = document.getElementById('dm-tab-badge');
+    [navBadge, tabBadge].forEach((badge) => {
+      if (!badge) return;
+      if (total > 0) {
+        badge.textContent = total > 99 ? '99+' : total;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    });
+    return conversations;
+  } catch (_) {
+    return [];
+  }
+}
+
+// Lista completa de conversas diretas (não só as 5 últimas da Home) — com
+// prévia, horário, contador de não lidas e opção de ocultar pra mim mesmo.
+async function loadDmConversations() {
+  const el = document.getElementById('dm-conversations-list');
+  const conversations = await refreshMessagesBadge();
+  if (!conversations || conversations.length === 0) {
+    el.innerHTML = '<p class="empty-hint">Nenhuma conversa ainda. Chame um amigo pra jogar!</p>';
+    return;
+  }
+  el.innerHTML = '';
+  conversations.forEach((c) => {
+    const isOnline = onlineUserIds.has(c.other_user.id);
+    const preview = c.last_message ? escapeHtml(c.last_message.content).slice(0, 60) : 'Sem mensagens ainda';
+    const when = c.last_message ? new Date(c.last_message.created_at).toLocaleString('pt-BR') : '';
+    const row = document.createElement('div');
+    row.className = 'friend-row';
+    row.innerHTML = `
+      <div class="member-avatar-wrap">
+        <div class="member-avatar ${avatarFrameClass(c.other_user)}">${renderAvatarHtml(c.other_user)}</div>
+        <span class="member-status-dot" style="${isOnline ? '' : 'background:#6d7178;'}"></span>
+      </div>
+      <span class="friend-name" style="flex:1; min-width:0;">
+        <strong style="${c.unread_count > 0 ? 'color:#fff;' : ''}">${escapeHtml(c.other_user.username)}</strong>
+        <span class="friend-status" style="display:block; ${c.unread_count > 0 ? 'color:#dbdee1; font-weight:600;' : ''}">${preview}</span>
+        <span class="hint" style="font-size:11px;">${when}</span>
+      </span>
+      <div class="friend-actions">
+        ${c.unread_count > 0 ? `<span class="navbar-badge" style="position:static;">${c.unread_count > 99 ? '99+' : c.unread_count}</span>` : ''}
+        <button type="button" class="dm-hide-btn" title="Ocultar conversa">🗑️</button>
+      </div>
+    `;
+    row.querySelector('.friend-name').onclick = () => openDmText(c.other_user.id, c.other_user.username);
+    row.querySelector('.friend-name').style.cursor = 'pointer';
+    row.querySelector('.dm-hide-btn').onclick = async (e) => {
+      e.stopPropagation();
+      if (!confirm(`Ocultar a conversa com ${c.other_user.username}? Ela some só da sua lista — se ${c.other_user.username} mandar mensagem de novo, reaparece.`)) return;
+      await fetch(`/api/dm/${encodeURIComponent(c.channel_id)}`, { method: 'DELETE', credentials: 'include' });
+      loadDmConversations();
+    };
+    el.appendChild(row);
+  });
 }
 
 // Status de amizade com alguém ('friend' | 'pending_out' | 'pending_in' | null)
@@ -4336,9 +4421,13 @@ document.getElementById('nav-ranking-link').onclick = () => {
   }
   document.getElementById('btn-ranking').click();
 };
-// "Mensagens" no topo abre o mesmo painel de Amigos (que já tem os botões
-// de conversa por pessoa) — evita duplicar uma lista de DMs à parte.
-document.getElementById('nav-messages').onclick = () => document.getElementById('nav-friends').click();
+// "Mensagens" no topo abre o mesmo modal de Amigos, já na aba "Mensagens"
+// (lista completa de conversas, com não lidas) — item 7 da auditoria.
+document.getElementById('nav-messages').onclick = () => {
+  modalFriends.classList.remove('hidden');
+  setFriendsModalTab('mensagens');
+  loadFriends();
+};
 
 // ---------- SONS E EFEITOS (liga/desliga geral) ----------
 
@@ -4798,6 +4887,17 @@ async function joinTextChannel(channelId) {
   container.innerHTML = '';
   messages.forEach(renderMessage);
   container.scrollTop = container.scrollHeight;
+  markChannelRead(channelId);
+}
+
+// Marca a conversa como lida (zera o contador de não lidas) — chamado
+// sempre que a pessoa realmente abre o canal/DM na tela.
+function markChannelRead(channelId) {
+  fetch(`/api/channels/${encodeURIComponent(channelId)}/read`, { method: 'POST', credentials: 'include' })
+    .then(() => {
+      if (channelId.startsWith('dm::')) refreshMessagesBadge();
+    })
+    .catch(() => {});
 }
 
 // Carrega o histórico do "Chat da Sala" (mesma conversa do channel_id da
@@ -5084,7 +5184,14 @@ function linkifyHtml(escapedText) {
 
 function registerSocketHandlers() {
   socket.on('chat:message', (msg) => {
-    if (currentChannel && msg.channel_id === currentChannel.id) renderMessage(msg);
+    if (currentChannel && msg.channel_id === currentChannel.id) {
+      renderMessage(msg);
+      // Já está com essa DM aberta na tela — a mensagem que acabou de
+      // chegar não deve contar como "não lida" no contador.
+      if (msg.channel_id.startsWith('dm::') && msg.user_id !== me.id) markChannelRead(msg.channel_id);
+    } else if (msg.channel_id.startsWith('dm::') && msg.user_id !== me.id) {
+      refreshMessagesBadge();
+    }
     if (msg.user_id !== me.id) {
       const mentioned = msg.content && msg.content.toLowerCase().includes('@' + me.username.toLowerCase());
       if (mentioned) SFX.mention();

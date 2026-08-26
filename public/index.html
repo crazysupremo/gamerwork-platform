@@ -278,7 +278,7 @@
     </div>
     <div class="navbar-right">
       <button class="navbar-icon-btn" id="nav-bell" title="Atividade recente"><span class="ng-icon-wrap" data-icon="bell"></span><span id="navbar-bell-badge" class="navbar-badge hidden">0</span></button>
-      <button class="navbar-icon-btn" id="nav-messages" title="Mensagens"><span class="ng-icon-wrap" data-icon="inbox"></span></button>
+      <button class="navbar-icon-btn" id="nav-messages" title="Mensagens"><span class="ng-icon-wrap" data-icon="inbox"></span><span id="navbar-messages-badge" class="navbar-badge hidden">0</span></button>
       <button class="navbar-icon-btn" id="nav-friends" title="Amigos"><span class="ng-icon-wrap" data-icon="users"></span><span id="navbar-friends-badge" class="navbar-badge hidden">0</span></button>
     </div>
   </header>
@@ -1355,27 +1355,38 @@
   <div class="modal-card modal-card-wide">
     <h2><span class="ng-icon-wrap" data-icon="users"></span> Amigos</h2>
 
-    <form id="form-add-friend" style="display:flex; gap:8px; margin-bottom:14px;">
-      <div class="input-icon-wrap" style="flex:1;">
-        <span class="input-icon"><span class="ng-icon-wrap" data-icon="user"></span></span>
-        <input type="text" id="add-friend-input" placeholder="Nome de usuário" required />
+    <div class="manage-tabs">
+      <button type="button" class="manage-tab active" data-friends-tab="amigos"><span class="ng-icon-wrap" data-icon="users"></span> Amigos</button>
+      <button type="button" class="manage-tab" data-friends-tab="mensagens"><span class="ng-icon-wrap" data-icon="inbox"></span> Mensagens <span id="dm-tab-badge" class="navbar-badge hidden">0</span></button>
+    </div>
+
+    <div id="friends-tab-amigos" class="manage-tab-panel">
+      <form id="form-add-friend" style="display:flex; gap:8px; margin-bottom:14px;">
+        <div class="input-icon-wrap" style="flex:1;">
+          <span class="input-icon"><span class="ng-icon-wrap" data-icon="user"></span></span>
+          <input type="text" id="add-friend-input" placeholder="Nome de usuário" required />
+        </div>
+        <button type="submit" class="home-btn-primary" style="white-space:nowrap;">Adicionar</button>
+      </form>
+      <p id="add-friend-error" class="auth-error"></p>
+
+      <div id="friends-incoming-section" class="hidden">
+        <div class="home-section-title"><span class="ng-icon-wrap" data-icon="inbox"></span> Pedidos recebidos</div>
+        <div id="friends-incoming-list" class="friends-list"></div>
       </div>
-      <button type="submit" class="home-btn-primary" style="white-space:nowrap;">Adicionar</button>
-    </form>
-    <p id="add-friend-error" class="auth-error"></p>
 
-    <div id="friends-incoming-section" class="hidden">
-      <div class="home-section-title"><span class="ng-icon-wrap" data-icon="inbox"></span> Pedidos recebidos</div>
-      <div id="friends-incoming-list" class="friends-list"></div>
+      <div id="friends-outgoing-section" class="hidden">
+        <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="upload"></span> Pedidos enviados</div>
+        <div id="friends-outgoing-list" class="friends-list"></div>
+      </div>
+
+      <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="check"></span> Seus amigos</div>
+      <div id="friends-list" class="friends-list"></div>
     </div>
 
-    <div id="friends-outgoing-section" class="hidden">
-      <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="upload"></span> Pedidos enviados</div>
-      <div id="friends-outgoing-list" class="friends-list"></div>
+    <div id="friends-tab-mensagens" class="manage-tab-panel hidden">
+      <div id="dm-conversations-list" class="friends-list"></div>
     </div>
-
-    <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="check"></span> Seus amigos</div>
-    <div id="friends-list" class="friends-list"></div>
 
     <div class="modal-actions">
       <button type="button" id="btn-close-friends">Fechar</button>

@@ -651,6 +651,13 @@ app.post(
   authLimiter,
   asyncHandler(async (req, res) => {
     const { username, password, remember } = req.body || {};
+    // Sem isso, um POST sem "username" (ex: campo com nome errado do lado do
+    // cliente, ou requisição malformada) derrubava com 500 — o driver do
+    // banco não aceita "undefined" como parâmetro de bind. Corrige a causa
+    // em vez de só engolir o erro (item 9 da auditoria).
+    if (!username || typeof username !== 'string' || !password) {
+      return res.status(400).json({ error: 'Usuário e senha são obrigatórios' });
+    }
     const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
     if (!user || !bcrypt.compareSync(password || '', user.password_hash)) {
       return res.status(401).json({ error: 'Usuário ou senha inválidos' });
@@ -2610,7 +2617,9 @@ app.get(
   })
 );
 
-// Lista minhas conversas diretas (com a última mensagem, pra mostrar uma prévia).
+// Lista minhas conversas diretas (última mensagem, contador de não lidas,
+// escondendo as que eu ocultei — item 3/6/7 da auditoria: "contador de
+// mensagens não lidas" e "apagar/ocultar conversa pra mim mesmo").
 app.get(
   '/api/dm',
   requireAuth,
@@ -2619,13 +2628,37 @@ app.get(
     const results = [];
     for (const row of rows) {
       const otherId = row.user_a === req.user.id ? row.user_b : row.user_a;
+      const iAmA = row.user_a === req.user.id;
+      const hiddenAt = iAmA ? row.hidden_for_a : row.hidden_for_b;
+
       const other = await db.get('SELECT id, username, avatar, avatar_frame FROM users WHERE id = ?', [otherId]);
       if (!other) continue;
       const lastMsg = await db.get(
         'SELECT content, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 1',
         [row.id]
       );
-      results.push({ channel_id: row.id, other_user: other, last_message: lastMsg || null });
+      // Ocultei essa conversa — some da lista, A NÃO SER que tenha chegado
+      // mensagem nova depois que eu ocultei (aí ela "reabre" sozinha,
+      // igual "Fechar DM" do Discord, que reaparece se a pessoa escrever de novo).
+      if (hiddenAt && (!lastMsg || lastMsg.created_at <= hiddenAt)) continue;
+
+      const readRow = await db.get('SELECT last_read_at FROM channel_reads WHERE channel_id = ? AND user_id = ?', [
+        row.id,
+        req.user.id,
+      ]);
+      const unreadRow = await db.get(
+        `SELECT COUNT(*) as c FROM messages
+         WHERE channel_id = ? AND deleted = 0 AND user_id != ?
+         ${readRow ? 'AND created_at > ?' : ''}`,
+        readRow ? [row.id, req.user.id, readRow.last_read_at] : [row.id, req.user.id]
+      );
+
+      results.push({
+        channel_id: row.id,
+        other_user: other,
+        last_message: lastMsg || null,
+        unread_count: Number(unreadRow.c),
+      });
     }
     results.sort((x, y) => {
       const tx = x.last_message ? x.last_message.created_at : '';
@@ -2633,6 +2666,37 @@ app.get(
       return ty.localeCompare(tx);
     });
     res.json(results);
+  })
+);
+
+// Marca uma conversa (DM ou canal) como lida até agora — zera o contador de
+// não lidas pra quem chamou. Chamado sempre que a pessoa abre a conversa.
+app.post(
+  '/api/channels/:id/read',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run(
+      `INSERT INTO channel_reads (channel_id, user_id, last_read_at) VALUES (?, ?, datetime('now'))
+       ON CONFLICT(channel_id, user_id) DO UPDATE SET last_read_at = excluded.last_read_at`,
+      [req.params.id, req.user.id]
+    );
+    res.json({ ok: true });
+  })
+);
+
+// "Apagar conversa" só pro meu lado — a outra pessoa continua vendo
+// normalmente, e se ela mandar mensagem nova a conversa reaparece pra mim.
+app.delete(
+  '/api/dm/:channelId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const row = await db.get('SELECT * FROM dm_channels WHERE id = ?', [req.params.channelId]);
+    if (!row || (row.user_a !== req.user.id && row.user_b !== req.user.id)) {
+      return res.status(404).json({ error: 'Conversa não encontrada' });
+    }
+    const column = row.user_a === req.user.id ? 'hidden_for_a' : 'hidden_for_b';
+    await db.run(`UPDATE dm_channels SET ${column} = datetime('now') WHERE id = ?`, [req.params.channelId]);
+    res.json({ ok: true });
   })
 );
 
