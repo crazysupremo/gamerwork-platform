@@ -2827,6 +2827,11 @@ document.getElementById('form-profile').onsubmit = async (e) => {
     if ('bio' in data) me.bio = data.bio;
     if ('region' in data) me.region = data.region;
     if ('language' in data) me.language = data.language;
+    // Atualiza o avatar/nome que aparecem na hora (rodapé da sidebar, mensagens
+    // já na tela) — sem isso, a foto só aparecia certa depois de recarregar.
+    pendingAvatar = undefined;
+    updateNavbarProfile();
+    renderAvatarInto(document.getElementById('me-avatar'), me);
     loadMembers();
     alert('Perfil atualizado!');
   } catch (err) {

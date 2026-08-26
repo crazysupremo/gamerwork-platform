@@ -33,7 +33,10 @@ app.set('trust proxy', 1);
 // ative e ajuste se quiser uma política mais restrita.
 app.use(helmet({ contentSecurityPolicy: false }));
 
-app.use(express.json({ limit: '100kb' }));
+// 100kb era pouco pra imagem em base64 (avatar/evidência de torneio somados
+// ao resto do corpo da requisição já passam disso) — 700kb dá folga
+// confortável sem abrir espaço pra abuso.
+app.use(express.json({ limit: '700kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(
   cookieSession({
