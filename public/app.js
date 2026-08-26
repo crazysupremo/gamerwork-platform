@@ -5077,24 +5077,42 @@ function updateVoiceParticipantCount() {
   el.textContent = `${count} na chamada`;
 }
 
+// IMPORTANTE: a classe utilitária ".hidden" usa "display: none !important",
+// então só alternar uma classe no elemento PAI (chat-open/music-open) não
+// basta — precisa remover/adicionar ".hidden" na própria coluna também,
+// senão o !important trava ela escondida pra sempre (era o bug do chat e da
+// música não aparecerem nunca, mesmo clicando no botão).
 document.getElementById('btn-toggle-voice-chat').onclick = () => {
   const wrap = document.getElementById('voice-incall');
+  const chatCol = document.getElementById('voice-chat-col');
+  const musicCol = document.getElementById('voice-music-col');
+  const opening = chatCol.classList.contains('hidden');
+
+  musicCol.classList.add('hidden');
   wrap.classList.remove('music-open');
   document.getElementById('btn-toggle-voice-music').classList.remove('active-state');
-  wrap.classList.toggle('chat-open');
-  document.getElementById('btn-toggle-voice-chat').classList.toggle('active-state', wrap.classList.contains('chat-open'));
+
+  chatCol.classList.toggle('hidden', !opening);
+  wrap.classList.toggle('chat-open', opening);
+  document.getElementById('btn-toggle-voice-chat').classList.toggle('active-state', opening);
 };
 
 // NEXT Music e chat da sala dividem a mesma coluna lateral (só um por vez,
 // igual abas) — abrir um fecha o outro.
 document.getElementById('btn-toggle-voice-music').onclick = () => {
   const wrap = document.getElementById('voice-incall');
+  const chatCol = document.getElementById('voice-chat-col');
+  const musicCol = document.getElementById('voice-music-col');
+  const opening = musicCol.classList.contains('hidden');
+
+  chatCol.classList.add('hidden');
   wrap.classList.remove('chat-open');
   document.getElementById('btn-toggle-voice-chat').classList.remove('active-state');
-  wrap.classList.toggle('music-open');
-  const isOpen = wrap.classList.contains('music-open');
-  document.getElementById('btn-toggle-voice-music').classList.toggle('active-state', isOpen);
-  if (isOpen) ensureMusicPlayerReady();
+
+  musicCol.classList.toggle('hidden', !opening);
+  wrap.classList.toggle('music-open', opening);
+  document.getElementById('btn-toggle-voice-music').classList.toggle('active-state', opening);
+  if (opening) ensureMusicPlayerReady();
 };
 
 document.getElementById('form-voice-message').onsubmit = (e) => {
