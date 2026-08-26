@@ -3,6 +3,17 @@
    reforçando o som de clique com um feedback visual. */
 button { transition: transform 0.08s ease, filter 0.08s ease; }
 button:active { transform: scale(0.94); }
+
+/* Ícones de linha (substituem os emojis de interface) — herdam a cor do
+   texto ao redor, então funcionam em qualquer contexto sem precisar de
+   classe extra na maioria dos casos. */
+.ng-icon {
+  width: 1em; height: 1em; display: inline-block; vertical-align: -0.15em;
+  flex-shrink: 0;
+}
+.ng-icon-lg { width: 1.3em; height: 1.3em; }
+.ng-icon-sm { width: 0.85em; height: 0.85em; }
+[data-icon] { display: inline-flex; align-items: center; justify-content: center; }
 :root {
   --accent: #5865f2;
   --accent-2: #9146ff;
@@ -519,9 +530,13 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .home-quick-action {
   display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 12px;
   background: #1a1b20; border: 1px solid #26272e; cursor: pointer; text-align: left;
-  transition: border-color 0.15s ease, transform 0.1s ease;
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
-.home-quick-action:hover { border-color: var(--accent); transform: translateY(-1px); }
+.home-quick-action:hover {
+  border-color: var(--accent); transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(88,101,242,0.22); background: #1e1f26;
+}
+.home-quick-action:active { transform: translateY(-1px) scale(0.98); }
 .home-quick-action-icon {
   flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px; background: rgba(88,101,242,0.14);
   display: flex; align-items: center; justify-content: center; font-size: 17px;
@@ -533,19 +548,28 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .home-stats { display: flex; gap: 16px; margin-bottom: 28px; }
 .home-stat {
   flex: 1; background: #1a1b20; border-radius: 12px; padding: 16px; display: flex; flex-direction: column;
-  gap: 4px; border: 1px solid #26272e;
+  gap: 4px; border: 1px solid #26272e; transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
+.home-stat:hover { transform: translateY(-3px); border-color: var(--accent-3); box-shadow: 0 10px 24px rgba(0,217,192,0.16); }
 .home-stat-num { font-size: 24px; font-weight: 900; color: white; }
 .home-stat-label { font-size: 12px; color: #9aa0ab; }
 
-.home-section-title { font-size: 15px; font-weight: 800; margin-bottom: 12px; }
+.home-section-title {
+  font-size: 14px; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+  text-transform: uppercase; letter-spacing: 0.03em; color: #dbdee1;
+}
+.home-section-title .ng-icon-wrap { color: var(--accent-3); }
 .home-grid { display: grid; grid-template-columns: 1fr 300px; gap: 24px; align-items: start; }
 .home-servers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
 .home-server-card {
   background: #1a1b20; border: 1px solid #26272e; border-radius: 12px; padding: 16px 12px; text-align: center;
-  cursor: pointer; transition: transform 0.15s ease, border-color 0.15s ease;
+  cursor: pointer; transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
-.home-server-card:hover { transform: translateY(-3px); border-color: var(--accent); }
+.home-server-card:hover {
+  transform: translateY(-4px) scale(1.02); border-color: var(--accent);
+  box-shadow: 0 14px 28px rgba(88,101,242,0.25);
+}
+.home-server-card:active { transform: translateY(-1px) scale(0.99); }
 .home-server-icon {
   width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 12px; background: var(--gradient-brand);
   display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 20px;
@@ -556,8 +580,19 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .home-playing-now { display: flex; flex-wrap: wrap; gap: 8px; }
 .playing-now-card {
   display: flex; align-items: center; gap: 8px; background: #1a1b20; border: 1px solid #26272e;
-  border-radius: 10px; padding: 8px 12px;
+  border-radius: 10px; padding: 8px 12px; transition: transform 0.15s ease, border-color 0.15s ease;
 }
+.playing-now-card:hover { transform: translateY(-2px); border-color: var(--accent-2); }
+
+.home-conversations-list { display: flex; flex-direction: column; gap: 4px; }
+.home-conversation-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.home-conversation-row:hover { background: rgba(88,101,242,0.1); transform: translateX(2px); }
+.home-conversation-info { display: flex; flex-direction: column; min-width: 0; font-size: 12px; line-height: 1.4; }
+.home-conversation-info strong { color: #e6e6e6; font-size: 13px; }
+.home-conversation-info span { color: #9aa0ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .playing-now-info { display: flex; flex-direction: column; font-size: 12px; line-height: 1.4; }
 .playing-now-info strong { color: #e6e6e6; }
 .playing-now-info span { color: var(--accent-3); }
@@ -943,7 +978,15 @@ video:fullscreen { background: #000; object-fit: contain; }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .modal-card-wide { width: 460px; }
-.modal-card h2 { margin-top: 0; color: #5865f2; }
+.modal-card h2 {
+  margin-top: 0; color: #e6e6e6; display: flex; align-items: center; gap: 10px;
+  font-size: 18px;
+}
+.modal-card h2 .ng-icon-wrap {
+  color: white; background: var(--gradient-brand); padding: 7px; border-radius: 9px; width: 30px; height: 30px;
+  box-sizing: border-box;
+}
+.modal-card h2 .ng-icon-wrap .ng-icon { width: 100%; height: 100%; }
 
 /* TORNEIOS */
 .tournaments-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
@@ -1393,11 +1436,21 @@ video:fullscreen { background: #000; object-fit: contain; }
 .manage-tab.active { color: #e6e6e6; border-bottom-color: var(--accent); }
 .manage-tab-panel { min-height: 120px; }
 
-.settings-modal-card { max-width: 620px; }
-.settings-layout { display: flex; gap: 18px; align-items: flex-start; }
+/* Configurações agora ocupa quase a tela inteira em vez de um modalzinho
+   apertado que obrigava rolar — sidebar fixa, só o conteúdo da aba rola. */
+.settings-modal-card {
+  width: min(980px, 94vw);
+  max-width: none;
+  height: min(820px, 90vh);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+.settings-modal-card h2 { flex-shrink: 0; }
+.settings-layout { display: flex; gap: 22px; align-items: stretch; flex: 1; min-height: 0; }
 .settings-sidebar {
-  display: flex; flex-direction: column; gap: 2px; width: 160px; flex-shrink: 0;
-  border-right: 1px solid #26272e; padding-right: 12px;
+  display: flex; flex-direction: column; gap: 2px; width: 190px; flex-shrink: 0;
+  border-right: 1px solid #26272e; padding-right: 14px; overflow-y: auto;
 }
 .settings-sidebar-item {
   background: none; border: none; color: #9aa0ab; font-size: 13px; font-weight: 700; cursor: pointer;
@@ -1405,8 +1458,9 @@ video:fullscreen { background: #000; object-fit: contain; }
 }
 .settings-sidebar-item:hover { background: rgba(255,255,255,0.04); color: #dbdee1; }
 .settings-sidebar-item.active { background: var(--gradient-brand); color: white; }
-.settings-content { flex: 1; min-width: 0; max-height: 60vh; overflow-y: auto; padding-right: 4px; }
+.settings-content { flex: 1; min-width: 0; max-height: none; overflow-y: auto; padding-right: 8px; }
 @media (max-width: 640px) {
+  .settings-modal-card { height: 94vh; max-height: 94vh; }
   .settings-layout { flex-direction: column; }
   .settings-sidebar { flex-direction: row; width: 100%; overflow-x: auto; border-right: none; border-bottom: 1px solid #26272e; padding-right: 0; padding-bottom: 8px; }
 }

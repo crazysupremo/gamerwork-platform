@@ -17,6 +17,7 @@ let serverIcons = {}; // category -> emoji real escolhido por quem criou o servi
 let onlineUserIds = new Set();
 let typingUsers = {}; // channelId -> { userId: username }
 let typingTimeout = null;
+let homeRefreshInterval = null; // atualiza ranking/atividade/jogando-agora sozinho enquanto a Início está aberta
 
 const AVATAR_EMOJIS = ['🎮', '🕹️', '👾', '🔥', '⚡', '🐉', '🦊', '🐱', '💀', '👑', '🎯', '🚀'];
 const SERVER_ICONS = ['🎮', '🕹️', '👾', '🔫', '⚔️', '🏆', '⚽', '🏎️', '🧙', '🐉', '💼', '💬', '🎧', '🚀'];
@@ -2843,6 +2844,7 @@ function selectChannel(channel, options = {}) {
     (channel.type === 'voz' ? '🔊 ' : '# ') + channel.name;
   document.getElementById('home-panel').classList.add('hidden');
   setNavActive('nav-inicio', false);
+  stopHomeAutoRefresh();
 
   if (channel.type === 'voz') {
     document.getElementById('text-panel').classList.add('hidden');
@@ -2913,6 +2915,25 @@ function goHome() {
   renderCategories(allChannels);
   updateClearChannelButton();
   loadHomeDashboard();
+
+  // Início fica "viva": ranking, atividade recente e quem tá jogando agora
+  // se atualizam sozinhos a cada meio minuto, sem precisar recarregar a
+  // página. Para automaticamente quando sai da Início (evita gastar rede à toa).
+  if (homeRefreshInterval) clearInterval(homeRefreshInterval);
+  homeRefreshInterval = setInterval(() => {
+    if (document.getElementById('home-panel').classList.contains('hidden')) return;
+    loadHomeRanking();
+    loadHomeActivity();
+    loadHomePlayingNow();
+    loadHomeConversations();
+  }, 30000);
+}
+
+function stopHomeAutoRefresh() {
+  if (homeRefreshInterval) {
+    clearInterval(homeRefreshInterval);
+    homeRefreshInterval = null;
+  }
 }
 
 function setNavActive(id, active) {
@@ -3949,6 +3970,43 @@ async function loadHomeDashboard() {
   loadHomeTournamentBanner();
   loadHomeRanking();
   loadHomeStreakCard();
+  loadHomeConversations();
+}
+
+// Prévia clicável das conversas diretas mais recentes — abre direto na
+// conversa sem precisar passar pelo painel de Amigos primeiro.
+async function loadHomeConversations() {
+  const el = document.getElementById('home-conversations');
+  if (!el) return;
+  let conversations;
+  try {
+    const res = await fetch('/api/dm', { credentials: 'include' });
+    conversations = await res.json();
+  } catch (_) {
+    el.innerHTML = '<p class="empty-hint">Erro ao carregar conversas.</p>';
+    return;
+  }
+  if (!Array.isArray(conversations) || conversations.length === 0) {
+    el.innerHTML = '<p class="empty-hint">Nenhuma conversa ainda. Chame um amigo pra jogar!</p>';
+    return;
+  }
+  el.innerHTML = conversations
+    .slice(0, 5)
+    .map((c) => {
+      const preview = c.last_message ? escapeHtml(c.last_message.content).slice(0, 42) : 'Sem mensagens ainda';
+      return `
+      <div class="home-conversation-row" data-user-id="${c.other_user.id}" data-username="${escapeHtml(c.other_user.username)}">
+        <div class="member-avatar ${avatarFrameClass(c.other_user)}">${renderAvatarHtml(c.other_user)}</div>
+        <div class="home-conversation-info">
+          <strong>${escapeHtml(c.other_user.username)}</strong>
+          <span>${preview}</span>
+        </div>
+      </div>`;
+    })
+    .join('');
+  el.querySelectorAll('.home-conversation-row').forEach((row) => {
+    row.onclick = () => openDmText(row.dataset.userId, row.dataset.username);
+  });
 }
 
 // Quem está online agora e com um jogo selecionado no status — dá vida ao
@@ -5486,7 +5544,11 @@ document.getElementById('bar-btn-disconnect').onclick = () => {
 
 // ---------- COMPARTILHAMENTO DE TELA ----------
 
-let screenShareQuality = localStorage.getItem('ng_screen_quality') || '1080p30';
+// 720p30 como padrão: como a chamada é ponto-a-ponto (cada pessoa manda uma
+// cópia da tela pra cada participante, sem servidor de mídia central), 1080p
+// pesa demais em salas com mais gente e é a causa mais comum de lag/travada.
+// Quem já tinha escolhido outra qualidade antes continua com a preferência salva.
+let screenShareQuality = localStorage.getItem('ng_screen_quality') || '720p30';
 
 const SCREEN_QUALITY_PRESETS = {
   '720p30': { width: 1280, height: 720, frameRate: 30 },
@@ -5500,6 +5562,12 @@ document.getElementById('screen-quality-select').onchange = (e) => {
 };
 
 document.getElementById('btn-share-screen').onclick = async () => {
+  // Defensivo: se por algum motivo ainda tinha uma tela antiga presa (ex.:
+  // clique duplo, erro anterior), limpa direito antes de começar outra —
+  // evita acumular sender fantasma na conexão (era a causa da tela preta
+  // e do lag depois de parar/recomeçar o compartilhamento).
+  if (localStream) stopScreenShare();
+
   try {
     const preset = SCREEN_QUALITY_PRESETS[screenShareQuality] || SCREEN_QUALITY_PRESETS['1080p30'];
     // audio: true pede pro navegador oferecer a opção de compartilhar o som
@@ -5545,7 +5613,25 @@ document.getElementById('btn-stop-share').onclick = stopScreenShare;
 
 function stopScreenShare() {
   if (localStream) {
-    localStream.getTracks().forEach((t) => t.stop());
+    // BUG CRÍTICO CORRIGIDO: antes só parava as tracks (t.stop()) sem tirar
+    // o sender da conexão. Uma track parada continua "presa" no
+    // RTCPeerConnection como remetente morto — quem está assistindo fica
+    // com tela preta/congelada em vez do vídeo sumir, e cada vez que a
+    // pessoa compartilha de novo (sem sair da call) um sender morto novo se
+    // acumula em cima do(s) anterior(es), pesando a negociação e causando
+    // lag. A correção é sempre remover o sender de cada peer ANTES de parar
+    // a track — mesmo padrão já usado ao desligar a câmera.
+    const tracksToRemove = localStream.getTracks();
+    Object.values(peers).forEach((pc) => {
+      pc.getSenders()
+        .filter((s) => s.track && tracksToRemove.includes(s.track))
+        .forEach((s) => {
+          try {
+            pc.removeTrack(s);
+          } catch (_) {}
+        });
+    });
+    tracksToRemove.forEach((t) => t.stop());
     localStream = null;
   }
   document.getElementById('btn-share-screen').classList.remove('hidden');

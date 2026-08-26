@@ -174,9 +174,9 @@
       <img src="/assets/logo.png" alt="NEXT GAME" class="navbar-logo-img" />
       <nav class="navbar-links">
         <button class="navbar-link active" id="nav-inicio">Início</button>
-        <button class="navbar-link" id="nav-jogos">🔍 Explorar</button>
-        <button class="navbar-link" id="nav-lfg">🎯 Jogar</button>
-        <button class="navbar-link" id="nav-feed">📰 Feed</button>
+        <button class="navbar-link" id="nav-jogos"><span class="ng-icon-wrap" data-icon="search"></span> Explorar</button>
+        <button class="navbar-link" id="nav-lfg"><span class="ng-icon-wrap" data-icon="target"></span> Jogar</button>
+        <button class="navbar-link" id="nav-feed"><span class="ng-icon-wrap" data-icon="newspaper"></span> Feed</button>
         <button class="navbar-link" id="nav-comunidade">Comunidade</button>
         <button class="navbar-link" id="nav-torneios">Torneios</button>
         <button class="navbar-link" id="nav-sobre">Sobre</button>
@@ -184,14 +184,14 @@
     </div>
     <div class="navbar-right">
       <div class="navbar-search">
-        <span>🔍</span>
+        <span><span class="ng-icon-wrap" data-icon="search"></span></span>
         <input type="text" id="navbar-search-input" placeholder="Buscar jogadores, servidores, torneios, clipes..." autocomplete="off" />
         <div id="navbar-search-dropdown" class="navbar-search-dropdown hidden"></div>
       </div>
-      <button class="navbar-icon-btn" id="nav-bell" title="Atividade recente">🔔<span id="navbar-bell-badge" class="navbar-badge hidden">0</span></button>
-      <button class="navbar-icon-btn" id="nav-rewards" title="Loja de recompensas">🎁<span id="navbar-streak-badge" class="navbar-badge hidden">0</span></button>
-      <button class="navbar-icon-btn" id="nav-friends" title="Amigos">👥<span id="navbar-friends-badge" class="navbar-badge hidden">0</span></button>
-      <button class="navbar-icon-btn" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos">🔊</button>
+      <button class="navbar-icon-btn" id="nav-bell" title="Atividade recente"><span class="ng-icon-wrap" data-icon="bell"></span><span id="navbar-bell-badge" class="navbar-badge hidden">0</span></button>
+      <button class="navbar-icon-btn" id="nav-rewards" title="Loja de recompensas"><span class="ng-icon-wrap" data-icon="gift"></span><span id="navbar-streak-badge" class="navbar-badge hidden">0</span></button>
+      <button class="navbar-icon-btn" id="nav-friends" title="Amigos"><span class="ng-icon-wrap" data-icon="users"></span><span id="navbar-friends-badge" class="navbar-badge hidden">0</span></button>
+      <button class="navbar-icon-btn" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos"><span class="ng-icon-wrap" data-icon="volume-2"></span></button>
       <button class="navbar-profile" id="nav-profile">
         <div id="navbar-avatar" class="member-avatar"></div>
         <div class="navbar-profile-text">
@@ -208,18 +208,18 @@
   <nav id="server-rail" class="server-rail">
     <div id="server-rail-list" class="server-rail-list"></div>
     <button id="btn-new-server" class="server-icon server-icon-add" title="Criar servidor">+</button>
-    <button id="btn-join-invite" class="server-icon server-icon-add" title="Entrar com convite">🔗</button>
+    <button id="btn-join-invite" class="server-icon server-icon-add" title="Entrar com convite"><span class="ng-icon-wrap" data-icon="link"></span></button>
   </nav>
 
   <aside class="sidebar">
     <div class="sidebar-header">
       <span id="active-server-name">NEXT GAME</span>
       <div class="sidebar-header-actions">
-        <button id="btn-tournaments" title="Torneios">🏆</button>
-        <button id="btn-shop-coins" title="Loja NEXT Coins">🪙</button>
-        <button id="btn-ranking" title="Ranking semanal">📊</button>
+        <button id="btn-tournaments" title="Torneios"><span class="ng-icon-wrap" data-icon="trophy"></span></button>
+        <button id="btn-shop-coins" title="Loja NEXT Coins"><span class="ng-icon-wrap" data-icon="coins"></span></button>
+        <button id="btn-ranking" title="Ranking semanal"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span></button>
         <button id="btn-server-info" title="Informações e regras do servidor">ℹ️</button>
-        <button id="btn-server-manage" title="Membros, cargos e convite">⚙️</button>
+        <button id="btn-server-manage" title="Membros, cargos e convite"><span class="ng-icon-wrap" data-icon="settings"></span></button>
         <button id="btn-new-room" title="Criar sala neste servidor">+</button>
       </div>
     </div>
@@ -237,16 +237,16 @@
         </div>
       </div>
       <div class="voice-connected-controls">
-        <button id="bar-btn-mute" title="Mutar/Ativar microfone">🎙️</button>
-        <button id="bar-btn-deafen" title="Ensurdecer">🎧</button>
-        <button id="bar-btn-disconnect" title="Desconectar">📞</button>
+        <button id="bar-btn-mute" title="Mutar/Ativar microfone"><span class="ng-icon-wrap" data-icon="mic"></span></button>
+        <button id="bar-btn-deafen" title="Ensurdecer"><span class="ng-icon-wrap" data-icon="headphones"></span></button>
+        <button id="bar-btn-disconnect" title="Desconectar"><span class="ng-icon-wrap" data-icon="phone-off"></span></button>
       </div>
     </div>
 
     <div class="sidebar-footer">
       <div id="me-avatar" class="member-avatar"></div>
       <span id="me-username"></span>
-      <button id="btn-edit-profile" title="Editar perfil">⚙️</button>
+      <button id="btn-edit-profile" title="Editar perfil"><span class="ng-icon-wrap" data-icon="settings"></span></button>
       <a href="/admin.html" id="admin-link" class="hidden">Admin</a>
       <button id="btn-logout">Sair</button>
     </div>
@@ -255,10 +255,10 @@
   <main class="main">
     <header class="main-header">
       <span id="current-channel-name">Início</span>
-      <button id="btn-search-messages" title="Buscar mensagens" class="header-icon-btn">🔍</button>
-      <button id="btn-pinned-messages" title="Mensagens fixadas" class="header-icon-btn">📌</button>
-      <button id="btn-clear-channel" title="Limpar conversa (admin)" class="header-icon-btn hidden">🗑️</button>
-      <button id="btn-toggle-members" title="Membros" class="header-icon-btn">👥</button>
+      <button id="btn-search-messages" title="Buscar mensagens" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="search"></span></button>
+      <button id="btn-pinned-messages" title="Mensagens fixadas" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="pin"></span></button>
+      <button id="btn-clear-channel" title="Limpar conversa (admin)" class="header-icon-btn hidden"><span class="ng-icon-wrap" data-icon="trash-2"></span></button>
+      <button id="btn-toggle-members" title="Membros" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="users"></span></button>
     </header>
 
     <!-- Painel Início: dashboard com dados reais da comunidade -->
@@ -266,22 +266,22 @@
       <!-- Banner de torneio em destaque, no topo — o cartão principal da tela -->
       <div id="home-tournament-banner" class="home-tournament-banner"></div>
 
-      <div class="home-section-title" style="margin-top:22px;">⚡ Atividades rápidas</div>
+      <div class="home-section-title" style="margin-top:22px;"><span class="ng-icon-wrap" data-icon="zap"></span> Atividades rápidas</div>
       <div class="home-quick-actions">
         <button type="button" class="home-quick-action" id="home-quick-lfg">
-          <span class="home-quick-action-icon">🔍</span>
+          <span class="home-quick-action-icon"><span class="ng-icon-wrap" data-icon="search"></span></span>
           <span class="home-quick-action-text"><strong>Procurar Jogadores</strong><span>Encontre gente pro seu nível</span></span>
         </button>
         <button type="button" class="home-quick-action" id="home-quick-join">
-          <span class="home-quick-action-icon">🔗</span>
+          <span class="home-quick-action-icon"><span class="ng-icon-wrap" data-icon="link"></span></span>
           <span class="home-quick-action-text"><strong>Entrar em Servidor</strong><span>Participe de uma comunidade</span></span>
         </button>
         <button type="button" class="home-quick-action" id="home-quick-team">
-          <span class="home-quick-action-icon">🛡️</span>
+          <span class="home-quick-action-icon"><span class="ng-icon-wrap" data-icon="shield"></span></span>
           <span class="home-quick-action-text"><strong>Criar Time</strong><span>Monte seu esquad</span></span>
         </button>
         <button type="button" class="home-quick-action" id="home-quick-tournaments">
-          <span class="home-quick-action-icon">🏆</span>
+          <span class="home-quick-action-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></span>
           <span class="home-quick-action-text"><strong>Ver Torneios</strong><span>Confira torneios abertos</span></span>
         </button>
       </div>
@@ -290,19 +290,23 @@
 
       <div class="home-grid">
         <div class="home-col-main">
-          <div class="home-section-title">🔥 Servidores em Destaque</div>
+          <div class="home-section-title"><span class="ng-icon-wrap" data-icon="flame"></span> Servidores em Destaque</div>
           <div id="home-servers-grid" class="home-servers-grid"></div>
 
-          <div class="home-section-title" style="margin-top:20px;">🎮 Jogando Agora</div>
+          <div class="home-section-title" style="margin-top:20px;"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> Jogando Agora</div>
           <div id="home-playing-now" class="home-playing-now"></div>
 
-          <div class="home-section-title" style="margin-top:20px;">⚡ Atividade Recente</div>
+          <div class="home-section-title" style="margin-top:20px;"><span class="ng-icon-wrap" data-icon="zap"></span> Atividade Recente</div>
           <div id="home-activity" class="home-activity"></div>
         </div>
         <div class="home-col-side">
           <div class="home-side-card home-streak-card" id="home-streak-card"></div>
           <div class="home-side-card">
-            <div class="home-section-title">📊 Ranking Semanal</div>
+            <div class="home-section-title"><span class="ng-icon-wrap" data-icon="message-circle"></span> Conversas Recentes</div>
+            <div id="home-conversations" class="home-conversations-list"></div>
+          </div>
+          <div class="home-side-card">
+            <div class="home-section-title"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span> Ranking Semanal</div>
             <div id="home-ranking" class="ranking-list"></div>
           </div>
         </div>
@@ -315,7 +319,7 @@
       <div id="typing-indicator" class="typing-indicator"></div>
       <div id="reply-banner" class="reply-banner hidden">
         <span class="reply-banner-text"></span>
-        <button type="button" id="btn-cancel-reply">✕</button>
+        <button type="button" id="btn-cancel-reply"><span class="ng-icon-wrap" data-icon="x"></span></button>
       </div>
       <form id="form-message" class="message-form">
         <input type="text" id="message-input" placeholder="Escreva uma mensagem..." autocomplete="off" />
@@ -329,10 +333,10 @@
            sala de voz da qual você ainda não faz parte — só conecta de
            verdade (pede microfone etc) quando clica no botão. -->
       <div id="voice-preview" class="voice-preview hidden">
-        <div class="voice-preview-icon" id="voice-preview-icon">🎮</div>
+        <div class="voice-preview-icon" id="voice-preview-icon"><span class="ng-icon-wrap" data-icon="gamepad-2" data-icon-class="ng-icon-lg"></span></div>
         <h2 id="voice-preview-name" class="voice-preview-name">sala de voz</h2>
         <div id="voice-preview-participants" class="voice-preview-participants"></div>
-        <button id="btn-join-voice-preview" class="voice-preview-join-btn">🎧 Entrar na chamada de voz</button>
+        <button id="btn-join-voice-preview" class="voice-preview-join-btn"><span class="ng-icon-wrap" data-icon="headphones"></span> Entrar na chamada de voz</button>
       </div>
 
       <div id="voice-incall" class="voice-incall-wrap hidden">
@@ -340,7 +344,7 @@
           <div class="voice-room-header">
             <span id="voice-participant-count" class="voice-participant-badge">0 na chamada</span>
             <div class="voice-room-header-actions">
-              <button id="btn-toggle-voice-chat" class="header-icon-btn" title="Mostrar/esconder chat da sala">💬</button>
+              <button id="btn-toggle-voice-chat" class="header-icon-btn" title="Mostrar/esconder chat da sala"><span class="ng-icon-wrap" data-icon="message-circle"></span></button>
             </div>
           </div>
 
@@ -374,18 +378,18 @@
           <div id="voice-chat-messages" class="messages"></div>
           <form id="form-voice-message" class="message-form">
             <input type="text" id="voice-message-input" placeholder="Mensagem..." autocomplete="off" />
-            <button type="submit">➤</button>
+            <button type="submit"><span class="ng-icon-wrap" data-icon="send"></span></button>
           </form>
         </div>
 
         <div class="voice-controls-bar">
           <div class="voice-controls">
-            <button id="btn-toggle-camera" class="control-icon-btn" title="Ligar/desligar câmera">📷</button>
-            <button id="btn-share-screen" class="control-icon-btn" title="Compartilhar tela">🖥️</button>
+            <button id="btn-toggle-camera" class="control-icon-btn" title="Ligar/desligar câmera"><span class="ng-icon-wrap" data-icon="camera"></span></button>
+            <button id="btn-share-screen" class="control-icon-btn" title="Compartilhar tela"><span class="ng-icon-wrap" data-icon="monitor"></span></button>
             <button id="btn-stop-share" class="control-icon-btn hidden active-state" title="Parar compartilhamento">⏹️</button>
-            <button id="btn-toggle-mic" class="control-icon-btn" title="Mutar/Ativar microfone">🎙️</button>
-            <button id="btn-leave-voice" class="control-icon-btn control-icon-danger control-icon-lg" title="Sair da sala">📞</button>
-            <button id="btn-mic-options" class="control-icon-btn" title="Ensurdecer/Ativar saída">🔊</button>
+            <button id="btn-toggle-mic" class="control-icon-btn" title="Mutar/Ativar microfone"><span class="ng-icon-wrap" data-icon="mic"></span></button>
+            <button id="btn-leave-voice" class="control-icon-btn control-icon-danger control-icon-lg" title="Sair da sala"><span class="ng-icon-wrap" data-icon="phone-off"></span></button>
+            <button id="btn-mic-options" class="control-icon-btn" title="Ensurdecer/Ativar saída"><span class="ng-icon-wrap" data-icon="volume-2"></span></button>
             <button id="btn-voice-settings" class="control-icon-btn" title="Mais opções">⋯</button>
           </div>
         </div>
@@ -473,14 +477,14 @@
 
     <label>Qualidade da tela compartilhada</label>
     <select id="screen-quality-select">
-      <option value="720p30">720p · 30fps</option>
-      <option value="1080p30" selected>1080p · 30fps</option>
+      <option value="720p30" selected>720p · 30fps (recomendado — mais leve)</option>
+      <option value="1080p30">1080p · 30fps</option>
       <option value="1080p60">1080p · 60fps</option>
     </select>
 
     <div class="mic-test-row">
-      <button type="button" id="btn-test-mic">🎤 Testar microfone</button>
-      <button type="button" id="btn-test-output">🔊 Testar saída</button>
+      <button type="button" id="btn-test-mic"><span class="ng-icon-wrap" data-icon="mic"></span> Testar microfone</button>
+      <button type="button" id="btn-test-output"><span class="ng-icon-wrap" data-icon="volume-2"></span> Testar saída</button>
     </div>
     <div class="mic-meter"><div id="mic-meter-bar" class="mic-meter-bar"></div></div>
     <p id="mic-test-hint" class="hint">Clique em "Testar microfone" e fale — a barra deve se mover.</p>
@@ -498,10 +502,10 @@
 
     <div class="settings-layout">
     <div class="settings-sidebar">
-      <button type="button" class="settings-sidebar-item active" data-settings-tab="conta">👤 Conta</button>
-      <button type="button" class="settings-sidebar-item" data-settings-tab="seguranca">🔒 Segurança</button>
-      <button type="button" class="settings-sidebar-item" data-settings-tab="privacidade">🚫 Privacidade</button>
-      <button type="button" class="settings-sidebar-item" data-settings-tab="notificacoes">🔔 Notificações</button>
+      <button type="button" class="settings-sidebar-item active" data-settings-tab="conta"><span class="ng-icon-wrap" data-icon="user"></span> Conta</button>
+      <button type="button" class="settings-sidebar-item" data-settings-tab="seguranca"><span class="ng-icon-wrap" data-icon="lock"></span> Segurança</button>
+      <button type="button" class="settings-sidebar-item" data-settings-tab="privacidade"><span class="ng-icon-wrap" data-icon="shield-off"></span> Privacidade</button>
+      <button type="button" class="settings-sidebar-item" data-settings-tab="notificacoes"><span class="ng-icon-wrap" data-icon="bell"></span> Notificações</button>
     </div>
     <div class="settings-content">
 
@@ -511,7 +515,7 @@
           <div id="profile-avatar-preview" class="avatar-preview">?</div>
           <div class="avatar-editor-actions">
             <label class="avatar-upload-btn">
-              📷 Enviar foto
+              <span class="ng-icon-wrap" data-icon="camera"></span> Enviar foto
               <input type="file" id="profile-avatar-file" accept="image/*" class="hidden" />
             </label>
             <div class="avatar-emoji-row" id="avatar-emoji-row"></div>
@@ -535,7 +539,7 @@
             <input type="text" id="profile-language" placeholder="ex: Português" />
           </div>
         </div>
-        <p class="hint">Região e idioma ajudam o matchmaking do "🎯 Jogar" a te encontrar parceiros compatíveis.</p>
+        <p class="hint">Região e idioma ajudam o matchmaking do "Jogar" a te encontrar parceiros compatíveis.</p>
 
         <label>E-mail atual</label>
         <input type="email" id="profile-email" placeholder="seu@email.com" />
@@ -557,7 +561,7 @@
     <div id="settings-tab-seguranca" class="manage-tab-panel hidden">
       <p class="hint" style="margin-bottom:10px;">Autenticação em duas etapas (2FA) com app autenticador (Google Authenticator, Authy etc).</p>
       <div id="twofa-off-view">
-        <button type="button" id="btn-2fa-start">🔐 Ativar 2FA</button>
+        <button type="button" id="btn-2fa-start"><span class="ng-icon-wrap" data-icon="shield-check"></span> Ativar 2FA</button>
       </div>
       <div id="twofa-setup-view" class="hidden">
         <img id="twofa-qr" alt="QR code do 2FA" style="width:180px; height:180px; border-radius:8px; background:white; padding:8px; display:block; margin:0 auto 10px;" />
@@ -569,7 +573,7 @@
         <p id="twofa-error" class="auth-error"></p>
       </div>
       <div id="twofa-on-view" class="hidden">
-        <p class="hint">✅ 2FA está ativado nessa conta.</p>
+        <p class="hint"><span class="ng-icon-wrap" data-icon="check"></span> 2FA está ativado nessa conta.</p>
         <input type="password" id="twofa-disable-password" placeholder="Senha atual, pra desativar" />
         <div class="modal-actions" style="justify-content:flex-start; margin-top:8px;">
           <button type="button" id="btn-2fa-disable" class="danger-action">Desativar 2FA</button>
@@ -604,9 +608,9 @@
 <!-- MODAL: Explorar Servidores (descoberta pública) -->
 <div id="modal-explore" class="modal-overlay hidden">
   <div class="modal-card modal-card-wide">
-    <h2>🔍 Explorar Servidores</h2>
+    <h2><span class="ng-icon-wrap" data-icon="search"></span> Explorar Servidores</h2>
     <div class="input-icon-wrap" style="margin-bottom:12px;">
-      <span class="input-icon">🔍</span>
+      <span class="input-icon"><span class="ng-icon-wrap" data-icon="search"></span></span>
       <input type="text" id="explore-search" placeholder="Buscar servidores..." />
     </div>
     <div id="explore-grid" class="explore-grid"></div>
@@ -619,15 +623,15 @@
 <!-- MODAL: Jogar — LFG, Matchmaking, Times e Clãs -->
 <div id="modal-lfg" class="modal-overlay hidden">
   <div class="modal-card modal-card-wide">
-    <h2>🎯 Jogar</h2>
+    <h2><span class="ng-icon-wrap" data-icon="target"></span> Jogar</h2>
     <div class="manage-tabs">
-      <button type="button" class="manage-tab active" data-lfg-tab="buscar">🔍 Buscar Grupos</button>
-      <button type="button" class="manage-tab" data-lfg-tab="criar">➕ Criar Post</button>
-      <button type="button" class="manage-tab" data-lfg-tab="perfis">🎮 Meus Perfis</button>
-      <button type="button" class="manage-tab" data-lfg-tab="times">🛡️ Times</button>
-      <button type="button" class="manage-tab" data-lfg-tab="clas">⚔️ Clãs</button>
-      <button type="button" class="manage-tab" data-lfg-tab="orgs">🏢 Organizações</button>
-      <button type="button" class="manage-tab" data-lfg-tab="market">💼 Marketplace</button>
+      <button type="button" class="manage-tab active" data-lfg-tab="buscar"><span class="ng-icon-wrap" data-icon="search"></span> Buscar Grupos</button>
+      <button type="button" class="manage-tab" data-lfg-tab="criar"><span class="ng-icon-wrap" data-icon="plus"></span> Criar Post</button>
+      <button type="button" class="manage-tab" data-lfg-tab="perfis"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> Meus Perfis</button>
+      <button type="button" class="manage-tab" data-lfg-tab="times"><span class="ng-icon-wrap" data-icon="shield"></span> Times</button>
+      <button type="button" class="manage-tab" data-lfg-tab="clas"><span class="ng-icon-wrap" data-icon="swords"></span> Clãs</button>
+      <button type="button" class="manage-tab" data-lfg-tab="orgs"><span class="ng-icon-wrap" data-icon="building-2"></span> Organizações</button>
+      <button type="button" class="manage-tab" data-lfg-tab="market"><span class="ng-icon-wrap" data-icon="briefcase"></span> Marketplace</button>
     </div>
 
     <div id="lfg-tab-buscar" class="manage-tab-panel">
@@ -778,7 +782,7 @@
 <!-- MODAL: Loja NEXT Coins -->
 <div id="modal-shop-coins" class="modal-overlay hidden">
   <div class="modal-card">
-    <h2>🪙 Loja NEXT Coins</h2>
+    <h2><span class="ng-icon-wrap" data-icon="coins"></span> Loja NEXT Coins</h2>
     <p class="hint">Seu saldo: <strong id="shop-coins-balance">0</strong> NEXT Coins — ganhe completando missões, desbloqueando recompensas e vencendo torneios.</p>
     <div id="shop-items-list"></div>
     <div class="modal-actions">
@@ -790,12 +794,12 @@
 <!-- MODAL: Feed — publicações, clipes, ao vivo, eventos -->
 <div id="modal-feed" class="modal-overlay hidden">
   <div class="modal-card modal-card-wide">
-    <h2>📰 Feed</h2>
+    <h2><span class="ng-icon-wrap" data-icon="newspaper"></span> Feed</h2>
     <div class="manage-tabs">
-      <button type="button" class="manage-tab active" data-feed-tab="feed">📰 Feed</button>
-      <button type="button" class="manage-tab" data-feed-tab="clipes">🎬 Clipes</button>
-      <button type="button" class="manage-tab" data-feed-tab="aovivo">🔴 Ao Vivo</button>
-      <button type="button" class="manage-tab" data-feed-tab="eventos">📅 Eventos</button>
+      <button type="button" class="manage-tab active" data-feed-tab="feed"><span class="ng-icon-wrap" data-icon="newspaper"></span> Feed</button>
+      <button type="button" class="manage-tab" data-feed-tab="clipes"><span class="ng-icon-wrap" data-icon="film"></span> Clipes</button>
+      <button type="button" class="manage-tab" data-feed-tab="aovivo"><span class="ng-icon-wrap" data-icon="radio"></span> Ao Vivo</button>
+      <button type="button" class="manage-tab" data-feed-tab="eventos"><span class="ng-icon-wrap" data-icon="calendar"></span> Eventos</button>
     </div>
 
     <div id="feed-tab-feed" class="manage-tab-panel">
@@ -836,7 +840,7 @@
         <label>Link (Twitch, YouTube etc)</label>
         <input type="url" id="stream-url" required placeholder="https://twitch.tv/seucanal" />
         <div class="modal-actions">
-          <button type="submit">🔴 Ir ao vivo</button>
+          <button type="submit"><span class="ng-icon-wrap" data-icon="radio"></span> Ir ao vivo</button>
           <button type="button" id="btn-end-stream">Encerrar transmissão</button>
         </div>
         <p id="stream-error" class="auth-error"></p>
@@ -872,7 +876,7 @@
 <!-- MODAL: mensagens fixadas do canal atual -->
 <div id="modal-pinned-messages" class="modal-overlay hidden">
   <div class="modal-card">
-    <h2>📌 Mensagens fixadas</h2>
+    <h2><span class="ng-icon-wrap" data-icon="pin"></span> Mensagens fixadas</h2>
     <div id="pinned-messages-list"></div>
     <div class="modal-actions">
       <button type="button" id="btn-close-pinned-messages">Fechar</button>
@@ -883,9 +887,9 @@
 <!-- MODAL: busca de mensagens no canal atual -->
 <div id="modal-search-messages" class="modal-overlay hidden">
   <div class="modal-card">
-    <h2>🔍 Buscar mensagens</h2>
+    <h2><span class="ng-icon-wrap" data-icon="search"></span> Buscar mensagens</h2>
     <div class="input-icon-wrap">
-      <span class="input-icon">🔍</span>
+      <span class="input-icon"><span class="ng-icon-wrap" data-icon="search"></span></span>
       <input type="text" id="search-messages-input" placeholder="Digite pra buscar nessa conversa..." />
     </div>
     <div id="search-messages-results" style="margin-top:12px; max-height:340px; overflow-y:auto;"></div>
@@ -925,46 +929,46 @@
 <!-- MODAL: gerenciar servidor — convite, membros e cargos (estilo Discord) -->
 <div id="modal-server-manage" class="modal-overlay hidden">
   <div class="modal-card modal-card-wide">
-    <h2>⚙️ Gerenciar Servidor</h2>
+    <h2><span class="ng-icon-wrap" data-icon="settings"></span> Gerenciar Servidor</h2>
     <div class="manage-tabs">
-      <button type="button" class="manage-tab active" data-tab="invite">🔗 Convite</button>
-      <button type="button" class="manage-tab" data-tab="members">👥 Membros</button>
-      <button type="button" class="manage-tab" data-tab="roles">🎭 Cargos</button>
+      <button type="button" class="manage-tab active" data-tab="invite"><span class="ng-icon-wrap" data-icon="link"></span> Convite</button>
+      <button type="button" class="manage-tab" data-tab="members"><span class="ng-icon-wrap" data-icon="users"></span> Membros</button>
+      <button type="button" class="manage-tab" data-tab="roles"><span class="ng-icon-wrap" data-icon="crown"></span> Cargos</button>
     </div>
 
     <div id="manage-tab-invite" class="manage-tab-panel">
       <p class="hint" style="margin-bottom:10px;">Como as pessoas entram nesse servidor:</p>
       <div class="tournament-filter-tabs" style="margin-bottom:14px;">
-        <button type="button" class="tournament-filter-tab active" data-access-mode="convite">🔗 Por convite</button>
-        <button type="button" class="tournament-filter-tab" data-access-mode="senha">🔒 Por senha</button>
+        <button type="button" class="tournament-filter-tab active" data-access-mode="convite"><span class="ng-icon-wrap" data-icon="link"></span> Por convite</button>
+        <button type="button" class="tournament-filter-tab" data-access-mode="senha"><span class="ng-icon-wrap" data-icon="lock"></span> Por senha</button>
       </div>
 
       <div id="access-mode-convite-panel">
         <p class="hint" style="margin-bottom:10px;">Compartilhe esse link pra convidar qualquer pessoa pro servidor.</p>
         <div class="input-icon-wrap">
-          <span class="input-icon">🔗</span>
+          <span class="input-icon"><span class="ng-icon-wrap" data-icon="link"></span></span>
           <input type="text" id="invite-link-display" readonly />
         </div>
         <div class="modal-actions" style="margin-top:10px; justify-content:flex-start;">
-          <button type="button" id="btn-copy-invite">📋 Copiar link</button>
-          <button type="button" id="btn-regenerate-invite" class="hidden">🔄 Gerar novo código</button>
+          <button type="button" id="btn-copy-invite"><span class="ng-icon-wrap" data-icon="copy"></span> Copiar link</button>
+          <button type="button" id="btn-regenerate-invite" class="hidden"><span class="ng-icon-wrap" data-icon="refresh-cw"></span> Gerar novo código</button>
         </div>
       </div>
 
       <div id="access-mode-senha-panel" class="hidden">
         <p class="hint" style="margin-bottom:10px;">Qualquer pessoa com o nome do servidor e essa senha consegue entrar, sem precisar de link.</p>
         <div class="input-icon-wrap">
-          <span class="input-icon">🔒</span>
+          <span class="input-icon"><span class="ng-icon-wrap" data-icon="lock"></span></span>
           <input type="password" id="server-password-input" placeholder="Definir/trocar a senha do servidor" maxlength="60" />
         </div>
         <div class="modal-actions" style="margin-top:10px; justify-content:flex-start;">
-          <button type="button" id="btn-save-server-password">💾 Salvar senha</button>
+          <button type="button" id="btn-save-server-password"><span class="ng-icon-wrap" data-icon="save"></span> Salvar senha</button>
         </div>
         <p id="server-password-error" class="auth-error"></p>
       </div>
 
       <p class="hint" style="margin:18px 0 10px; border-top:1px solid #3a3c42; padding-top:14px;">
-        Deixar esse servidor visível em "🔍 Explorar" pra qualquer pessoa entrar sem precisar de convite ou senha.
+        Deixar esse servidor visível em "Explorar" pra qualquer pessoa entrar sem precisar de convite ou senha.
       </p>
       <label class="checkbox-row">
         <input type="checkbox" id="server-discoverable-toggle" />
@@ -995,7 +999,7 @@
 
     <div class="modal-actions">
       <button type="button" id="btn-close-server-manage">Fechar</button>
-      <button type="button" id="btn-leave-server">🚪 Sair do servidor</button>
+      <button type="button" id="btn-leave-server"><span class="ng-icon-wrap" data-icon="log-out"></span> Sair do servidor</button>
     </div>
   </div>
 </div>
@@ -1003,17 +1007,17 @@
 <!-- MODAL: entrar com código/link de convite -->
 <div id="modal-join-invite" class="modal-overlay hidden">
   <div class="modal-card">
-    <h2>🔗 Entrar num servidor</h2>
+    <h2><span class="ng-icon-wrap" data-icon="link"></span> Entrar num servidor</h2>
 
     <div class="tournament-filter-tabs" style="margin-bottom:14px;">
-      <button type="button" class="tournament-filter-tab active" data-join-mode="convite">🔗 Por convite</button>
-      <button type="button" class="tournament-filter-tab" data-join-mode="senha">🔒 Por senha</button>
+      <button type="button" class="tournament-filter-tab active" data-join-mode="convite"><span class="ng-icon-wrap" data-icon="link"></span> Por convite</button>
+      <button type="button" class="tournament-filter-tab" data-join-mode="senha"><span class="ng-icon-wrap" data-icon="lock"></span> Por senha</button>
     </div>
 
     <div id="join-mode-convite-panel">
       <p class="hint" style="margin-bottom:10px;">Cole o código ou o link de convite que te mandaram.</p>
       <div class="input-icon-wrap">
-        <span class="input-icon">🔗</span>
+        <span class="input-icon"><span class="ng-icon-wrap" data-icon="link"></span></span>
         <input type="text" id="join-invite-input" placeholder="ex: a1b2c3d4e5 ou o link completo" />
       </div>
       <button type="button" id="btn-submit-invite" class="home-btn-primary" style="margin-top:10px; width:100%;">Entrar</button>
@@ -1023,11 +1027,11 @@
     <div id="join-mode-senha-panel" class="hidden">
       <p class="hint" style="margin-bottom:10px;">Digite o nome do servidor e a senha que te passaram.</p>
       <div class="input-icon-wrap">
-        <span class="input-icon">🎮</span>
+        <span class="input-icon"><span class="ng-icon-wrap" data-icon="gamepad-2"></span></span>
         <input type="text" id="join-password-category-input" placeholder="Nome do servidor" />
       </div>
       <div class="input-icon-wrap" style="margin-top:8px;">
-        <span class="input-icon">🔒</span>
+        <span class="input-icon"><span class="ng-icon-wrap" data-icon="lock"></span></span>
         <input type="password" id="join-password-input" placeholder="Senha" />
       </div>
       <button type="button" id="btn-submit-password" class="home-btn-primary" style="margin-top:10px; width:100%;">Entrar</button>
@@ -1043,7 +1047,7 @@
 <!-- MODAL: torneios do servidor -->
 <div id="modal-tournaments" class="modal-overlay hidden">
   <div class="modal-card modal-card-wide">
-    <h2>🏆 Torneios</h2>
+    <h2><span class="ng-icon-wrap" data-icon="trophy"></span> Torneios</h2>
 
     <div class="tournament-filter-tabs">
       <button type="button" class="tournament-filter-tab active" data-filter="todos">Todos</button>
@@ -1087,7 +1091,7 @@
 <!-- MODAL: ranking semanal -->
 <div id="modal-ranking" class="modal-overlay hidden">
   <div class="modal-card">
-    <h2>📊 Ranking Semanal</h2>
+    <h2><span class="ng-icon-wrap" data-icon="bar-chart-3"></span> Ranking Semanal</h2>
     <p class="hint" style="margin-bottom:10px;">Baseado em mensagens enviadas nos últimos 7 dias.</p>
     <div class="tournament-filter-tabs">
       <button type="button" class="tournament-filter-tab active" data-scope="global">Global</button>
@@ -1105,7 +1109,7 @@
 <!-- MODAL: loja de recompensas (streak de acesso + molduras + selo raro) -->
 <div id="modal-rewards" class="modal-overlay hidden">
   <div class="modal-card modal-card-wide">
-    <h2>🎁 Loja de Recompensas</h2>
+    <h2><span class="ng-icon-wrap" data-icon="gift"></span> Loja de Recompensas</h2>
     <p class="hint" style="margin-bottom:10px;">
       Acesse o NEXT GAME em dias seguidos pra desbloquear molduras animadas de avatar e, no
       final, um selo oficial raro e auditável.
@@ -1116,7 +1120,7 @@
 
     <div class="modal-actions">
       <button type="button" id="btn-close-rewards">Fechar</button>
-      <button type="button" id="btn-open-missions">🎯 Ver Missões</button>
+      <button type="button" id="btn-open-missions"><span class="ng-icon-wrap" data-icon="target"></span> Ver Missões</button>
     </div>
   </div>
 </div>
@@ -1124,7 +1128,7 @@
 <!-- MODAL: missões (quiz sobre o NEXT GAME que rende pontos) -->
 <div id="modal-missions" class="modal-overlay hidden">
   <div class="modal-card modal-card-wide">
-    <h2>🎯 Missões</h2>
+    <h2><span class="ng-icon-wrap" data-icon="target"></span> Missões</h2>
     <p class="hint" style="margin-bottom:10px;">
       Quanto mais tempo você fica ativo, mais missões liberam. Acerte todas as perguntas do quiz
       pra ganhar pontos.
@@ -1185,11 +1189,11 @@
 <!-- MODAL: amigos (pedir, aceitar, lista) -->
 <div id="modal-friends" class="modal-overlay hidden">
   <div class="modal-card modal-card-wide">
-    <h2>👥 Amigos</h2>
+    <h2><span class="ng-icon-wrap" data-icon="users"></span> Amigos</h2>
 
     <form id="form-add-friend" style="display:flex; gap:8px; margin-bottom:14px;">
       <div class="input-icon-wrap" style="flex:1;">
-        <span class="input-icon">👤</span>
+        <span class="input-icon"><span class="ng-icon-wrap" data-icon="user"></span></span>
         <input type="text" id="add-friend-input" placeholder="Nome de usuário" required />
       </div>
       <button type="submit" class="home-btn-primary" style="white-space:nowrap;">Adicionar</button>
@@ -1197,16 +1201,16 @@
     <p id="add-friend-error" class="auth-error"></p>
 
     <div id="friends-incoming-section" class="hidden">
-      <div class="home-section-title">📥 Pedidos recebidos</div>
+      <div class="home-section-title"><span class="ng-icon-wrap" data-icon="inbox"></span> Pedidos recebidos</div>
       <div id="friends-incoming-list" class="friends-list"></div>
     </div>
 
     <div id="friends-outgoing-section" class="hidden">
-      <div class="home-section-title" style="margin-top:14px;">📤 Pedidos enviados</div>
+      <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="upload"></span> Pedidos enviados</div>
       <div id="friends-outgoing-list" class="friends-list"></div>
     </div>
 
-    <div class="home-section-title" style="margin-top:14px;">✅ Seus amigos</div>
+    <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="check"></span> Seus amigos</div>
     <div id="friends-list" class="friends-list"></div>
 
     <div class="modal-actions">
@@ -1218,12 +1222,12 @@
 <!-- MODAL: verificação pública de selo (auditoria, sem precisar login) -->
 <div id="modal-verify" class="modal-overlay hidden">
   <div class="modal-card">
-    <h2>🔎 Verificar Selo</h2>
+    <h2><span class="ng-icon-wrap" data-icon="search"></span> Verificar Selo</h2>
     <p class="hint" style="margin-bottom:10px;">
       Qualquer pessoa pode conferir aqui se um código de selo NEXT GAME é autêntico.
     </p>
     <div class="input-icon-wrap">
-      <span class="input-icon">🔑</span>
+      <span class="input-icon"><span class="ng-icon-wrap" data-icon="key"></span></span>
       <input type="text" id="verify-code-input" placeholder="ex: NG-F8EBAFE582" />
     </div>
     <button type="button" id="btn-verify-code" class="home-btn-primary" style="margin-top:10px; width:100%;">Verificar</button>
@@ -1235,6 +1239,7 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/icons.js"></script>
 <script src="/sfx.js"></script>
 <script src="/app.js"></script>
 </body>
