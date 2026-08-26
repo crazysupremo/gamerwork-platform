@@ -494,6 +494,14 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   transition: background 0.15s ease, transform 0.1s ease;
 }
 .sidebar-header button:hover { background: var(--accent); transform: scale(1.06); }
+
+/* "Criar sala" precisa se destacar de verdade dos outros ícones cinzas —
+   é a ação mais usada desse cabeçalho, não pode ficar perdida no meio. */
+.sidebar-header-btn-primary {
+  background: var(--gradient-brand) !important; width: 26px !important; height: 26px !important;
+  box-shadow: 0 2px 8px rgba(88,101,242,0.5);
+}
+.sidebar-header-btn-primary:hover { transform: scale(1.12) !important; filter: brightness(1.15); }
 #categories-container { flex: 1; overflow-y: auto; min-height: 0; }
 .category { margin-top: 12px; }
 .category-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: #949ba4; padding: 4px 8px; }

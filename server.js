@@ -627,17 +627,10 @@ app.post(
     req.session.sessionId = await createUserSession(id, req);
     res.json({ id, username, is_admin: isFirstUser ? 1 : 0 });
 
-    // Toda conta nova já entra automaticamente nos dois servidores públicos
-    // padrão (gamers/trabalho) — servidores criados por outros usuários daqui
-    // pra frente são privados e exigem convite.
-    for (const category of ['gamers', 'trabalho']) {
-      db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
-        uuidv4(),
-        category,
-        id,
-      ]).catch(() => {});
-    }
-
+    // Cada conta começa sem nenhum servidor — igual Discord: cria o seu
+    // próprio (dono desde o início) ou entra em outro só com convite/senha.
+    // Antes toda conta nova entrava automático em "gamers"/"trabalho"; isso
+    // foi removido a pedido — cada perfil fica isolado por padrão.
     postSystemMessage(WELCOME_CHANNEL_ID, `🎉 ${username} acabou de entrar no NEXT GAME! Dê as boas-vindas.`);
     updateStreakAndRewards({ id, login_streak: 0, longest_streak: 0, last_login_date: null }).catch(() => {});
   })
@@ -5348,10 +5341,20 @@ io.on('connection', (socket) => {
         }
       }
 
-      // Se essa DM é com o bot assistente de IA, gera a resposta dele.
+      // DM: avisa quem recebeu com um pop-up (igual "fulano está te ligando"),
+      // mesmo que essa pessoa não esteja com a conversa aberta agora — manda
+      // pra sala pessoal dela (user:<id>), não só pro canal em si.
       if (channelId.startsWith('dm::')) {
         const parts = channelId.split('::');
         const otherId = parts[1] === user.id ? parts[2] : parts[2] === user.id ? parts[1] : null;
+        if (otherId) {
+          io.to('user:' + otherId).emit('dm:notify', {
+            fromUsername: user.username,
+            channelId,
+            preview: content.length > 140 ? content.slice(0, 140) + '…' : content,
+          });
+        }
+        // Se essa DM é com o bot assistente de IA, gera a resposta dele.
         if (otherId === AI_BOT_USER_ID) {
           triggerAiReply(channelId, user).catch((err) => console.error('Erro ao gerar resposta da IA:', err));
         }

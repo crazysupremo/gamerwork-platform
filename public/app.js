@@ -2121,6 +2121,32 @@ function showCallToast(fromUsername, channelId) {
   }, 8000);
 }
 
+// Notificação de "chegou mensagem nova" — mesmo pop-up da chamada, só que
+// pra DM de texto. Só aparece se a pessoa não estiver já olhando essa
+// conversa (senão a mensagem já apareceu na tela normalmente).
+function showMessageToast(fromUsername, channelId, preview) {
+  const toast = document.createElement('div');
+  toast.className = 'reward-toast';
+  toast.innerHTML = `
+    <span class="reward-toast-icon">💬</span>
+    <div class="reward-toast-text">
+      <strong>${escapeHtml(fromUsername)}</strong>
+      <span>${escapeHtml(preview)}</span>
+    </div>
+  `;
+  toast.style.cursor = 'pointer';
+  toast.onclick = () => {
+    toast.remove();
+    selectChannel({ id: channelId, type: 'texto', name: '💬 ' + fromUsername });
+  };
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('reward-toast-show'));
+  setTimeout(() => {
+    toast.classList.remove('reward-toast-show');
+    setTimeout(() => toast.remove(), 400);
+  }, 6000);
+}
+
 document.getElementById('form-add-friend').onsubmit = async (e) => {
   e.preventDefault();
   const input = document.getElementById('add-friend-input');
@@ -4974,6 +5000,13 @@ function registerSocketHandlers() {
   socket.on('dm:ring', ({ fromUsername, channelId }) => {
     SFX.join();
     showCallToast(fromUsername, channelId);
+  });
+
+  // Mensagem de DM chegou e a pessoa não está com essa conversa aberta —
+  // mostra o pop-up (o som já toca no handler de chat:message, não repete aqui).
+  socket.on('dm:notify', ({ fromUsername, channelId, preview }) => {
+    if (currentChannel && currentChannel.id === channelId) return;
+    showMessageToast(fromUsername, channelId, preview);
   });
 
   // Um admin limpou uma conversa — atualiza a view de quem estiver vendo agora.
