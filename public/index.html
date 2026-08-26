@@ -11,13 +11,28 @@
 </head>
 <body>
 
+<!-- Tela de carregamento — some assim que a gente decide se mostra o login
+     ou entra direto (evita piscar a tela de login pra depois logar sozinho). -->
+<div id="boot-loading" class="boot-loading">
+  <img src="/assets/logo.png" alt="NEXT GAME" class="boot-loading-logo" />
+  <div class="boot-loading-spinner"></div>
+</div>
+
 <!-- TELA DE LOGIN / REGISTRO (com landing pública acima, pra quem ainda não tem conta) -->
-<div id="auth-screen" class="auth-screen">
+<div id="auth-screen" class="auth-screen hidden">
   <!-- Vídeo de fundo opcional: se algum arquivo existir em public/videos/bg-1.mp4 etc,
        ele toca em loop atrás do login. Sem vídeo nenhum, some sozinho sem quebrar nada. -->
   <video id="auth-bg-video" class="auth-bg-video hidden" autoplay muted loop playsinline></video>
   <canvas id="auth-bg-canvas" class="auth-bg-canvas"></canvas>
   <div class="auth-bg-overlay"></div>
+
+  <!-- Música de fundo do login: se existir /assets/music/login-theme.mp3, toca
+       em loop. Navegador bloqueia som automático, então começa mudo e mostra
+       esse botão pra pessoa ativar o som quando quiser. -->
+  <audio id="auth-bg-audio" loop preload="auto"></audio>
+  <button type="button" id="btn-auth-music-toggle" class="auth-music-toggle hidden" title="Ativar música">
+    <span class="ng-icon-wrap" data-icon="volume-2"></span>
+  </button>
 
   <div class="auth-split">
     <div class="auth-left">
@@ -80,6 +95,10 @@
         <span class="input-icon">🔒</span>
         <input type="password" id="login-password" placeholder="Senha" required />
       </div>
+      <label class="checkbox-row auth-remember-row">
+        <input type="checkbox" id="login-remember" />
+        Continuar conectado neste navegador
+      </label>
       <button type="submit">🚀 Entrar</button>
     </form>
 

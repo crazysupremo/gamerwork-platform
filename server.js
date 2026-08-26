@@ -90,6 +90,18 @@ async function createUserSession(userId, req) {
   return id;
 }
 
+// "Continuar conectado": se a pessoa NÃO marcou a caixinha, o cookie de
+// sessão vira um cookie de sessão de verdade (sem Max-Age/Expires) — some
+// quando o navegador fecha. Marcando, dura os 7 dias padrão. O front-end
+// ainda decide, à parte, se tenta reaproveitar isso a cada carregamento de
+// página (ver localStorage "ng_remember_me" em app.js) — os dois trabalham
+// juntos pra nunca logar ninguém automaticamente sem ter pedido.
+function applySessionDuration(req, remember) {
+  if (!remember) {
+    req.sessionOptions.maxAge = null;
+  }
+}
+
 async function requireAuth(req, res, next) {
   try {
     if (!req.session.userId || !req.session.sessionId) {
@@ -124,9 +136,9 @@ function requireAdmin(req, res, next) {
 // memória do processo (não precisam persistir, expiram sozinhos em minutos).
 const pending2FALogins = new Map(); // tempToken -> { userId, expires }
 const PENDING_2FA_TTL_MS = 5 * 60 * 1000;
-function createPending2FAToken(userId) {
+function createPending2FAToken(userId, remember) {
   const token = crypto.randomBytes(24).toString('hex');
-  pending2FALogins.set(token, { userId, expires: Date.now() + PENDING_2FA_TTL_MS });
+  pending2FALogins.set(token, { userId, remember: !!remember, expires: Date.now() + PENDING_2FA_TTL_MS });
   return token;
 }
 
@@ -528,6 +540,7 @@ app.post(
       username,
       email,
       password,
+      remember,
       full_name,
       avatar,
       country,
@@ -606,6 +619,7 @@ app.post(
       ]
     );
 
+    applySessionDuration(req, remember !== false);
     req.session.userId = id;
     req.session.sessionId = await createUserSession(id, req);
     res.json({ id, username, is_admin: isFirstUser ? 1 : 0 });
@@ -630,7 +644,7 @@ app.post(
   '/api/login',
   authLimiter,
   asyncHandler(async (req, res) => {
-    const { username, password } = req.body || {};
+    const { username, password, remember } = req.body || {};
     const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
     if (!user || !bcrypt.compareSync(password || '', user.password_hash)) {
       return res.status(401).json({ error: 'Usuário ou senha inválidos' });
@@ -641,10 +655,11 @@ app.post(
     // que o cliente troca por uma sessão de verdade em /api/login/2fa,
     // depois de digitar o código do app autenticador.
     if (user.totp_enabled) {
-      const tempToken = createPending2FAToken(user.id);
+      const tempToken = createPending2FAToken(user.id, remember === true);
       return res.json({ requires2fa: true, tempToken });
     }
 
+    applySessionDuration(req, remember === true);
     req.session.userId = user.id;
     req.session.sessionId = await createUserSession(user.id, req);
     res.json({ id: user.id, username: user.username, is_admin: user.is_admin });
@@ -671,6 +686,7 @@ app.post(
     if (!valid) return res.status(401).json({ error: 'Código incorreto' });
 
     pending2FALogins.delete(tempToken);
+    applySessionDuration(req, pending.remember === true);
     req.session.userId = user.id;
     req.session.sessionId = await createUserSession(user.id, req);
     res.json({ id: user.id, username: user.username, is_admin: user.is_admin });

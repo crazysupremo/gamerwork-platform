@@ -144,7 +144,8 @@ formLogin.onsubmit = async (e) => {
   e.preventDefault();
   const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value;
-  await authRequest('/api/login', { username, password });
+  const remember = document.getElementById('login-remember').checked;
+  await authRequest('/api/login', { username, password }, remember);
 };
 
 // ---------- ASSISTENTE DE CADASTRO EM 3 PASSOS ----------
@@ -302,14 +303,22 @@ document.getElementById('wiz-submit').onclick = async () => {
 
 let pending2FALoginToken = null;
 
-async function authRequest(url, body) {
+// "Continuar conectado" guarda essa preferência tanto no navegador
+// (localStorage — decide se a gente TENTA reaproveitar a sessão ao abrir a
+// página de novo) quanto manda pro servidor (decide se o cookie de sessão
+// dura dias ou morre quando o navegador fecha). Sem marcar a caixinha, cada
+// vez que a página carrega ela sempre pede login de novo, mesmo com o cookie
+// ainda válido — é a pessoa quem escolhe ficar conectada, nunca automático.
+let pendingLoginRemember = true;
+
+async function authRequest(url, body, remember = true) {
   authError.textContent = '';
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(body),
+      body: JSON.stringify(Object.assign({}, body, { remember })),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -318,6 +327,7 @@ async function authRequest(url, body) {
     }
     if (data.requires2fa) {
       pending2FALoginToken = data.tempToken;
+      pendingLoginRemember = remember;
       formLogin.classList.add('hidden');
       formRegister.classList.add('hidden');
       document.getElementById('form-2fa').classList.remove('hidden');
@@ -325,6 +335,8 @@ async function authRequest(url, body) {
       document.getElementById('login-2fa-code').focus();
       return;
     }
+    if (remember) localStorage.setItem('ng_remember_me', 'true');
+    else localStorage.removeItem('ng_remember_me');
     me = data;
     startApp();
   } catch (err) {
@@ -335,24 +347,45 @@ async function authRequest(url, body) {
 document.getElementById('form-2fa').onsubmit = async (e) => {
   e.preventDefault();
   const code = document.getElementById('login-2fa-code').value.trim();
-  await authRequest('/api/login/2fa', { tempToken: pending2FALoginToken, code });
+  await authRequest('/api/login/2fa', { tempToken: pending2FALoginToken, code }, pendingLoginRemember);
 };
 
 document.getElementById('btn-logout').onclick = async () => {
   await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+  localStorage.removeItem('ng_remember_me');
   window.location.reload();
 };
 
 // ---------- BOOTSTRAP ----------
 
+// Decide, ANTES de mostrar qualquer tela, se tenta reconectar sozinho ou vai
+// direto pro login — sem piscar a tela de login por um instante e depois
+// trocar pro app sozinho. Só tenta reconectar se "Continuar conectado"
+// esteve marcado da última vez (guardado em localStorage, não no cookie).
 async function tryResumeSession() {
+  const bootLoading = document.getElementById('boot-loading');
+  const remembered = localStorage.getItem('ng_remember_me') === 'true';
+
+  if (!remembered) {
+    bootLoading.classList.add('hidden');
+    document.getElementById('auth-screen').classList.remove('hidden');
+    return;
+  }
+
   try {
     const res = await fetch('/api/me', { credentials: 'include' });
     if (res.ok) {
       me = await res.json();
       startApp();
+      bootLoading.classList.add('hidden');
+      return;
     }
   } catch (_) {}
+
+  // Sessão expirou ou não é mais válida — limpa a preferência e pede login.
+  localStorage.removeItem('ng_remember_me');
+  bootLoading.classList.add('hidden');
+  document.getElementById('auth-screen').classList.remove('hidden');
 }
 
 function startApp() {
@@ -6448,6 +6481,50 @@ document.getElementById('btn-test-output').onclick = async () => {
     } else if (visible && !rafId) {
       tick();
       if (found) video.play().catch(() => {});
+    }
+  });
+  observer.observe(document.getElementById('auth-screen'), { attributes: true, attributeFilter: ['class'] });
+})();
+
+// ---------- MÚSICA DE FUNDO DO LOGIN ----------
+// Se existir /assets/music/login-theme.mp3, toca em loop atrás do login.
+// Navegador bloqueia áudio automático COM SOM, então começa sempre mudo
+// (autoplay mudo é permitido) e só ativa o som quando a pessoa clica no
+// botão — aí sim conta como interação do usuário e o navegador libera.
+(function initAuthMusic() {
+  const audio = document.getElementById('auth-bg-audio');
+  const toggleBtn = document.getElementById('btn-auth-music-toggle');
+  let found = false;
+  let soundOn = false;
+
+  audio.muted = true;
+  audio.volume = 0.5;
+  audio.src = '/assets/music/login-theme.mp3';
+  audio.oncanplay = () => {
+    if (found) return;
+    found = true;
+    toggleBtn.classList.remove('hidden');
+    audio.play().catch(() => {});
+  };
+  audio.onerror = () => {
+    // Sem arquivo de música — some o botão, não quebra nada.
+    toggleBtn.classList.add('hidden');
+  };
+
+  toggleBtn.onclick = () => {
+    soundOn = !soundOn;
+    audio.muted = !soundOn;
+    if (soundOn) audio.play().catch(() => {});
+    toggleBtn.classList.toggle('active', soundOn);
+    toggleBtn.title = soundOn ? 'Desativar música' : 'Ativar música';
+  };
+
+  const observer = new MutationObserver(() => {
+    const visible = !document.getElementById('auth-screen').classList.contains('hidden');
+    if (!visible) {
+      audio.pause();
+    } else if (found) {
+      audio.play().catch(() => {});
     }
   });
   observer.observe(document.getElementById('auth-screen'), { attributes: true, attributeFilter: ['class'] });
