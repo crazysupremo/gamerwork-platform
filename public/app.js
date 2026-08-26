@@ -388,9 +388,34 @@ async function tryResumeSession() {
   document.getElementById('auth-screen').classList.remove('hidden');
 }
 
+// Vídeo pequeno e centralizado da logo, sobre o app enquanto ele carrega —
+// some sozinho quando o vídeo acaba (ou depois de um tempo máximo, se o
+// vídeo não existir/não carregar, pra nunca travar a pessoa numa tela preta).
+function playLoginIntro() {
+  const overlay = document.getElementById('login-intro-overlay');
+  const video = document.getElementById('login-intro-video');
+  overlay.classList.remove('hidden', 'login-intro-fading');
+  try {
+    video.currentTime = 0;
+    video.play().catch(() => {});
+  } catch (_) {}
+
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    overlay.classList.add('login-intro-fading');
+    setTimeout(() => overlay.classList.add('hidden'), 400);
+  };
+  video.onended = finish;
+  video.onerror = finish;
+  setTimeout(finish, 4500);
+}
+
 function startApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
+  playLoginIntro();
   document.getElementById('me-username').textContent = me.username;
   renderAvatarInto(document.getElementById('me-avatar'), me);
   if (me.is_admin) document.getElementById('admin-link').classList.remove('hidden');
