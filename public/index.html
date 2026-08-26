@@ -280,12 +280,16 @@
       <span id="active-server-name">NEXT GAME</span>
       <div class="sidebar-header-actions">
         <button id="btn-new-room" class="sidebar-header-btn-primary" title="Criar sala neste servidor"><span class="ng-icon-wrap" data-icon="plus"></span></button>
-        <button id="btn-tournaments" title="Torneios"><span class="ng-icon-wrap" data-icon="trophy"></span></button>
         <button id="btn-shop-coins" title="Loja NEXT Coins"><span class="ng-icon-wrap" data-icon="coins"></span></button>
-        <button id="btn-ranking" title="Ranking semanal"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span></button>
         <button id="btn-server-info" title="Informações e regras do servidor">ℹ️</button>
         <button id="btn-server-manage" title="Membros, cargos e convite"><span class="ng-icon-wrap" data-icon="settings"></span></button>
         <button id="btn-quick-room" title="Sala Rápida — cria uma sala de voz temporária, some quando todos saem"><span class="ng-icon-wrap" data-icon="zap"></span></button>
+        <!-- "Torneios" e "Ranking" já têm entrada própria na sidebar principal
+             (nav-torneios/nav-ranking-link) — esses dois ficam só como alvo de
+             clique programático (Ver Torneios na Início, busca, etc.), sem
+             duplicar o ícone aqui em cima também. -->
+        <button id="btn-tournaments" class="hidden" title="Torneios"><span class="ng-icon-wrap" data-icon="trophy"></span></button>
+        <button id="btn-ranking" class="hidden" title="Ranking semanal"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span></button>
       </div>
     </div>
 
