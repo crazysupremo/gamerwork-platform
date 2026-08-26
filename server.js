@@ -4690,6 +4690,38 @@ app.put(
   })
 );
 
+// Apagar uma sala (canal de texto ou de voz), inclusive Salas Rápidas que
+// alguém queira remover antes de todo mundo sair. Só quem gerencia canais no
+// servidor pode. Se for uma sala de voz com gente conectada, todo mundo é
+// tirado dela primeiro.
+app.delete(
+  '/api/channels/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const channel = await db.get('SELECT * FROM channels WHERE id = ?', [req.params.id]);
+    if (!channel) return res.status(404).json({ error: 'Canal não encontrado' });
+    const canManage = await hasServerPermission(channel.category, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra apagar essa sala' });
+
+    if (channel.type === 'voz' && voiceRooms.has(channel.id)) {
+      voiceRooms.delete(channel.id);
+      musicRooms.delete(channel.id);
+    }
+
+    const messageIds = (await db.all('SELECT id FROM messages WHERE channel_id = ?', [channel.id])).map((m) => m.id);
+    for (const msgId of messageIds) {
+      await db.run('DELETE FROM message_reactions WHERE message_id = ?', [msgId]);
+    }
+    await db.run('DELETE FROM messages WHERE channel_id = ?', [channel.id]);
+    await db.run('DELETE FROM channel_role_access WHERE channel_id = ?', [channel.id]);
+    await db.run('DELETE FROM channels WHERE id = ?', [channel.id]);
+
+    logAudit(req.user, 'delete_channel', 'channel', channel.id, { name: channel.name, category: channel.category });
+    io.emit('channel:deleted', { id: channel.id, category: channel.category });
+    res.json({ ok: true });
+  })
+);
+
 // Lista pública de usuários (pra painel de membros) — status online é
 // combinado no cliente com o que chega em tempo real via socket.
 app.get(

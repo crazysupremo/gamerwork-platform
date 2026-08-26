@@ -2298,6 +2298,22 @@ function buildChannelContextMenuItems(ch) {
       label: 'Restringir por cargo',
       onClick: () => openChannelAccessModal(ch),
     },
+    { separator: true },
+    {
+      icon: '🗑️',
+      label: 'Apagar sala',
+      danger: true,
+      onClick: async () => {
+        if (!confirm(`Apagar a sala "${ch.name}"? As mensagens dela somem pra sempre. Isso não pode ser desfeito.`)) return;
+        const res = await fetch(`/api/channels/${ch.id}`, { method: 'DELETE', credentials: 'include' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          alert(data.error || 'Erro ao apagar a sala');
+          return;
+        }
+        showCopyToast('Sala apagada.');
+      },
+    },
   ];
 }
 
@@ -4896,6 +4912,10 @@ function registerSocketHandlers() {
   // todo mundo, e se alguém ainda estava com ela aberta na tela, volta pro Início.
   socket.on('channel:deleted', ({ id, category }) => {
     allChannels = allChannels.filter((c) => c.id !== id);
+    if (connectedVoiceRoomId === id) {
+      disconnectVoice();
+      showCopyToast('Essa sala de voz foi apagada.');
+    }
     if (currentChannel && currentChannel.id === id) {
       goHome();
     }
