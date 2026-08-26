@@ -214,10 +214,23 @@
           <span id="navbar-level" class="navbar-level"></span>
         </div>
       </button>
-      <button class="navbar-icon-btn" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos"><span class="ng-icon-wrap" data-icon="volume-2"></span></button>
       <button class="navbar-icon-btn" id="btn-edit-profile" title="Editar perfil"><span class="ng-icon-wrap" data-icon="settings"></span></button>
-      <a href="/admin.html" id="admin-link" class="navbar-icon-btn hidden" title="Painel de administração"><span class="ng-icon-wrap" data-icon="shield-check"></span></a>
-      <button class="navbar-icon-btn" id="btn-logout" title="Sair"><span class="ng-icon-wrap" data-icon="log-out"></span></button>
+      <button class="navbar-icon-btn" id="btn-footer-more" title="Mais opções"><span class="ng-icon-wrap" data-icon="chevron-right"></span></button>
+
+      <!-- Menu que abre pra cima ao clicar no "..." — mantém o rodapé enxuto
+           em vez de espremer vários ícones numa faixa só. -->
+      <div id="footer-more-menu" class="footer-more-menu hidden">
+        <button type="button" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos">
+          <span class="ng-icon-wrap" data-icon="volume-2"></span> <span id="sfx-toggle-label">Sons e efeitos</span>
+        </button>
+        <a href="/admin.html" id="admin-link" class="hidden">
+          <span class="ng-icon-wrap" data-icon="shield-check"></span> Admin
+        </a>
+        <button type="button" id="btn-logout">
+          <span class="ng-icon-wrap" data-icon="log-out"></span> Sair
+        </button>
+      </div>
+
       <!-- me-avatar/me-username não aparecem mais visualmente (o avatar/nome já
            mostram em cima, no nav-profile) — ficam só escondidos porque o
            app.js ainda escreve neles em alguns pontos. -->

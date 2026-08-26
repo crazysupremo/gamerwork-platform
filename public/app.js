@@ -4009,6 +4009,22 @@ document.getElementById('nav-bell').onclick = () => {
   setTimeout(() => document.getElementById('home-activity').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 };
 document.getElementById('nav-profile').onclick = () => document.getElementById('btn-edit-profile').click();
+
+// Menu "..." do rodapé (som, admin, sair) — some por padrão, só abre no
+// clique, pra não espremer o avatar numa fileira cheia de ícones.
+const footerMoreMenu = document.getElementById('footer-more-menu');
+document.getElementById('btn-footer-more').onclick = (e) => {
+  e.stopPropagation();
+  footerMoreMenu.classList.toggle('hidden');
+};
+document.addEventListener('click', (e) => {
+  if (!footerMoreMenu.classList.contains('hidden') && !footerMoreMenu.contains(e.target)) {
+    footerMoreMenu.classList.add('hidden');
+  }
+});
+footerMoreMenu.querySelectorAll('button, a').forEach((el) => {
+  el.addEventListener('click', () => footerMoreMenu.classList.add('hidden'));
+});
 // "Ranking" na sidebar nova reaproveita o ranking do servidor ativo.
 document.getElementById('nav-ranking-link').onclick = () => {
   if (!activeServerCategory) {
@@ -4026,7 +4042,7 @@ document.getElementById('nav-messages').onclick = () => document.getElementById(
 function updateSfxToggleButton() {
   const btn = document.getElementById('nav-sfx-toggle');
   const on = SFX.isEnabled();
-  btn.textContent = on ? '🔊' : '🔇';
+  document.getElementById('sfx-toggle-label').textContent = on ? 'Sons ligados' : 'Sons desligados';
   btn.title = on ? 'Sons ligados (clique pra desligar)' : 'Sons desligados (clique pra ligar)';
 }
 document.getElementById('nav-sfx-toggle').onclick = () => {
