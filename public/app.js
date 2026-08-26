@@ -541,6 +541,17 @@ function markServerRead(category) {
 
 // Lista de servidores na sidebar — cada categoria criada pelos usuários vira
 // uma linha clicável (ícone + nome + indicador), igual ao mock de referência.
+// Coluna de canais do servidor — some por padrão, aparece como um popup ao
+// escolher um servidor ou clicar no botão de canais, fecha no X/ao
+// selecionar um canal (dá mais espaço pra tela principal).
+function setChannelSidebarOpen(open) {
+  document.getElementById('channel-sidebar').classList.toggle('hidden', !open);
+}
+document.getElementById('btn-toggle-channel-sidebar').onclick = () => {
+  setChannelSidebarOpen(document.getElementById('channel-sidebar').classList.contains('hidden'));
+};
+document.getElementById('btn-close-channel-sidebar').onclick = () => setChannelSidebarOpen(false);
+
 function renderServerRail(categories) {
   const list = document.getElementById('server-rail-list');
   list.innerHTML = '';
@@ -569,6 +580,7 @@ function renderServerRail(categories) {
       markServerRead(category);
       renderServerRail(categories);
       renderCategories(allChannels);
+      setChannelSidebarOpen(true);
     };
     list.appendChild(btn);
   });
@@ -895,10 +907,42 @@ document.getElementById('btn-server-manage').onclick = async () => {
   manageServerPermissions = info.my_permissions || [];
   if (me.is_admin) manageServerPermissions = SERVER_PERMISSION_KEYS_CLIENT;
 
+  // "Apagar servidor" só pro dono — "Sair" fica só pra quem NÃO é dono
+  // (dono precisa apagar, não dá pra só sair e abandonar o servidor).
+  document.getElementById('btn-delete-server').classList.toggle('hidden', !manageServerIsOwner);
+  document.getElementById('btn-leave-server').classList.toggle('hidden', manageServerIsOwner);
+
   await loadManageInvite();
   modalServerManage.classList.remove('hidden');
 };
 document.getElementById('btn-close-server-manage').onclick = () => modalServerManage.classList.add('hidden');
+
+document.getElementById('btn-delete-server').onclick = async () => {
+  if (!activeServerCategory) return;
+  const typed = prompt(
+    `Isso apaga o servidor "${activeServerCategory}" pra sempre — salas, mensagens, torneios, tudo. Não dá pra desfazer.\n\nDigite o nome do servidor exatamente como está pra confirmar:`
+  );
+  if (typed === null) return;
+  if (typed !== activeServerCategory) {
+    alert('Nome não bateu — servidor não foi apagado.');
+    return;
+  }
+  const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ confirmName: typed }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    alert(data.error || 'Não foi possível apagar o servidor');
+    return;
+  }
+  modalServerManage.classList.add('hidden');
+  activeServerCategory = null;
+  await loadChannels();
+  goHome();
+};
 
 document.querySelectorAll('.manage-tab').forEach((tabBtn) => {
   tabBtn.onclick = async () => {
@@ -3167,6 +3211,8 @@ function selectChannel(channel, options = {}) {
   document.getElementById('home-panel').classList.add('hidden');
   setNavActive('nav-inicio', false);
   stopHomeAutoRefresh();
+  // Escolheu o canal — fecha o popup de canais, sobra mais tela pro conteúdo.
+  setChannelSidebarOpen(false);
 
   if (channel.type === 'voz') {
     document.getElementById('text-panel').classList.add('hidden');
@@ -4997,6 +5043,18 @@ function registerSocketHandlers() {
       goHome();
     }
     if (category === activeServerCategory) renderCategories(allChannels);
+  });
+
+  // O dono apagou o servidor inteiro — todo mundo que estava nele sai na hora.
+  socket.on('server:deleted', ({ category }) => {
+    allChannels = allChannels.filter((c) => c.category !== category);
+    if (connectedVoiceRoomId && allChannels.every((c) => c.id !== connectedVoiceRoomId)) disconnectVoice();
+    if (activeServerCategory === category) {
+      activeServerCategory = null;
+      showCopyToast('Esse servidor foi apagado pelo dono.');
+      goHome();
+    }
+    loadChannels();
   });
 
   // NEXT Music — o servidor manda o estado completo (fila + o que tá

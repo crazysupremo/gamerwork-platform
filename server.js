@@ -2255,6 +2255,55 @@ app.post(
   })
 );
 
+// Apagar o servidor inteiro — só o dono. Some com tudo: canais (e mensagens,
+// reações, restrição por cargo), membros, cargos, torneios (e inscrições,
+// partidas) e eventos ligados a ele. Ação sem volta, por isso exige o nome
+// do servidor digitado de novo como confirmação (checado aqui no backend).
+app.delete(
+  '/api/servers/:category',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const category = req.params.category;
+    const server = await db.get('SELECT owner_id FROM servers WHERE category = ?', [category]);
+    if (!server) return res.status(404).json({ error: 'Servidor não encontrado' });
+    if (server.owner_id !== req.user.id && !req.user.is_admin) {
+      return res.status(403).json({ error: 'Só o dono pode apagar o servidor' });
+    }
+    const { confirmName } = req.body || {};
+    if (confirmName !== category) {
+      return res.status(400).json({ error: 'Digite o nome do servidor certinho pra confirmar' });
+    }
+
+    const channels = await db.all('SELECT id FROM channels WHERE category = ?', [category]);
+    for (const ch of channels) {
+      const messageIds = (await db.all('SELECT id FROM messages WHERE channel_id = ?', [ch.id])).map((m) => m.id);
+      for (const msgId of messageIds) {
+        await db.run('DELETE FROM message_reactions WHERE message_id = ?', [msgId]);
+      }
+      await db.run('DELETE FROM messages WHERE channel_id = ?', [ch.id]);
+      await db.run('DELETE FROM channel_role_access WHERE channel_id = ?', [ch.id]);
+    }
+    await db.run('DELETE FROM channels WHERE category = ?', [category]);
+
+    const tournaments = await db.all('SELECT id FROM tournaments WHERE category = ?', [category]);
+    for (const t of tournaments) {
+      await db.run('DELETE FROM tournament_registrations WHERE tournament_id = ?', [t.id]);
+      await db.run('DELETE FROM tournament_matches WHERE tournament_id = ?', [t.id]);
+    }
+    await db.run('DELETE FROM tournaments WHERE category = ?', [category]);
+
+    await db.run('DELETE FROM server_member_roles WHERE category = ?', [category]);
+    await db.run('DELETE FROM server_roles WHERE category = ?', [category]);
+    await db.run('DELETE FROM server_members WHERE category = ?', [category]);
+    await db.run('DELETE FROM events WHERE category = ?', [category]);
+    await db.run('DELETE FROM servers WHERE category = ?', [category]);
+
+    logAudit(req.user, 'delete_server', 'server', category, {});
+    io.to('server:' + category).emit('server:deleted', { category });
+    res.json({ ok: true });
+  })
+);
+
 app.get(
   '/api/servers/:category/roles',
   requireAuth,

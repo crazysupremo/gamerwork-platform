@@ -279,7 +279,10 @@
 
   <div class="app-body">
 
-  <aside class="sidebar">
+  <!-- Coluna de canais do servidor — some por padrão pra sobrar mais tela;
+       aparece como um popup ao escolher um servidor ou clicar no botão de
+       canais no topo, e fecha no X ou clicando fora. -->
+  <aside class="sidebar hidden" id="channel-sidebar">
     <div class="sidebar-header">
       <span id="active-server-name">NEXT GAME</span>
       <div class="sidebar-header-actions">
@@ -288,6 +291,7 @@
         <button id="btn-server-info" title="Informações e regras do servidor">ℹ️</button>
         <button id="btn-server-manage" title="Membros, cargos e convite"><span class="ng-icon-wrap" data-icon="settings"></span></button>
         <button id="btn-quick-room" title="Sala Rápida — cria uma sala de voz temporária, some quando todos saem"><span class="ng-icon-wrap" data-icon="zap"></span></button>
+        <button id="btn-close-channel-sidebar" title="Fechar"><span class="ng-icon-wrap" data-icon="x"></span></button>
         <!-- "Torneios" e "Ranking" já têm entrada própria na sidebar principal
              (nav-torneios/nav-ranking-link) — esses dois ficam só como alvo de
              clique programático (Ver Torneios na Início, busca, etc.), sem
@@ -320,6 +324,7 @@
 
   <main class="main">
     <header class="main-header">
+      <button id="btn-toggle-channel-sidebar" title="Mostrar/esconder canais do servidor" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="message-square"></span></button>
       <span id="current-channel-name">Início</span>
       <button id="btn-search-messages" title="Buscar mensagens" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="search"></span></button>
       <button id="btn-pinned-messages" title="Mensagens fixadas" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="pin"></span></button>
@@ -1160,6 +1165,7 @@
     <div class="modal-actions">
       <button type="button" id="btn-close-server-manage">Fechar</button>
       <button type="button" id="btn-leave-server"><span class="ng-icon-wrap" data-icon="log-out"></span> Sair do servidor</button>
+      <button type="button" id="btn-delete-server" class="hidden danger-action"><span class="ng-icon-wrap" data-icon="trash-2"></span> Apagar servidor</button>
     </div>
   </div>
 </div>
