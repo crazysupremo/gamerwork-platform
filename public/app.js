@@ -423,22 +423,36 @@ function startApp() {
   updateNavbarProfile();
   refreshStreakBadge();
   refreshFriendsBadge();
-  checkInviteLinkOnLoad();
 
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
-  loadChannels().then(() => {
-    // Link de convite (?channel=ID) — entra direto na sala em vez de cair na Início.
+
+  // Processa o convite (se tiver) ANTES de olhar o "?channel=" — senão dava
+  // corrida: às vezes o canal ainda não tinha carregado na lista porque a
+  // gente ainda não tinha nem entrado no servidor, e a pessoa caía direto
+  // na Início sem aviso nenhum, como se o link não fizesse nada.
+  (async () => {
     const params = new URLSearchParams(window.location.search);
+    const inviteCode = params.get('invite');
+    if (inviteCode) await joinWithInviteCode(inviteCode);
+
+    await loadChannels();
+
     const inviteChannelId = params.get('channel');
     const target = inviteChannelId && allChannels.find((c) => c.id === inviteChannelId);
     if (target) {
       selectChannel(target);
-      history.replaceState({}, '', window.location.pathname);
+    } else if (inviteChannelId) {
+      // Tinha "?channel=" mas o canal continua fora do alcance (ex: convite
+      // inválido/expirado, ou a sala foi apagada) — avisa em vez de sumir.
+      showCopyToast('Não foi possível entrar nessa sala pelo link.');
+      loadHomeDashboard();
     } else {
       loadHomeDashboard();
     }
-  });
+    history.replaceState({}, '', window.location.pathname);
+  })();
+
   loadMembers();
 }
 
@@ -632,6 +646,21 @@ function saveCollapsedGroups() {
 // Mostra só os canais do servidor (categoria) ativo no momento, agrupados em
 // "CANAIS DE TEXTO" e "CANAIS DE VOZ" com seta pra recolher/expandir, e um
 // icone que aparece só no hover de cada canal — tudo clicável com o mouse.
+// Link de canal que TAMBÉM convida — antes era só "?channel=ID", e quem não
+// era membro do servidor clicava e não acontecia nada, sem erro nem nada
+// (silencioso). Agora carrega o código de convite do servidor junto, então
+// quem abrir o link entra automático no servidor antes de cair na sala.
+async function buildChannelInviteLink(ch) {
+  try {
+    const res = await fetch(`/api/servers/${encodeURIComponent(ch.category)}`, { credentials: 'include' });
+    const info = await res.json();
+    if (res.ok && info.invite_code) {
+      return `${window.location.origin}/?invite=${info.invite_code}&channel=${ch.id}`;
+    }
+  } catch (_) {}
+  return `${window.location.origin}/?channel=${ch.id}`;
+}
+
 function renderCategories(channels) {
   const container = document.getElementById('categories-container');
   container.innerHTML = '';
@@ -701,11 +730,11 @@ function renderCategories(channels) {
       inviteBtn.className = 'channel-action-icon';
       inviteBtn.title = 'Copiar link do canal';
       inviteBtn.textContent = '🔗';
-      inviteBtn.onclick = (e) => {
+      inviteBtn.onclick = async (e) => {
         e.stopPropagation();
-        const url = `${window.location.origin}/?channel=${ch.id}`;
+        const url = await buildChannelInviteLink(ch);
         navigator.clipboard.writeText(url).catch(() => {});
-        showCopyToast('Link do canal copiado!');
+        showCopyToast('Link do canal copiado! Quem não é membro entra no servidor automático.');
       };
       actions.appendChild(inviteBtn);
 
@@ -2428,9 +2457,10 @@ function buildChannelContextMenuItems(ch) {
     {
       icon: '🔗',
       label: 'Copiar link do canal',
-      onClick: () => {
-        navigator.clipboard.writeText(`${window.location.origin}/?channel=${ch.id}`).catch(() => {});
-        showCopyToast('Link do canal copiado!');
+      onClick: async () => {
+        const url = await buildChannelInviteLink(ch);
+        navigator.clipboard.writeText(url).catch(() => {});
+        showCopyToast('Link do canal copiado! Quem não é membro entra no servidor automático.');
       },
     },
     {
@@ -5214,6 +5244,15 @@ function registerSocketHandlers() {
 // ---------- WEBRTC (voz / compartilhamento de tela) ----------
 
 async function connectVoice(roomId) {
+  // BUG DO "RETORNO" CORRIGIDO: sem essa trava, um duplo-clique em "Entrar na
+  // chamada" (ou os dois caminhos que chamam connectVoice — auto-connect ao
+  // selecionar o canal e o botão do preview — disparando quase juntos) rodava
+  // startMicrophone() duas vezes pra mesma sala. Isso pegava o microfone de
+  // novo SEM parar o stream antigo, e cada peer passava a receber DUAS
+  // tracks de áudio com o seu mic (uma levemente atrasada da outra) — o que
+  // todo mundo ouvia como eco/retorno na sua voz. Se já está conectado
+  // nessa mesma sala, não faz nada de novo.
+  if (connectedVoiceRoomId === roomId) return;
   SFX.join();
   connectedVoiceRoomId = roomId;
   socket.emit('rtc:join', roomId);
@@ -5418,9 +5457,11 @@ document.getElementById('btn-music-skip').onclick = () => {
 
 // ---------- EXTRAS DA SALA DE VOZ: convite, atividade, participantes, qualidade ----------
 
-function setupVoiceInvite(roomId) {
+async function setupVoiceInvite(roomId) {
   const input = document.getElementById('voice-invite-link');
-  input.value = `${window.location.origin}/?channel=${roomId}`;
+  input.value = `${window.location.origin}/?channel=${roomId}`; // valor provisório enquanto busca o convite
+  const ch = allChannels.find((c) => c.id === roomId);
+  if (ch) input.value = await buildChannelInviteLink(ch);
 }
 
 document.getElementById('btn-copy-invite').onclick = () => {
@@ -6017,6 +6058,15 @@ function applyOutgoingMicTrackToPeers() {
 // ---------- MICROFONE (voz de verdade, igual chamada de voz) ----------
 
 async function startMicrophone() {
+  // Segunda camada de proteção contra o bug do "retorno": se por algum
+  // motivo já existe um microfone ativo (chamada duplicada, etc), para ele
+  // antes de pegar um novo — nunca deixa dois streams de mic vivos ao mesmo
+  // tempo mandando áudio duplicado pros peers.
+  if (micStream) {
+    micStream.getTracks().forEach((t) => t.stop());
+    micStream = null;
+    teardownNoiseGate();
+  }
   showConnectingTile();
   try {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints() });

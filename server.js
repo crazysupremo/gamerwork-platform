@@ -222,6 +222,16 @@ async function filterChannelsByAccess(channels, user) {
 }
 
 async function requireChannelAccess(channelId, user) {
+  // DM não é uma linha na tabela "channels" (o id já é "dm::userA::userB"),
+  // então não passa pela checagem de canal de servidor — só confirma que
+  // quem está pedindo é uma das duas pessoas da conversa.
+  if (channelId.startsWith('dm::')) {
+    const parts = channelId.split('::');
+    if (parts[1] !== user.id && parts[2] !== user.id) {
+      return { ok: false, status: 403, error: 'Você não tem acesso a essa conversa' };
+    }
+    return { ok: true, channel: { id: channelId, type: 'dm' } };
+  }
   const channel = await db.get('SELECT * FROM channels WHERE id = ?', [channelId]);
   if (!channel) return { ok: false, status: 404, error: 'Canal não encontrado' };
   if (!(await canAccessChannel(channel, user))) {
