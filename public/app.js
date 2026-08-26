@@ -884,11 +884,17 @@ async function joinWithInviteCode(code) {
     const data = await res.json();
     if (!res.ok) {
       errorEl.textContent = data.error || 'Convite inválido';
+      alert(data.error || 'Não foi possível entrar com esse convite');
       return false;
     }
     modalJoinInvite.classList.add('hidden');
     activeServerCategory = data.category;
     await loadChannels();
+    // Entrou de verdade — mostra isso na tela em vez de deixar tudo escondido
+    // (as colunas de servidores/canais agora ficam fechadas por padrão).
+    if (typeof setServersCollapsed === 'function') setServersCollapsed(false);
+    if (typeof setChannelSidebarOpen === 'function') setChannelSidebarOpen(true);
+    showCopyToast(`Você entrou no servidor "${data.category}"!`);
     return true;
   } catch (_) {
     errorEl.textContent = 'Erro de conexão';
@@ -1129,6 +1135,33 @@ document.getElementById('btn-regenerate-invite').onclick = async () => {
   if (res.ok) document.getElementById('invite-link-display').value = `${window.location.origin}/?invite=${data.invite_code}`;
 };
 
+document.getElementById('form-add-server-member').onsubmit = async (e) => {
+  e.preventDefault();
+  if (!activeServerCategory) return;
+  const errorEl = document.getElementById('add-server-member-error');
+  errorEl.textContent = '';
+  const username = document.getElementById('add-server-member-input').value.trim();
+  if (!username) return;
+  try {
+    const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ username }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Não foi possível adicionar';
+      return;
+    }
+    document.getElementById('add-server-member-input').value = '';
+    showCopyToast(`${data.username} foi adicionado ao servidor!`);
+    loadManageMembers();
+  } catch (_) {
+    errorEl.textContent = 'Erro de conexão com o servidor';
+  }
+};
+
 async function loadManageMembers() {
   const listEl = document.getElementById('server-members-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
@@ -1141,6 +1174,7 @@ async function loadManageMembers() {
 
   const canManageRoles = manageServerIsOwner || manageServerPermissions.includes('manage_roles');
   const canKick = manageServerIsOwner || manageServerPermissions.includes('kick_members');
+  document.getElementById('form-add-server-member').classList.toggle('hidden', !canKick);
 
   listEl.innerHTML = '';
   members.forEach((m) => {
@@ -2397,6 +2431,28 @@ function buildChannelContextMenuItems(ch) {
       onClick: () => {
         navigator.clipboard.writeText(`${window.location.origin}/?channel=${ch.id}`).catch(() => {});
         showCopyToast('Link do canal copiado!');
+      },
+    },
+    {
+      icon: '✏️',
+      label: 'Renomear sala',
+      onClick: async () => {
+        const novoNome = prompt('Novo nome da sala:', ch.name);
+        if (novoNome === null) return;
+        const trimmed = novoNome.trim();
+        if (!trimmed || trimmed === ch.name) return;
+        const res = await fetch(`/api/channels/${ch.id}/settings`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ name: trimmed }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          alert(data.error || 'Erro ao renomear a sala');
+          return;
+        }
+        showCopyToast('Sala renomeada!');
       },
     },
     { separator: true },
@@ -5068,6 +5124,18 @@ function registerSocketHandlers() {
       goHome();
     }
     if (category === activeServerCategory) renderCategories(allChannels);
+  });
+
+  // Sala foi renomeada — atualiza o nome na lista de canais e, se for a que
+  // tá aberta agora, no cabeçalho também.
+  socket.on('channel:renamed', ({ id, name }) => {
+    const ch = allChannels.find((c) => c.id === id);
+    if (ch) ch.name = name;
+    if (currentChannel && currentChannel.id === id) {
+      currentChannel.name = name;
+      document.getElementById('current-channel-name').textContent = (currentChannel.type === 'voz' ? '🔊 ' : '# ') + name;
+    }
+    renderCategories(allChannels);
   });
 
   // O dono apagou o servidor inteiro — todo mundo que estava nele sai na hora.

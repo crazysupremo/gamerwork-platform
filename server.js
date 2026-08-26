@@ -2218,6 +2218,34 @@ app.get(
   })
 );
 
+// Adicionar alguém direto como membro (sem precisar de link de convite) —
+// pra quem já gerencia membros no servidor. Não passa por senha/validade de
+// convite: é uma ação explícita de quem tem permissão, não um convite público.
+app.post(
+  '/api/servers/:category/members',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canAdd = await hasServerPermission(req.params.category, req.user, 'kick_members');
+    if (!canAdd) return res.status(403).json({ error: 'Você não tem permissão pra adicionar membros' });
+
+    const { username } = req.body || {};
+    if (!username || typeof username !== 'string') return res.status(400).json({ error: 'Usuário inválido' });
+    const target = await db.get('SELECT id, username FROM users WHERE username = ?', [username.trim()]);
+    if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    const alreadyMember = await isServerMember(req.params.category, target.id);
+    if (alreadyMember) return res.status(409).json({ error: `${target.username} já é membro desse servidor` });
+
+    await db.run('INSERT INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+      uuidv4(),
+      req.params.category,
+      target.id,
+    ]);
+    logAudit(req.user, 'add_member', 'server', req.params.category, { added_user_id: target.id });
+    res.json({ ok: true, username: target.username });
+  })
+);
+
 app.post(
   '/api/servers/:category/kick/:userId',
   requireAuth,
@@ -2543,7 +2571,20 @@ app.get(
         "SELECT id FROM friendships WHERE user_a = ? AND user_b = ? AND status = 'accepted'",
         [a, b]
       );
-      if (!friendship) return res.status(403).json({ error: 'Vocês precisam ser amigos pra conversar diretamente' });
+      // Amigos sempre podem. Sem amizade, ainda dá pra conversar se as duas
+      // pessoas estiverem no MESMO servidor — pedia amizade antes até pra
+      // quem já tava jogando junto no mesmo lugar, travava demais.
+      const sharedServer = friendship
+        ? null
+        : await db.get(
+            `SELECT sm1.category FROM server_members sm1
+             JOIN server_members sm2 ON sm2.category = sm1.category
+             WHERE sm1.user_id = ? AND sm2.user_id = ? LIMIT 1`,
+            [req.user.id, targetId]
+          );
+      if (!friendship && !sharedServer) {
+        return res.status(403).json({ error: 'Vocês precisam ser amigos ou estar no mesmo servidor pra conversar diretamente' });
+      }
     }
 
     const target = await db.get('SELECT id, username, avatar, avatar_frame, is_admin FROM users WHERE id = ?', [
@@ -4690,7 +4731,7 @@ app.patch(
     const canManage = await hasServerPermission(channel.category, req.user, 'manage_channels');
     if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra configurar esse canal' });
 
-    const { slow_mode_seconds, read_only } = req.body || {};
+    const { slow_mode_seconds, read_only, name } = req.body || {};
     if (typeof slow_mode_seconds === 'number') {
       const clamped = Math.max(0, Math.min(21600, Math.floor(slow_mode_seconds)));
       await db.run('UPDATE channels SET slow_mode_seconds = ? WHERE id = ?', [clamped, channel.id]);
@@ -4698,8 +4739,14 @@ app.patch(
     if (typeof read_only === 'boolean') {
       await db.run('UPDATE channels SET read_only = ? WHERE id = ?', [read_only ? 1 : 0, channel.id]);
     }
-    const updated = await db.get('SELECT id, slow_mode_seconds, read_only FROM channels WHERE id = ?', [channel.id]);
+    if (typeof name === 'string') {
+      const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 40);
+      if (cleanName.length < 2) return res.status(400).json({ error: 'Nome precisa ter pelo menos 2 caracteres' });
+      await db.run('UPDATE channels SET name = ? WHERE id = ?', [cleanName, channel.id]);
+    }
+    const updated = await db.get('SELECT id, name, slow_mode_seconds, read_only FROM channels WHERE id = ?', [channel.id]);
     io.to(channel.id).emit('channel:settings-updated', updated);
+    if (typeof name === 'string') io.to('server:' + channel.category).emit('channel:renamed', updated);
     res.json(updated);
   })
 );

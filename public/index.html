@@ -1148,6 +1148,14 @@
     </div>
 
     <div id="manage-tab-members" class="manage-tab-panel hidden">
+      <form id="form-add-server-member" class="hidden" style="display:flex; gap:8px; margin-bottom:14px;">
+        <div class="input-icon-wrap" style="flex:1;">
+          <span class="input-icon"><span class="ng-icon-wrap" data-icon="user"></span></span>
+          <input type="text" id="add-server-member-input" placeholder="Nome de usuário pra adicionar" required />
+        </div>
+        <button type="submit" class="home-btn-primary" style="white-space:nowrap;">Adicionar</button>
+      </form>
+      <p id="add-server-member-error" class="auth-error"></p>
       <div id="server-members-list" class="server-members-list"></div>
     </div>
 
