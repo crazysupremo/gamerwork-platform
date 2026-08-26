@@ -844,68 +844,30 @@ const modalJoinInvite = document.getElementById('modal-join-invite');
 document.getElementById('btn-join-invite').onclick = () => {
   document.getElementById('join-invite-input').value = '';
   document.getElementById('join-invite-error').textContent = '';
-  document.getElementById('join-password-category-input').value = '';
-  document.getElementById('join-password-input').value = '';
-  document.getElementById('join-password-error').textContent = '';
-  document.querySelectorAll('#modal-join-invite [data-join-mode]').forEach((t) => t.classList.toggle('active', t.dataset.joinMode === 'convite'));
   document.getElementById('join-mode-convite-panel').classList.remove('hidden');
-  document.getElementById('join-mode-senha-panel').classList.add('hidden');
   modalJoinInvite.classList.remove('hidden');
 };
 document.getElementById('btn-close-join-invite').onclick = () => modalJoinInvite.classList.add('hidden');
 
-document.querySelectorAll('#modal-join-invite [data-join-mode]').forEach((tab) => {
-  tab.onclick = () => {
-    const mode = tab.dataset.joinMode;
-    document.querySelectorAll('#modal-join-invite [data-join-mode]').forEach((t) => t.classList.toggle('active', t === tab));
-    document.getElementById('join-mode-convite-panel').classList.toggle('hidden', mode !== 'convite');
-    document.getElementById('join-mode-senha-panel').classList.toggle('hidden', mode !== 'senha');
-  };
-});
+// Entrada por senha removida deste modal a pedido — só link/código de
+// convite agora, e ele já leva direto pra sala (não só pro servidor).
 
-document.getElementById('btn-submit-password').onclick = async () => {
-  const errorEl = document.getElementById('join-password-error');
-  errorEl.textContent = '';
-  const category = document.getElementById('join-password-category-input').value.trim();
-  const password = document.getElementById('join-password-input').value;
-  if (!category || !password) {
-    errorEl.textContent = 'Preencha o nome do servidor e a senha.';
-    return;
-  }
-  try {
-    const res = await fetch(`/api/servers/${encodeURIComponent(category)}/join-by-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ password }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      errorEl.textContent = data.error || 'Não foi possível entrar';
-      return;
-    }
-    modalJoinInvite.classList.add('hidden');
-    activeServerCategory = data.category;
-    await loadChannels();
-  } catch (_) {
-    errorEl.textContent = 'Erro de conexão';
-  }
-};
-
-// Aceita tanto o código puro quanto um link completo (?invite=CODIGO).
+// Aceita tanto o código puro quanto um link completo
+// (?invite=CODIGO ou ?invite=CODIGO&channel=ID) — devolve os dois pra dar
+// pra entrar E já abrir a sala certa, não só o servidor.
 function extractInviteCode(raw) {
   const trimmed = raw.trim();
   try {
     const url = new URL(trimmed);
     const fromQuery = url.searchParams.get('invite');
-    if (fromQuery) return fromQuery;
+    if (fromQuery) return { code: fromQuery, channelId: url.searchParams.get('channel') || null };
   } catch (_) {
     // não é uma URL válida, trata como código puro mesmo
   }
-  return trimmed;
+  return { code: trimmed, channelId: null };
 }
 
-async function joinWithInviteCode(code) {
+async function joinWithInviteCode(code, channelId) {
   const errorEl = document.getElementById('join-invite-error');
   errorEl.textContent = '';
   try {
@@ -923,7 +885,14 @@ async function joinWithInviteCode(code) {
     // (as colunas de servidores/canais agora ficam fechadas por padrão).
     if (typeof setServersCollapsed === 'function') setServersCollapsed(false);
     if (typeof setChannelSidebarOpen === 'function') setChannelSidebarOpen(true);
-    showCopyToast(`Você entrou no servidor "${data.category}"!`);
+    // Se o link/código trazia uma sala específica junto, já entra direto
+    // nela em vez de só mostrar a lista de canais do servidor.
+    const target = channelId && allChannels.find((c) => c.id === channelId);
+    if (target) {
+      selectChannel(target);
+    } else {
+      showCopyToast(`Você entrou no servidor "${data.category}"!`);
+    }
     return true;
   } catch (_) {
     errorEl.textContent = 'Erro de conexão';
@@ -932,9 +901,9 @@ async function joinWithInviteCode(code) {
 }
 
 document.getElementById('btn-submit-invite').onclick = () => {
-  const code = extractInviteCode(document.getElementById('join-invite-input').value);
+  const { code, channelId } = extractInviteCode(document.getElementById('join-invite-input').value);
   if (!code) return;
-  joinWithInviteCode(code);
+  joinWithInviteCode(code, channelId);
 };
 
 // Link de convite direto (?invite=CODIGO) — entra automaticamente ao abrir.
@@ -2348,7 +2317,7 @@ function showContextMenu(x, y, items) {
     btn.onclick = (e) => {
       e.stopPropagation();
       closeContextMenu();
-      item.onClick();
+      item.onClick(e);
     };
     menu.appendChild(btn);
   });
@@ -2359,6 +2328,75 @@ function showContextMenu(x, y, items) {
   menu.style.left = Math.max(4, Math.min(x, maxX)) + 'px';
   menu.style.top = Math.max(4, Math.min(y, maxY)) + 'px';
   activeContextMenu = menu;
+}
+
+// ---------- CONVITE DIRETO PELO PERFIL ----------
+// Item 187b do pedido: "faz que no perfil da pessoa eu consiga add ela no
+// server ou enviar mensagem no perfil dela para ela clicar e ir direto" —
+// resolve o problema de links de convite que se perdem quando mandados por
+// fora do app (WhatsApp, Discord etc), deixando tudo dentro do NEXT GAME.
+
+// Mostra um menuzinho com os servidores que a pessoa pode gerenciar, pra
+// escolher em qual deles vai adicionar/convidar. Reaproveita o mesmo
+// componente de menu de contexto usado no botão direito.
+async function pickMyServerAndRun(evt, runFn) {
+  const res = await fetch('/api/servers/mine', { credentials: 'include' });
+  const servers = res.ok ? await res.json() : [];
+  if (servers.length === 0) {
+    alert('Você ainda não tem nenhum servidor. Crie um primeiro em "Criar Servidor".');
+    return;
+  }
+  const x = evt && typeof evt.clientX === 'number' ? evt.clientX : window.innerWidth / 2;
+  const y = evt && typeof evt.clientY === 'number' ? evt.clientY : window.innerHeight / 2;
+  showContextMenu(
+    x,
+    y,
+    servers.map((s) => ({ icon: '🎮', label: s.category, onClick: () => runFn(s.category) }))
+  );
+}
+
+async function addUserToServer(user, category) {
+  try {
+    const res = await fetch(`/api/servers/${encodeURIComponent(category)}/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ username: user.username }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      showCopyToast(`${user.username} foi adicionado ao servidor "${category}"!`);
+    } else {
+      alert(data.error || 'Não foi possível adicionar — confira se você tem permissão de gerenciar membros nesse servidor.');
+    }
+  } catch (_) {
+    alert('Erro de conexão ao adicionar.');
+  }
+}
+
+async function sendInviteMessage(user, category) {
+  try {
+    const inviteRes = await fetch(`/api/servers/${encodeURIComponent(category)}/invite`, { credentials: 'include' });
+    const inviteData = await inviteRes.json().catch(() => ({}));
+    if (!inviteRes.ok || !inviteData.invite_code) {
+      alert(inviteData.error || 'Não foi possível gerar o link de convite desse servidor.');
+      return;
+    }
+    const link = `${window.location.origin}/?invite=${inviteData.invite_code}`;
+    const dmRes = await fetch(`/api/dm/${user.id}`, { credentials: 'include' });
+    const dmData = await dmRes.json().catch(() => ({}));
+    if (!dmRes.ok) {
+      alert(dmData.error || 'Não foi possível abrir uma conversa com essa pessoa.');
+      return;
+    }
+    socket.emit('chat:message', {
+      channelId: dmData.channel_id,
+      content: `Entra no meu servidor "${category}"! ${link}`,
+    });
+    showCopyToast(`Link enviado pra ${user.username} — é só ela clicar.`);
+  } catch (_) {
+    alert('Erro de conexão ao mandar o convite.');
+  }
 }
 
 // Monta as ações disponíveis pra um usuário (usado tanto no menu de contexto
@@ -2406,6 +2444,21 @@ function userActionItems(user) {
       },
     });
   }
+
+  // Convite direto pelo perfil — pra quem tá com dificuldade de entrar pelo
+  // link solto por fora do app: adiciona a pessoa já como membro do
+  // servidor, ou manda pra ela mesma uma mensagem com o link pronto (que já
+  // vai direto pro servidor ao clicar, sem precisar copiar/colar nada).
+  items.push({
+    icon: '➕',
+    label: 'Adicionar a um servidor meu',
+    onClick: (evt) => pickMyServerAndRun(evt, (category) => addUserToServer(user, category)),
+  });
+  items.push({
+    icon: '📨',
+    label: 'Mandar convite por mensagem',
+    onClick: (evt) => pickMyServerAndRun(evt, (category) => sendInviteMessage(user, category)),
+  });
 
   items.push({
     icon: '👍',
@@ -2634,7 +2687,7 @@ async function openProfilePreview(user) {
     btn.type = 'button';
     btn.className = 'profile-preview-action-btn' + (item.danger ? ' profile-preview-action-danger' : '');
     btn.innerHTML = `${item.icon} ${escapeHtml(item.label)}`;
-    btn.onclick = () => item.onClick();
+    btn.onclick = (e) => item.onClick(e);
     actionsEl.appendChild(btn);
   });
 
@@ -4800,7 +4853,7 @@ function renderMessage(msg) {
           ${msg.pinned ? '<span class="pinned-tag">📌 fixada</span>' : ''}
         </div>
         ${msg.thread_parent_id ? '<div class="thread-reply-tag">↪ resposta numa thread</div>' : ''}
-        <div class="content">${escapeHtml(msg.content)}</div>
+        <div class="content">${linkifyHtml(escapeHtml(msg.content))}</div>
         <div class="message-reactions" id="reactions-${msg.id}"></div>
       </div>
     </div>
@@ -5010,6 +5063,21 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+// Transforma links (http/https) dentro de um texto JÁ escapado em <a>
+// clicáveis — usado nas mensagens de chat, pra links de convite mandados
+// por DM (ex: "entra aqui: https://.../?invite=...") funcionarem de
+// verdade em vez de ficar como texto morto. Roda DEPOIS do escapeHtml,
+// nunca antes, senão abriria brecha de XSS.
+function linkifyHtml(escapedText) {
+  return escapedText.replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+    // remove pontuação de fechamento grudada no fim (. , ) etc) pra não quebrar o link
+    const trailingMatch = url.match(/[.,;:!?)]+$/);
+    const trailing = trailingMatch ? trailingMatch[0] : '';
+    const clean = trailing ? url.slice(0, -trailing.length) : url;
+    return `<a href="${clean}" target="_blank" rel="noopener noreferrer" class="msg-link">${clean}</a>${trailing}`;
+  });
 }
 
 // ---------- SOCKET HANDLERS ----------

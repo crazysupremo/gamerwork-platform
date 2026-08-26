@@ -798,6 +798,8 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .message .content { font-size: 14px; }
 .message .content.deleted { color: #6d7178; font-style: italic; }
+.msg-link { color: #00b8ff; text-decoration: underline; word-break: break-all; }
+.msg-link:hover { color: #5865f2; }
 .message .report-link {
   font-size: 11px; color: #f23f42; cursor: pointer; margin-top: 2px; display: inline-block;
 }

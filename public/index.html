@@ -1189,13 +1189,8 @@
   <div class="modal-card">
     <h2><span class="ng-icon-wrap" data-icon="link"></span> Entrar num servidor</h2>
 
-    <div class="tournament-filter-tabs" style="margin-bottom:14px;">
-      <button type="button" class="tournament-filter-tab active" data-join-mode="convite"><span class="ng-icon-wrap" data-icon="link"></span> Por convite</button>
-      <button type="button" class="tournament-filter-tab" data-join-mode="senha"><span class="ng-icon-wrap" data-icon="lock"></span> Por senha</button>
-    </div>
-
     <div id="join-mode-convite-panel">
-      <p class="hint" style="margin-bottom:10px;">Cole o código ou o link de convite que te mandaram.</p>
+      <p class="hint" style="margin-bottom:10px;">Cole o link de convite que te mandaram — já entra direto na sala.</p>
       <div class="input-icon-wrap">
         <span class="input-icon"><span class="ng-icon-wrap" data-icon="link"></span></span>
         <input type="text" id="join-invite-input" placeholder="ex: a1b2c3d4e5 ou o link completo" />
@@ -1204,19 +1199,8 @@
       <p id="join-invite-error" class="auth-error"></p>
     </div>
 
-    <div id="join-mode-senha-panel" class="hidden">
-      <p class="hint" style="margin-bottom:10px;">Digite o nome do servidor e a senha que te passaram.</p>
-      <div class="input-icon-wrap">
-        <span class="input-icon"><span class="ng-icon-wrap" data-icon="gamepad-2"></span></span>
-        <input type="text" id="join-password-category-input" placeholder="Nome do servidor" />
-      </div>
-      <div class="input-icon-wrap" style="margin-top:8px;">
-        <span class="input-icon"><span class="ng-icon-wrap" data-icon="lock"></span></span>
-        <input type="password" id="join-password-input" placeholder="Senha" />
-      </div>
-      <button type="button" id="btn-submit-password" class="home-btn-primary" style="margin-top:10px; width:100%;">Entrar</button>
-      <p id="join-password-error" class="auth-error"></p>
-    </div>
+    <!-- painel de "por senha" removido a pedido: só link de convite agora, e o link já leva direto pra sala -->
+    <div id="join-mode-senha-panel" class="hidden"></div>
 
     <div class="modal-actions">
       <button type="button" id="btn-close-join-invite">Fechar</button>
