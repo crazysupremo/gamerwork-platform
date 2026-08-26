@@ -168,30 +168,45 @@
 
 <!-- APP PRINCIPAL -->
 <div id="app" class="app hidden">
-  <!-- Navbar superior: logo, navegação, busca, notificações e perfil -->
-  <header id="top-navbar" class="top-navbar">
-    <div class="navbar-left">
-      <img src="/assets/logo.png" alt="NEXT GAME" class="navbar-logo-img" />
-      <nav class="navbar-links">
-        <button class="navbar-link active" id="nav-inicio">Início</button>
-        <button class="navbar-link" id="nav-jogos"><span class="ng-icon-wrap" data-icon="search"></span> Explorar</button>
-        <button class="navbar-link" id="nav-lfg"><span class="ng-icon-wrap" data-icon="target"></span> Jogar</button>
-        <button class="navbar-link" id="nav-feed"><span class="ng-icon-wrap" data-icon="newspaper"></span> Feed</button>
-        <button class="navbar-link" id="nav-comunidade">Comunidade</button>
-        <button class="navbar-link" id="nav-torneios">Torneios</button>
-        <button class="navbar-link" id="nav-sobre">Sobre</button>
-      </nav>
+  <!-- Sidebar única à esquerda: marca, navegação principal, Meus Servidores
+       e rodapé com avatar/status/config — substitui a navbar de cima +
+       trilho de servidores que existia antes. Todo elemento com ID que o
+       app.js já usava continua aqui, só mudou de lugar/estilo. -->
+  <nav id="app-sidebar" class="app-sidebar">
+    <div class="app-sidebar-logo">
+      <img src="/assets/logo.png" alt="NEXT GAME" class="app-sidebar-logo-img" />
     </div>
-    <div class="navbar-right">
-      <div class="navbar-search">
-        <span><span class="ng-icon-wrap" data-icon="search"></span></span>
-        <input type="text" id="navbar-search-input" placeholder="Buscar jogadores, servidores, torneios, clipes..." autocomplete="off" />
-        <div id="navbar-search-dropdown" class="navbar-search-dropdown hidden"></div>
+
+    <div class="app-sidebar-nav">
+      <button class="sidebar-nav-item sidebar-nav-item-solo active" id="nav-inicio"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> Início</button>
+
+      <div class="app-sidebar-section-label">Explorar</div>
+      <button class="sidebar-nav-item" id="nav-jogos"><span class="ng-icon-wrap" data-icon="search"></span> Explorar</button>
+      <button class="sidebar-nav-item" id="nav-lfg"><span class="ng-icon-wrap" data-icon="target"></span> Jogar</button>
+      <button class="sidebar-nav-item" id="nav-feed"><span class="ng-icon-wrap" data-icon="newspaper"></span> Feed</button>
+      <button class="sidebar-nav-item" id="nav-comunidade"><span class="ng-icon-wrap" data-icon="message-circle"></span> Comunidade</button>
+
+      <div class="app-sidebar-section-label">Competitivo</div>
+      <button class="sidebar-nav-item" id="nav-torneios"><span class="ng-icon-wrap" data-icon="trophy"></span> Torneios</button>
+      <button class="sidebar-nav-item" id="nav-ranking-link"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span> Ranking</button>
+      <button class="sidebar-nav-item" id="nav-rewards"><span class="ng-icon-wrap" data-icon="gift"></span> Rewards<span id="navbar-streak-badge" class="navbar-badge hidden">0</span></button>
+      <button class="sidebar-nav-item" id="nav-sobre"><span class="ng-icon-wrap" data-icon="crown"></span> Sobre</button>
+    </div>
+
+    <div class="app-sidebar-servers-header">
+      <span class="app-sidebar-section-label">Servidores</span>
+      <div class="app-sidebar-servers-actions">
+        <button id="btn-new-server" class="app-sidebar-icon-btn" title="Criar servidor"><span class="ng-icon-wrap" data-icon="plus"></span></button>
+        <button id="btn-join-invite" class="app-sidebar-icon-btn" title="Entrar com convite"><span class="ng-icon-wrap" data-icon="link"></span></button>
       </div>
-      <button class="navbar-icon-btn" id="nav-bell" title="Atividade recente"><span class="ng-icon-wrap" data-icon="bell"></span><span id="navbar-bell-badge" class="navbar-badge hidden">0</span></button>
-      <button class="navbar-icon-btn" id="nav-rewards" title="Loja de recompensas"><span class="ng-icon-wrap" data-icon="gift"></span><span id="navbar-streak-badge" class="navbar-badge hidden">0</span></button>
-      <button class="navbar-icon-btn" id="nav-friends" title="Amigos"><span class="ng-icon-wrap" data-icon="users"></span><span id="navbar-friends-badge" class="navbar-badge hidden">0</span></button>
-      <button class="navbar-icon-btn" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos"><span class="ng-icon-wrap" data-icon="volume-2"></span></button>
+    </div>
+    <!-- Trilho de servidores: uma linha por "servidor" (categoria). Clica pra
+         trocar de servidor. -->
+    <div id="server-rail" class="app-sidebar-servers">
+      <div id="server-rail-list" class="server-rail-list"></div>
+    </div>
+
+    <div class="app-sidebar-footer">
       <button class="navbar-profile" id="nav-profile">
         <div id="navbar-avatar" class="member-avatar"></div>
         <div class="navbar-profile-text">
@@ -199,17 +214,26 @@
           <span id="navbar-level" class="navbar-level"></span>
         </div>
       </button>
+      <button class="navbar-icon-btn" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos"><span class="ng-icon-wrap" data-icon="volume-2"></span></button>
+    </div>
+  </nav>
+
+  <div class="app-main">
+  <!-- Barra de topo: busca, notificações, mensagens e amigos -->
+  <header id="top-navbar" class="top-navbar">
+    <div class="navbar-search">
+      <span><span class="ng-icon-wrap" data-icon="search"></span></span>
+      <input type="text" id="navbar-search-input" placeholder="Buscar jogadores, servidores, torneios, clipes..." autocomplete="off" />
+      <div id="navbar-search-dropdown" class="navbar-search-dropdown hidden"></div>
+    </div>
+    <div class="navbar-right">
+      <button class="navbar-icon-btn" id="nav-bell" title="Atividade recente"><span class="ng-icon-wrap" data-icon="bell"></span><span id="navbar-bell-badge" class="navbar-badge hidden">0</span></button>
+      <button class="navbar-icon-btn" id="nav-messages" title="Mensagens"><span class="ng-icon-wrap" data-icon="inbox"></span></button>
+      <button class="navbar-icon-btn" id="nav-friends" title="Amigos"><span class="ng-icon-wrap" data-icon="users"></span><span id="navbar-friends-badge" class="navbar-badge hidden">0</span></button>
     </div>
   </header>
 
   <div class="app-body">
-  <!-- Trilho de servidores, igual Discord: um ícone por "servidor" (categoria).
-       Clica pra trocar de servidor; o + de baixo cria um novo. -->
-  <nav id="server-rail" class="server-rail">
-    <div id="server-rail-list" class="server-rail-list"></div>
-    <button id="btn-new-server" class="server-icon server-icon-add" title="Criar servidor">+</button>
-    <button id="btn-join-invite" class="server-icon server-icon-add" title="Entrar com convite"><span class="ng-icon-wrap" data-icon="link"></span></button>
-  </nav>
 
   <aside class="sidebar">
     <div class="sidebar-header">
@@ -220,6 +244,7 @@
         <button id="btn-ranking" title="Ranking semanal"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span></button>
         <button id="btn-server-info" title="Informações e regras do servidor">ℹ️</button>
         <button id="btn-server-manage" title="Membros, cargos e convite"><span class="ng-icon-wrap" data-icon="settings"></span></button>
+        <button id="btn-quick-room" title="Sala Rápida — cria uma sala de voz temporária, some quando todos saem"><span class="ng-icon-wrap" data-icon="zap"></span></button>
         <button id="btn-new-room" title="Criar sala neste servidor">+</button>
       </div>
     </div>
@@ -423,6 +448,7 @@
     <div id="members-list"></div>
   </aside>
   </div><!-- /.app-body -->
+  </div><!-- /.app-main -->
 </div>
 
 <!-- MODAL: criar sala/servidor -->
@@ -433,13 +459,10 @@
       <label>Nome da sala</label>
       <input type="text" id="room-name" placeholder="ex: valorant-comp, reuniao-semanal" required />
 
-      <label>Servidor / categoria</label>
-      <input type="text" id="room-category" list="category-options" placeholder="ex: Valorant, Trabalho, Minecraft" required />
-      <datalist id="category-options"></datalist>
-      <p class="hint">Se o nome não existir ainda, um novo servidor é criado automaticamente.</p>
+      <label>Servidor</label>
+      <input type="text" id="room-category" readonly />
+      <p class="hint">A sala é criada dentro deste servidor. Pra criar um servidor novo, use "+ Criar Servidor" na sidebar.</p>
 
-      <label>Ícone do servidor (se for criar um novo)</label>
-      <div class="avatar-emoji-row" id="room-icon-row"></div>
       <input type="hidden" id="room-icon" value="🎮" />
 
       <label>Tipo</label>
@@ -448,11 +471,47 @@
         <option value="voz">Voz (com compartilhamento de tela)</option>
       </select>
 
+      <div id="room-voice-type-fields" class="hidden">
+        <label>Tipo de sala de voz</label>
+        <select id="room-voice-type">
+          <option value="conversa">Conversa normal</option>
+          <option value="jogo">Vinculada a um jogo</option>
+          <option value="evento">Evento / torneio</option>
+        </select>
+        <div id="room-voice-game-field" class="hidden">
+          <label>Jogo</label>
+          <input type="text" id="room-voice-game" placeholder="ex: Valorant, CS2, Minecraft" maxlength="40" />
+        </div>
+      </div>
+
       <div class="modal-actions">
         <button type="button" id="btn-cancel-room">Cancelar</button>
         <button type="submit">Criar</button>
       </div>
       <p id="room-error" class="auth-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: criar SERVIDOR novo (separado de criar sala) -->
+<div id="modal-new-server" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2>Criar servidor</h2>
+    <form id="form-new-server">
+      <label>Nome do servidor</label>
+      <input type="text" id="server-name" placeholder="ex: Valorant, Trabalho, Minecraft" required />
+
+      <label>Ícone</label>
+      <div class="avatar-emoji-row" id="server-icon-row"></div>
+      <input type="hidden" id="server-icon-input" value="🎮" />
+
+      <p class="hint">Você já entra como dono, com um canal #geral pronto pra conversar. Depois é só criar mais salas dentro dele.</p>
+
+      <div class="modal-actions">
+        <button type="button" id="btn-cancel-new-server">Cancelar</button>
+        <button type="submit">Criar servidor</button>
+      </div>
+      <p id="new-server-error" class="auth-error"></p>
     </form>
   </div>
 </div>

@@ -1703,15 +1703,56 @@ app.get(
   })
 );
 
-// Criar uma sala. Se a categoria/"servidor" ainda não existir, ela nasce
-// aqui — e quem criou vira o dono (igual criar um servidor novo no Discord).
-// Se a categoria já existir, precisa ser membro e ter permissão de gerenciar
-// canais (dono sempre tem; nos servidores padrão sem dono, qualquer membro tem).
+// Criar um SERVIDOR novo — separado de criar uma sala. Quem cria vira dono
+// automaticamente, já entra como membro, e ganha um canal #geral padrão pra
+// ter onde conversar assim que entra (não precisa criar a primeira sala à mão).
+app.post(
+  '/api/servers',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { name, icon } = req.body || {};
+    if (!name || typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 40) {
+      return res.status(400).json({ error: 'Nome do servidor precisa ter entre 2 e 40 caracteres' });
+    }
+    const cleanCategory = name.trim().slice(0, 40);
+    const existing = await db.get('SELECT category FROM servers WHERE category = ?', [cleanCategory]);
+    if (existing) return res.status(400).json({ error: 'Já existe um servidor com esse nome' });
+
+    const inviteCode = generateInviteCode();
+    await db.run(
+      'INSERT INTO servers (category, icon, owner_id, invite_code, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'))',
+      [cleanCategory, icon && typeof icon === 'string' && icon.length <= 8 ? icon : null, req.user.id, inviteCode, req.user.id]
+    );
+    await db.run('INSERT INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+      uuidv4(),
+      cleanCategory,
+      req.user.id,
+    ]);
+
+    const channelId = uuidv4();
+    await db.run('INSERT INTO channels (id, name, category, type, created_by) VALUES (?, ?, ?, ?, ?)', [
+      channelId,
+      'geral',
+      cleanCategory,
+      'texto',
+      req.user.id,
+    ]);
+
+    res.json({ category: cleanCategory, channelId, invite_code: inviteCode });
+  })
+);
+
+// Criar uma sala DENTRO de um servidor que já existe. Precisa ser membro e
+// ter permissão de gerenciar canais (dono sempre tem; nos servidores padrão
+// sem dono, qualquer membro tem). Não cria mais servidor implicitamente —
+// isso agora é sempre via POST /api/servers.
+const VOICE_TYPES = ['conversa', 'jogo', 'evento'];
+
 app.post(
   '/api/channels',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { name, category, type, icon } = req.body || {};
+    const { name, category, type, voice_type, voice_game } = req.body || {};
     if (
       !name ||
       !category ||
@@ -1727,41 +1768,71 @@ app.post(
     if (!['texto', 'voz'].includes(type)) {
       return res.status(400).json({ error: 'Tipo inválido' });
     }
+    // Sala de voz pode ser "conversa normal", "vinculada a um jogo" ou
+    // "evento/torneio" — só faz sentido pra canais de voz.
+    let cleanVoiceType = 'conversa';
+    let cleanVoiceGame = null;
+    if (type === 'voz') {
+      if (voice_type && !VOICE_TYPES.includes(voice_type)) {
+        return res.status(400).json({ error: 'Tipo de sala de voz inválido' });
+      }
+      cleanVoiceType = voice_type || 'conversa';
+      if (cleanVoiceType === 'jogo') {
+        if (!voice_game || typeof voice_game !== 'string' || !voice_game.trim()) {
+          return res.status(400).json({ error: 'Escolha o jogo dessa sala de voz' });
+        }
+        cleanVoiceGame = voice_game.trim().slice(0, 40);
+      }
+    }
 
     const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 40);
     const cleanCategory = category.trim().slice(0, 40);
 
     const existingServer = await db.get('SELECT category FROM servers WHERE category = ?', [cleanCategory]);
-
     if (!existingServer) {
-      // Servidor novo — quem cria vira dono automaticamente e já entra como membro.
-      const inviteCode = generateInviteCode();
-      await db.run(
-        'INSERT INTO servers (category, icon, owner_id, invite_code, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'))',
-        [cleanCategory, icon && typeof icon === 'string' && icon.length <= 8 ? icon : null, req.user.id, inviteCode, req.user.id]
-      );
-      await db.run('INSERT INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
-        uuidv4(),
-        cleanCategory,
-        req.user.id,
-      ]);
-    } else {
-      const isMember = await isServerMember(cleanCategory, req.user.id);
-      if (!isMember) return res.status(403).json({ error: 'Você precisa ser membro desse servidor pra criar salas nele' });
-      const canManage = await hasServerPermission(cleanCategory, req.user, 'manage_channels');
-      if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra criar salas nesse servidor' });
+      return res
+        .status(400)
+        .json({ error: 'Esse servidor ainda não existe. Crie o servidor primeiro em "+ Criar Servidor".' });
     }
+    const isMember = await isServerMember(cleanCategory, req.user.id);
+    if (!isMember) return res.status(403).json({ error: 'Você precisa ser membro desse servidor pra criar salas nele' });
+    const canManage = await hasServerPermission(cleanCategory, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra criar salas nesse servidor' });
 
     const id = uuidv4();
-    await db.run('INSERT INTO channels (id, name, category, type, created_by) VALUES (?, ?, ?, ?, ?)', [
-      id,
-      cleanName,
-      cleanCategory,
-      type,
-      req.user.id,
-    ]);
+    await db.run(
+      'INSERT INTO channels (id, name, category, type, created_by, voice_type, voice_game) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, cleanName, cleanCategory, type, req.user.id, cleanVoiceType, cleanVoiceGame]
+    );
 
-    res.json({ id, name: cleanName, category: cleanCategory, type });
+    res.json({ id, name: cleanName, category: cleanCategory, type, voice_type: cleanVoiceType, voice_game: cleanVoiceGame });
+  })
+);
+
+// Sala Rápida: um clique cria uma sala de voz temporária no servidor ativo,
+// que se apaga sozinha quando o último participante sai (ver rtc:leave e a
+// desconexão de socket mais abaixo).
+app.post(
+  '/api/channels/quick',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { category } = req.body || {};
+    if (!category || typeof category !== 'string' || !category.trim()) {
+      return res.status(400).json({ error: 'Servidor inválido' });
+    }
+    const cleanCategory = category.trim().slice(0, 40);
+    const isMember = await isServerMember(cleanCategory, req.user.id);
+    if (!isMember) return res.status(403).json({ error: 'Você precisa ser membro desse servidor' });
+
+    const id = uuidv4();
+    const shortId = id.slice(0, 4);
+    const cleanName = `sala-rapida-${shortId}`;
+    await db.run(
+      'INSERT INTO channels (id, name, category, type, created_by, voice_type, is_quick) VALUES (?, ?, ?, ?, ?, ?, 1)',
+      [id, cleanName, cleanCategory, 'voz', req.user.id, 'conversa']
+    );
+
+    res.json({ id, name: cleanName, category: cleanCategory, type: 'voz', is_quick: true });
   })
 );
 
@@ -4993,7 +5064,28 @@ function broadcastVoiceRoom(roomId) {
 
 function removeFromAllVoiceRooms(socketId) {
   for (const [roomId, participants] of voiceRooms.entries()) {
-    if (participants.delete(socketId)) broadcastVoiceRoom(roomId);
+    if (participants.delete(socketId)) {
+      broadcastVoiceRoom(roomId);
+      maybeDeleteEmptyQuickRoom(roomId);
+    }
+  }
+}
+
+// Sala Rápida: se o último participante saiu e a sala é temporária
+// (is_quick), apaga ela do banco e avisa todo mundo pra sumir da lista.
+async function maybeDeleteEmptyQuickRoom(roomId) {
+  const participants = voiceRooms.get(roomId);
+  if (participants && participants.size > 0) return;
+  try {
+    const channel = await db.get('SELECT * FROM channels WHERE id = ?', [roomId]);
+    if (!channel || !channel.is_quick) return;
+    await db.run('DELETE FROM channels WHERE id = ?', [roomId]);
+    await db.run('DELETE FROM messages WHERE channel_id = ?', [roomId]);
+    voiceRooms.delete(roomId);
+    musicRooms.delete(roomId);
+    io.emit('channel:deleted', { id: roomId, category: channel.category });
+  } catch (err) {
+    console.error('Erro ao apagar sala rápida vazia:', err);
   }
 }
 
@@ -5342,6 +5434,7 @@ io.on('connection', (socket) => {
     if (voiceRooms.has(roomId)) {
       voiceRooms.get(roomId).delete(socket.id);
       broadcastVoiceRoom(roomId);
+      maybeDeleteEmptyQuickRoom(roomId);
     }
   });
 

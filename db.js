@@ -616,6 +616,12 @@ async function initDb() {
   await ensureColumn('servers', 'invite_max_uses INTEGER');
   await ensureColumn('servers', 'invite_uses INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('servers', 'invite_active INTEGER NOT NULL DEFAULT 1');
+  // Tipos de sala de voz: 'conversa' (padrão), 'jogo' (vinculada a um jogo) ou
+  // 'evento' (torneio/evento). voice_game só é usado quando voice_type='jogo'.
+  // is_quick marca salas rápidas/temporárias que se apagam quando todos saem.
+  await ensureColumn('channels', "voice_type TEXT NOT NULL DEFAULT 'conversa'");
+  await ensureColumn('channels', 'voice_game TEXT');
+  await ensureColumn('channels', 'is_quick INTEGER NOT NULL DEFAULT 0');
 
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },

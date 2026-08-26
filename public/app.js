@@ -24,10 +24,12 @@ let homeRefreshInterval = null; // atualiza ranking/atividade/jogando-agora sozi
 const AVATAR_EMOJIS = ['🎮', '🕹️', '👾', '🔥', '⚡', '🐉', '🦊', '🐱', '💀', '👑', '🎯', '🚀'];
 const SERVER_ICONS = ['🎮', '🕹️', '👾', '🔫', '⚔️', '🏆', '⚽', '🏎️', '🧙', '🐉', '💼', '💬', '🎧', '🚀'];
 
-// Monta a fileira de ícones pra escolher o emoji de um novo servidor.
-function buildRoomIconRow() {
-  const row = document.getElementById('room-icon-row');
-  const hiddenInput = document.getElementById('room-icon');
+// Monta a fileira de ícones pra escolher o emoji de um servidor novo.
+// Reaproveitada tanto no modal de criar servidor quanto em qualquer outro
+// lugar que precise do mesmo seletor de emoji.
+function buildIconRow(rowId, hiddenInputId) {
+  const row = document.getElementById(rowId);
+  const hiddenInput = document.getElementById(hiddenInputId);
   row.innerHTML = '';
   SERVER_ICONS.forEach((icon, i) => {
     const btn = document.createElement('button');
@@ -458,7 +460,6 @@ async function loadChannels() {
   await loadServerIcons();
   renderServerRail(categories);
   renderCategories(allChannels);
-  updateCategoryDatalist(allChannels);
 }
 
 // Busca os ícones reais escolhidos por quem criou cada servidor (um só
@@ -492,22 +493,27 @@ function markServerRead(category) {
   renderServerRail([...new Set(allChannels.map((c) => c.category))]);
 }
 
-// Trilho de servidores (coluna de ícones à esquerda, igual Discord) —
-// cada categoria criada pelos usuários vira um "servidor" clicável aqui.
+// Lista de servidores na sidebar — cada categoria criada pelos usuários vira
+// uma linha clicável (ícone + nome + indicador), igual ao mock de referência.
 function renderServerRail(categories) {
   const list = document.getElementById('server-rail-list');
   list.innerHTML = '';
   categories.forEach((category) => {
+    const isActive = category === activeServerCategory;
     const btn = document.createElement('button');
-    btn.className = 'server-icon';
-    if (category === activeServerCategory) btn.classList.add('active');
+    btn.className = 'server-row';
+    if (isActive) btn.classList.add('active');
     btn.title = category;
-    btn.textContent = serverIcons[category] || serverInitials(category);
+    btn.innerHTML = `
+      <span class="server-row-icon">${escapeHtml(serverIcons[category] || serverInitials(category))}</span>
+      <span class="server-row-name">${escapeHtml(category)}</span>
+      <span class="server-row-dot ${isActive ? 'server-row-dot-on' : ''}"></span>
+    `;
 
     const unread = unreadByCategory[category];
     if (unread) {
       const badge = document.createElement('span');
-      badge.className = 'server-icon-badge';
+      badge.className = 'server-row-badge';
       badge.textContent = unread > 99 ? '99+' : String(unread);
       btn.appendChild(badge);
     }
@@ -588,7 +594,13 @@ function renderCategories(channels) {
 
       const label = document.createElement('span');
       label.className = 'channel-item-label';
-      label.textContent = (ch.type === 'voz' ? '🔊 ' : '# ') + ch.name + (ch.read_only ? ' 🔒' : '');
+      let voiceTag = '';
+      if (ch.type === 'voz') {
+        if (ch.voice_type === 'jogo' && ch.voice_game) voiceTag = ` · 🎮 ${ch.voice_game}`;
+        else if (ch.voice_type === 'evento') voiceTag = ' · 🏆 Evento';
+        if (ch.is_quick) voiceTag += ' · ⚡ rápida';
+      }
+      label.textContent = (ch.type === 'voz' ? '🔊 ' : '# ') + ch.name + (ch.read_only ? ' 🔒' : '') + voiceTag;
       el.appendChild(label);
       el.onclick = () => selectChannel(ch);
       el.oncontextmenu = (e) => {
@@ -2458,38 +2470,48 @@ document.querySelectorAll('#modal-profile-preview .manage-tab').forEach((tabBtn)
   };
 });
 
-function updateCategoryDatalist(channels) {
-  const datalist = document.getElementById('category-options');
-  const categories = [...new Set(channels.map((c) => c.category))];
-  datalist.innerHTML = categories.map((c) => `<option value="${escapeHtml(c)}"></option>`).join('');
-}
-
 // ---------- CRIAR SALA (modal) ----------
 
 const modalNewRoom = document.getElementById('modal-new-room');
 
-function openNewRoomModal(prefillCategory) {
+// Abre o modal de criar SALA — sempre dentro do servidor já ativo. Não cria
+// mais servidor implicitamente: isso agora só acontece via modal-new-server.
+function openNewRoomModal(category) {
+  if (!category) {
+    alert('Crie ou entre num servidor primeiro pra poder criar uma sala nele.');
+    return;
+  }
   document.getElementById('room-error').textContent = '';
   document.getElementById('form-new-room').reset();
-  if (prefillCategory) document.getElementById('room-category').value = prefillCategory;
-  buildRoomIconRow();
+  document.getElementById('room-category').value = category;
+  updateRoomVoiceFieldsVisibility();
   modalNewRoom.classList.remove('hidden');
   document.getElementById('room-name').focus();
 }
 
-// "+" dentro do servidor atual: cria uma sala nesse mesmo servidor (categoria já preenchida)
+// "+" dentro do servidor atual: cria uma sala nesse mesmo servidor.
 document.getElementById('btn-new-room').onclick = () => openNewRoomModal(activeServerCategory);
-// "+" do trilho de servidores: cria um servidor novo (categoria em branco pra digitar o nome)
-document.getElementById('btn-new-server').onclick = () => openNewRoomModal('');
 
 document.getElementById('btn-cancel-room').onclick = () => modalNewRoom.classList.add('hidden');
+
+// Campos de tipo de sala de voz só aparecem quando o tipo escolhido é "voz",
+// e o campo de jogo só aparece quando o tipo de voz é "jogo".
+function updateRoomVoiceFieldsVisibility() {
+  const isVoice = document.getElementById('room-type').value === 'voz';
+  document.getElementById('room-voice-type-fields').classList.toggle('hidden', !isVoice);
+  const isGame = isVoice && document.getElementById('room-voice-type').value === 'jogo';
+  document.getElementById('room-voice-game-field').classList.toggle('hidden', !isGame);
+}
+document.getElementById('room-type').onchange = updateRoomVoiceFieldsVisibility;
+document.getElementById('room-voice-type').onchange = updateRoomVoiceFieldsVisibility;
 
 document.getElementById('form-new-room').onsubmit = async (e) => {
   e.preventDefault();
   const name = document.getElementById('room-name').value.trim();
   const category = document.getElementById('room-category').value.trim();
   const type = document.getElementById('room-type').value;
-  const icon = document.getElementById('room-icon').value || '🎮';
+  const voice_type = type === 'voz' ? document.getElementById('room-voice-type').value : undefined;
+  const voice_game = voice_type === 'jogo' ? document.getElementById('room-voice-game').value.trim() : undefined;
   const errorEl = document.getElementById('room-error');
   errorEl.textContent = '';
 
@@ -2498,7 +2520,7 @@ document.getElementById('form-new-room').onsubmit = async (e) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ name, category, type, icon }),
+      body: JSON.stringify({ name, category, type, voice_type, voice_game }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -2506,7 +2528,75 @@ document.getElementById('form-new-room').onsubmit = async (e) => {
       return;
     }
     modalNewRoom.classList.add('hidden');
-    activeServerCategory = data.category; // já entra direto no servidor recém-criado/atualizado
+    activeServerCategory = data.category;
+    await loadChannels();
+  } catch (err) {
+    errorEl.textContent = 'Erro de conexão com o servidor';
+  }
+};
+
+// Sala Rápida: um clique cria uma sala de voz temporária no servidor ativo.
+document.getElementById('btn-quick-room').onclick = async () => {
+  if (!activeServerCategory) {
+    alert('Crie ou entre num servidor primeiro.');
+    return;
+  }
+  try {
+    const res = await fetch('/api/channels/quick', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ category: activeServerCategory }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || 'Erro ao criar sala rápida');
+      return;
+    }
+    await loadChannels();
+    showCopyToast('Sala rápida criada! Ela some sozinha quando todo mundo sair.');
+  } catch (err) {
+    alert('Erro de conexão com o servidor');
+  }
+};
+
+// ---------- CRIAR SERVIDOR (modal separado — não cria sala junto) ----------
+
+const modalNewServer = document.getElementById('modal-new-server');
+
+function openNewServerModal() {
+  document.getElementById('new-server-error').textContent = '';
+  document.getElementById('form-new-server').reset();
+  buildIconRow('server-icon-row', 'server-icon-input');
+  modalNewServer.classList.remove('hidden');
+  document.getElementById('server-name').focus();
+}
+
+// "+" da sidebar: cria um servidor novo (vazio, com um canal #geral pronto).
+document.getElementById('btn-new-server').onclick = () => openNewServerModal();
+document.getElementById('btn-cancel-new-server').onclick = () => modalNewServer.classList.add('hidden');
+
+document.getElementById('form-new-server').onsubmit = async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('server-name').value.trim();
+  const icon = document.getElementById('server-icon-input').value || '🎮';
+  const errorEl = document.getElementById('new-server-error');
+  errorEl.textContent = '';
+
+  try {
+    const res = await fetch('/api/servers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name, icon }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Erro ao criar servidor';
+      return;
+    }
+    modalNewServer.classList.add('hidden');
+    activeServerCategory = data.category; // já entra direto no servidor recém-criado
     await loadChannels();
   } catch (err) {
     errorEl.textContent = 'Erro de conexão com o servidor';
@@ -3919,6 +4009,17 @@ document.getElementById('nav-bell').onclick = () => {
   setTimeout(() => document.getElementById('home-activity').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 };
 document.getElementById('nav-profile').onclick = () => document.getElementById('btn-edit-profile').click();
+// "Ranking" na sidebar nova reaproveita o ranking do servidor ativo.
+document.getElementById('nav-ranking-link').onclick = () => {
+  if (!activeServerCategory) {
+    alert('Crie ou entre num servidor primeiro pra ver o ranking dele.');
+    return;
+  }
+  document.getElementById('btn-ranking').click();
+};
+// "Mensagens" no topo abre o mesmo painel de Amigos (que já tem os botões
+// de conversa por pessoa) — evita duplicar uma lista de DMs à parte.
+document.getElementById('nav-messages').onclick = () => document.getElementById('nav-friends').click();
 
 // ---------- SONS E EFEITOS (liga/desliga geral) ----------
 
@@ -3963,7 +4064,7 @@ let navbarSearchTimer = null;
 
 navbarSearchInput.addEventListener('input', (e) => {
   const term = e.target.value.trim().toLowerCase();
-  document.querySelectorAll('.server-icon:not(.server-icon-add)').forEach((el) => {
+  document.querySelectorAll('.server-row').forEach((el) => {
     el.style.opacity = !term || el.title.toLowerCase().includes(term) ? '1' : '0.25';
   });
   document.querySelectorAll('.home-server-card').forEach((el) => {
@@ -4773,6 +4874,16 @@ function registerSocketHandlers() {
     if (currentChannel && currentChannel.type === 'voz' && currentChannel.id === roomId) {
       updateVoicePanelView(currentChannel);
     }
+  });
+
+  // Sala Rápida foi apagada sozinha (todo mundo saiu) — some da lista pra
+  // todo mundo, e se alguém ainda estava com ela aberta na tela, volta pro Início.
+  socket.on('channel:deleted', ({ id, category }) => {
+    allChannels = allChannels.filter((c) => c.id !== id);
+    if (currentChannel && currentChannel.id === id) {
+      goHome();
+    }
+    if (category === activeServerCategory) renderCategories(allChannels);
   });
 
   // NEXT Music — o servidor manda o estado completo (fila + o que tá
