@@ -121,3 +121,60 @@ cartão:
 Também vale a pena acompanhar o painel **Monitoramento** em `SUA-URL/admin.html`
 — ele avisa na tela se o TURN ainda está no modo compartilhado, se a memória
 do processo está passando do limite do plano gratuito do Render, etc.
+
+## NEXTGAME PLUS — assinatura via PayPal
+
+Sem essas variáveis, o site funciona 100% no plano FREE — o botão de assinar
+só mostra "ainda não está disponível".
+
+1. Crie/entre numa conta em **developer.paypal.com** (pode ser a mesma conta
+   PayPal normal — é só ativar o modo desenvolvedor).
+2. Em **Apps & Credentials**, crie um app (ou use o "Default Application") e
+   copie o **Client ID** e o **Secret**. Comece no ambiente **Sandbox** pra
+   testar sem cobrar ninguém de verdade; troque pra **Live** só quando tiver
+   certeza que está tudo funcionando.
+3. Em **Billing Plans** (dentro do mesmo app, ou via PayPal Business), crie
+   um **Product** (ex: "NEXTGAME PLUS") e um **Plan** de assinatura mensal
+   recorrente com o preço que você quiser cobrar. Copie o **Plan ID**
+   (formato `P-XXXXXXXXXXXXXXX`).
+4. Em **Webhooks**, cadastre a URL `https://SUA-URL/api/paypal/webhook` e
+   marque pelo menos os eventos `BILLING.SUBSCRIPTION.ACTIVATED`,
+   `BILLING.SUBSCRIPTION.CANCELLED`, `BILLING.SUBSCRIPTION.EXPIRED` e
+   `BILLING.SUBSCRIPTION.SUSPENDED`. Copie o **Webhook ID** gerado.
+5. No Render, adicione as variáveis de ambiente:
+   - `PAYPAL_CLIENT_ID`
+   - `PAYPAL_CLIENT_SECRET`
+   - `PAYPAL_PLAN_ID`
+   - `PAYPAL_WEBHOOK_ID`
+   - `PAYPAL_MODE` → `sandbox` (testes) ou `live` (cobrança real)
+6. Salve — o botão "Assinar" (menu do rodapé → NEXTGAME PLUS) passa a
+   funcionar automaticamente.
+
+Pra dar/tirar o Plus manualmente (cortesia, suporte, teste), qualquer admin
+pode chamar `POST /api/admin/users/:id/plan` com `{"plan": "plus"}` ou
+`{"plan": "free"}` no corpo.
+
+## NEXTGAME PLUS — arquivos grandes via Cloudflare R2
+
+Sem essas variáveis, os anexos de mensagem ficam com um limite pequeno
+(5MB no FREE, 25MB no Plus) guardados direto no banco de dados. Com R2
+configurado, o limite sobe pro valor de verdade do plano (500MB no FREE,
+5GB no Plus) e os arquivos vão direto pro storage, sem passar pelo servidor.
+
+1. Crie uma conta grátis em **dash.cloudflare.com** (não precisa cartão pro
+   plano grátis de R2 — 10GB de armazenamento/mês, sem taxa de saída).
+2. No menu **R2 Object Storage**, crie um bucket (ex: `nextgame-files`).
+3. Nas configurações do bucket, ative o **acesso público** (R2.dev domain,
+   ou conecte um domínio/subdomínio seu) e copie essa URL pública.
+4. Em **Manage API Tokens**, crie um token de API com permissão de leitura e
+   escrita nesse bucket. Copie o **Access Key ID** e o **Secret Access Key**
+   (o secret só aparece uma vez).
+5. O **Account ID** aparece no canto direito do dashboard da Cloudflare.
+6. No Render, adicione as variáveis de ambiente:
+   - `R2_ACCOUNT_ID`
+   - `R2_ACCESS_KEY_ID`
+   - `R2_SECRET_ACCESS_KEY`
+   - `R2_BUCKET_NAME`
+   - `R2_PUBLIC_URL` (a URL pública do passo 3, sem barra no final)
+7. Salve — os limites de arquivo do plano passam a valer de verdade
+   automaticamente, sem precisar mexer em nenhum código.

@@ -392,12 +392,16 @@ async function loadUsers() {
       <td>${escapeHtml(u.username)}</td>
       <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
       <td>${u.is_admin ? 'Sim' : 'Não'}</td>
+      <td>${u.plan === 'plus' ? '✨ PLUS' : 'Free'}</td>
       <td>${u.is_banned ? 'Banido' : 'Ativo'}</td>
       <td>
         ${u.is_banned
           ? `<button class="action" data-action="unban" data-id="${u.id}">Desbanir</button>`
           : `<button class="action danger" data-action="ban" data-id="${u.id}">Banir</button>`}
         <button class="action" data-action="timeout" data-id="${u.id}">Timeout 10min</button>
+        ${u.plan === 'plus'
+          ? `<button class="action" data-action="revoke-plan" data-id="${u.id}">Remover Plus</button>`
+          : `<button class="action" data-action="grant-plan" data-id="${u.id}">Conceder Plus</button>`}
       </td>
     `;
     tbody.appendChild(tr);
@@ -412,6 +416,22 @@ async function loadUsers() {
   tbody.querySelectorAll('button[data-action="timeout"]').forEach((btn) =>
     btn.addEventListener('click', () => timeoutUser(btn.dataset.id))
   );
+  tbody.querySelectorAll('button[data-action="grant-plan"]').forEach((btn) =>
+    btn.addEventListener('click', () => setUserPlanAdmin(btn.dataset.id, 'plus'))
+  );
+  tbody.querySelectorAll('button[data-action="revoke-plan"]').forEach((btn) =>
+    btn.addEventListener('click', () => setUserPlanAdmin(btn.dataset.id, 'free'))
+  );
+}
+
+async function setUserPlanAdmin(id, plan) {
+  await fetch(`/api/admin/users/${id}/plan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ plan }),
+  });
+  loadUsers();
 }
 
 async function banUser(id) {

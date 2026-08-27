@@ -464,6 +464,9 @@ function startApp() {
   refreshMessagesBadge();
   loadIceServers();
   maybeShowMinorSafetyBanner();
+  loadUploadLimits();
+  enforceScreenQualityForPlan();
+  updatePlusBadgeUI();
 
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
@@ -3602,6 +3605,101 @@ document.getElementById('minor-banner-close').onclick = () => {
   document.getElementById('minor-safety-banner').classList.add('hidden');
 };
 
+// ---------- NEXTGAME PLUS (assinatura via PayPal) ----------
+
+function updatePlusBadgeUI() {
+  const isPlus = isPlusUser();
+  document.getElementById('navbar-plus-badge').classList.toggle('hidden', !isPlus);
+  const menuLabel = document.getElementById('plus-menu-label');
+  if (menuLabel) menuLabel.textContent = isPlus ? 'NEXTGAME PLUS (ativo)' : 'NEXTGAME PLUS';
+}
+
+let paypalSdkLoadedFor = null; // guarda o client-id já carregado, pra não injetar o script 2x
+
+function loadPayPalSdk(clientId) {
+  return new Promise((resolve, reject) => {
+    if (paypalSdkLoadedFor === clientId && window.paypal) return resolve();
+    const existing = document.getElementById('paypal-sdk-script');
+    if (existing) existing.remove();
+    const script = document.createElement('script');
+    script.id = 'paypal-sdk-script';
+    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&vault=true&intent=subscription`;
+    script.onload = () => {
+      paypalSdkLoadedFor = clientId;
+      resolve();
+    };
+    script.onerror = () => reject(new Error('Erro ao carregar o PayPal.'));
+    document.head.appendChild(script);
+  });
+}
+
+async function openPlusUpgradeModal() {
+  document.getElementById('modal-plus-upgrade').classList.remove('hidden');
+  const alreadyEl = document.getElementById('plus-already-active');
+  const notConfiguredEl = document.getElementById('plus-not-configured');
+  const buttonContainer = document.getElementById('paypal-button-container');
+  const errorEl = document.getElementById('plus-error');
+  errorEl.textContent = '';
+  buttonContainer.innerHTML = '';
+  alreadyEl.classList.add('hidden');
+  notConfiguredEl.classList.add('hidden');
+
+  if (isPlusUser()) {
+    alreadyEl.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/paypal/config', { credentials: 'include' });
+    const config = await res.json();
+    if (!config.configured) {
+      notConfiguredEl.classList.remove('hidden');
+      return;
+    }
+    await loadPayPalSdk(config.clientId);
+    window.paypal
+      .Buttons({
+        style: { shape: 'pill', color: 'gold', layout: 'vertical', label: 'subscribe' },
+        createSubscription: (data, actions) => actions.subscription.create({ plan_id: config.planId }),
+        onApprove: async (data) => {
+          errorEl.textContent = 'Confirmando assinatura...';
+          try {
+            const confirmRes = await fetch('/api/paypal/confirm-subscription', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ subscriptionId: data.subscriptionID }),
+            });
+            const result = await confirmRes.json();
+            if (!confirmRes.ok) throw new Error(result.error || 'Erro ao confirmar assinatura.');
+            me.plan = 'plus';
+            updatePlusBadgeUI();
+            errorEl.textContent = '';
+            alreadyEl.classList.remove('hidden');
+            buttonContainer.innerHTML = '';
+            loadUploadLimits();
+            showCopyToast('🎉 Bem-vindo ao NEXTGAME PLUS!');
+          } catch (err) {
+            errorEl.textContent = err.message || 'Erro ao confirmar assinatura.';
+          }
+        },
+        onError: () => {
+          errorEl.textContent = 'Erro ao processar pagamento pelo PayPal.';
+        },
+      })
+      .render('#paypal-button-container');
+  } catch (err) {
+    errorEl.textContent = err.message || 'Erro ao carregar o PayPal.';
+  }
+}
+
+document.getElementById('nav-plus-upgrade').onclick = () => {
+  document.getElementById('footer-more-menu').classList.add('hidden');
+  openPlusUpgradeModal();
+};
+document.getElementById('btn-close-plus-upgrade').onclick = () =>
+  document.getElementById('modal-plus-upgrade').classList.add('hidden');
+
 // ---------- BUSCA DE MENSAGENS ----------
 
 // Extrai o id da OUTRA pessoa a partir do id de canal de DM
@@ -5261,13 +5359,16 @@ function renderMessageContentHtml(msg) {
 // tipo vira um cartão de download. O arquivo em si é um data URL (base64)
 // que já veio junto com a mensagem, não precisa de nenhuma outra requisição.
 function renderAttachmentHtml(attachment) {
-  if (!attachment || !attachment.data) return '';
+  // .url = arquivo grande no R2 (NEXTGAME PLUS ou FREE dentro do limite
+  // maior); .data = base64 pequeno direto na mensagem (caminho antigo, sem R2).
+  const src = attachment && (attachment.url || attachment.data);
+  if (!src) return '';
   const safeName = escapeHtml(attachment.name || 'arquivo');
   if ((attachment.type || '').startsWith('image/')) {
-    return `<img class="message-attachment-image" src="${attachment.data}" alt="${safeName}" loading="lazy" />`;
+    return `<img class="message-attachment-image" src="${src}" alt="${safeName}" loading="lazy" />`;
   }
   return `
-    <a class="message-attachment-card" href="${attachment.data}" download="${safeName}">
+    <a class="message-attachment-card" href="${src}" download="${safeName}" target="_blank" rel="noopener">
       <span class="ng-icon-wrap" data-icon="upload"></span>
       <div style="min-width:0;">
         <div class="attachment-name">${safeName}</div>
@@ -5513,35 +5614,108 @@ document.getElementById('btn-cancel-reply').onclick = () => setReplyingTo(null);
 
 // Anexo de arquivo — igual Discord: escolhe o arquivo, aparece uma prévia
 // acima da caixa de digitar, e vai junto quando manda a mensagem (mesmo sem
-// nenhum texto). Fica só na memória até enviar, nunca sobe sozinho.
-const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+// nenhum texto). NEXTGAME PLUS: arquivo grande sobe direto pro storage
+// (Cloudflare R2) com barra de progresso; sem R2 configurado no servidor,
+// cai num limite pequeno guardado direto no banco (comportamento antigo).
+let uploadLimits = { configured: false, limitBytes: 5 * 1024 * 1024, plan: 'free' };
+async function loadUploadLimits() {
+  try {
+    const res = await fetch('/api/uploads/limits', { credentials: 'include' });
+    if (res.ok) uploadLimits = await res.json();
+  } catch (_) {}
+}
+
 let pendingAttachment = null;
 
 function formatFileSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+}
+
+// Sobe (ou codifica em base64, se não tiver R2) um arquivo e devolve o
+// objeto de anexo pronto pra mandar no chat:message. onProgress recebe um
+// número de 0 a 100. Reaproveitado pelo chat principal e pelo chat da sala
+// de voz — os dois têm a mesma lógica, só muda onde o resultado é guardado.
+async function uploadAttachmentFile(file, onProgress) {
+  if (file.size > uploadLimits.limitBytes) {
+    throw new Error(`Arquivo muito grande — o limite do seu plano é ${formatFileSize(uploadLimits.limitBytes)}.`);
+  }
+  if (!uploadLimits.configured) {
+    // Sem R2: volta pro caminho antigo (base64 direto no banco, arquivo
+    // pequeno). Não dá progresso de verdade, mas é rápido o bastante pra
+    // não fazer falta num arquivo desse tamanho.
+    const data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Erro ao ler o arquivo.'));
+      reader.readAsDataURL(file);
+    });
+    if (onProgress) onProgress(100);
+    return { name: file.name, type: file.type || 'application/octet-stream', size: file.size, data };
+  }
+
+  // Com R2: pede uma URL de upload assinada e manda o arquivo direto pro
+  // storage (não passa pelo nosso servidor) — usa XMLHttpRequest em vez de
+  // fetch porque só o XHR tem evento de progresso de upload.
+  const presignRes = await fetch('/api/uploads/presign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ filename: file.name, contentType: file.type || 'application/octet-stream', size: file.size }),
+  });
+  const presign = await presignRes.json();
+  if (!presignRes.ok) throw new Error(presign.error || 'Erro ao preparar upload.');
+  if (!presign.configured) {
+    // Servidor perdeu a config no meio do caminho (raro) — cai pro base64.
+    const data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Erro ao ler o arquivo.'));
+      reader.readAsDataURL(file);
+    });
+    if (onProgress) onProgress(100);
+    return { name: file.name, type: file.type || 'application/octet-stream', size: file.size, data };
+  }
+
+  await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', presign.uploadUrl);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    xhr.upload.onprogress = (e) => {
+      if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('Erro ao subir o arquivo (' + xhr.status + ').')));
+    xhr.onerror = () => reject(new Error('Erro de rede ao subir o arquivo.'));
+    xhr.send(file);
+  });
+
+  return { name: file.name, type: file.type || 'application/octet-stream', size: file.size, url: presign.publicUrl };
 }
 
 document.getElementById('btn-attach-file').onclick = () => {
   document.getElementById('message-attachment-input').click();
 };
 
-document.getElementById('message-attachment-input').onchange = (e) => {
+document.getElementById('message-attachment-input').onchange = async (e) => {
   const file = e.target.files[0];
   e.target.value = '';
   if (!file) return;
-  if (file.size > MAX_ATTACHMENT_BYTES) {
-    alert('Arquivo muito grande — o limite é 5MB.');
-    return;
+  const previewEl = document.getElementById('attachment-preview');
+  const nameEl = document.getElementById('attachment-preview-name');
+  previewEl.classList.remove('hidden');
+  nameEl.textContent = `Enviando ${file.name}... 0%`;
+  try {
+    pendingAttachment = await uploadAttachmentFile(file, (pct) => {
+      nameEl.textContent = `Enviando ${file.name}... ${pct}%`;
+    });
+    nameEl.textContent = `${file.name} (${formatFileSize(file.size)})`;
+  } catch (err) {
+    alert(err.message || 'Erro ao anexar arquivo.');
+    pendingAttachment = null;
+    previewEl.classList.add('hidden');
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    pendingAttachment = { name: file.name, type: file.type || 'application/octet-stream', size: file.size, data: reader.result };
-    document.getElementById('attachment-preview-name').textContent = `${file.name} (${formatFileSize(file.size)})`;
-    document.getElementById('attachment-preview').classList.remove('hidden');
-  };
-  reader.readAsDataURL(file);
 };
 
 document.getElementById('btn-remove-attachment').onclick = () => {
@@ -6174,21 +6348,24 @@ document.getElementById('btn-attach-file-voice').onclick = () => {
   document.getElementById('voice-message-attachment-input').click();
 };
 
-document.getElementById('voice-message-attachment-input').onchange = (e) => {
+document.getElementById('voice-message-attachment-input').onchange = async (e) => {
   const file = e.target.files[0];
   e.target.value = '';
   if (!file) return;
-  if (file.size > MAX_ATTACHMENT_BYTES) {
-    alert('Arquivo muito grande — o limite é 5MB.');
-    return;
+  const previewEl = document.getElementById('voice-attachment-preview');
+  const nameEl = document.getElementById('voice-attachment-preview-name');
+  previewEl.classList.remove('hidden');
+  nameEl.textContent = `Enviando ${file.name}... 0%`;
+  try {
+    pendingVoiceAttachment = await uploadAttachmentFile(file, (pct) => {
+      nameEl.textContent = `Enviando ${file.name}... ${pct}%`;
+    });
+    nameEl.textContent = `${file.name} (${formatFileSize(file.size)})`;
+  } catch (err) {
+    alert(err.message || 'Erro ao anexar arquivo.');
+    pendingVoiceAttachment = null;
+    previewEl.classList.add('hidden');
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    pendingVoiceAttachment = { name: file.name, type: file.type || 'application/octet-stream', size: file.size, data: reader.result };
-    document.getElementById('voice-attachment-preview-name').textContent = `${file.name} (${formatFileSize(file.size)})`;
-    document.getElementById('voice-attachment-preview').classList.remove('hidden');
-  };
-  reader.readAsDataURL(file);
 };
 
 document.getElementById('btn-remove-voice-attachment').onclick = () => {
@@ -6980,12 +7157,44 @@ const SCREEN_QUALITY_PRESETS = {
   '720p30': { width: 1280, height: 720, frameRate: 30 },
   '1080p30': { width: 1920, height: 1080, frameRate: 30 },
   '1080p60': { width: 1920, height: 1080, frameRate: 60 },
+  '1440p60': { width: 2560, height: 1440, frameRate: 60 },
+  '2160p60': { width: 3840, height: 2160, frameRate: 60 },
 };
 
+// NEXTGAME PLUS: qualquer coisa acima de 720p/30 é exclusiva do Plus (regra
+// do plano de atualização). Se a conta era Plus e perdeu o plano (ou nunca
+// foi), a preferência salva não pode continuar valendo escondida.
+function isPlusUser() {
+  return !!(me && me.plan === 'plus');
+}
+
 document.getElementById('screen-quality-select').onchange = (e) => {
+  const option = e.target.selectedOptions[0];
+  if (option.dataset.plus && !isPlusUser()) {
+    e.target.value = screenShareQuality; // desfaz a seleção
+    document.getElementById('screen-quality-upsell').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('screen-quality-upsell').classList.add('hidden');
   screenShareQuality = e.target.value;
   localStorage.setItem('ng_screen_quality', screenShareQuality);
 };
+
+document.getElementById('link-open-plus-from-quality').onclick = (e) => {
+  e.preventDefault();
+  openPlusUpgradeModal();
+};
+
+// Chamado no carregamento (startApp) — garante que ninguém sem Plus fica
+// preso numa qualidade alta que só conseguiu escolher enquanto era Plus.
+function enforceScreenQualityForPlan() {
+  if (!isPlusUser() && SCREEN_QUALITY_PRESETS[screenShareQuality] && screenShareQuality !== '720p30') {
+    screenShareQuality = '720p30';
+    localStorage.setItem('ng_screen_quality', screenShareQuality);
+  }
+  const select = document.getElementById('screen-quality-select');
+  if (select) select.value = screenShareQuality;
+}
 
 document.getElementById('btn-share-screen').onclick = async () => {
   // Defensivo: se por algum motivo ainda tinha uma tela antiga presa (ex.:

@@ -15,10 +15,18 @@ const { AI_BOT_USER_ID, AI_BOT_USERNAME } = require('./db');
 const { scanText } = require('./moderation');
 const { authenticator } = require('otplib');
 const QRCode = require('qrcode');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer);
+// BUG CORRIGIDO: o socket.io por padrão só aceita mensagens de até 1MB
+// (maxHttpBufferSize) — qualquer anexo em base64 acima disso (bem fácil de
+// bater, já que base64 infla o arquivo original em ~33%) desconectava o
+// socket em vez de simplesmente falhar aquele envio. 40MB dá margem
+// confortável pro maior anexo que ainda cai no caminho "sem R2 configurado"
+// (25MB de arquivo real ~= 34MB em base64).
+const io = new Server(httpServer, { maxHttpBufferSize: 40 * 1024 * 1024 });
 
 const PORT = process.env.PORT || 3000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
@@ -844,6 +852,9 @@ app.get(
       // ECA Digital (Lei 15.211/25) — usado só pro frontend mostrar um aviso
       // de segurança pra própria pessoa; nunca é exposto a outros usuários.
       is_minor: isMinorAccount(req.user.birth_date),
+      // NEXTGAME PLUS — 'free' ou 'plus'. Controla limite de anexo e
+      // qualidade de transmissão liberada no frontend.
+      plan: req.user.plan || 'free',
     });
   })
 );
@@ -894,6 +905,308 @@ app.get(
       });
     }
     res.json({ iceServers: servers, usingSharedRelay: !turnUrl });
+  })
+);
+
+// ---------- NEXTGAME PLUS (assinatura via PayPal) ----------
+// Igual o TURN acima: nada disso funciona sem você criar sua própria conta
+// (PayPal Business/Developer) e colocar as chaves nas variáveis de ambiente
+// do Render. Enquanto as variáveis não existem, os endpoints abaixo
+// respondem "não configurado" em vez de quebrar — o site continua
+// funcionando 100% no plano FREE. Variáveis necessárias:
+//   PAYPAL_CLIENT_ID       — em developer.paypal.com > Apps & Credentials
+//   PAYPAL_CLIENT_SECRET   — mesma tela, "Secret"
+//   PAYPAL_PLAN_ID         — criado em PayPal > Billing Plans (assinatura
+//                            recorrente mensal), formato "P-XXXXXXXXXXXXX"
+//   PAYPAL_WEBHOOK_ID      — em Developer Dashboard > Webhooks, ao cadastrar
+//                            a URL https://SEU-SITE/api/paypal/webhook
+//   PAYPAL_MODE            — "sandbox" (testes) ou "live" (cobrança real)
+// Ver DEPLOY.md pra passo a passo completo.
+
+function isPayPalConfigured() {
+  return !!(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET && process.env.PAYPAL_PLAN_ID);
+}
+
+function paypalApiBase() {
+  return process.env.PAYPAL_MODE === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
+}
+
+// OAuth2 client-credentials — token de curta duração pra chamar a API do
+// PayPal (confirmar assinatura, verificar webhook). Não guarda cache do
+// token porque essas chamadas são raras (só quando alguém assina/cancela),
+// não justifica a complexidade de cachear com expiração.
+async function getPayPalAccessToken() {
+  const auth = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString('base64');
+  const res = await fetch(`${paypalApiBase()}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=client_credentials',
+  });
+  if (!res.ok) throw new Error('Falha ao autenticar com o PayPal: ' + res.status);
+  const data = await res.json();
+  return data.access_token;
+}
+
+// Concede/revoga o plano Plus numa conta — reaproveitado tanto pelo fluxo
+// de assinatura de verdade (webhook/confirm) quanto pela concessão manual
+// de admin (suporte, cortesia, teste antes do PayPal estar configurado).
+async function setUserPlan(userId, plan) {
+  await db.run('UPDATE users SET plan = ? WHERE id = ?', [plan, userId]);
+}
+
+app.get(
+  '/api/paypal/config',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json({
+      configured: isPayPalConfigured(),
+      clientId: isPayPalConfigured() ? process.env.PAYPAL_CLIENT_ID : null,
+      planId: isPayPalConfigured() ? process.env.PAYPAL_PLAN_ID : null,
+    });
+  })
+);
+
+// Chamado pelo frontend depois que a pessoa aprova a assinatura no popup do
+// PayPal (evento onApprove do botão). Em vez de confiar cegamente no que o
+// navegador manda, confirma direto com a API do PayPal que aquela
+// assinatura existe, pertence a essa conta (checagem por e-mail, já que o
+// PayPal não sabe nada do nosso userId) e está ativa — só então libera o Plus.
+app.post(
+  '/api/paypal/confirm-subscription',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!isPayPalConfigured()) return res.status(503).json({ error: 'PayPal não configurado no servidor.' });
+    const { subscriptionId } = req.body || {};
+    if (!subscriptionId || typeof subscriptionId !== 'string') {
+      return res.status(400).json({ error: 'subscriptionId é obrigatório' });
+    }
+    try {
+      const token = await getPayPalAccessToken();
+      const subRes = await fetch(`${paypalApiBase()}/v1/billing/subscriptions/${subscriptionId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!subRes.ok) return res.status(400).json({ error: 'Assinatura não encontrada no PayPal.' });
+      const sub = await subRes.json();
+      if (sub.status !== 'ACTIVE' && sub.status !== 'APPROVED') {
+        return res.status(400).json({ error: `Assinatura ainda não está ativa (status: ${sub.status}).` });
+      }
+      const existing = await db.get('SELECT id FROM subscriptions WHERE paypal_subscription_id = ?', [subscriptionId]);
+      if (existing) {
+        await db.run(
+          "UPDATE subscriptions SET status = 'active', updated_at = datetime('now') WHERE paypal_subscription_id = ?",
+          [subscriptionId]
+        );
+      } else {
+        await db.run(
+          "INSERT INTO subscriptions (id, user_id, paypal_subscription_id, status) VALUES (?, ?, ?, 'active')",
+          [uuidv4(), req.user.id, subscriptionId]
+        );
+      }
+      await setUserPlan(req.user.id, 'plus');
+      res.json({ ok: true, plan: 'plus' });
+    } catch (err) {
+      console.error('Erro ao confirmar assinatura PayPal:', err.message);
+      res.status(500).json({ error: 'Erro ao confirmar assinatura.' });
+    }
+  })
+);
+
+// Webhook do PayPal — a fonte de verdade contínua (cobrança falhou,
+// assinatura foi cancelada no próprio PayPal, etc). Verifica a assinatura
+// do evento antes de confiar nele, senão qualquer um poderia forjar um POST
+// pra esse endpoint e se dar Plus de graça.
+app.post(
+  '/api/paypal/webhook',
+  asyncHandler(async (req, res) => {
+    if (!isPayPalConfigured() || !process.env.PAYPAL_WEBHOOK_ID) {
+      return res.status(503).json({ error: 'Webhook do PayPal não configurado.' });
+    }
+    try {
+      const token = await getPayPalAccessToken();
+      const verifyRes = await fetch(`${paypalApiBase()}/v1/notifications/verify-webhook-signature`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          auth_algo: req.headers['paypal-auth-algo'],
+          cert_url: req.headers['paypal-cert-url'],
+          transmission_id: req.headers['paypal-transmission-id'],
+          transmission_sig: req.headers['paypal-transmission-sig'],
+          transmission_time: req.headers['paypal-transmission-time'],
+          webhook_id: process.env.PAYPAL_WEBHOOK_ID,
+          webhook_event: req.body,
+        }),
+      });
+      const verifyData = await verifyRes.json();
+      if (verifyData.verification_status !== 'SUCCESS') {
+        console.error('Webhook PayPal com assinatura inválida — ignorado.');
+        return res.status(400).json({ error: 'Assinatura do webhook inválida.' });
+      }
+
+      const event = req.body;
+      const resource = event.resource || {};
+      const subscriptionId = resource.id;
+      if (!subscriptionId) return res.json({ ok: true });
+
+      const subRow = await db.get('SELECT user_id FROM subscriptions WHERE paypal_subscription_id = ?', [subscriptionId]);
+
+      if (event.event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
+        if (subRow) {
+          await db.run(
+            "UPDATE subscriptions SET status = 'active', updated_at = datetime('now') WHERE paypal_subscription_id = ?",
+            [subscriptionId]
+          );
+          await setUserPlan(subRow.user_id, 'plus');
+        }
+      } else if (
+        event.event_type === 'BILLING.SUBSCRIPTION.CANCELLED' ||
+        event.event_type === 'BILLING.SUBSCRIPTION.EXPIRED' ||
+        event.event_type === 'BILLING.SUBSCRIPTION.SUSPENDED'
+      ) {
+        if (subRow) {
+          await db.run(
+            "UPDATE subscriptions SET status = 'cancelled', updated_at = datetime('now') WHERE paypal_subscription_id = ?",
+            [subscriptionId]
+          );
+          await setUserPlan(subRow.user_id, 'free');
+        }
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('Erro ao processar webhook do PayPal:', err.message);
+      res.status(500).json({ error: 'Erro ao processar webhook.' });
+    }
+  })
+);
+
+// Concessão manual de Plus por um admin — cortesia, suporte, ou pra testar
+// os recursos Plus antes do PayPal estar configurado de verdade.
+app.post(
+  '/api/admin/users/:id/plan',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { plan } = req.body || {};
+    if (!['free', 'plus'].includes(plan)) return res.status(400).json({ error: 'Plano inválido (use "free" ou "plus")' });
+    await setUserPlan(req.params.id, plan);
+    res.json({ ok: true, plan });
+  })
+);
+
+// ---------- NEXTGAME PLUS (arquivos grandes via Cloudflare R2) ----------
+// Igual PayPal/TURN: precisa da SUA conta gratuita de R2 (dashboard.cloudflare.com
+// > R2) e das variáveis abaixo. Sem elas, o site continua funcionando — os
+// anexos só ficam com um limite pequeno (guardados direto no banco, como já
+// funcionava antes), em vez do limite grande do plano. Variáveis necessárias:
+//   R2_ACCOUNT_ID          — no dashboard da Cloudflare, é o ID da conta
+//   R2_ACCESS_KEY_ID       — R2 > Manage API tokens > Create API token
+//   R2_SECRET_ACCESS_KEY   — gerado junto com o Access Key ID (só aparece uma vez)
+//   R2_BUCKET_NAME         — o nome do bucket que você criar (ex: nextgame-files)
+//   R2_PUBLIC_URL          — URL pública do bucket (R2.dev ou domínio customizado
+//                            que você conectar), sem barra no final
+// Ver DEPLOY.md pra passo a passo completo.
+
+function isR2Configured() {
+  return !!(
+    process.env.R2_ACCOUNT_ID &&
+    process.env.R2_ACCESS_KEY_ID &&
+    process.env.R2_SECRET_ACCESS_KEY &&
+    process.env.R2_BUCKET_NAME &&
+    process.env.R2_PUBLIC_URL
+  );
+}
+
+let _r2Client = null;
+function getR2Client() {
+  if (_r2Client) return _r2Client;
+  _r2Client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+  });
+  return _r2Client;
+}
+
+// Limites por plano — só valem de verdade com R2 configurado (armazenamento
+// externo de verdade). Sem R2, cai num limite bem menor porque o arquivo
+// teria que passar pelo banco de dados (Turso), que não aguenta esse volume.
+const FILE_SIZE_LIMITS_R2 = {
+  free: 500 * 1024 * 1024, // 500MB
+  plus: 5 * 1024 * 1024 * 1024, // 5GB
+};
+const FILE_SIZE_LIMITS_NO_R2 = {
+  free: 5 * 1024 * 1024, // 5MB
+  plus: 25 * 1024 * 1024, // 25MB
+};
+function fileSizeLimitFor(plan) {
+  const table = isR2Configured() ? FILE_SIZE_LIMITS_R2 : FILE_SIZE_LIMITS_NO_R2;
+  return table[plan === 'plus' ? 'plus' : 'free'];
+}
+
+// Extensões perigosas nunca são aceitas, mesmo com plano Plus — "outros
+// formatos seguros" do plano de atualização exclui explicitamente qualquer
+// coisa executável.
+const BLOCKED_ATTACHMENT_EXTENSIONS = [
+  '.exe', '.msi', '.bat', '.cmd', '.sh', '.bash', '.ps1', '.apk', '.app',
+  '.dmg', '.jar', '.js', '.vbs', '.scr', '.com', '.pif', '.deb', '.rpm',
+];
+
+app.get(
+  '/api/uploads/limits',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json({
+      configured: isR2Configured(),
+      limitBytes: fileSizeLimitFor(req.user.plan),
+      plan: req.user.plan || 'free',
+      freeLimitBytes: fileSizeLimitFor('free'),
+      plusLimitBytes: isR2Configured() ? FILE_SIZE_LIMITS_R2.plus : FILE_SIZE_LIMITS_NO_R2.plus,
+    });
+  })
+);
+
+// Gera uma URL assinada de upload direto pro R2 — o arquivo vai do navegador
+// da pessoa direto pro storage, sem passar pelo nosso servidor (evita
+// estourar memória/tempo de requisição em arquivo grande). Só depois que o
+// upload termina que a mensagem de chat é enviada, referenciando essa URL.
+app.post(
+  '/api/uploads/presign',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!isR2Configured()) return res.json({ configured: false });
+    const { filename, contentType, size } = req.body || {};
+    if (!filename || typeof filename !== 'string' || !Number.isFinite(size) || size <= 0) {
+      return res.status(400).json({ error: 'Dados de arquivo inválidos.' });
+    }
+    const ext = (filename.match(/\.[a-zA-Z0-9]+$/) || [''])[0].toLowerCase();
+    if (BLOCKED_ATTACHMENT_EXTENSIONS.includes(ext)) {
+      return res.status(400).json({ error: 'Esse tipo de arquivo não é permitido.' });
+    }
+    const limit = fileSizeLimitFor(req.user.plan);
+    if (size > limit) {
+      const limitMb = Math.round(limit / (1024 * 1024));
+      return res.status(413).json({
+        error: `Arquivo maior que o limite do seu plano (${limitMb >= 1024 ? (limitMb / 1024).toFixed(1) + 'GB' : limitMb + 'MB'}).`,
+        limitBytes: limit,
+      });
+    }
+    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120);
+    const key = `attachments/${req.user.id}/${uuidv4()}-${safeName}`;
+    try {
+      const command = new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: key,
+        ContentType: contentType || 'application/octet-stream',
+      });
+      const uploadUrl = await getSignedUrl(getR2Client(), command, { expiresIn: 600 });
+      const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
+      res.json({ configured: true, uploadUrl, publicUrl, key });
+    } catch (err) {
+      console.error('Erro ao gerar URL de upload R2:', err.message);
+      res.status(500).json({ error: 'Erro ao preparar upload.' });
+    }
   })
 );
 
@@ -5342,7 +5655,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, is_admin, is_banned, timeout_until, coins, reputation, created_at FROM users ORDER BY created_at DESC'
+        'SELECT id, username, is_admin, is_banned, timeout_until, coins, reputation, plan, created_at FROM users ORDER BY created_at DESC'
       )
     );
   })
@@ -5772,28 +6085,39 @@ io.on('connection', (socket) => {
       // ter texto OU anexo (não pode vir totalmente vazia).
       let attachmentToStore = null;
       if (attachment && typeof attachment === 'object') {
-        const { name, type, size, data } = attachment;
-        const validShape =
-          typeof name === 'string' &&
-          name.length > 0 &&
-          name.length <= 200 &&
-          typeof type === 'string' &&
-          typeof data === 'string' &&
-          data.startsWith('data:') &&
-          Number.isFinite(size);
-        // 5MB de limite no ARQUIVO REAL — como base64 infla ~33%, o texto
-        // do data URL pode chegar a uns 7MB; checa o tamanho de verdade
-        // (data.length), não só o "size" que o cliente mandou (que pode
-        // mentir).
-        if (validShape && data.length <= 7 * 1024 * 1024) {
-          attachmentToStore = {
-            name: name.slice(0, 200),
-            type: type.slice(0, 100),
-            size,
-            data,
-          };
+        const { name, type, size, data, url } = attachment;
+        const nameOk = typeof name === 'string' && name.length > 0 && name.length <= 200;
+        const limit = fileSizeLimitFor(user.plan);
+        if (url) {
+          // Anexo já subiu direto pro R2 (via /api/uploads/presign) — só
+          // confia se a URL for realmente do nosso bucket e da pasta desse
+          // usuário (evita alguém colar uma URL qualquer de fora e fingir
+          // que é um anexo). O tamanho já foi checado contra o plano no
+          // momento do presign; aqui só revalida a forma.
+          const expectedPrefix = isR2Configured() ? `${process.env.R2_PUBLIC_URL}/attachments/${user.id}/` : null;
+          const validShape = nameOk && typeof url === 'string' && expectedPrefix && url.startsWith(expectedPrefix) && Number.isFinite(size);
+          if (!validShape) {
+            socket.emit('chat:blocked', { reason: 'Anexo inválido.', categories: [] });
+            return;
+          }
+          attachmentToStore = { name: name.slice(0, 200), type: (type || '').slice(0, 100), size, url };
+        } else if (data) {
+          // Anexo pequeno direto no banco (sem R2 configurado, ou arquivo
+          // pequeno o bastante que nem precisa do storage externo).
+          const validShape =
+            nameOk && typeof type === 'string' && typeof data === 'string' && data.startsWith('data:') && Number.isFinite(size);
+          // Checa o tamanho de verdade (data.length, ~33% maior que o
+          // arquivo original por causa do base64), não só o "size" que o
+          // cliente mandou (que pode mentir).
+          if (validShape && data.length <= limit * 1.4) {
+            attachmentToStore = { name: name.slice(0, 200), type: type.slice(0, 100), size, data };
+          } else {
+            const limitMb = Math.round(limit / (1024 * 1024));
+            socket.emit('chat:blocked', { reason: `Anexo inválido ou maior que o limite (${limitMb}MB).`, categories: [] });
+            return;
+          }
         } else {
-          socket.emit('chat:blocked', { reason: 'Anexo inválido ou maior que 5MB.', categories: [] });
+          socket.emit('chat:blocked', { reason: 'Anexo inválido.', categories: [] });
           return;
         }
       }
@@ -5883,7 +6207,10 @@ io.on('connection', (socket) => {
       // humano quando sinalizada, NUNCA um substituto de moderação humana
       // ou de detecção de CSAM especializada (PhotoDNA/Thorn Safer).
       if (attachmentToStore && attachmentToStore.type.startsWith('image/')) {
-        const verdict = await moderateImageWithGroq(attachmentToStore.data, ATTACHMENT_MODERATION_PROMPT);
+        // A Groq aceita tanto data URL (base64) quanto uma URL http(s)
+        // normal em image_url.url — funciona igual pra anexo pequeno (banco)
+        // ou grande (R2), sem precisar baixar/reconverter nada aqui.
+        const verdict = await moderateImageWithGroq(attachmentToStore.data || attachmentToStore.url, ATTACHMENT_MODERATION_PROMPT);
         if (verdict.flagged) {
           const flagId = uuidv4();
           await db.run(

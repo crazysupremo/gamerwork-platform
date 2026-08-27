@@ -280,6 +280,22 @@ async function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- NEXTGAME PLUS — histórico de assinaturas via PayPal. Uma linha por
+    -- assinatura criada (não por cobrança individual); o status é atualizado
+    -- via webhook do PayPal conforme ela é aprovada/cancelada/expira. Guardar
+    -- isso separado de "users.plan" permite auditoria (quando começou, qual
+    -- assinatura do PayPal deu origem ao Plus de cada conta) sem precisar
+    -- confiar só no estado atual.
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      paypal_subscription_id TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);
+
     CREATE TABLE IF NOT EXISTS blocked_users (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -689,6 +705,13 @@ async function initDb() {
   // storage externo — simples, mas por isso o limite de tamanho é apertado
   // (5MB) pra não inchar o banco.
   await ensureColumn('messages', 'attachment TEXT');
+
+  // NEXTGAME PLUS — plano da conta ('free' ou 'plus'). Fonte da verdade pra
+  // qualquer checagem de limite/feature no site inteiro (transmissão em
+  // 1080p60, arquivos maiores etc). O histórico de "por quê" essa conta é
+  // Plus fica na tabela subscriptions; aqui é só o estado atual, rápido de
+  // checar em qualquer request sem join.
+  await ensureColumn('users', "plan TEXT NOT NULL DEFAULT 'free'");
 
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },

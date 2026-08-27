@@ -251,6 +251,7 @@
         <div id="navbar-avatar" class="member-avatar"></div>
         <div class="navbar-profile-text">
           <span id="navbar-username"></span>
+          <span id="navbar-plus-badge" class="plus-badge hidden">PLUS</span>
           <span id="navbar-level" class="navbar-level"></span>
         </div>
       </button>
@@ -260,6 +261,9 @@
       <!-- Menu que abre pra cima ao clicar no "..." — mantém o rodapé enxuto
            em vez de espremer vários ícones numa faixa só. -->
       <div id="footer-more-menu" class="footer-more-menu hidden">
+        <button type="button" id="nav-plus-upgrade">
+          <span class="ng-icon-wrap" data-icon="sparkles"></span> <span id="plus-menu-label">NEXTGAME PLUS</span>
+        </button>
         <button type="button" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos">
           <span class="ng-icon-wrap" data-icon="volume-2"></span> <span id="sfx-toggle-label">Sons e efeitos</span>
         </button>
@@ -699,10 +703,16 @@
 
     <label>Qualidade da tela compartilhada</label>
     <select id="screen-quality-select">
-      <option value="720p30" selected>720p · 30fps (recomendado — mais leve)</option>
-      <option value="1080p30">1080p · 30fps</option>
-      <option value="1080p60">1080p · 60fps</option>
+      <option value="720p30" selected>720p · 30fps</option>
+      <option value="1080p30" data-plus="1">1080p · 30fps 🔒 NEXTGAME PLUS</option>
+      <option value="1080p60" data-plus="1">1080p · 60fps 🔒 NEXTGAME PLUS</option>
+      <option value="1440p60" data-plus="1">1440p · 60fps 🔒 NEXTGAME PLUS</option>
+      <option value="2160p60" data-plus="1">4K · 60fps 🔒 NEXTGAME PLUS</option>
     </select>
+    <p id="screen-quality-upsell" class="hint hidden" style="margin-top:6px;">
+      Qualidade acima de 720p é exclusiva do <strong>NEXTGAME PLUS</strong>.
+      <a href="#" id="link-open-plus-from-quality">Assinar agora</a>
+    </p>
 
     <div class="mic-test-row">
       <button type="button" id="btn-test-mic"><span class="ng-icon-wrap" data-icon="mic"></span> Testar microfone</button>
@@ -1521,6 +1531,42 @@
     </p>
     <div class="modal-actions">
       <button type="button" id="btn-close-safety-info">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NEXTGAME PLUS (assinatura) -->
+<div id="modal-plus-upgrade" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width:480px;">
+    <h2><span class="ng-icon-wrap" data-icon="sparkles"></span> NEXTGAME PLUS</h2>
+    <p class="hint" style="margin-bottom:12px;">
+      O FREE continua completo — chat, voz, câmera, servidores e compartilhamento de tela sem travar nada.
+      O Plus libera qualidade, capacidade e personalização superiores:
+    </p>
+    <div class="safety-info-list" style="margin-bottom:14px;">
+      <div class="safety-info-item">
+        <span class="ng-icon-wrap" data-icon="monitor"></span>
+        <div><strong>Transmissão em 1080p/60, 1440p/60 e 4K/60</strong><span>Mesma interface e fluxo do FREE, só libera qualidade maior.</span></div>
+      </div>
+      <div class="safety-info-item">
+        <span class="ng-icon-wrap" data-icon="upload"></span>
+        <div><strong>Arquivos até 5GB</strong><span>Contra o limite do FREE — imagens, vídeos, PDFs, documentos e mais.</span></div>
+      </div>
+      <div class="safety-info-item">
+        <span class="ng-icon-wrap" data-icon="crown"></span>
+        <div><strong>Badge, banner e moldura exclusivos</strong><span>Personalização cosmética no perfil — sem vantagem competitiva.</span></div>
+      </div>
+    </div>
+    <div id="plus-already-active" class="hidden" style="text-align:center; padding:10px; color:#23a55a; font-weight:700;">
+      <span class="ng-icon-wrap" data-icon="check"></span> Você já é NEXTGAME PLUS.
+    </div>
+    <div id="plus-not-configured" class="hidden hint" style="text-align:center; padding:10px;">
+      Assinatura ainda não está disponível — o administrador precisa configurar o PayPal.
+    </div>
+    <div id="paypal-button-container"></div>
+    <p id="plus-error" class="auth-error"></p>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-plus-upgrade">Fechar</button>
     </div>
   </div>
 </div>
