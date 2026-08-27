@@ -315,6 +315,19 @@ async function loadMinors() {
     `;
     tbody.appendChild(tr);
   });
+
+  const mismatchTbody = document.querySelector('#age-mismatch-table tbody');
+  mismatchTbody.innerHTML = '';
+  (data.age_mismatches || []).forEach((u) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(u.username_tag || u.username)}</td>
+      <td>${u.declared_age} anos</td>
+      <td>~${u.estimated_age} anos</td>
+      <td>${escapeHtml(u.email || '-')}</td>
+    `;
+    mismatchTbody.appendChild(tr);
+  });
 }
 
 async function loadFlaggedFrames() {

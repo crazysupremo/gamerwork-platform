@@ -197,7 +197,7 @@ const WIZARD_PLATFORMS = [
   { value: 'xbox', label: '🎮 Xbox' },
 ];
 
-const wizardState = { favoriteGames: [], platforms: [], playStyle: null, avatar: undefined };
+const wizardState = { favoriteGames: [], platforms: [], playStyle: null, avatar: undefined, estimatedAge: null };
 
 function populateSelect(select, options) {
   select.innerHTML =
@@ -288,6 +288,8 @@ function resetWizard() {
   wizardState.platforms = [];
   wizardState.playStyle = null;
   wizardState.avatar = undefined;
+  wizardState.estimatedAge = null;
+  document.getElementById('age-camera-status').textContent = 'Carregando verificação...';
   document.querySelectorAll('.wizard-tag-chip.active, .wizard-choice-btn.active').forEach((el) => el.classList.remove('active'));
   document.getElementById('wiz-avatar-preview').innerHTML = '📷';
   ['wiz-fullname', 'wiz-username', 'wiz-email', 'wiz-password', 'wiz-password-confirm', 'wiz-rank', 'wiz-birthdate'].forEach((id) => {
@@ -335,9 +337,88 @@ document.getElementById('wiz-submit').onclick = async () => {
     play_style: wizardState.playStyle,
     avatar: wizardState.avatar,
     birth_date: document.getElementById('wiz-birthdate').value,
+    estimated_age: wizardState.estimatedAge,
   };
   await authRequest('/api/register', body);
 };
+
+// ---------- Verificação de idade por câmera (opcional, ECA Digital) ----------
+// Roda inteiramente no navegador via face-api.js — a imagem da câmera NUNCA
+// sai do dispositivo da pessoa, só o número de idade estimado (se ela topar
+// usar essa verificação) é que vai junto no cadastro.
+const FACE_API_CDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js';
+const FACE_API_MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
+let faceApiLoadPromise = null;
+let ageCameraStream = null;
+
+function loadFaceApi() {
+  if (faceApiLoadPromise) return faceApiLoadPromise;
+  faceApiLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = FACE_API_CDN;
+    script.onload = async () => {
+      try {
+        await window.faceapi.nets.tinyFaceDetector.loadFromUri(FACE_API_MODELS_URL);
+        await window.faceapi.nets.ageGenderNet.loadFromUri(FACE_API_MODELS_URL);
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    };
+    script.onerror = () => reject(new Error('Erro ao carregar a verificação por câmera.'));
+    document.head.appendChild(script);
+  });
+  return faceApiLoadPromise;
+}
+
+document.getElementById('btn-age-camera-check').onclick = async () => {
+  const wrap = document.getElementById('age-camera-wrap');
+  const statusEl = document.getElementById('age-camera-status');
+  const video = document.getElementById('age-camera-video');
+  wrap.classList.remove('hidden');
+  statusEl.textContent = 'Pedindo acesso à câmera...';
+  try {
+    ageCameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+    video.srcObject = ageCameraStream;
+    statusEl.textContent = 'Carregando verificação (só na primeira vez)...';
+    await loadFaceApi();
+    statusEl.textContent = 'Posicione seu rosto e clique em Capturar.';
+  } catch (err) {
+    statusEl.textContent = 'Não foi possível acessar a câmera ou carregar a verificação. Tudo bem, é opcional.';
+  }
+};
+
+document.getElementById('btn-age-camera-capture').onclick = async () => {
+  const statusEl = document.getElementById('age-camera-status');
+  const video = document.getElementById('age-camera-video');
+  statusEl.textContent = 'Analisando...';
+  try {
+    const result = await window.faceapi
+      .detectSingleFace(video, new window.faceapi.TinyFaceDetectorOptions())
+      .withAgeAndGender();
+    if (!result) {
+      statusEl.textContent = 'Não encontrei um rosto — tenta de novo com mais luz.';
+      return;
+    }
+    wizardState.estimatedAge = Math.round(result.age);
+    statusEl.textContent = `Prontinho! Idade estimada: ~${wizardState.estimatedAge} anos.`;
+    stopAgeCamera();
+  } catch (err) {
+    statusEl.textContent = 'Erro na verificação. Sem problema, é opcional — pode continuar sem ela.';
+  }
+};
+
+document.getElementById('btn-age-camera-cancel').onclick = () => {
+  stopAgeCamera();
+  document.getElementById('age-camera-wrap').classList.add('hidden');
+};
+
+function stopAgeCamera() {
+  if (ageCameraStream) {
+    ageCameraStream.getTracks().forEach((t) => t.stop());
+    ageCameraStream = null;
+  }
+}
 
 let pending2FALoginToken = null;
 
@@ -2192,6 +2273,14 @@ function exitChatMode() {
   ['btn-new-room', 'btn-shop-coins', 'btn-server-info', 'btn-server-manage', 'btn-quick-room', 'btn-close-channel-sidebar'].forEach((id) => {
     document.getElementById(id).classList.remove('hidden');
   });
+  // BUG CORRIGIDO: esses 3 ícones do cabeçalho (busca, fixados, membros)
+  // ficavam escondidos pra sempre depois de sair do modo Chat/Amigos e ir
+  // pra um servidor, até a pessoa clicar num canal de novo — enterChatMode
+  // escondia eles mas só selectChannel devolvia, e por um servidor recém
+  // aberto (sem canal escolhido ainda) isso nunca acontecia.
+  ['btn-search-messages', 'btn-pinned-messages', 'btn-toggle-members'].forEach((id) => {
+    document.getElementById(id).classList.remove('hidden');
+  });
 }
 
 function showFriendsPanel() {
@@ -2202,6 +2291,13 @@ function showFriendsPanel() {
   document.getElementById('current-channel-name').textContent = 'Amigos';
   currentChannel = null;
   setNavActive('nav-inicio', false);
+  // Sem canal selecionado — os ícones de busca/fixados/membros do cabeçalho
+  // não se aplicam aqui. Escondido direto aqui (não só em enterChatMode)
+  // pra cobrir também quem chega na tela de Amigos por outros caminhos,
+  // tipo o atalho dentro do próprio modo Chat.
+  ['btn-search-messages', 'btn-pinned-messages', 'btn-toggle-members'].forEach((id) => {
+    document.getElementById(id).classList.add('hidden');
+  });
   loadFriends();
 }
 
@@ -3909,6 +4005,12 @@ function goHome() {
   setNavActive('nav-inicio', true);
   renderCategories(allChannels);
   updateClearChannelButton();
+  // Nenhum canal selecionado na Início — os ícones de busca/fixados/membros
+  // do cabeçalho não fazem sentido aqui (exitChatMode() logo acima devolve
+  // eles por padrão, então escondemos de novo explicitamente).
+  ['btn-search-messages', 'btn-pinned-messages', 'btn-toggle-members'].forEach((id) => {
+    document.getElementById(id).classList.add('hidden');
+  });
   loadHomeDashboard();
 
   // Início fica "viva": ranking, atividade recente e quem tá jogando agora

@@ -630,6 +630,7 @@ app.post(
       preferred_rank,
       play_style,
       birth_date,
+      estimated_age,
     } = req.body || {};
     if (
       !username ||
@@ -700,12 +701,20 @@ app.post(
     const usernameTag = `${username}#${discriminator}`;
     // email_verified fica 1 direto — sem etapa de confirmação por código, o
     // e-mail é salvo só como dado de cadastro (a pedido do usuário).
+    // Idade estimada por câmera é opcional e calculada no navegador da
+    // pessoa — aqui só sanitiza (número plausível entre 1 e 100) ou ignora
+    // qualquer coisa fora disso, já que veio do cliente e pode vir zoado.
+    const estimatedAgeValue =
+      Number.isFinite(Number(estimated_age)) && Number(estimated_age) >= 1 && Number(estimated_age) <= 100
+        ? Math.round(Number(estimated_age))
+        : null;
+
     await db.run(
       `INSERT INTO users (
         id, username, password_hash, email, email_verified, is_admin, avatar, full_name,
         country, language, favorite_games, platforms, preferred_rank, play_style,
-        discriminator, username_tag, birth_date
-      ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        discriminator, username_tag, birth_date, estimated_age
+      ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         username,
@@ -723,6 +732,7 @@ app.post(
         discriminator,
         usernameTag,
         birth_date,
+        estimatedAgeValue,
       ]
     );
 
@@ -865,8 +875,10 @@ app.get(
       // de segurança pra própria pessoa; nunca é exposto a outros usuários.
       is_minor: isMinorAccount(req.user.birth_date),
       // NEXTGAME PLUS — 'free' ou 'plus'. Controla limite de anexo e
-      // qualidade de transmissão liberada no frontend.
-      plan: req.user.plan || 'free',
+      // qualidade de transmissão liberada no frontend. Admin (dono/moderador
+      // da plataforma) sempre aparece como Plus — acesso total, sem precisar
+      // assinar nada.
+      plan: req.user.is_admin ? 'plus' : req.user.plan || 'free',
     });
   })
 );
@@ -1192,9 +1204,14 @@ const FILE_SIZE_LIMITS_NO_R2 = {
   free: 5 * 1024 * 1024, // 5MB
   plus: 25 * 1024 * 1024, // 25MB
 };
-function fileSizeLimitFor(plan) {
+// Admin (dono/moderador da plataforma) sempre conta como Plus em qualquer
+// checagem de limite/feature — sem precisar assinar nada. "user" pode ser o
+// objeto completo (com is_admin) ou só a string do plano, pra não quebrar
+// nenhum outro lugar que ainda chame isso com só o plano.
+function fileSizeLimitFor(user) {
   const table = isR2Configured() ? FILE_SIZE_LIMITS_R2 : FILE_SIZE_LIMITS_NO_R2;
-  return table[plan === 'plus' ? 'plus' : 'free'];
+  const isPlus = typeof user === 'object' && user ? user.plan === 'plus' || !!user.is_admin : user === 'plus';
+  return table[isPlus ? 'plus' : 'free'];
 }
 
 // Extensões perigosas nunca são aceitas, mesmo com plano Plus — "outros
@@ -1211,8 +1228,8 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json({
       configured: isR2Configured(),
-      limitBytes: fileSizeLimitFor(req.user.plan),
-      plan: req.user.plan || 'free',
+      limitBytes: fileSizeLimitFor(req.user),
+      plan: req.user.is_admin ? 'plus' : req.user.plan || 'free',
       freeLimitBytes: fileSizeLimitFor('free'),
       plusLimitBytes: isR2Configured() ? FILE_SIZE_LIMITS_R2.plus : FILE_SIZE_LIMITS_NO_R2.plus,
     });
@@ -1236,7 +1253,7 @@ app.post(
     if (BLOCKED_ATTACHMENT_EXTENSIONS.includes(ext)) {
       return res.status(400).json({ error: 'Esse tipo de arquivo não é permitido.' });
     }
-    const limit = fileSizeLimitFor(req.user.plan);
+    const limit = fileSizeLimitFor(req.user);
     if (size > limit) {
       const limitMb = Math.round(limit / (1024 * 1024));
       return res.status(413).json({
@@ -3885,11 +3902,11 @@ app.get(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const rows = await db.all(
-      `SELECT id, username, username_tag, email, birth_date, created_at FROM users WHERE birth_date IS NOT NULL AND id != ?`,
+      `SELECT id, username, username_tag, email, birth_date, estimated_age, created_at FROM users WHERE birth_date IS NOT NULL AND id != ?`,
       [AI_BOT_USER_ID]
     );
-    const minors = rows
-      .map((u) => ({ ...u, age: ageFromBirthDate(u.birth_date) }))
+    const withAge = rows.map((u) => ({ ...u, age: ageFromBirthDate(u.birth_date) }));
+    const minors = withAge
       .filter((u) => u.age !== null && u.age < 18)
       .map((u) => ({
         id: u.id,
@@ -3901,8 +3918,30 @@ app.get(
         created_at: u.created_at,
       }))
       .sort((a, b) => a.age - b.age);
+    // Verificação de idade por câmera (opcional, feita no navegador da
+    // pessoa) — se ela disse ser adulta no cadastro mas a estimativa da
+    // câmera sugere claramente uma criança/adolescente (com boa margem pra
+    // não sinalizar à toa por causa de imprecisão do modelo), entra numa
+    // fila separada pra revisão humana. Nunca bloqueia ou reclassifica a
+    // conta sozinha — só chama atenção de um moderador de verdade.
+    const ageMismatches = withAge
+      .filter((u) => u.age !== null && u.age >= 18 && Number.isFinite(u.estimated_age) && u.estimated_age <= 15)
+      .map((u) => ({
+        id: u.id,
+        username: u.username,
+        username_tag: u.username_tag,
+        email: u.email,
+        declared_age: Math.floor(u.age),
+        estimated_age: u.estimated_age,
+        created_at: u.created_at,
+      }));
     const totalWithBirthDate = rows.length;
-    res.json({ total_minors: minors.length, total_with_birth_date: totalWithBirthDate, minors });
+    res.json({
+      total_minors: minors.length,
+      total_with_birth_date: totalWithBirthDate,
+      minors,
+      age_mismatches: ageMismatches,
+    });
   })
 );
 
@@ -6139,7 +6178,7 @@ io.on('connection', (socket) => {
       if (attachment && typeof attachment === 'object') {
         const { name, type, size, data, url } = attachment;
         const nameOk = typeof name === 'string' && name.length > 0 && name.length <= 200;
-        const limit = fileSizeLimitFor(user.plan);
+        const limit = fileSizeLimitFor(user);
         if (url) {
           // Anexo já subiu direto pro R2 (via /api/uploads/presign) — só
           // confia se a URL for realmente do nosso bucket e da pasta desse

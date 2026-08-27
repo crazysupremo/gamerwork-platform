@@ -720,6 +720,21 @@ async function initDb() {
   await ensureColumn('users', 'plan_source TEXT');
   await ensureColumn('users', 'plan_expires_at TEXT');
 
+  // ECA Digital — verificação de idade por câmera (opcional, feita 100% no
+  // navegador da pessoa via face-api.js; nenhuma imagem/rosto chega no
+  // nosso servidor, só esse número estimado). Usado como sinal extra pra
+  // priorizar revisão, nunca pra bloquear cadastro sozinho.
+  await ensureColumn('users', 'estimated_age INTEGER');
+
+  // Admin (dono/moderador da plataforma) sempre tem acesso Plus completo,
+  // sem precisar assinar — grava isso de verdade no banco (não só calcula
+  // na hora) pra ficar consistente em qualquer lugar que leia o usuário
+  // direto do banco. Roda toda vez que o servidor sobe, então cobre também
+  // quem virar admin depois.
+  await run(
+    "UPDATE users SET plan = 'plus', plan_source = 'admin' WHERE is_admin = 1 AND (plan IS NULL OR plan != 'plus' OR plan_source IS NULL OR plan_source != 'admin')"
+  );
+
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },
     { id: 'gamers-lfg', name: 'procurando-grupo', category: 'gamers', type: 'texto' },

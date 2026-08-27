@@ -1907,6 +1907,14 @@ video:fullscreen { background: #000; object-fit: contain; }
 
 .reward-rare-star { width: 15px; height: auto; vertical-align: -2px; }
 
+.age-camera-check { margin: 10px 0; }
+.age-camera-wrap { margin-top: 10px; background: #101116; border-radius: 10px; padding: 10px; text-align: center; }
+.age-camera-wrap video {
+  width: 100%; max-width: 220px; border-radius: 8px; background: #000;
+  transform: scaleX(-1);
+}
+.age-camera-wrap .modal-actions { justify-content: center !important; }
+
 .plus-badge {
   display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: 0.04em;
   padding: 2px 6px; border-radius: 6px; margin-left: 5px; vertical-align: middle;

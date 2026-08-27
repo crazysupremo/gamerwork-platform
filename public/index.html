@@ -135,6 +135,29 @@
         <input type="password" id="wiz-password-confirm" placeholder="Confirme sua senha" required />
         <label class="wizard-label">Data de nascimento</label>
         <input type="date" id="wiz-birthdate" required />
+
+        <!-- ECA Digital — verificação de idade por câmera, 100% OPCIONAL e
+             processada no navegador (nada é enviado pra nenhum servidor,
+             nem a imagem nem qualquer dado do rosto — só um número estimado
+             de idade, se a pessoa quiser usar). Nunca bloqueia o cadastro. -->
+        <div class="age-camera-check">
+          <button type="button" id="btn-age-camera-check" class="wizard-back-btn" style="width:100%;">
+            <span class="ng-icon-wrap" data-icon="camera"></span> Verificar idade pela câmera (opcional)
+          </button>
+          <p class="hint" style="margin-top:6px;">
+            100% no seu navegador — a imagem nunca sai do seu dispositivo, só usamos pra reforçar a
+            segurança de contas de menores de idade (ECA Digital).
+          </p>
+          <div id="age-camera-wrap" class="age-camera-wrap hidden">
+            <video id="age-camera-video" autoplay muted playsinline></video>
+            <p id="age-camera-status" class="hint">Carregando verificação...</p>
+            <div class="modal-actions" style="justify-content:flex-start; margin-top:8px;">
+              <button type="button" id="btn-age-camera-capture">Capturar</button>
+              <button type="button" id="btn-age-camera-cancel">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
         <button type="button" id="wiz-step1-next" class="wizard-next-btn">CONTINUAR</button>
         <p class="wizard-footer-link">Já tem uma conta? <a id="wiz-goto-login">Entrar</a></p>
       </div>
