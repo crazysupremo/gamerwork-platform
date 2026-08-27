@@ -1661,7 +1661,12 @@ video:fullscreen { background: #000; object-fit: contain; }
 .friends-list { display: flex; flex-direction: column; gap: 6px; max-height: 30vh; overflow-y: auto; margin-bottom: 6px; }
 .friend-row {
   display: flex; align-items: center; gap: 10px; background: #1e1f22; border-radius: 8px; padding: 8px 10px;
+  border: 1px solid transparent; margin-bottom: 6px; cursor: default;
 }
+.friend-row-active { border-color: var(--accent-1, #5865f2); background: #2b2d42; }
+.dm-info-card { padding: 10px 4px; font-size: 13px; }
+.dm-info-card .profile-preview-action-btn { width: 100%; justify-content: flex-start; }
+#dm-conversations-list .friend-row:hover { background: #26272e; }
 .friend-name { flex: 1; font-size: 13px; font-weight: 600; color: #dbdee1; min-width: 0; }
 .friend-status { font-size: 11px; color: var(--accent-3); font-weight: 400; }
 .friend-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }

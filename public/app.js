@@ -547,7 +547,62 @@ document.getElementById('btn-toggle-members').onclick = () => {
   const panel = document.getElementById('members-panel');
   panel.classList.toggle('hidden');
   document.getElementById('btn-toggle-members').classList.toggle('active-state', !panel.classList.contains('hidden'));
+  if (!panel.classList.contains('hidden')) {
+    if (currentChannel && currentChannel.id && currentChannel.id.startsWith('dm::')) {
+      renderDmInfoPanel();
+    } else {
+      renderMembers();
+    }
+  }
 };
+
+// Coluna "Informações" quando é uma DM — mostra o cartão da pessoa em vez da
+// lista de membros do servidor (que não faz sentido numa conversa 1 a 1).
+async function renderDmInfoPanel() {
+  const container = document.getElementById('members-list');
+  if (!container) return;
+  container.innerHTML = '<p class="empty-hint">Carregando...</p>';
+  const otherId = otherUserIdFromDmChannel(currentChannel.id);
+  if (!otherId) return;
+  const res = await fetch(`/api/users/${otherId}/profile`, { credentials: 'include' });
+  const user = await res.json();
+  if (!res.ok) {
+    container.innerHTML = '<p class="empty-hint">Não foi possível carregar.</p>';
+    return;
+  }
+  const isOnline = onlineUserIds.has(user.id);
+  const memberSince = new Date(user.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  container.innerHTML = `
+    <div class="dm-info-card">
+      <div class="member-avatar-wrap" style="width:64px; height:64px; margin:0 auto 8px;">
+        <div class="member-avatar ${avatarFrameClass(user)}" style="width:64px; height:64px; font-size:24px;">${renderAvatarHtml(user)}</div>
+        <span class="member-status-dot" style="${isOnline ? '' : 'background:#6d7178;'}"></span>
+      </div>
+      <div style="text-align:center; font-weight:700;">${escapeHtml(user.username)}</div>
+      <div style="text-align:center;" class="user-tag-inline">${escapeHtml(userTag(user))}</div>
+      <div style="text-align:center; font-size:12px; color:${isOnline ? '#23a55a' : '#949ba4'}; margin-top:2px;">${isOnline ? 'Online' : 'Offline'}</div>
+      <div class="hint" style="text-align:center; margin-top:8px;">Membro desde ${memberSince}</div>
+      ${user.status_message ? `<div class="hint" style="text-align:center;">🎮 ${escapeHtml(user.status_message)}</div>` : ''}
+      <div id="dm-info-actions" style="margin-top:14px; display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+  `;
+  const actionsEl = document.getElementById('dm-info-actions');
+  userActionItems(user).forEach((item) => {
+    if (item.separator) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'profile-preview-action-btn' + (item.danger ? ' profile-preview-action-danger' : '');
+    btn.innerHTML = `${item.icon} ${escapeHtml(item.label)}`;
+    btn.onclick = (e) => item.onClick(e);
+    actionsEl.appendChild(btn);
+  });
+  const verPerfilBtn = document.createElement('button');
+  verPerfilBtn.type = 'button';
+  verPerfilBtn.className = 'profile-preview-action-btn';
+  verPerfilBtn.innerHTML = '👤 Ver perfil completo';
+  verPerfilBtn.onclick = () => openProfilePreview(user);
+  actionsEl.insertBefore(verPerfilBtn, actionsEl.firstChild);
+}
 
 // ---------- CHANNELS / SERVIDORES ----------
 
@@ -649,6 +704,7 @@ function renderServerRail(categories) {
     }
 
     btn.onclick = () => {
+      exitChatMode();
       activeServerCategory = category;
       markServerRead(category);
       renderServerRail(categories);
@@ -1149,7 +1205,11 @@ async function loadManageInvite() {
   };
 }
 
-document.getElementById('btn-copy-invite').onclick = () => {
+document.getElementById('btn-copy-invite-server').onclick = () => {
+  // BUG CORRIGIDO: esse botão dividia o mesmo id ("btn-copy-invite") com o
+  // de "Convidar pra sala" na tela de voz — getElementById sempre pega o
+  // PRIMEIRO elemento com aquele id, então esse aqui nunca tinha o clique
+  // ligado de verdade (o botão de copiar link do servidor não fazia nada).
   const input = document.getElementById('invite-link-display');
   navigator.clipboard.writeText(input.value).catch(() => {
     input.select();
@@ -2067,36 +2127,78 @@ document.getElementById('form-quiz').onsubmit = async (e) => {
   }
 };
 
-// ---------- AMIGOS ----------
+// ---------- AMIGOS E CHAT (tela de verdade, não modal) ----------
+// Antes isso tudo vivia num popup por cima da tela. Reorganizado pra ser uma
+// área principal de verdade, igual Discord: a lista de conversas mora na
+// coluna do meio (onde normalmente ficam os canais do servidor) e fica
+// visível o tempo todo enquanto você está no chat; a área principal mostra
+// ou o painel de Amigos, ou a conversa aberta.
+let inChatMode = false;
 
-const modalFriends = document.getElementById('modal-friends');
+function enterChatMode(landOn) {
+  inChatMode = true;
+  activeServerCategory = null;
 
-document.getElementById('nav-friends').onclick = () => {
-  modalFriends.classList.remove('hidden');
-  setFriendsModalTab('amigos');
+  // Coluna do meio: troca "canais do servidor" por "lista de conversas".
+  document.getElementById('active-server-name').textContent = 'MENSAGENS';
+  document.getElementById('categories-container').classList.add('hidden');
+  document.getElementById('dm-sidebar-list').classList.remove('hidden');
+  ['btn-new-room', 'btn-shop-coins', 'btn-server-info', 'btn-server-manage', 'btn-quick-room'].forEach((id) => {
+    document.getElementById(id).classList.add('hidden');
+  });
+  if (typeof setServersCollapsed === 'function') setServersCollapsed(true);
+  setChannelSidebarOpen(true);
+  renderServerRail([...new Set(allChannels.map((c) => c.category))]);
+
   loadFriends();
-};
-document.getElementById('btn-close-friends').onclick = () => modalFriends.classList.add('hidden');
-
-// Mesmos atalhos, agora também como item de primeira classe na sidebar
-// esquerda (item 1/11 do plano de navegação: "amigos e chat não podem ficar
-// escondidos" — antes só existiam como ícone pequeno no canto superior).
-document.getElementById('nav-sidebar-amigos').onclick = () => document.getElementById('nav-friends').click();
-
-// Aba "Amigos" x "Mensagens" dentro do mesmo modal — item 7 da auditoria
-// ("área MENSAGENS com lista de conversas, avatar, prévia, contador de não
-// lidas"), sem precisar duplicar modal nem mexer no visual do resto do app.
-function setFriendsModalTab(tab) {
-  document.querySelectorAll('#modal-friends [data-friends-tab]').forEach((t) =>
-    t.classList.toggle('active', t.dataset.friendsTab === tab)
-  );
-  document.getElementById('friends-tab-amigos').classList.toggle('hidden', tab !== 'amigos');
-  document.getElementById('friends-tab-mensagens').classList.toggle('hidden', tab !== 'mensagens');
-  if (tab === 'mensagens') loadDmConversations();
+  loadDmConversations().then((conversations) => {
+    if (landOn === 'mensagens' && conversations && conversations.length > 0 && !currentChannel) {
+      // Pousa direto na conversa mais recente, igual Discord — só quando
+      // ainda não tem nenhuma conversa aberta (não interrompe quem já
+      // estava conversando com alguém).
+      openDmText(conversations[0].other_user.id, conversations[0].other_user.username);
+    } else if (!currentChannel || currentChannel.type !== 'texto' || !currentChannel.id.startsWith('dm::')) {
+      showFriendsPanel();
+    }
+  });
 }
-document.querySelectorAll('#modal-friends [data-friends-tab]').forEach((tabBtn) => {
-  tabBtn.onclick = () => setFriendsModalTab(tabBtn.dataset.friendsTab);
-});
+
+// Sai do modo chat quando a pessoa clica num servidor de verdade — volta a
+// coluna do meio a mostrar canais normalmente.
+function exitChatMode() {
+  if (!inChatMode) return;
+  inChatMode = false;
+  document.getElementById('dm-sidebar-list').classList.add('hidden');
+  document.getElementById('categories-container').classList.remove('hidden');
+  document.getElementById('friends-panel').classList.add('hidden');
+  ['btn-new-room', 'btn-shop-coins', 'btn-server-info', 'btn-server-manage', 'btn-quick-room'].forEach((id) => {
+    document.getElementById(id).classList.remove('hidden');
+  });
+}
+
+function showFriendsPanel() {
+  document.getElementById('home-panel').classList.add('hidden');
+  document.getElementById('text-panel').classList.add('hidden');
+  document.getElementById('voice-panel').classList.add('hidden');
+  document.getElementById('friends-panel').classList.remove('hidden');
+  document.getElementById('current-channel-name').textContent = 'Amigos';
+  currentChannel = null;
+  setNavActive('nav-inicio', false);
+  loadFriends();
+}
+
+document.getElementById('nav-sidebar-amigos').onclick = () => {
+  enterChatMode('amigos');
+  showFriendsPanel();
+};
+document.getElementById('dm-friends-shortcut').onclick = showFriendsPanel;
+
+document.getElementById('dm-search-input').oninput = (e) => {
+  const term = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('#dm-conversations-list .friend-row').forEach((row) => {
+    row.style.display = !term || row.dataset.searchName.includes(term) ? '' : 'none';
+  });
+};
 
 let friendsCache = { friends: [], incoming: [], outgoing: [] };
 
@@ -2106,7 +2208,7 @@ async function refreshFriendsBadge() {
     if (!res.ok) return;
     const data = await res.json();
     friendsCache = data;
-    [document.getElementById('navbar-friends-badge'), document.getElementById('sidebar-friends-badge')].forEach((badge) => {
+    [document.getElementById('sidebar-friends-badge')].forEach((badge) => {
       if (!badge) return;
       if (data.incoming.length > 0) {
         badge.textContent = data.incoming.length;
@@ -2126,11 +2228,10 @@ async function refreshMessagesBadge() {
     if (!res.ok) return;
     const conversations = await res.json();
     const total = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
-    const navBadge = document.getElementById('navbar-messages-badge');
     const tabBadge = document.getElementById('dm-tab-badge');
     const sidebarBadge = document.getElementById('sidebar-messages-badge');
     const floatingBadge = document.getElementById('floating-chat-badge');
-    [navBadge, tabBadge, sidebarBadge, floatingBadge].forEach((badge) => {
+    [tabBadge, sidebarBadge, floatingBadge].forEach((badge) => {
       if (!badge) return;
       if (total > 0) {
         badge.textContent = total > 99 ? '99+' : total;
@@ -2152,7 +2253,7 @@ async function loadDmConversations() {
   const conversations = await refreshMessagesBadge();
   if (!conversations || conversations.length === 0) {
     el.innerHTML = '<p class="empty-hint">Nenhuma conversa ainda. Chame um amigo pra jogar!</p>';
-    return;
+    return conversations || [];
   }
   el.innerHTML = '';
   conversations.forEach((c) => {
@@ -2161,6 +2262,8 @@ async function loadDmConversations() {
     const when = c.last_message ? new Date(c.last_message.created_at).toLocaleString('pt-BR') : '';
     const row = document.createElement('div');
     row.className = 'friend-row';
+    row.dataset.searchName = c.other_user.username.toLowerCase();
+    row.classList.toggle('friend-row-active', currentChannel && currentChannel.id === c.channel_id);
     row.innerHTML = `
       <div class="member-avatar-wrap">
         <div class="member-avatar ${avatarFrameClass(c.other_user)}">${renderAvatarHtml(c.other_user)}</div>
@@ -2186,6 +2289,7 @@ async function loadDmConversations() {
     };
     el.appendChild(row);
   });
+  return conversations;
 }
 
 // Status de amizade com alguém ('friend' | 'pending_out' | 'pending_in' | null)
@@ -2321,7 +2425,8 @@ async function openDmText(userId, username) {
     alert(data.error || 'Não foi possível abrir a conversa');
     return;
   }
-  modalFriends.classList.add('hidden');
+  if (!inChatMode) enterChatMode();
+  document.getElementById('friends-panel').classList.add('hidden');
   selectChannel({ id: data.channel_id, type: 'texto', name: '💬 ' + username });
 }
 
@@ -2332,7 +2437,8 @@ async function openDmCall(userId, username) {
     alert(data.error || 'Não foi possível ligar');
     return;
   }
-  modalFriends.classList.add('hidden');
+  if (!inChatMode) enterChatMode();
+  document.getElementById('friends-panel').classList.add('hidden');
   socket.emit('dm:ring', { toUserId: userId, channelId: data.channel_id, fromUsername: me.username });
   selectChannel({ id: data.channel_id, type: 'voz', name: '📞 ' + username }, { autoConnect: true });
 }
@@ -3556,6 +3662,7 @@ document.getElementById('search-messages-input').oninput = (e) => {
 // atender uma chamada recebida), igual o botão de ligação do Discord.
 function selectChannel(channel, options = {}) {
   const autoConnect = !!options.autoConnect;
+  const isDm = channel.type !== 'voz' && channel.id.startsWith('dm::');
 
   // sai do canal de TEXTO anterior (sala de voz não é "deixada" só por trocar de tela)
   if (currentChannel && currentChannel.type === 'texto') {
@@ -3566,10 +3673,18 @@ function selectChannel(channel, options = {}) {
   document.getElementById('current-channel-name').textContent =
     (channel.type === 'voz' ? '🔊 ' : '# ') + channel.name;
   document.getElementById('home-panel').classList.add('hidden');
+  document.getElementById('friends-panel').classList.add('hidden');
   setNavActive('nav-inicio', false);
   stopHomeAutoRefresh();
-  // Escolheu o canal — fecha o popup de canais, sobra mais tela pro conteúdo.
-  setChannelSidebarOpen(false);
+  // Canal de servidor: escolher fecha o popup de canais, sobra mais tela pro
+  // conteúdo. DM: a coluna do meio agora é a lista de conversas — fica
+  // aberta o tempo todo, igual Discord, pra trocar de pessoa rápido.
+  if (!isDm) setChannelSidebarOpen(false);
+  if (isDm) {
+    document.querySelectorAll('#dm-conversations-list .friend-row').forEach((row) => {
+      row.classList.toggle('friend-row-active', row.dataset.searchName === channel.name.replace('💬 ', '').toLowerCase());
+    });
+  }
 
   if (channel.type === 'voz') {
     document.getElementById('text-panel').classList.add('hidden');
@@ -3594,7 +3709,6 @@ function selectChannel(channel, options = {}) {
   // "Convidar para jogar" e "Convidar para servidor" só fazem sentido numa
   // conversa direta (item 6/7 do plano de navegação do chat) — não aparecem
   // em canal de servidor, onde já tem outros jeitos de convidar gente.
-  const isDm = channel.type === 'texto' && channel.id.startsWith('dm::');
   document.getElementById('btn-invite-to-play').classList.toggle('hidden', !isDm);
   document.getElementById('btn-invite-to-server').classList.toggle('hidden', !isDm);
 }
@@ -3638,10 +3752,12 @@ function goHome() {
   if (currentChannel && currentChannel.type === 'texto') {
     socket.emit('channel:leave', currentChannel.id);
   }
+  exitChatMode();
   currentChannel = null;
   document.getElementById('current-channel-name').textContent = 'Início';
   document.getElementById('text-panel').classList.add('hidden');
   document.getElementById('voice-panel').classList.add('hidden');
+  document.getElementById('friends-panel').classList.add('hidden');
   document.getElementById('home-panel').classList.remove('hidden');
   setNavActive('nav-inicio', true);
   renderCategories(allChannels);
@@ -4536,15 +4652,10 @@ document.getElementById('nav-ranking-link').onclick = () => {
   }
   document.getElementById('btn-ranking').click();
 };
-// "Mensagens" no topo abre o mesmo modal de Amigos, já na aba "Mensagens"
-// (lista completa de conversas, com não lidas) — item 7 da auditoria.
-document.getElementById('nav-messages').onclick = () => {
-  modalFriends.classList.remove('hidden');
-  setFriendsModalTab('mensagens');
-  loadFriends();
-};
-document.getElementById('nav-sidebar-chat').onclick = () => document.getElementById('nav-messages').click();
-document.getElementById('btn-floating-chat').onclick = () => document.getElementById('nav-messages').click();
+// "Chat" — só dois jeitos de chegar aqui agora (coluna esquerda da sidebar e
+// o botão flutuante), pra não ter 3 caminhos diferentes pra mesma coisa.
+document.getElementById('nav-sidebar-chat').onclick = () => enterChatMode('mensagens');
+document.getElementById('btn-floating-chat').onclick = () => enterChatMode('mensagens');
 
 // ---------- SONS E EFEITOS (liga/desliga geral) ----------
 
