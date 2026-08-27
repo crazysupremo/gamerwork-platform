@@ -76,7 +76,28 @@ function renderAvatarInto(el, user) {
   if (frameClass) el.classList.add(frameClass);
 }
 
-const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+// Valor de partida (só STUN) — vira a lista de verdade (com TURN incluso)
+// assim que loadIceServers() responder, logo no início do startApp(). Fica
+// como fallback caso o /api/ice-servers falhe por qualquer motivo, pra call
+// entre duas pessoas na mesma rede ainda funcionar mesmo assim.
+let ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+// Busca a lista de servidores STUN/TURN do backend (inclui TURN — essencial
+// pra chamada conectar entre pessoas atrás de NAT restritivo, tipo dado
+// móvel ou wifi de empresa/escola; sem TURN, esses casos falham direto sem
+// aviso nenhum, mesmo com só 2 pessoas na call).
+async function loadIceServers() {
+  try {
+    const res = await fetch('/api/ice-servers', { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (Array.isArray(data.iceServers) && data.iceServers.length > 0) {
+      ICE_SERVERS = data.iceServers;
+    }
+  } catch (_) {
+    // mantém o fallback só-STUN definido acima
+  }
+}
 
 // Preferências de dispositivo de áudio, lembradas entre sessões
 let preferredInputId = localStorage.getItem('ng_input_device') || '';
@@ -424,6 +445,7 @@ function startApp() {
   refreshStreakBadge();
   refreshFriendsBadge();
   refreshMessagesBadge();
+  loadIceServers();
 
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
@@ -5258,6 +5280,14 @@ function registerSocketHandlers() {
     renderMembers();
   });
 
+  // Sala de voz bateu no teto de participantes (mesh P2P não aguenta mais
+  // sem travar pra todo mundo) — avisa e cancela a tentativa de entrar.
+  socket.on('rtc:room-full', ({ max }) => {
+    connectedVoiceRoomId = null;
+    alert(`Essa sala de voz está cheia (máximo de ${max} pessoas ao mesmo tempo). Espera alguém sair ou crie outra sala.`);
+    document.getElementById('voice-panel')?.classList.add('hidden');
+  });
+
   socket.on('rtc:peer-joined', ({ socketId, username, avatar, avatar_frame }) => {
     const pc = createPeerConnection(socketId, username, { username, avatar, avatar_frame });
     addLocalTracksToPeer(pc);
@@ -5428,9 +5458,24 @@ async function connectVoice(roomId) {
   // todo mundo ouvia como eco/retorno na sua voz. Se já está conectado
   // nessa mesma sala, não faz nada de novo.
   if (connectedVoiceRoomId === roomId) return;
+
+  // Espera a confirmação do servidor (sala não cheia, canal acessível) ANTES
+  // de pegar o microfone — senão a pessoa via ouvia o próprio mic ligar numa
+  // sala que na verdade rejeitou a entrada dela (ex: sala cheia).
+  const joined = await new Promise((resolve) => {
+    socket.emit('rtc:join', roomId, (response) => resolve(response || { ok: true }));
+    // Servidor antigo sem suporte a ack — não trava esperando pra sempre.
+    setTimeout(() => resolve({ ok: true }), 3000);
+  });
+  if (!joined.ok) {
+    if (joined.reason === 'room-full') {
+      alert(`Essa sala de voz está cheia (máximo de ${joined.max} pessoas ao mesmo tempo). Espera alguém sair ou crie outra sala.`);
+    }
+    return;
+  }
+
   SFX.join();
   connectedVoiceRoomId = roomId;
-  socket.emit('rtc:join', roomId);
   socket.emit('channel:join', roomId); // pro chat da sala funcionar (mesmo canal, uso duplo texto+voz)
   loadVoiceChatHistory(roomId);
   setupVoiceInvite(roomId);

@@ -32,6 +32,32 @@
   <p id="admin-guard" class="auth-error"></p>
 
   <div id="admin-content" class="hidden">
+    <h2>🩺 Monitoramento (dados, erros, lag)</h2>
+    <p style="color:#949ba4; font-size:13px;">
+      Atualiza sozinho a cada 10s. <span id="monitoring-updated"></span>
+    </p>
+    <div id="monitoring-grid" class="stats-grid"></div>
+
+    <div id="monitoring-env-warning" class="hidden" style="background:#f23f4222; border:1px solid #f23f42; border-radius:8px; padding:10px 14px; margin-top:12px; font-size:13px;"></div>
+
+    <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Salas de voz ativas agora</h3>
+    <table id="monitoring-rooms-table">
+      <thead><tr><th>Sala</th><th>Participantes</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Requisições lentas recentes (lag, acima de 800ms)</h3>
+    <table id="monitoring-slow-table">
+      <thead><tr><th>Hora</th><th>Rota</th><th>Status</th><th>Duração</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Erros recentes do servidor</h3>
+    <table id="monitoring-errors-table">
+      <thead><tr><th>Hora</th><th>Origem</th><th>Mensagem</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
     <h2>📊 Analytics</h2>
     <div id="analytics-grid" class="stats-grid"></div>
 

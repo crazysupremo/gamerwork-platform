@@ -67,12 +67,64 @@ const apiLimiter = rateLimit({
 });
 app.use('/api/', apiLimiter);
 
+// ---------- MONITORAMENTO (painel de admin: dados, erros e lag) ----------
+// Tudo guardado em memória (não no banco) de propósito — é só pra
+// diagnóstico ao vivo, não histórico permanente, e assim não pesa o banco
+// nem sobrevive a um redeploy (o que é o comportamento certo aqui).
+const MAX_LOG_ENTRIES = 200;
+const SLOW_REQUEST_MS = 800; // acima disso conta como "lento" (lag) no painel
+const recentErrors = [];
+const recentSlowRequests = [];
+const requestTimestamps = []; // usado só pra calcular requisições/minuto
+const REQUEST_TIMESTAMPS_WINDOW_MS = 5 * 60 * 1000;
+
+function logError(source, err) {
+  recentErrors.unshift({
+    time: new Date().toISOString(),
+    source,
+    message: err && err.message ? err.message : String(err),
+  });
+  if (recentErrors.length > MAX_LOG_ENTRIES) recentErrors.length = MAX_LOG_ENTRIES;
+}
+
+function logSlowRequest(entry) {
+  recentSlowRequests.unshift(entry);
+  if (recentSlowRequests.length > MAX_LOG_ENTRIES) recentSlowRequests.length = MAX_LOG_ENTRIES;
+}
+
+// Mede quanto tempo cada requisição de API demora — é isso que alimenta o
+// "lag" do painel. Roda em TODA requisição (custo desprezível: só marca
+// tempo antes/depois), não só nas que dão erro.
+app.use('/api/', (req, res, next) => {
+  const start = process.hrtime.bigint();
+  requestTimestamps.push(Date.now());
+  // limpa entradas velhas de vez em quando pra não crescer pra sempre
+  if (requestTimestamps.length > 5000) {
+    const cutoff = Date.now() - REQUEST_TIMESTAMPS_WINDOW_MS;
+    while (requestTimestamps.length && requestTimestamps[0] < cutoff) requestTimestamps.shift();
+  }
+  res.on('finish', () => {
+    const durationMs = Number(process.hrtime.bigint() - start) / 1e6;
+    if (durationMs >= SLOW_REQUEST_MS) {
+      logSlowRequest({
+        time: new Date().toISOString(),
+        method: req.method,
+        path: req.originalUrl,
+        status: res.statusCode,
+        durationMs: Math.round(durationMs),
+      });
+    }
+  });
+  next();
+});
+
 // Envolve handlers async pra erros (ex: banco fora do ar) virarem uma
 // resposta 500 normal em vez de derrubar o processo.
 function asyncHandler(fn) {
   return (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch((err) => {
       console.error(err);
+      logError(req.method + ' ' + req.originalUrl, err);
       res.status(500).json({ error: 'Erro interno do servidor' });
     });
   };
@@ -749,6 +801,55 @@ app.get(
       coins: req.user.coins || 0,
       presence_status: req.user.presence_status || 'online',
     });
+  })
+);
+
+// ---------- SERVIDORES ICE (STUN/TURN) PRA CHAMADA DE VOZ/VÍDEO ----------
+// Por que isso é um endpoint e não uma constante fixa no app.js: sem um
+// servidor TURN, dois usuários atrás de NAT restritivo (comum em dado móvel,
+// wifi de empresa/escola/faculdade) simplesmente NÃO CONSEGUEM se conectar
+// direto — a chamada falha silenciosamente pra eles, mesmo com só 2 pessoas
+// na sala. Isso é bem mais comum do que parece e é a causa nº1 de "call não
+// conecta" que só acontece com ALGUMAS pessoas.
+//
+// O TURN_URL/TURN_USERNAME/TURN_CREDENTIAL abaixo podem ser trocados a
+// qualquer momento nas variáveis de ambiente do Render (sem precisar
+// reempacotar/redeploy do frontend) — assim que você criar sua própria conta
+// grátis num provedor de TURN (metered.ca/Open Relay tem 20GB grátis/mês,
+// sem cartão), só troca essas 3 variáveis. Enquanto isso não acontece, cai
+// no relay público de testes do Open Relay Project (compartilhado com o
+// mundo inteiro, então pode ficar lento/instável se muita gente usar ao
+// mesmo tempo — ok pra um grupo de amigos, não pra produção séria).
+app.get(
+  '/api/ice-servers',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const servers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun.relay.metered.ca:80' },
+    ];
+    const turnUrl = process.env.TURN_URL;
+    if (turnUrl) {
+      // Suporta uma ou várias URLs separadas por vírgula (ex: udp + tcp + tls)
+      turnUrl.split(',').map((u) => u.trim()).filter(Boolean).forEach((urls) => {
+        servers.push({ urls, username: process.env.TURN_USERNAME, credential: process.env.TURN_CREDENTIAL });
+      });
+    } else {
+      // Sem TURN próprio configurado — usa o relay público gratuito do Open
+      // Relay Project (credenciais de teste documentadas publicamente por
+      // eles mesmos, não é nenhum segredo vazado). As 3 variantes cobrem
+      // redes diferentes: UDP é o caminho mais rápido/comum; TCP porta 80 e
+      // TLS porta 443 salvam quem está atrás de firewall bem restritivo
+      // (rede de empresa/escola) que só libera as portas normais de web.
+      [
+        'turn:relay.metered.ca:80',
+        'turn:relay.metered.ca:80?transport=tcp',
+        'turns:relay.metered.ca:443?transport=tcp',
+      ].forEach((urls) => {
+        servers.push({ urls, username: 'openrelayproject', credential: 'openrelayproject' });
+      });
+    }
+    res.json({ iceServers: servers, usingSharedRelay: !turnUrl });
   })
 );
 
@@ -3193,7 +3294,12 @@ app.post(
     if (!apiKey) return res.json({ flagged: false, skipped: true });
 
     try {
-      const visionModel = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+      // A Groq aposentou o meta-llama/llama-4-scout em 17/07/2026 — todo
+      // pedido pra esse modelo passou a voltar 404 "model_not_found", daí os
+      // logs cheios de erro repetido a cada captura de frame (a cada ~15s
+      // durante qualquer compartilhamento de tela). Modelo de visão atual
+      // recomendado pela própria Groq: qwen/qwen3.6-27b.
+      const visionModel = process.env.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b';
       const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
@@ -5072,6 +5178,83 @@ app.get(
   })
 );
 
+// ---------- DASHBOARD ADMINISTRATIVO: MONITORAMENTO (dados, erros, lag) ----------
+// Serve pra responder "quanta gente cabe aqui sem travar" com dados de
+// verdade em vez de achismo: uso de memória/CPU real do processo, quantas
+// conexões de socket estão abertas AGORA, quantas pessoas estão em cada sala
+// de voz, e os erros/requisições lentas mais recentes.
+const SERVER_STARTED_AT = Date.now();
+
+app.get(
+  '/api/admin/monitoring',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const mem = process.memoryUsage();
+    const toMb = (bytes) => Math.round((bytes / 1024 / 1024) * 10) / 10;
+
+    const voiceRoomsSnapshot = [...voiceRooms.entries()]
+      .filter(([, participants]) => participants.size > 0)
+      .map(([roomId, participants]) => ({ roomId, participants: participants.size }))
+      .sort((a, b) => b.participants - a.participants);
+    const totalInCalls = voiceRoomsSnapshot.reduce((sum, r) => sum + r.participants, 0);
+
+    const now = Date.now();
+    const requestsLastMinute = requestTimestamps.filter((t) => now - t <= 60 * 1000).length;
+    const requestsLast5Min = requestTimestamps.length;
+
+    const [dbCounts] = await Promise.all([
+      db.get(
+        `SELECT
+          (SELECT COUNT(*) FROM users) as total_users,
+          (SELECT COUNT(*) FROM messages) as total_messages,
+          (SELECT COUNT(DISTINCT category) FROM servers) as total_servers`
+      ),
+    ]);
+
+    res.json({
+      server: {
+        uptime_seconds: Math.round((now - SERVER_STARTED_AT) / 1000),
+        node_version: process.version,
+        memory_rss_mb: toMb(mem.rss),
+        memory_heap_used_mb: toMb(mem.heapUsed),
+        memory_heap_total_mb: toMb(mem.heapTotal),
+        // O free tier do Render dá 512MB de RAM/0.1 vCPU pro processo inteiro
+        // — isso é o teto real, não o quanto o Node "poderia" usar num servidor maior.
+        render_free_tier_ram_mb: 512,
+      },
+      environment: {
+        turso_configured: !!process.env.TURSO_DATABASE_URL,
+        groq_configured: !!process.env.GROQ_API_KEY,
+        resend_configured: !!process.env.RESEND_API_KEY,
+        anthropic_configured: !!process.env.ANTHROPIC_API_KEY,
+        turn_configured: !!process.env.TURN_URL,
+        node_env: process.env.NODE_ENV || 'development',
+      },
+      realtime: {
+        sockets_connected: io.engine.clientsCount,
+        users_online: onlineUsers.size,
+        voice_rooms_active: voiceRoomsSnapshot.length,
+        people_in_calls: totalInCalls,
+        voice_rooms: voiceRoomsSnapshot,
+        max_participants_per_room: MAX_VOICE_ROOM_PARTICIPANTS,
+      },
+      requests: {
+        last_minute: requestsLastMinute,
+        last_5_minutes: requestsLast5Min,
+        slow_threshold_ms: SLOW_REQUEST_MS,
+      },
+      database: {
+        total_users: Number(dbCounts.total_users),
+        total_messages: Number(dbCounts.total_messages),
+        total_servers: Number(dbCounts.total_servers),
+      },
+      recent_slow_requests: recentSlowRequests.slice(0, 30),
+      recent_errors: recentErrors.slice(0, 30),
+    });
+  })
+);
+
 // ---------- DASHBOARD ADMINISTRATIVO: ANALYTICS ----------
 
 app.get(
@@ -5233,6 +5416,15 @@ function isRateLimited(socketId) {
 // transmitida pra TODO MUNDO (não só pra quem já está na sala) — é assim que
 // dá pra mostrar "quem está na call" embaixo do nome do canal no menu, igual Discord.
 const voiceRooms = new Map();
+
+// Teto de participantes por sala de voz. A chamada aqui é P2P "mesh" (cada
+// pessoa manda áudio/vídeo direto pra cada outra pessoa, sem passar pelo
+// servidor) — funciona liso até uns 6-8 participantes; passando disso, cada
+// participante precisa enviar sua própria câmera/tela N vezes ao mesmo tempo
+// (upload do celular/PC de cada um, não do servidor) e a call trava/engasga
+// pra todo mundo, não só pra quem entrou por último. Em vez de deixar isso
+// acontecer silenciosamente, barra num número seguro com um aviso claro.
+const MAX_VOICE_ROOM_PARTICIPANTS = 8;
 
 function voiceStateSnapshot() {
   const snapshot = {};
@@ -5627,10 +5819,27 @@ io.on('connection', (socket) => {
 
   // --- Sinalização WebRTC para voz/vídeo/compartilhamento de tela ---
   // Modelo simples: mesh entre participantes de uma sala de voz.
-  socket.on('rtc:join', async (roomId) => {
+  socket.on('rtc:join', async (roomId, ack) => {
+    // "ack" é opcional (callback do socket.io) — cliente antigo sem essa
+    // versão do app.js simplesmente não manda, então sempre checa antes de chamar.
+    const reply = (payload) => {
+      if (typeof ack === 'function') ack(payload);
+    };
+
     // Canal de voz privado por cargo — mesma checagem do texto.
     const voiceChannel = await db.get('SELECT * FROM channels WHERE id = ?', [roomId]);
-    if (voiceChannel && !(await canAccessChannel(voiceChannel, user))) return;
+    if (voiceChannel && !(await canAccessChannel(voiceChannel, user))) {
+      return reply({ ok: false, reason: 'no-access' });
+    }
+
+    // Sala já no teto de participantes (mesh P2P não aguenta mais gente sem
+    // travar a call de todo mundo) — barra a entrada com aviso claro em vez
+    // de deixar entrar e travar geral.
+    const currentRoom = voiceRooms.get(roomId);
+    if (currentRoom && currentRoom.size >= MAX_VOICE_ROOM_PARTICIPANTS && !currentRoom.has(socket.id)) {
+      socket.emit('rtc:room-full', { roomId, max: MAX_VOICE_ROOM_PARTICIPANTS });
+      return reply({ ok: false, reason: 'room-full', max: MAX_VOICE_ROOM_PARTICIPANTS });
+    }
 
     // Sai de qualquer outra sala de voz antes (só dá pra estar em uma por vez)
     removeFromAllVoiceRooms(socket.id);
@@ -5650,6 +5859,7 @@ io.on('connection', (socket) => {
     // Manda o estado atual da fila de música pra quem acabou de entrar, pra
     // ele já cair sincronizado com o resto da sala.
     socket.emit('music:state', musicRoomStateForClient(roomId));
+    reply({ ok: true });
   });
 
   socket.on('rtc:leave', (roomId) => {
@@ -5792,6 +6002,20 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     io.emit('presence:disconnect', { userId: user.id });
   });
+});
+
+// Pega erro que escapou de qualquer try/catch (ex: dentro de um handler de
+// socket.io fora do padrão asyncHandler) — sem isso esses erros só apareciam
+// no log do Render e nunca no painel de monitoramento. Não derruba o
+// processo (só loga), pra não tirar todo mundo do ar por causa de um erro
+// isolado numa única requisição/socket.
+process.on('uncaughtException', (err) => {
+  console.error('Exceção não tratada:', err);
+  logError('uncaughtException', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('Promise rejeitada sem catch:', reason);
+  logError('unhandledRejection', reason instanceof Error ? reason : new Error(String(reason)));
 });
 
 async function main() {

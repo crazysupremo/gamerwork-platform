@@ -12,6 +12,8 @@ async function init() {
     return;
   }
   document.getElementById('admin-content').classList.remove('hidden');
+  loadMonitoring();
+  setInterval(loadMonitoring, 10000);
   loadAnalytics();
   loadSuspiciousAccounts();
   loadClipsAdmin();
@@ -22,6 +24,91 @@ async function init() {
   loadFlagged();
   loadUsers();
   loadAuditLogs();
+}
+
+function fmtDuration(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h${m}min`;
+  return `${m}min`;
+}
+
+async function loadMonitoring() {
+  let m;
+  try {
+    const res = await fetch('/api/admin/monitoring', { credentials: 'include' });
+    if (!res.ok) return;
+    m = await res.json();
+  } catch (_) {
+    return;
+  }
+
+  document.getElementById('monitoring-updated').textContent =
+    'Última atualização: ' + new Date().toLocaleTimeString('pt-BR');
+
+  const ramPct = Math.round((m.server.memory_rss_mb / m.server.render_free_tier_ram_mb) * 100);
+  const stats = [
+    ['Online agora', m.realtime.users_online],
+    ['Em chamada agora', m.realtime.people_in_calls],
+    ['Salas de voz ativas', m.realtime.voice_rooms_active],
+    ['Conexões abertas (sockets)', m.realtime.sockets_connected],
+    ['Requisições/min', m.requests.last_minute],
+    ['No ar há', fmtDuration(m.server.uptime_seconds)],
+    ['Memória usada', `${m.server.memory_rss_mb}MB (${ramPct}% do free tier)`],
+    ['Erros recentes', m.recent_errors.length],
+  ];
+  document.getElementById('monitoring-grid').innerHTML = stats
+    .map(([label, num]) => `<div class="stat-card"><div class="num">${num}</div><div class="label">${label}</div></div>`)
+    .join('');
+
+  // Avisos de configuração que afetam diretamente confiabilidade/capacidade
+  const warnings = [];
+  if (!m.environment.turso_configured) {
+    warnings.push('⚠️ Turso não configurado — o banco de dados é apagado a cada redeploy no Render.');
+  }
+  if (!m.environment.turn_configured) {
+    warnings.push('⚠️ Servidor TURN próprio não configurado — chamadas de voz estão usando um relay público compartilhado (openrelay), que pode ficar instável com mais uso. Configure TURN_URL/TURN_USERNAME/TURN_CREDENTIAL.');
+  }
+  if (ramPct > 80) {
+    warnings.push(`⚠️ Uso de memória em ${ramPct}% do limite do plano gratuito do Render (512MB) — risco de o processo travar/reiniciar sozinho.`);
+  }
+  const warnEl = document.getElementById('monitoring-env-warning');
+  if (warnings.length > 0) {
+    warnEl.innerHTML = warnings.map((w) => `<div>${w}</div>`).join('');
+    warnEl.classList.remove('hidden');
+  } else {
+    warnEl.classList.add('hidden');
+  }
+
+  const roomsBody = document.querySelector('#monitoring-rooms-table tbody');
+  roomsBody.innerHTML = m.realtime.voice_rooms.length
+    ? m.realtime.voice_rooms
+        .map(
+          (r) =>
+            `<tr><td>${escapeHtml(r.roomId)}</td><td>${r.participants} / ${m.realtime.max_participants_per_room}</td></tr>`
+        )
+        .join('')
+    : '<tr><td colspan="2" style="color:#949ba4;">Nenhuma sala de voz ativa agora.</td></tr>';
+
+  const slowBody = document.querySelector('#monitoring-slow-table tbody');
+  slowBody.innerHTML = m.recent_slow_requests.length
+    ? m.recent_slow_requests
+        .map(
+          (r) =>
+            `<tr><td>${new Date(r.time).toLocaleTimeString('pt-BR')}</td><td>${escapeHtml(r.method + ' ' + r.path)}</td><td>${r.status}</td><td>${r.durationMs}ms</td></tr>`
+        )
+        .join('')
+    : '<tr><td colspan="4" style="color:#949ba4;">Nenhuma requisição lenta recente.</td></tr>';
+
+  const errorsBody = document.querySelector('#monitoring-errors-table tbody');
+  errorsBody.innerHTML = m.recent_errors.length
+    ? m.recent_errors
+        .map(
+          (e) =>
+            `<tr><td>${new Date(e.time).toLocaleTimeString('pt-BR')}</td><td>${escapeHtml(e.source)}</td><td>${escapeHtml(e.message)}</td></tr>`
+        )
+        .join('')
+    : '<tr><td colspan="3" style="color:#949ba4;">Nenhum erro recente. 🎉</td></tr>';
 }
 
 async function loadAnalytics() {
