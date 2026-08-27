@@ -23,6 +23,27 @@ const { createClient } = require('@libsql/client');
 const AI_BOT_USER_ID = 'ai-assistant-bot';
 const AI_BOT_USERNAME = 'NEXT GAME IA';
 
+// Gera uma hashtag de 4 dígitos (0000-9999, com zero à esquerda quando
+// precisar) e confere no banco se username+discriminator já existe — se
+// existir, tenta de novo com outra. Como "username" já é único nesta
+// aplicação (login/DMs/menções dependem disso — ver nota grande logo abaixo
+// no initDb), essa colisão na prática nunca acontece, mas o código segue o
+// padrão pedido mesmo assim, pra já vir pronto se um dia o username deixar
+// de ser único.
+async function generateUniqueDiscriminator(username) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const discriminator = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    const clash = await get('SELECT id FROM users WHERE username = ? AND discriminator = ?', [
+      username,
+      discriminator,
+    ]);
+    if (!clash) return discriminator;
+  }
+  // Praticamente impossível cair aqui (precisaria de 20 colisões seguidas
+  // num espaço de 10 mil combinações), mas não deixa a conta travar se cair.
+  return String(Date.now()).slice(-4);
+}
+
 const url = process.env.TURSO_DATABASE_URL || `file:${path.join(__dirname, 'data.sqlite')}`;
 const authToken = process.env.TURSO_AUTH_TOKEN;
 
@@ -650,6 +671,15 @@ async function initDb() {
   await ensureColumn('dm_channels', 'hidden_for_a TEXT');
   await ensureColumn('dm_channels', 'hidden_for_b TEXT');
 
+  // ---------- IDENTIFICAÇÃO POR HASHTAG (@Username#1234, estilo Discord) ----------
+  // discriminator = os 4 dígitos; username_tag = "username#1234" já pronto
+  // pra exibir/pesquisar sem precisar concatenar toda hora. O "id" continua
+  // sendo a chave interna de verdade — a hashtag é só uma camada pública de
+  // identificação por cima, nunca usada pra autorização (login continua por
+  // username, que já era único antes disso; ver nota abaixo).
+  await ensureColumn('users', 'discriminator TEXT');
+  await ensureColumn('users', 'username_tag TEXT');
+
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },
     { id: 'gamers-lfg', name: 'procurando-grupo', category: 'gamers', type: 'texto' },
@@ -704,12 +734,33 @@ async function initDb() {
   const existingBot = await get('SELECT id FROM users WHERE id = ?', [AI_BOT_USER_ID]);
   if (!existingBot) {
     const unusablePassword = bcrypt.hashSync(crypto.randomBytes(24).toString('hex'), 10);
+    const botDiscriminator = await generateUniqueDiscriminator(AI_BOT_USERNAME);
     await run(
-      `INSERT INTO users (id, username, password_hash, is_admin, is_banned, email_verified, avatar, status_message)
-       VALUES (?, ?, ?, 0, 0, 1, ?, ?)`,
-      [AI_BOT_USER_ID, AI_BOT_USERNAME, unusablePassword, 'emoji:🤖:#00d9c0', 'Sempre pronto pra ajudar']
+      `INSERT INTO users (id, username, password_hash, is_admin, is_banned, email_verified, avatar, status_message, discriminator, username_tag)
+       VALUES (?, ?, ?, 0, 0, 1, ?, ?, ?, ?)`,
+      [
+        AI_BOT_USER_ID,
+        AI_BOT_USERNAME,
+        unusablePassword,
+        'emoji:🤖:#00d9c0',
+        'Sempre pronto pra ajudar',
+        botDiscriminator,
+        `${AI_BOT_USERNAME}#${botDiscriminator}`,
+      ]
     );
+  }
+
+  // Migração pra contas criadas antes do sistema de hashtag existir — toda
+  // conta precisa ter @username#1234, então preenche quem ainda não tem.
+  const usersWithoutTag = await all('SELECT id, username FROM users WHERE discriminator IS NULL OR username_tag IS NULL');
+  for (const u of usersWithoutTag) {
+    const discriminator = await generateUniqueDiscriminator(u.username);
+    await run('UPDATE users SET discriminator = ?, username_tag = ? WHERE id = ?', [
+      discriminator,
+      `${u.username}#${discriminator}`,
+      u.id,
+    ]);
   }
 }
 
-module.exports = { run, get, all, initDb, AI_BOT_USER_ID, AI_BOT_USERNAME };
+module.exports = { run, get, all, initDb, AI_BOT_USER_ID, AI_BOT_USERNAME, generateUniqueDiscriminator };

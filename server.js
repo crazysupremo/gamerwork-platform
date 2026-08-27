@@ -660,13 +660,23 @@ app.post(
     const isFirstUser = Number(countRow.c) === 0;
     const id = uuidv4();
     const password_hash = bcrypt.hashSync(password, 10);
+    // Identificação por hashtag (estilo Discord): todo usuário novo já
+    // nasce com @username#1234. O username continua único nesta aplicação
+    // (login, DMs, menções e várias outras rotas dependem disso), então a
+    // hashtag aqui funciona como identificador público extra — sempre único
+    // por construção — em vez de precisar liberar nomes duplicados, o que
+    // exigiria reescrever login e dezenas de buscas por username em todo o
+    // backend. Ver nota completa na resposta final sobre essa decisão.
+    const discriminator = await db.generateUniqueDiscriminator(username);
+    const usernameTag = `${username}#${discriminator}`;
     // email_verified fica 1 direto — sem etapa de confirmação por código, o
     // e-mail é salvo só como dado de cadastro (a pedido do usuário).
     await db.run(
       `INSERT INTO users (
         id, username, password_hash, email, email_verified, is_admin, avatar, full_name,
-        country, language, favorite_games, platforms, preferred_rank, play_style
-      ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        country, language, favorite_games, platforms, preferred_rank, play_style,
+        discriminator, username_tag
+      ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         username,
@@ -681,13 +691,15 @@ app.post(
         platformsValue,
         (preferred_rank || '').slice(0, 40) || null,
         ['competitivo', 'casual', 'ambos'].includes(play_style) ? play_style : null,
+        discriminator,
+        usernameTag,
       ]
     );
 
     applySessionDuration(req, remember !== false);
     req.session.userId = id;
     req.session.sessionId = await createUserSession(id, req);
-    res.json({ id, username, is_admin: isFirstUser ? 1 : 0 });
+    res.json({ id, username, is_admin: isFirstUser ? 1 : 0, discriminator, username_tag: usernameTag });
 
     // Cada conta começa sem nenhum servidor — igual Discord: cria o seu
     // próprio (dono desde o início) ou entra em outro só com convite/senha.
@@ -727,7 +739,13 @@ app.post(
     applySessionDuration(req, remember === true);
     req.session.userId = user.id;
     req.session.sessionId = await createUserSession(user.id, req);
-    res.json({ id: user.id, username: user.username, is_admin: user.is_admin });
+    res.json({
+      id: user.id,
+      username: user.username,
+      is_admin: user.is_admin,
+      discriminator: user.discriminator,
+      username_tag: user.username_tag || `${user.username}#${user.discriminator || '0000'}`,
+    });
     updateStreakAndRewards(user).catch((err) => console.error('Erro ao atualizar streak:', err));
   })
 );
@@ -754,7 +772,13 @@ app.post(
     applySessionDuration(req, pending.remember === true);
     req.session.userId = user.id;
     req.session.sessionId = await createUserSession(user.id, req);
-    res.json({ id: user.id, username: user.username, is_admin: user.is_admin });
+    res.json({
+      id: user.id,
+      username: user.username,
+      is_admin: user.is_admin,
+      discriminator: user.discriminator,
+      username_tag: user.username_tag || `${user.username}#${user.discriminator || '0000'}`,
+    });
     updateStreakAndRewards(user).catch((err) => console.error('Erro ao atualizar streak:', err));
   })
 );
@@ -779,6 +803,8 @@ app.get(
     res.json({
       id: req.user.id,
       username: req.user.username,
+      discriminator: req.user.discriminator,
+      username_tag: req.user.username_tag || `${req.user.username}#${req.user.discriminator || '0000'}`,
       is_admin: req.user.is_admin,
       email: req.user.email,
       status_message: req.user.status_message,
@@ -1180,7 +1206,7 @@ app.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const user = await db.get(
-      `SELECT id, username, avatar, avatar_frame, status_message, is_admin, bio, country, language,
+      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, bio, country, language,
         region, reputation, points, login_streak, longest_streak, created_at, favorite_games, platforms,
         preferred_rank, play_style
        FROM users WHERE id = ? AND is_banned = 0`,
@@ -2315,7 +2341,7 @@ app.get(
 
     const server = await db.get('SELECT owner_id FROM servers WHERE category = ?', [req.params.category]);
     const members = await db.all(
-      `SELECT u.id, u.username, u.avatar, u.avatar_frame
+      `SELECT u.id, u.username, u.discriminator, u.username_tag, u.avatar, u.avatar_frame
        FROM server_members sm JOIN users u ON u.id = sm.user_id
        WHERE sm.category = ? ORDER BY u.username`,
       [req.params.category]
@@ -2348,7 +2374,14 @@ app.post(
 
     const { username } = req.body || {};
     if (!username || typeof username !== 'string') return res.status(400).json({ error: 'Usuário inválido' });
-    const target = await db.get('SELECT id, username FROM users WHERE username = ?', [username.trim()]);
+    // Aceita "nome" ou o identificador completo "@nome#1234".
+    const parsedMember = parseUserTag(username);
+    const target = parsedMember.discriminator
+      ? await db.get('SELECT id, username FROM users WHERE username = ? AND discriminator = ?', [
+          parsedMember.username,
+          parsedMember.discriminator,
+        ])
+      : await db.get('SELECT id, username FROM users WHERE username = ?', [parsedMember.username]);
     if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
 
     const alreadyMember = await isServerMember(req.params.category, target.id);
@@ -2578,7 +2611,7 @@ app.get(
     const otherIds = rows.map((r) => r.other_id);
     const placeholders = otherIds.map(() => '?').join(',');
     const users = await db.all(
-      `SELECT id, username, avatar, avatar_frame, status_message FROM users WHERE id IN (${placeholders})`,
+      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message FROM users WHERE id IN (${placeholders})`,
       otherIds
     );
     const usersMap = {};
@@ -2603,7 +2636,15 @@ app.post(
   asyncHandler(async (req, res) => {
     const { username } = req.body || {};
     if (!username || typeof username !== 'string') return res.status(400).json({ error: 'Usuário inválido' });
-    const target = await db.get('SELECT id FROM users WHERE username = ?', [username.trim()]);
+    // Aceita tanto "Renato" (nome só) quanto "@Renato#4827" / "Renato#4827"
+    // (identificador completo) — item "Amigos" do sistema de hashtag.
+    const parsed = parseUserTag(username);
+    const target = parsed.discriminator
+      ? await db.get('SELECT id FROM users WHERE username = ? AND discriminator = ?', [
+          parsed.username,
+          parsed.discriminator,
+        ])
+      : await db.get('SELECT id FROM users WHERE username = ?', [parsed.username]);
     if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
     if (target.id === req.user.id) return res.status(400).json({ error: 'Você não pode adicionar a si mesmo' });
 
@@ -2670,6 +2711,23 @@ function dmChannelId(a, b) {
   return 'dm::' + [a, b].sort().join('::');
 }
 
+// Interpreta um identificador estilo Discord "@Username#1234" ou
+// "Username#1234" digitado pela pessoa — separa o nome da hashtag de 4
+// dígitos. Se não tiver "#" (ou o que vem depois não for 4 dígitos), trata
+// tudo como nome puro (discriminator null), pra continuar funcionando a
+// busca antiga por nome parcial.
+function parseUserTag(raw) {
+  const trimmed = String(raw || '').trim().replace(/^@/, '');
+  const hashIndex = trimmed.lastIndexOf('#');
+  if (hashIndex > 0) {
+    const tail = trimmed.slice(hashIndex + 1);
+    if (/^\d{1,4}$/.test(tail)) {
+      return { username: trimmed.slice(0, hashIndex), discriminator: tail.padStart(4, '0') };
+    }
+  }
+  return { username: trimmed, discriminator: null };
+}
+
 app.get(
   '/api/dm/:userId',
   requireAuth,
@@ -2705,9 +2763,10 @@ app.get(
       }
     }
 
-    const target = await db.get('SELECT id, username, avatar, avatar_frame, is_admin FROM users WHERE id = ?', [
-      targetId,
-    ]);
+    const target = await db.get(
+      'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, is_admin FROM users WHERE id = ?',
+      [targetId]
+    );
     if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
 
     const id = dmChannelId(req.user.id, targetId);
@@ -2732,7 +2791,10 @@ app.get(
       const iAmA = row.user_a === req.user.id;
       const hiddenAt = iAmA ? row.hidden_for_a : row.hidden_for_b;
 
-      const other = await db.get('SELECT id, username, avatar, avatar_frame FROM users WHERE id = ?', [otherId]);
+      const other = await db.get(
+        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame FROM users WHERE id = ?',
+        [otherId]
+      );
       if (!other) continue;
       const lastMsg = await db.get(
         'SELECT content, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 1',
@@ -4867,12 +4929,25 @@ app.get(
     const like = `%${q}%`;
     const limit = Math.min(Number(req.query.limit) || 6, 20);
 
+    // Se veio um identificador completo (@Username#1234 ou Username#1234),
+    // a busca vira exata pra esse par username+discriminator — item da
+    // auditoria de hashtag: "a pesquisa deve retornar exatamente o usuário
+    // correspondente" quando usado o identificador completo.
+    const parsedTag = parseUserTag(q);
+    const playersQuery = parsedTag.discriminator
+      ? db.all(
+          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin
+           FROM users WHERE is_banned = 0 AND username = ? AND discriminator = ? AND id != ?`,
+          [parsedTag.username, parsedTag.discriminator, req.user.id]
+        )
+      : db.all(
+          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin
+           FROM users WHERE is_banned = 0 AND username LIKE ? AND id != ? ORDER BY username LIMIT ?`,
+          [like, req.user.id, limit]
+        );
+
     const [players, serversRaw, tournaments, clips] = await Promise.all([
-      db.all(
-        `SELECT id, username, avatar, avatar_frame, status_message, is_admin
-         FROM users WHERE is_banned = 0 AND username LIKE ? AND id != ? ORDER BY username LIMIT ?`,
-        [like, req.user.id, limit]
-      ),
+      playersQuery,
       db.all(
         `SELECT s.category, s.icon, s.description,
           (SELECT COUNT(*) FROM server_members WHERE category = s.category) as member_count
@@ -5018,7 +5093,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, avatar, avatar_frame, status_message, is_admin FROM users WHERE is_banned = 0 AND id != ? ORDER BY username',
+        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin FROM users WHERE is_banned = 0 AND id != ? ORDER BY username',
         [AI_BOT_USER_ID]
       )
     );

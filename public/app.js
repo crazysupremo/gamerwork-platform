@@ -67,6 +67,17 @@ function avatarFrameClass(user) {
   return user && user.avatar_frame ? 'avatar-frame-' + user.avatar_frame : '';
 }
 
+// Identificador estilo Discord (@Username#1234) — sistema de hashtag.
+// Usa username_tag se já veio pronto do backend, senão monta na hora com o
+// discriminator; se nem isso tiver (conta bem antiga que ainda não migrou),
+// não quebra — só mostra o username sem a hashtag.
+function userTag(user) {
+  if (!user) return '';
+  if (user.username_tag) return '@' + user.username_tag;
+  if (user.discriminator) return `@${user.username}#${user.discriminator}`;
+  return '@' + (user.username || '');
+}
+
 // Atalho pra quando o avatar vai direto num elemento já existente no DOM
 // (em vez de dentro de um template de HTML string).
 function renderAvatarInto(el, user) {
@@ -1224,7 +1235,7 @@ async function loadManageMembers() {
     row.innerHTML = `
       <div class="member-avatar ${avatarFrameClass(m)}">${renderAvatarHtml(m)}</div>
       <div class="server-member-info">
-        <div class="server-member-name">${escapeHtml(m.username)}${m.is_owner ? ' 👑' : ''}</div>
+        <div class="server-member-name">${escapeHtml(m.username)}<span class="user-tag-inline">${escapeHtml(userTag(m))}</span>${m.is_owner ? ' 👑' : ''}</div>
         <div class="server-member-roles">${rolesHtml}</div>
       </div>
       <div class="server-member-actions">
@@ -2147,7 +2158,7 @@ async function loadDmConversations() {
         <span class="member-status-dot" style="${isOnline ? '' : 'background:#6d7178;'}"></span>
       </div>
       <span class="friend-name" style="flex:1; min-width:0;">
-        <strong style="${c.unread_count > 0 ? 'color:#fff;' : ''}">${escapeHtml(c.other_user.username)}</strong>
+        <strong style="${c.unread_count > 0 ? 'color:#fff;' : ''}">${escapeHtml(c.other_user.username)}</strong><span class="user-tag-inline">${escapeHtml(userTag(c.other_user))}</span>
         <span class="friend-status" style="display:block; ${c.unread_count > 0 ? 'color:#dbdee1; font-weight:600;' : ''}">${preview}</span>
         <span class="hint" style="font-size:11px;">${when}</span>
       </span>
@@ -2200,7 +2211,7 @@ async function loadFriends() {
     row.className = 'friend-row';
     row.innerHTML = `
       <div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
-      <span class="friend-name">${escapeHtml(f.user.username)}</span>
+      <span class="friend-name">${escapeHtml(f.user.username)}<span class="user-tag-inline">${escapeHtml(userTag(f.user))}</span></span>
       <div class="friend-actions">
         <button type="button" class="friend-accept-btn" title="Aceitar">✅</button>
         <button type="button" class="friend-decline-btn" title="Recusar">❌</button>
@@ -2227,7 +2238,7 @@ async function loadFriends() {
     row.className = 'friend-row';
     row.innerHTML = `
       <div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
-      <span class="friend-name">${escapeHtml(f.user.username)}</span>
+      <span class="friend-name">${escapeHtml(f.user.username)}<span class="user-tag-inline">${escapeHtml(userTag(f.user))}</span></span>
       <div class="friend-actions">
         <span class="friend-pending-tag">Aguardando...</span>
         <button type="button" class="friend-cancel-btn" title="Cancelar pedido">✖</button>
@@ -2272,7 +2283,7 @@ async function loadFriends() {
         <div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
         <span class="member-status-dot" style="${isOnline ? '' : 'background:#6d7178;'}"></span>
       </div>
-      <span class="friend-name">${escapeHtml(f.user.username)}${f.user.status_message ? ` <span class="friend-status">🎮 ${escapeHtml(f.user.status_message)}</span>` : ''}</span>
+      <span class="friend-name">${escapeHtml(f.user.username)}<span class="user-tag-inline">${escapeHtml(userTag(f.user))}</span>${f.user.status_message ? ` <span class="friend-status">🎮 ${escapeHtml(f.user.status_message)}</span>` : ''}</span>
       <div class="friend-actions">
         <button type="button" class="friend-message-btn" title="Conversar">💬</button>
         <button type="button" class="friend-call-btn" title="Ligar">📞</button>
@@ -2786,6 +2797,16 @@ async function openProfilePreview(user) {
   document.getElementById('profile-preview-username').textContent = user.username + (user.is_admin ? ' 👑' : '');
   document.getElementById('profile-preview-status').textContent = user.status_message ? '🎮 ' + user.status_message : '';
 
+  // Identificador estilo Discord (@Username#1234) — sistema de hashtag.
+  const tag = userTag(user);
+  document.getElementById('profile-preview-tag').textContent = tag;
+  document.getElementById('profile-preview-copy-id').onclick = () => {
+    navigator.clipboard.writeText(tag).then(
+      () => showCopyToast('Identificador copiado!'),
+      () => showCopyToast('Não foi possível copiar — copia manual: ' + tag)
+    );
+  };
+
   const actionsEl = document.getElementById('profile-preview-actions');
   actionsEl.innerHTML = '';
   userActionItems(user).forEach((item) => {
@@ -3055,6 +3076,14 @@ function getProfileStatusValue() {
   return profileStatusSelect.value;
 }
 
+document.getElementById('own-profile-copy-id').onclick = () => {
+  const tag = userTag(me);
+  navigator.clipboard.writeText(tag).then(
+    () => showCopyToast('Identificador copiado!'),
+    () => showCopyToast('Não foi possível copiar — copia manual: ' + tag)
+  );
+};
+
 function updateAvatarPreview() {
   const preview = document.getElementById('profile-avatar-preview');
   const avatarValue = pendingAvatar !== undefined ? pendingAvatar : me.avatar;
@@ -3103,6 +3132,7 @@ document.getElementById('profile-avatar-file').onchange = (e) => {
 
 document.getElementById('btn-edit-profile').onclick = () => {
   document.getElementById('profile-error').textContent = '';
+  document.getElementById('own-profile-tag').textContent = userTag(me);
   document.getElementById('profile-email').value = me.email || '';
   document.getElementById('profile-presence-select').value = me.presence_status || 'online';
   setProfileStatusFields(me.status_message);
@@ -4543,7 +4573,7 @@ async function runGlobalSearch(term) {
       .map(
         (u) => `<div class="search-result-item" data-kind="player" data-id="${u.id}">
           <div class="search-result-icon round">${renderAvatarHtml(u)}</div>
-          <div class="search-result-text"><span class="search-result-title">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}</span><span class="search-result-meta">${u.status_message ? '🎮 ' + escapeHtml(u.status_message) : 'Jogador'}</span></div>
+          <div class="search-result-text"><span class="search-result-title">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}</span><span class="search-result-meta">${escapeHtml(userTag(u))}${u.status_message ? ' · 🎮 ' + escapeHtml(u.status_message) : ''}</span></div>
         </div>`
       )
       .join('')}</div>`;

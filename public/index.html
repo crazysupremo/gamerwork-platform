@@ -654,6 +654,13 @@
           </div>
         </div>
 
+        <p class="profile-preview-tag-row" style="justify-content:flex-start;">
+          <span id="own-profile-tag" class="profile-preview-tag"></span>
+          <button type="button" id="own-profile-copy-id" class="profile-preview-copy-btn" title="Copiar identificador">
+            <span class="ng-icon-wrap" data-icon="copy"></span> Copiar ID
+          </button>
+        </p>
+
         <label>Seu status</label>
         <select id="profile-presence-select">
           <option value="online">🟢 Online</option>
@@ -1151,7 +1158,7 @@
       <form id="form-add-server-member" class="hidden" style="display:flex; gap:8px; margin-bottom:14px;">
         <div class="input-icon-wrap" style="flex:1;">
           <span class="input-icon"><span class="ng-icon-wrap" data-icon="user"></span></span>
-          <input type="text" id="add-server-member-input" placeholder="Nome de usuário pra adicionar" required />
+          <input type="text" id="add-server-member-input" placeholder="Nome de usuário ou @nome#1234" required />
         </div>
         <button type="submit" class="home-btn-primary" style="white-space:nowrap;">Adicionar</button>
       </form>
@@ -1327,6 +1334,12 @@
       <div id="profile-preview-avatar" class="profile-preview-avatar"></div>
     </div>
     <h2 id="profile-preview-username" style="margin-top:44px;"></h2>
+    <p class="profile-preview-tag-row">
+      <span id="profile-preview-tag" class="profile-preview-tag"></span>
+      <button type="button" id="profile-preview-copy-id" class="profile-preview-copy-btn" title="Copiar identificador">
+        <span class="ng-icon-wrap" data-icon="copy"></span> Copiar ID
+      </button>
+    </p>
     <p id="profile-preview-status" class="profile-preview-status"></p>
     <div id="profile-preview-actions" class="profile-preview-actions"></div>
 
@@ -1364,7 +1377,7 @@
       <form id="form-add-friend" style="display:flex; gap:8px; margin-bottom:14px;">
         <div class="input-icon-wrap" style="flex:1;">
           <span class="input-icon"><span class="ng-icon-wrap" data-icon="user"></span></span>
-          <input type="text" id="add-friend-input" placeholder="Nome de usuário" required />
+          <input type="text" id="add-friend-input" placeholder="Nome de usuário ou @nome#1234" required />
         </div>
         <button type="submit" class="home-btn-primary" style="white-space:nowrap;">Adicionar</button>
       </form>

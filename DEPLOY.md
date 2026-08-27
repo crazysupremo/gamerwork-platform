@@ -95,10 +95,29 @@ Pra ativar:
   automaticamente, então esse deve ser você.
 - O painel de moderação fica em `SUA-URL/admin.html`.
 
-## Sobre o compartilhamento de tela em produção
+## Sobre chamadas de voz/vídeo e compartilhamento de tela em produção
 
-O WebRTC deste protótipo usa apenas um servidor STUN público (Google), sem
-servidor TURN. Isso funciona bem na maioria das redes domésticas, mas pode
-falhar para usuários atrás de firewalls corporativos ou redes muito
-restritivas. Se isso virar um problema real, dá para adicionar um TURN
-(ex.: serviço gratuito do Metered.ca ou Twilio) depois.
+O app já vem com um servidor TURN de fallback configurado automaticamente
+(relay público gratuito do Open Relay Project) — isso resolve a maioria dos
+casos de "call não conecta" entre pessoas em redes mais fechadas (dado
+móvel, wifi de empresa/escola). Só que esse relay é compartilhado com
+qualquer pessoa no mundo que usa as mesmas credenciais de teste, então pode
+ficar lento se muita gente usar ao mesmo tempo.
+
+Pra ter um TURN só seu (recomendado antes de divulgar o site pra muita
+gente), o Open Relay Project mesmo (metered.ca) dá 20GB grátis por mês sem
+cartão:
+
+1. Crie uma conta grátis em **metered.ca** (ou outro provedor de TURN de sua preferência)
+2. Copie a URL do servidor TURN e as credenciais (usuário/senha) geradas
+3. No Render, adicione as variáveis de ambiente:
+   - Key: `TURN_URL` → Value: a URL (pode colar várias separadas por vírgula, ex: `turn:seu-relay.com:80,turn:seu-relay.com:80?transport=tcp`)
+   - Key: `TURN_USERNAME` → Value: o usuário
+   - Key: `TURN_CREDENTIAL` → Value: a senha/credencial
+4. Salve — assim que essas variáveis existirem, o site para de usar o relay
+   público compartilhado e passa a usar o seu automaticamente (sem precisar
+   mexer em nenhum código).
+
+Também vale a pena acompanhar o painel **Monitoramento** em `SUA-URL/admin.html`
+— ele avisa na tela se o TURN ainda está no modo compartilhado, se a memória
+do processo está passando do limite do plano gratuito do Render, etc.
