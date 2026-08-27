@@ -413,7 +413,8 @@ const REWARDS_CATALOG = [
   {
     key: 'founder-eternal',
     name: 'Fundador Eterno',
-    description: '365 dias seguidos acessando — selo exclusivo, só para as 2 primeiras pessoas que chegarem lá',
+    description:
+      '365 dias seguidos acessando — selo exclusivo (só para as 2 primeiras pessoas que chegarem lá) + 1 ANO de NEXTGAME PLUS de graça',
     frame: 'eternal',
     type: 'streak',
     days: 365,
@@ -585,6 +586,12 @@ async function unlockReward(userId, rewardKey) {
     code,
   ]);
   await grantCoins(userId, 25, `Recompensa desbloqueada: ${rewardKey}`);
+
+  // Prêmio máximo do site: quem chega nos 365 dias seguidos (Fundador
+  // Eterno) ganha, além do selo, 1 ano de NEXTGAME PLUS de verdade.
+  if (rewardKey === 'founder-eternal') {
+    await grantPlusFromReward(userId, 365);
+  }
 }
 
 // ---------- NEXT COINS (moeda virtual cosmética — nunca envolve dinheiro real) ----------
@@ -818,6 +825,11 @@ app.get(
   '/api/me',
   requireAuth,
   asyncHandler(async (req, res) => {
+    // Se o Plus dessa conta veio de prêmio (Fundador Eterno) e já venceu o
+    // prazo de 1 ano, rebaixa aqui — checagem "preguiçosa" a cada /api/me,
+    // sem precisar de nenhum job/cron rodando em segundo plano.
+    await checkPlanExpiry(req.user);
+
     // Total de mensagens enviadas (histórico completo), usado só pra calcular
     // um "nível" divertido no perfil — não é uma métrica séria de nada.
     const countRow = await db.get('SELECT COUNT(*) as c FROM messages WHERE user_id = ? AND deleted = 0', [
@@ -950,8 +962,42 @@ async function getPayPalAccessToken() {
 // Concede/revoga o plano Plus numa conta — reaproveitado tanto pelo fluxo
 // de assinatura de verdade (webhook/confirm) quanto pela concessão manual
 // de admin (suporte, cortesia, teste antes do PayPal estar configurado).
-async function setUserPlan(userId, plan) {
-  await db.run('UPDATE users SET plan = ? WHERE id = ?', [plan, userId]);
+async function setUserPlan(userId, plan, opts = {}) {
+  const source = opts.source !== undefined ? opts.source : null;
+  const expiresAt = opts.expiresAt !== undefined ? opts.expiresAt : null;
+  await db.run('UPDATE users SET plan = ?, plan_source = ?, plan_expires_at = ? WHERE id = ?', [
+    plan,
+    plan === 'plus' ? source : null,
+    plan === 'plus' ? expiresAt : null,
+    userId,
+  ]);
+}
+
+// Prêmio de permanência mais alto do site (Fundador Eterno, 365 dias
+// seguidos) — além do selo cosmético, dá NEXTGAME PLUS de verdade por 1 ano.
+// Nunca sobrescreve uma assinatura paga de verdade (plan_source='paypal')
+// já ativa — o prêmio só "preenche" quando a pessoa ainda não é Plus pago.
+async function grantPlusFromReward(userId, days) {
+  const user = await db.get('SELECT plan, plan_source FROM users WHERE id = ?', [userId]);
+  if (user && user.plan === 'plus' && user.plan_source === 'paypal') return; // já paga, não mexe
+  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+  await setUserPlan(userId, 'plus', { source: 'reward', expiresAt });
+}
+
+// Verifica se o Plus dado de prêmio já venceu e, se sim, rebaixa pra free —
+// nunca mexe em quem é Plus por assinatura paga (plan_source='paypal') ou
+// concedido manualmente por admin (plan_source=null), só no que veio de
+// prêmio com prazo (plan_source='reward').
+async function checkPlanExpiry(user) {
+  if (user.plan === 'plus' && user.plan_source === 'reward' && user.plan_expires_at) {
+    if (new Date(user.plan_expires_at) < new Date()) {
+      await setUserPlan(user.id, 'free');
+      user.plan = 'free';
+      user.plan_source = null;
+      user.plan_expires_at = null;
+    }
+  }
+  return user;
 }
 
 app.get(
@@ -1002,7 +1048,7 @@ app.post(
           [uuidv4(), req.user.id, subscriptionId]
         );
       }
-      await setUserPlan(req.user.id, 'plus');
+      await setUserPlan(req.user.id, 'plus', { source: 'paypal' });
       res.json({ ok: true, plan: 'plus' });
     } catch (err) {
       console.error('Erro ao confirmar assinatura PayPal:', err.message);
@@ -1055,7 +1101,7 @@ app.post(
             "UPDATE subscriptions SET status = 'active', updated_at = datetime('now') WHERE paypal_subscription_id = ?",
             [subscriptionId]
           );
-          await setUserPlan(subRow.user_id, 'plus');
+          await setUserPlan(subRow.user_id, 'plus', { source: 'paypal' });
         }
       } else if (
         event.event_type === 'BILLING.SUBSCRIPTION.CANCELLED' ||
@@ -1067,7 +1113,13 @@ app.post(
             "UPDATE subscriptions SET status = 'cancelled', updated_at = datetime('now') WHERE paypal_subscription_id = ?",
             [subscriptionId]
           );
-          await setUserPlan(subRow.user_id, 'free');
+          // Só derruba o plano se o Plus dessa conta veio dessa assinatura
+          // mesmo — se por acaso a pessoa também ganhou Plus de prêmio, o
+          // cancelamento do PayPal não deve tirar isso.
+          const currentUser = await db.get('SELECT plan_source FROM users WHERE id = ?', [subRow.user_id]);
+          if (currentUser && currentUser.plan_source === 'paypal') {
+            await setUserPlan(subRow.user_id, 'free');
+          }
         }
       }
       res.json({ ok: true });

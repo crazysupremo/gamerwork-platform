@@ -712,6 +712,13 @@ async function initDb() {
   // Plus fica na tabela subscriptions; aqui é só o estado atual, rápido de
   // checar em qualquer request sem join.
   await ensureColumn('users', "plan TEXT NOT NULL DEFAULT 'free'");
+  // De onde veio o plano Plus ('paypal' = assinatura paga real, 'reward' =
+  // ganhou de prêmio, null = concedido manualmente por admin) e quando
+  // expira (só usado pra prêmios; assinatura paga não expira por tempo, só
+  // por cancelamento via webhook). Importante separar isso pra nunca a
+  // expiração de um prêmio derrubar quem está pagando de verdade.
+  await ensureColumn('users', 'plan_source TEXT');
+  await ensureColumn('users', 'plan_expires_at TEXT');
 
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },

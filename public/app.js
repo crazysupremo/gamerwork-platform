@@ -1936,7 +1936,7 @@ async function loadRewards() {
       ${r.rare && !isBigSeal ? `<img src="/assets/logo.png" alt="" class="reward-rare-logo" />` : ''}
       <div class="reward-icon-wrap">${sealVisualHtml(r)}</div>
       <div class="reward-info">
-        <h3>${r.rare ? '⭐ ' : ''}${escapeHtml(r.name)}</h3>
+        <h3>${r.rare ? '<img src="/assets/kenney-icons/star.png" class="reward-rare-star" alt="raro" /> ' : ''}${escapeHtml(r.name)}</h3>
         <p>${escapeHtml(r.description)}</p>
         ${actionsHtml}
       </div>
@@ -3526,6 +3526,7 @@ async function loadNotificationPrefs() {
       </label>
     `;
     row.querySelector('input').onchange = async (e) => {
+      SFX.uiSwitch();
       const updated = { ...prefs, [key]: e.target.checked };
       await fetch('/api/notification-prefs', {
         method: 'PUT',

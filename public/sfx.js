@@ -66,11 +66,34 @@ const SFX = (() => {
     noise.stop(t0 + duration + 0.01);
   }
 
+  // Sons de interface prontos (pacote Kenney UI, CC0) — usados só pra
+  // navegação/toggle, não pros eventos "de verdade" do app (mensagem,
+  // chamada etc), que continuam sintetizados como sempre. Cria um <audio>
+  // novo a cada toque em vez de reaproveitar um só, pra permitir cliques
+  // rápidos em sequência sem cortar o som anterior.
+  function playFile(src, volume = 0.35) {
+    if (!enabled) return;
+    try {
+      const audio = new Audio(src);
+      audio.volume = volume;
+      audio.play().catch(() => {});
+    } catch (_) {}
+  }
+
   return {
     isEnabled: () => enabled,
     setEnabled(value) {
       enabled = value;
       localStorage.setItem('ng_sfx_enabled', value ? 'on' : 'off');
+    },
+
+    // Sons de UI extras (pacote Kenney) — alternar toggle, toque leve em
+    // elemento pequeno. O clique genérico já usa esse mesmo pacote em click().
+    uiSwitch() {
+      playFile('/assets/sounds/switch-a.ogg', 0.3);
+    },
+    uiTap() {
+      playFile('/assets/sounds/tap-a.ogg', 0.25);
     },
 
     // Mensagem nova de outra pessoa no chat.
@@ -119,8 +142,10 @@ const SFX = (() => {
       tone({ freq: 650, endFreq: 250, duration: 0.16, type: 'sawtooth', gain: 0.06 });
     },
     // Clique genérico de botão/interface — bem sutil, tipo Discord.
+    // Clique genérico de botão — som real do pacote Kenney UI (antes era um
+    // "bipe" sintetizado; trocado a pedido, pra soar mais "de jogo de verdade").
     click() {
-      tone({ freq: 700, duration: 0.03, type: 'square', gain: 0.03 });
+      playFile('/assets/sounds/click-a.ogg', 0.22);
     },
     // Abrir um modal/painel.
     modalOpen() {

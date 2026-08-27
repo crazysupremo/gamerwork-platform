@@ -1905,6 +1905,8 @@ video:fullscreen { background: #000; object-fit: contain; }
 }
 .minor-safety-banner button:hover { color: #dbdee1; }
 
+.reward-rare-star { width: 15px; height: auto; vertical-align: -2px; }
+
 .plus-badge {
   display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: 0.04em;
   padding: 2px 6px; border-radius: 6px; margin-left: 5px; vertical-align: middle;
