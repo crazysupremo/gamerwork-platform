@@ -142,10 +142,10 @@ const SFX = (() => {
       tone({ freq: 650, endFreq: 250, duration: 0.16, type: 'sawtooth', gain: 0.06 });
     },
     // Clique genérico de botão/interface — bem sutil, tipo Discord.
-    // Clique genérico de botão — som real do pacote Kenney UI (antes era um
-    // "bipe" sintetizado; trocado a pedido, pra soar mais "de jogo de verdade").
+    // (Voltou a ser sintetizado — o som real do pacote Kenney ficou feio
+    // segundo o usuário; ele vai mandar outro som pra usar aqui.)
     click() {
-      playFile('/assets/sounds/click-a.ogg', 0.22);
+      tone({ freq: 700, duration: 0.03, type: 'square', gain: 0.03 });
     },
     // Abrir um modal/painel.
     modalOpen() {

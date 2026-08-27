@@ -3526,7 +3526,6 @@ async function loadNotificationPrefs() {
       </label>
     `;
     row.querySelector('input').onchange = async (e) => {
-      SFX.uiSwitch();
       const updated = { ...prefs, [key]: e.target.checked };
       await fetch('/api/notification-prefs', {
         method: 'PUT',
