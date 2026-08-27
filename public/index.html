@@ -431,10 +431,9 @@
         </div>
         <div class="home-col-side">
           <div class="home-side-card home-streak-card" id="home-streak-card"></div>
-          <div class="home-side-card">
-            <div class="home-section-title"><span class="ng-icon-wrap" data-icon="message-circle"></span> Conversas Recentes</div>
-            <div id="home-conversations" class="home-conversations-list"></div>
-          </div>
+          <!-- Removido a pedido do usuário: "Conversas Recentes" duplicava a
+               lista de conversas que já vive em Mensagens (sidebar/flutuante). -->
+          <div id="home-conversations" class="home-conversations-list hidden"></div>
           <div class="home-side-card">
             <div class="home-section-title"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span> Ranking Semanal</div>
             <div id="home-ranking" class="ranking-list"></div>
