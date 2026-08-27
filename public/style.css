@@ -1666,6 +1666,32 @@ video:fullscreen { background: #000; object-fit: contain; }
 .friend-row-active { border-color: var(--accent-1, #5865f2); background: #2b2d42; }
 .dm-info-card { padding: 10px 4px; font-size: 13px; }
 .dm-info-card .profile-preview-action-btn { width: 100%; justify-content: flex-start; }
+
+.dm-friends-shortcut-btn {
+  display: flex; align-items: center; gap: 8px; width: calc(100% - 12px); margin: 4px 6px 12px;
+  background: #1a1b20; border: none; color: #dbdee1; font-size: 13.5px; font-weight: 600;
+  padding: 9px 10px; border-radius: 8px; cursor: pointer;
+}
+.dm-friends-shortcut-btn:hover { background: #26272e; }
+.dm-friends-shortcut-btn:focus-visible { outline: 2px solid #5865f2; outline-offset: 1px; }
+
+/* BUG CORRIGIDO: o link/texto de mensagens compridas (ex: link de convite)
+   forçava a linha inteira a esticar e criar barra de rolagem horizontal na
+   lista de conversas. Trunca com "..." em vez de vazar pra fora da coluna. */
+#dm-sidebar-list, #dm-conversations-list { overflow-x: hidden; }
+#dm-conversations-list .friend-row { min-width: 0; }
+#dm-conversations-list .friend-name { min-width: 0; overflow: hidden; }
+#dm-conversations-list .friend-name strong,
+#dm-conversations-list .friend-status,
+#dm-conversations-list .hint {
+  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+
+/* Dentro do painel de Amigos (tela cheia, não modal), a lista não precisa
+   mais de rolagem própria limitada — deixa a página inteira rolar, senão
+   as seções (pedidos recebidos/enviados/amigos) ficam cortadas/empilhadas
+   uma em cima da outra dentro de uma caixinha pequena. */
+#friends-panel .friends-list { max-height: none; overflow-y: visible; }
 #dm-conversations-list .friend-row:hover { background: #26272e; }
 .friend-name { flex: 1; font-size: 13px; font-weight: 600; color: #dbdee1; min-width: 0; }
 .friend-status { font-size: 11px; color: var(--accent-3); font-weight: 400; }

@@ -2143,7 +2143,15 @@ function enterChatMode(landOn) {
   document.getElementById('active-server-name').textContent = 'MENSAGENS';
   document.getElementById('categories-container').classList.add('hidden');
   document.getElementById('dm-sidebar-list').classList.remove('hidden');
-  ['btn-new-room', 'btn-shop-coins', 'btn-server-info', 'btn-server-manage', 'btn-quick-room'].forEach((id) => {
+  // BUG CORRIGIDO: o "X" de fechar a coluna e os ícones de servidor
+  // (sala rápida, config etc) continuavam aparecendo em cima da lista de
+  // conversas — não fazem sentido fora do contexto de um servidor.
+  ['btn-new-room', 'btn-shop-coins', 'btn-server-info', 'btn-server-manage', 'btn-quick-room', 'btn-close-channel-sidebar'].forEach((id) => {
+    document.getElementById(id).classList.add('hidden');
+  });
+  // Mesma lógica pro cabeçalho da área principal — só faz sentido mostrar
+  // busca/fixados/limpar/membros quando tem um canal de verdade selecionado.
+  ['btn-search-messages', 'btn-pinned-messages', 'btn-clear-channel', 'btn-toggle-members'].forEach((id) => {
     document.getElementById(id).classList.add('hidden');
   });
   if (typeof setServersCollapsed === 'function') setServersCollapsed(true);
@@ -2171,7 +2179,7 @@ function exitChatMode() {
   document.getElementById('dm-sidebar-list').classList.add('hidden');
   document.getElementById('categories-container').classList.remove('hidden');
   document.getElementById('friends-panel').classList.add('hidden');
-  ['btn-new-room', 'btn-shop-coins', 'btn-server-info', 'btn-server-manage', 'btn-quick-room'].forEach((id) => {
+  ['btn-new-room', 'btn-shop-coins', 'btn-server-info', 'btn-server-manage', 'btn-quick-room', 'btn-close-channel-sidebar'].forEach((id) => {
     document.getElementById(id).classList.remove('hidden');
   });
 }
@@ -3711,6 +3719,11 @@ function selectChannel(channel, options = {}) {
   // em canal de servidor, onde já tem outros jeitos de convidar gente.
   document.getElementById('btn-invite-to-play').classList.toggle('hidden', !isDm);
   document.getElementById('btn-invite-to-server').classList.toggle('hidden', !isDm);
+  // Um canal de verdade está selecionado agora (servidor ou DM) — os ícones
+  // de busca/fixados/membros voltam a fazer sentido no cabeçalho.
+  document.getElementById('btn-search-messages').classList.remove('hidden');
+  document.getElementById('btn-pinned-messages').classList.remove('hidden');
+  document.getElementById('btn-toggle-members').classList.remove('hidden');
 }
 
 // Alterna entre a tela de "Entrar na chamada" (não conectado ainda) e a view
@@ -5164,7 +5177,12 @@ const GAME_INVITE_PREFIX = '__GAME_INVITE__::';
 // esconde o formato interno do convite de jogo atrás de um resumo legível.
 function messagePreviewText(content) {
   if (content && content.startsWith(GAME_INVITE_PREFIX)) return '🎮 Convite pra jogar';
-  return content || '';
+  // BUG CORRIGIDO: mensagem que era só um link (convite de servidor, por
+  // exemplo) aparecia crua e enorme na prévia da lista de conversas,
+  // estourando a largura da coluna. Mostra um resumo curto em vez do link.
+  if (content && /^https?:\/\/\S+$/.test(content.trim())) return '🔗 Link enviado';
+  if (content) return content.replace(/https?:\/\/\S+/g, '🔗 link');
+  return '';
 }
 
 function renderMessageContentHtml(msg) {
