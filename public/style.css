@@ -800,6 +800,18 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .message .content.deleted { color: #6d7178; font-style: italic; }
 .msg-link { color: #00b8ff; text-decoration: underline; word-break: break-all; }
 .msg-link:hover { color: #5865f2; }
+.game-invite-card {
+  background: #2b2d31; border: 1px solid #3a3c42; border-radius: 8px; padding: 10px 12px; max-width: 320px;
+}
+.game-invite-header { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; color: #5865f2; margin-bottom: 6px; }
+.game-invite-body { font-size: 13px; margin-bottom: 8px; }
+.game-invite-actions { display: flex; gap: 8px; }
+.game-invite-actions button {
+  flex: 1; border: none; border-radius: 6px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.game-invite-accept { background: #23a55a; color: white; }
+.game-invite-decline { background: #404249; color: #dbdee1; }
+.game-invite-waiting { font-size: 11px; color: #949ba4; font-style: italic; }
 .message .report-link {
   font-size: 11px; color: #f23f42; cursor: pointer; margin-top: 2px; display: inline-block;
 }
@@ -1695,6 +1707,16 @@ video:fullscreen { background: #000; object-fit: contain; }
 }
 .profile-preview-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .profile-preview-status { color: var(--accent-3); font-size: 13px; margin: -8px 0 14px; }
+.floating-chat-btn {
+  position: fixed; right: 22px; bottom: 22px; z-index: 40;
+  width: 52px; height: 52px; border-radius: 50%; border: none;
+  background: var(--gradient-brand); color: white; font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; box-shadow: 0 6px 18px rgba(88,101,242,0.45);
+  transition: transform 0.15s ease;
+}
+.floating-chat-btn:hover { transform: scale(1.07); }
+.floating-chat-btn .navbar-badge { top: -3px; right: -3px; }
 .profile-preview-tag-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin: -6px 0 6px; }
 .profile-preview-tag { color: #949ba4; font-size: 13px; font-family: monospace; }
 .profile-preview-copy-btn {

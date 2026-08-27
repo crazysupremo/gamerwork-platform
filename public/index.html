@@ -205,6 +205,12 @@
     <div class="app-sidebar-nav">
       <button class="sidebar-nav-item sidebar-nav-item-solo active" id="nav-inicio"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> Início</button>
 
+      <!-- Amigos e Chat como função principal, ao lado de Início — não
+           ficam mais só como ícones pequenos no canto (pedido explícito:
+           "amigos, chat e servidores não podem ficar escondidos"). -->
+      <button class="sidebar-nav-item sidebar-nav-item-solo" id="nav-sidebar-amigos"><span class="ng-icon-wrap" data-icon="users"></span> Amigos<span id="sidebar-friends-badge" class="navbar-badge hidden">0</span></button>
+      <button class="sidebar-nav-item sidebar-nav-item-solo" id="nav-sidebar-chat"><span class="ng-icon-wrap" data-icon="message-square"></span> Chat<span id="sidebar-messages-badge" class="navbar-badge hidden">0</span></button>
+
       <div class="app-sidebar-section-label">Explorar</div>
       <button class="sidebar-nav-item" id="nav-jogos"><span class="ng-icon-wrap" data-icon="search"></span> Explorar</button>
       <button class="sidebar-nav-item" id="nav-lfg"><span class="ng-icon-wrap" data-icon="target"></span> Jogar</button>
@@ -332,6 +338,8 @@
     <header class="main-header">
       <button id="btn-toggle-channel-sidebar" title="Mostrar/esconder canais do servidor" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="message-square"></span></button>
       <span id="current-channel-name">Início</span>
+      <button id="btn-invite-to-play" title="Convidar para jogar" class="header-icon-btn hidden"><span class="ng-icon-wrap" data-icon="gamepad-2"></span></button>
+      <button id="btn-invite-to-server" title="Convidar para servidor" class="header-icon-btn hidden"><span class="ng-icon-wrap" data-icon="server"></span></button>
       <button id="btn-search-messages" title="Buscar mensagens" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="search"></span></button>
       <button id="btn-pinned-messages" title="Mensagens fixadas" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="pin"></span></button>
       <button id="btn-clear-channel" title="Limpar conversa (admin)" class="header-icon-btn hidden"><span class="ng-icon-wrap" data-icon="trash-2"></span></button>
@@ -501,6 +509,13 @@
   </aside>
   </div><!-- /.app-body -->
   </div><!-- /.app-main -->
+
+  <!-- Chat flutuante: fixo em qualquer tela do site, item 5 do plano de
+       navegação — abre o painel de mensagens sem sair de onde você está. -->
+  <button type="button" id="btn-floating-chat" class="floating-chat-btn" title="Chat">
+    <span class="ng-icon-wrap" data-icon="message-square"></span>
+    <span id="floating-chat-badge" class="navbar-badge hidden">0</span>
+  </button>
 </div>
 
 <!-- MODAL: criar sala/servidor -->

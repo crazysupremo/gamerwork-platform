@@ -5552,6 +5552,36 @@ function removeFromAllVoiceRooms(socketId) {
   }
 }
 
+// BUG CORRIGIDO: mesma pessoa entrando em call por duas abas/dispositivos ao
+// mesmo tempo (ex: duplicou a página) criava DUAS entradas de participante
+// pro mesmo usuário. O pior sintoma não era só aparecer duplicado — era que,
+// quando uma das abas fechava/saía, os OUTROS participantes só percebiam a
+// queda pelo timeout de ICE (lento, alguns segundos) em vez de um aviso
+// imediato, e entravam no ciclo de "reconectando" pra sempre tentando falar
+// com um socket que já nem existe mais. A correção é nunca deixar duas
+// entradas do mesmo userId em voz ao mesmo tempo: quando uma conexão nova
+// chega, qualquer sessão de voz antiga da MESMA pessoa (em qualquer sala) é
+// desconectada de propósito e de forma limpa — com aviso pros outros
+// participantes na hora (rtc:peer-left imediato, sem esperar timeout) e um
+// aviso pra aba antiga se desconectar sozinha (não fica com mic ligado
+// achando que ainda está na call).
+function disconnectDuplicateUserSessions(userId, excludeSocketId) {
+  for (const [roomId, participants] of voiceRooms.entries()) {
+    for (const [socketId, info] of participants.entries()) {
+      if (info.userId !== userId || socketId === excludeSocketId) continue;
+      const oldSocket = io.sockets.sockets.get(socketId);
+      if (oldSocket) {
+        oldSocket.leave('rtc:' + roomId);
+        oldSocket.emit('rtc:duplicate-session', { roomId });
+      }
+      io.to('rtc:' + roomId).emit('rtc:peer-left', { socketId, username: info.username });
+      participants.delete(socketId);
+      broadcastVoiceRoom(roomId);
+      maybeDeleteEmptyQuickRoom(roomId);
+    }
+  }
+}
+
 // Sala Rápida: se o último participante saiu e a sala é temporária
 // (is_quick), apaga ela do banco e avisa todo mundo pra sumir da lista.
 async function maybeDeleteEmptyQuickRoom(roomId) {
@@ -5785,10 +5815,18 @@ io.on('connection', (socket) => {
         const parts = channelId.split('::');
         const otherId = parts[1] === user.id ? parts[2] : parts[2] === user.id ? parts[1] : null;
         if (otherId) {
+          // Convite pra jogar é uma mensagem "estruturada" (prefixo
+          // reconhecível) — a notificação mostra um texto amigável em vez
+          // do JSON cru que fica por trás do cartão bonito no chat.
+          const previewText = content.startsWith('__GAME_INVITE__::')
+            ? '🎮 Te convidou pra jogar'
+            : content.length > 140
+            ? content.slice(0, 140) + '…'
+            : content;
           io.to('user:' + otherId).emit('dm:notify', {
             fromUsername: user.username,
             channelId,
-            preview: content.length > 140 ? content.slice(0, 140) + '…' : content,
+            preview: previewText,
           });
         }
         // Se essa DM é com o bot assistente de IA, gera a resposta dele.
@@ -5918,6 +5956,11 @@ io.on('connection', (socket) => {
 
     // Sai de qualquer outra sala de voz antes (só dá pra estar em uma por vez)
     removeFromAllVoiceRooms(socket.id);
+
+    // Essa MESMA pessoa (userId) já está conectada em voz noutra aba/sessão?
+    // Derruba a antiga de propósito, limpo, antes de aceitar a nova — evita
+    // o bug da duplicação (ver comentário completo em disconnectDuplicateUserSessions).
+    disconnectDuplicateUserSessions(user.id, socket.id);
 
     socket.join('rtc:' + roomId);
     socket.to('rtc:' + roomId).emit('rtc:peer-joined', {

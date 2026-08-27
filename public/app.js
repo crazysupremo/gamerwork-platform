@@ -2078,6 +2078,11 @@ document.getElementById('nav-friends').onclick = () => {
 };
 document.getElementById('btn-close-friends').onclick = () => modalFriends.classList.add('hidden');
 
+// Mesmos atalhos, agora também como item de primeira classe na sidebar
+// esquerda (item 1/11 do plano de navegação: "amigos e chat não podem ficar
+// escondidos" — antes só existiam como ícone pequeno no canto superior).
+document.getElementById('nav-sidebar-amigos').onclick = () => document.getElementById('nav-friends').click();
+
 // Aba "Amigos" x "Mensagens" dentro do mesmo modal — item 7 da auditoria
 // ("área MENSAGENS com lista de conversas, avatar, prévia, contador de não
 // lidas"), sem precisar duplicar modal nem mexer no visual do resto do app.
@@ -2101,13 +2106,15 @@ async function refreshFriendsBadge() {
     if (!res.ok) return;
     const data = await res.json();
     friendsCache = data;
-    const badge = document.getElementById('navbar-friends-badge');
-    if (data.incoming.length > 0) {
-      badge.textContent = data.incoming.length;
-      badge.classList.remove('hidden');
-    } else {
-      badge.classList.add('hidden');
-    }
+    [document.getElementById('navbar-friends-badge'), document.getElementById('sidebar-friends-badge')].forEach((badge) => {
+      if (!badge) return;
+      if (data.incoming.length > 0) {
+        badge.textContent = data.incoming.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    });
   } catch (_) {}
 }
 
@@ -2121,7 +2128,9 @@ async function refreshMessagesBadge() {
     const total = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
     const navBadge = document.getElementById('navbar-messages-badge');
     const tabBadge = document.getElementById('dm-tab-badge');
-    [navBadge, tabBadge].forEach((badge) => {
+    const sidebarBadge = document.getElementById('sidebar-messages-badge');
+    const floatingBadge = document.getElementById('floating-chat-badge');
+    [navBadge, tabBadge, sidebarBadge, floatingBadge].forEach((badge) => {
       if (!badge) return;
       if (total > 0) {
         badge.textContent = total > 99 ? '99+' : total;
@@ -2148,7 +2157,7 @@ async function loadDmConversations() {
   el.innerHTML = '';
   conversations.forEach((c) => {
     const isOnline = onlineUserIds.has(c.other_user.id);
-    const preview = c.last_message ? escapeHtml(c.last_message.content).slice(0, 60) : 'Sem mensagens ainda';
+    const preview = c.last_message ? escapeHtml(messagePreviewText(c.last_message.content)).slice(0, 60) : 'Sem mensagens ainda';
     const when = c.last_message ? new Date(c.last_message.created_at).toLocaleString('pt-BR') : '';
     const row = document.createElement('div');
     row.className = 'friend-row';
@@ -3445,6 +3454,53 @@ document.getElementById('btn-close-pinned-messages').onclick = () =>
 
 // ---------- BUSCA DE MENSAGENS ----------
 
+// Extrai o id da OUTRA pessoa a partir do id de canal de DM
+// ('dm::idA::idB', ordenados) — evita precisar de outra chamada à API só
+// pra descobrir quem é o "outro lado" de uma conversa que já está aberta.
+function otherUserIdFromDmChannel(channelId) {
+  if (!channelId || !channelId.startsWith('dm::')) return null;
+  const parts = channelId.split('::');
+  return parts[1] === me.id ? parts[2] : parts[1];
+}
+
+// "Convidar para jogar" e "Convidar para servidor" no cabeçalho da conversa
+// — itens 6/7 do plano de navegação do chat. Reaproveita pickMyServerAndRun
+// e sendInviteMessage (já existiam pro menu de perfil) pro segundo botão.
+document.getElementById('btn-invite-to-play').onclick = (e) => {
+  if (!currentChannel) return;
+  const games = [
+    { icon: '🎯', label: 'Valorant' },
+    { icon: '🔫', label: 'Fortnite' },
+    { icon: '💣', label: 'CS2' },
+    { icon: '🎮', label: 'Outro jogo...' },
+  ];
+  showContextMenu(
+    e.clientX,
+    e.clientY,
+    games.map((g) => ({
+      icon: g.icon,
+      label: g.label,
+      onClick: () => {
+        const gameName = g.label === 'Outro jogo...' ? (prompt('Qual jogo?') || '').trim() : g.label;
+        if (!gameName) return;
+        socket.emit('chat:message', {
+          channelId: currentChannel.id,
+          content: `${GAME_INVITE_PREFIX}${JSON.stringify({ game: gameName, from: me.username })}`,
+        });
+        showCopyToast(`Convite pra jogar ${gameName} enviado!`);
+      },
+    }))
+  );
+};
+
+document.getElementById('btn-invite-to-server').onclick = (e) => {
+  if (!currentChannel) return;
+  const targetId = otherUserIdFromDmChannel(currentChannel.id);
+  if (!targetId) return;
+  const targetUsername = (currentChannel.name || '').replace(/^💬\s*/, '');
+  pickMyServerAndRun(e, (category) => sendInviteMessage({ id: targetId, username: targetUsername }, category));
+};
+
 let searchDebounceTimer = null;
 
 document.getElementById('btn-search-messages').onclick = () => {
@@ -3534,6 +3590,13 @@ function selectChannel(channel, options = {}) {
   markServerRead(channel.category);
   renderCategories(allChannels);
   updateClearChannelButton();
+
+  // "Convidar para jogar" e "Convidar para servidor" só fazem sentido numa
+  // conversa direta (item 6/7 do plano de navegação do chat) — não aparecem
+  // em canal de servidor, onde já tem outros jeitos de convidar gente.
+  const isDm = channel.type === 'texto' && channel.id.startsWith('dm::');
+  document.getElementById('btn-invite-to-play').classList.toggle('hidden', !isDm);
+  document.getElementById('btn-invite-to-server').classList.toggle('hidden', !isDm);
 }
 
 // Alterna entre a tela de "Entrar na chamada" (não conectado ainda) e a view
@@ -4480,6 +4543,8 @@ document.getElementById('nav-messages').onclick = () => {
   setFriendsModalTab('mensagens');
   loadFriends();
 };
+document.getElementById('nav-sidebar-chat').onclick = () => document.getElementById('nav-messages').click();
+document.getElementById('btn-floating-chat').onclick = () => document.getElementById('nav-messages').click();
 
 // ---------- SONS E EFEITOS (liga/desliga geral) ----------
 
@@ -4693,7 +4758,7 @@ async function loadHomeConversations() {
   el.innerHTML = conversations
     .slice(0, 5)
     .map((c) => {
-      const preview = c.last_message ? escapeHtml(c.last_message.content).slice(0, 42) : 'Sem mensagens ainda';
+      const preview = c.last_message ? escapeHtml(messagePreviewText(c.last_message.content)).slice(0, 42) : 'Sem mensagens ainda';
       return `
       <div class="home-conversation-row" data-user-id="${c.other_user.id}" data-username="${escapeHtml(c.other_user.username)}">
         <div class="member-avatar ${avatarFrameClass(c.other_user)}">${renderAvatarHtml(c.other_user)}</div>
@@ -4976,6 +5041,50 @@ function messagesContainerFor(channelId) {
   return document.getElementById(isVoiceChannel ? 'voice-chat-messages' : 'messages');
 }
 
+// ---------- CONVITE PARA JOGAR (dentro da conversa) ----------
+// Reaproveita 100% a infraestrutura de mensagem existente — é só uma
+// mensagem normal com um prefixo reconhecível, sem tabela nova no banco.
+// "Aceitar/Recusar" simplesmente manda outra mensagem de resposta; não tem
+// nenhum estado de "sessão de jogo" pra gerenciar, de propósito, pra não
+// duplicar o sistema de LFG/matchmaking que já existe em outro lugar do app.
+const GAME_INVITE_PREFIX = '__GAME_INVITE__::';
+
+// Texto amigável pra prévias (lista de conversas, "última mensagem") —
+// esconde o formato interno do convite de jogo atrás de um resumo legível.
+function messagePreviewText(content) {
+  if (content && content.startsWith(GAME_INVITE_PREFIX)) return '🎮 Convite pra jogar';
+  return content || '';
+}
+
+function renderMessageContentHtml(msg) {
+  if (msg.content.startsWith(GAME_INVITE_PREFIX)) {
+    let payload;
+    try {
+      payload = JSON.parse(msg.content.slice(GAME_INVITE_PREFIX.length));
+    } catch (_) {
+      payload = null;
+    }
+    if (payload && payload.game) {
+      const isFromMe = msg.user_id === me.id;
+      return `
+        <div class="content game-invite-card">
+          <div class="game-invite-header"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> CONVITE PARA JOGAR</div>
+          <div class="game-invite-body">${isFromMe ? 'Você convidou pra jogar' : escapeHtml(payload.from || msg.username) + ' te convidou pra jogar'} <strong>${escapeHtml(payload.game)}</strong>.</div>
+          ${
+            isFromMe
+              ? '<div class="game-invite-waiting">Aguardando resposta...</div>'
+              : `<div class="game-invite-actions">
+                   <button type="button" class="game-invite-accept" data-game="${escapeHtml(payload.game)}">✅ Aceitar</button>
+                   <button type="button" class="game-invite-decline" data-game="${escapeHtml(payload.game)}">❌ Recusar</button>
+                 </div>`
+          }
+        </div>
+      `;
+    }
+  }
+  return `<div class="content">${linkifyHtml(escapeHtml(msg.content))}</div>`;
+}
+
 function renderMessage(msg) {
   const container = messagesContainerFor(msg.channel_id);
   if (!container) return;
@@ -5005,7 +5114,7 @@ function renderMessage(msg) {
           ${msg.pinned ? '<span class="pinned-tag">📌 fixada</span>' : ''}
         </div>
         ${msg.thread_parent_id ? '<div class="thread-reply-tag">↪ resposta numa thread</div>' : ''}
-        <div class="content">${linkifyHtml(escapeHtml(msg.content))}</div>
+        ${renderMessageContentHtml(msg)}
         <div class="message-reactions" id="reactions-${msg.id}"></div>
       </div>
     </div>
@@ -5021,6 +5130,22 @@ function renderMessage(msg) {
       ${REACTION_EMOJIS.map((e) => `<button data-emoji="${e}">${e}</button>`).join('')}
     </div>
   `;
+
+  // Botões de aceitar/recusar do card de "convite pra jogar" — só existem
+  // quando a mensagem é um convite recebido (não o meu próprio, que mostra
+  // "aguardando resposta" em vez de botão).
+  const gameAcceptBtn = el.querySelector('.game-invite-accept');
+  if (gameAcceptBtn) {
+    gameAcceptBtn.onclick = () => {
+      socket.emit('chat:message', { channelId: msg.channel_id, content: `✅ Topei! Bora jogar ${gameAcceptBtn.dataset.game} 🎮` });
+    };
+  }
+  const gameDeclineBtn = el.querySelector('.game-invite-decline');
+  if (gameDeclineBtn) {
+    gameDeclineBtn.onclick = () => {
+      socket.emit('chat:message', { channelId: msg.channel_id, content: `❌ Não vai dar dessa vez, valeu pelo convite!` });
+    };
+  }
 
   // Clique no avatar/nome abre o perfil; clique direito abre o menu de
   // contexto (amizade, banir) — igual Discord. Não se aplica ao bot.
@@ -5318,6 +5443,17 @@ function registerSocketHandlers() {
     document.getElementById('voice-panel')?.classList.add('hidden');
   });
 
+  // BUG DA DUPLICAÇÃO CORRIGIDO: você entrou nessa mesma sala em outra
+  // aba/dispositivo, e o servidor derrubou a conexão de voz DESSA aba de
+  // propósito pra não ficar duplicado. Limpa o estado local (mic, câmera,
+  // conexões) sem re-tentar nada — a call continua normal na outra aba.
+  socket.on('rtc:duplicate-session', ({ roomId }) => {
+    if (connectedVoiceRoomId !== roomId) return;
+    disconnectVoice(true);
+    showCopyToast('Você entrou nessa chamada em outra aba — saiu dela aqui.');
+    document.getElementById('voice-panel')?.classList.add('hidden');
+  });
+
   socket.on('rtc:peer-joined', ({ socketId, username, avatar, avatar_frame }) => {
     const pc = createPeerConnection(socketId, username, { username, avatar, avatar_frame });
     addLocalTracksToPeer(pc);
@@ -5516,12 +5652,19 @@ async function connectVoice(roomId) {
   updateVoiceParticipantCount();
 }
 
-function disconnectVoice() {
+// skipServerNotify=true quando o SERVIDOR já sabe que saímos (ex: essa aba
+// levou um "rtc:duplicate-session" porque outra aba assumiu a call) — nesse
+// caso não reemite rtc:leave, senão os outros participantes recebiam o
+// aviso de "saiu da sala" em dobro (um do servidor derrubando, outro dessa
+// aba se despedindo por conta própria logo em seguida).
+function disconnectVoice(skipServerNotify) {
   if (!connectedVoiceRoomId) return;
   SFX.leave();
   stopFrameModeration();
-  socket.emit('rtc:leave', connectedVoiceRoomId);
-  socket.emit('channel:leave', connectedVoiceRoomId);
+  if (!skipServerNotify) {
+    socket.emit('rtc:leave', connectedVoiceRoomId);
+    socket.emit('channel:leave', connectedVoiceRoomId);
+  }
   Object.keys(peers).forEach((id) => {
     clearReconnectAttempt(id);
     peers[id].close();
