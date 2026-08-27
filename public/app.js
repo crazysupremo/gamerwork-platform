@@ -463,6 +463,7 @@ function startApp() {
   refreshFriendsBadge();
   refreshMessagesBadge();
   loadIceServers();
+  maybeShowMinorSafetyBanner();
 
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
@@ -2272,7 +2273,7 @@ async function loadDmConversations() {
   el.innerHTML = '';
   conversations.forEach((c) => {
     const isOnline = onlineUserIds.has(c.other_user.id);
-    const preview = c.last_message ? escapeHtml(messagePreviewText(c.last_message.content)).slice(0, 60) : 'Sem mensagens ainda';
+    const preview = c.last_message ? escapeHtml(messagePreviewText(c.last_message)).slice(0, 60) : 'Sem mensagens ainda';
     const when = c.last_message ? new Date(c.last_message.created_at).toLocaleString('pt-BR') : '';
     const row = document.createElement('div');
     row.className = 'friend-row';
@@ -3584,6 +3585,22 @@ const linkSafetySettings = document.getElementById('link-safety-info-settings');
 if (linkSafetySettings) linkSafetySettings.onclick = openSafetyInfoModal;
 document.getElementById('btn-close-safety-info').onclick = () =>
   document.getElementById('modal-safety-info').classList.add('hidden');
+
+// Aviso de segurança pra contas sinalizadas como menores (ECA Digital) —
+// some ao fechar e não volta por 7 dias, pra não incomodar toda vez que
+// a pessoa abre o app.
+function maybeShowMinorSafetyBanner() {
+  if (!me || !me.is_minor) return;
+  const dismissedAt = Number(localStorage.getItem('ng_minor_banner_dismissed_at') || 0);
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  if (Date.now() - dismissedAt < sevenDaysMs) return;
+  document.getElementById('minor-safety-banner').classList.remove('hidden');
+}
+document.getElementById('minor-banner-link').onclick = openSafetyInfoModal;
+document.getElementById('minor-banner-close').onclick = () => {
+  localStorage.setItem('ng_minor_banner_dismissed_at', String(Date.now()));
+  document.getElementById('minor-safety-banner').classList.add('hidden');
+};
 
 // ---------- BUSCA DE MENSAGENS ----------
 
@@ -4901,7 +4918,7 @@ async function loadHomeConversations() {
   el.innerHTML = conversations
     .slice(0, 5)
     .map((c) => {
-      const preview = c.last_message ? escapeHtml(messagePreviewText(c.last_message.content)).slice(0, 42) : 'Sem mensagens ainda';
+      const preview = c.last_message ? escapeHtml(messagePreviewText(c.last_message)).slice(0, 42) : 'Sem mensagens ainda';
       return `
       <div class="home-conversation-row" data-user-id="${c.other_user.id}" data-username="${escapeHtml(c.other_user.username)}">
         <div class="member-avatar ${avatarFrameClass(c.other_user)}">${renderAvatarHtml(c.other_user)}</div>
@@ -5194,13 +5211,19 @@ const GAME_INVITE_PREFIX = '__GAME_INVITE__::';
 
 // Texto amigável pra prévias (lista de conversas, "última mensagem") —
 // esconde o formato interno do convite de jogo atrás de um resumo legível.
-function messagePreviewText(content) {
+// Aceita tanto uma string de conteúdo quanto o objeto de mensagem inteiro
+// (pra também detectar anexo em mensagens sem texto nenhum).
+function messagePreviewText(msgOrContent) {
+  const isObj = msgOrContent && typeof msgOrContent === 'object';
+  const content = isObj ? msgOrContent.content : msgOrContent;
+  const attachment = isObj ? msgOrContent.attachment : null;
   if (content && content.startsWith(GAME_INVITE_PREFIX)) return '🎮 Convite pra jogar';
   // BUG CORRIGIDO: mensagem que era só um link (convite de servidor, por
   // exemplo) aparecia crua e enorme na prévia da lista de conversas,
   // estourando a largura da coluna. Mostra um resumo curto em vez do link.
   if (content && /^https?:\/\/\S+$/.test(content.trim())) return '🔗 Link enviado';
   if (content) return content.replace(/https?:\/\/\S+/g, '🔗 link');
+  if (attachment) return (attachment.type || '').startsWith('image/') ? '📎 Imagem enviada' : '📎 Arquivo enviado';
   return '';
 }
 
@@ -5230,7 +5253,28 @@ function renderMessageContentHtml(msg) {
       `;
     }
   }
-  return `<div class="content">${linkifyHtml(escapeHtml(msg.content))}</div>`;
+  const textHtml = msg.content ? `<div class="content">${linkifyHtml(escapeHtml(msg.content))}</div>` : '';
+  return textHtml + renderAttachmentHtml(msg.attachment);
+}
+
+// Anexo de arquivo numa mensagem — imagem aparece inline, qualquer outro
+// tipo vira um cartão de download. O arquivo em si é um data URL (base64)
+// que já veio junto com a mensagem, não precisa de nenhuma outra requisição.
+function renderAttachmentHtml(attachment) {
+  if (!attachment || !attachment.data) return '';
+  const safeName = escapeHtml(attachment.name || 'arquivo');
+  if ((attachment.type || '').startsWith('image/')) {
+    return `<img class="message-attachment-image" src="${attachment.data}" alt="${safeName}" loading="lazy" />`;
+  }
+  return `
+    <a class="message-attachment-card" href="${attachment.data}" download="${safeName}">
+      <span class="ng-icon-wrap" data-icon="upload"></span>
+      <div style="min-width:0;">
+        <div class="attachment-name">${safeName}</div>
+        <div class="attachment-size">${formatFileSize(attachment.size || 0)}</div>
+      </div>
+    </a>
+  `;
 }
 
 function renderMessage(msg) {
@@ -5467,17 +5511,59 @@ function setReplyingTo(msg) {
 
 document.getElementById('btn-cancel-reply').onclick = () => setReplyingTo(null);
 
+// Anexo de arquivo — igual Discord: escolhe o arquivo, aparece uma prévia
+// acima da caixa de digitar, e vai junto quando manda a mensagem (mesmo sem
+// nenhum texto). Fica só na memória até enviar, nunca sobe sozinho.
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+let pendingAttachment = null;
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+document.getElementById('btn-attach-file').onclick = () => {
+  document.getElementById('message-attachment-input').click();
+};
+
+document.getElementById('message-attachment-input').onchange = (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    alert('Arquivo muito grande — o limite é 5MB.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    pendingAttachment = { name: file.name, type: file.type || 'application/octet-stream', size: file.size, data: reader.result };
+    document.getElementById('attachment-preview-name').textContent = `${file.name} (${formatFileSize(file.size)})`;
+    document.getElementById('attachment-preview').classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+};
+
+document.getElementById('btn-remove-attachment').onclick = () => {
+  pendingAttachment = null;
+  document.getElementById('attachment-preview').classList.add('hidden');
+};
+
 document.getElementById('form-message').onsubmit = (e) => {
   e.preventDefault();
   const input = document.getElementById('message-input');
   const content = input.value.trim();
-  if (!content || !currentChannel) return;
+  if (!content && !pendingAttachment) return;
+  if (!currentChannel) return;
   socket.emit('chat:message', {
     channelId: currentChannel.id,
     content,
     threadParentId: replyingToMessage ? replyingToMessage.id : undefined,
+    attachment: pendingAttachment || undefined,
   });
   input.value = '';
+  pendingAttachment = null;
+  document.getElementById('attachment-preview').classList.add('hidden');
   setReplyingTo(null);
   clearTimeout(typingTimeout);
   isTyping = false;
@@ -6079,13 +6165,46 @@ document.getElementById('btn-toggle-voice-music').onclick = () => {
   if (opening) ensureMusicPlayerReady();
 };
 
+// Mesmo suporte a anexo do chat principal, só que com seu próprio estado
+// (evita misturar com um anexo pendente no chat de texto do canal, caso a
+// pessoa tenha os dois abertos ao mesmo tempo entre trocas de tela).
+let pendingVoiceAttachment = null;
+
+document.getElementById('btn-attach-file-voice').onclick = () => {
+  document.getElementById('voice-message-attachment-input').click();
+};
+
+document.getElementById('voice-message-attachment-input').onchange = (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    alert('Arquivo muito grande — o limite é 5MB.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    pendingVoiceAttachment = { name: file.name, type: file.type || 'application/octet-stream', size: file.size, data: reader.result };
+    document.getElementById('voice-attachment-preview-name').textContent = `${file.name} (${formatFileSize(file.size)})`;
+    document.getElementById('voice-attachment-preview').classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+};
+
+document.getElementById('btn-remove-voice-attachment').onclick = () => {
+  pendingVoiceAttachment = null;
+  document.getElementById('voice-attachment-preview').classList.add('hidden');
+};
+
 document.getElementById('form-voice-message').onsubmit = (e) => {
   e.preventDefault();
   const input = document.getElementById('voice-message-input');
   const content = input.value.trim();
-  if (!content || !connectedVoiceRoomId) return;
-  socket.emit('chat:message', { channelId: connectedVoiceRoomId, content });
+  if ((!content && !pendingVoiceAttachment) || !connectedVoiceRoomId) return;
+  socket.emit('chat:message', { channelId: connectedVoiceRoomId, content, attachment: pendingVoiceAttachment || undefined });
   input.value = '';
+  pendingVoiceAttachment = null;
+  document.getElementById('voice-attachment-preview').classList.add('hidden');
 };
 
 // Resumo geral de qualidade da chamada (média de todos os participantes),

@@ -684,6 +684,12 @@ async function initDb() {
   // pra permitir sinalizar/priorizar moderação de contas de menores.
   await ensureColumn('users', 'birth_date TEXT');
 
+  // Anexo de arquivo em mensagem — JSON com {name, type, size, data (data
+  // URL base64)}. Guardado igual avatar (base64 direto na coluna), sem
+  // storage externo — simples, mas por isso o limite de tamanho é apertado
+  // (5MB) pra não inchar o banco.
+  await ensureColumn('messages', 'attachment TEXT');
+
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },
     { id: 'gamers-lfg', name: 'procurando-grupo', category: 'gamers', type: 'texto' },

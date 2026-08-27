@@ -16,6 +16,7 @@ async function init() {
   setInterval(loadMonitoring, 10000);
   loadAnalytics();
   loadSuspiciousAccounts();
+  loadMinors();
   loadClipsAdmin();
   loadShopAdmin();
   loadReports();
@@ -292,6 +293,28 @@ async function loadBlocked() {
   tbody.querySelectorAll('button[data-action="ban"]').forEach((btn) =>
     btn.addEventListener('click', () => banUser(btn.dataset.id))
   );
+}
+
+async function loadMinors() {
+  const res = await fetch('/api/admin/minors', { credentials: 'include' });
+  const data = await res.json();
+  const summaryEl = document.getElementById('minors-summary');
+  summaryEl.innerHTML = `
+    <div class="stat-card"><div class="num">${data.total_minors}</div><div class="label">Contas de menores</div></div>
+    <div class="stat-card"><div class="num">${data.total_with_birth_date}</div><div class="label">Total com data informada</div></div>
+  `;
+  const tbody = document.querySelector('#minors-table tbody');
+  tbody.innerHTML = '';
+  data.minors.forEach((u) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(u.username_tag || u.username)}</td>
+      <td>${u.age} anos</td>
+      <td>${escapeHtml(u.email || '-')}</td>
+      <td>${u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '-'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
 async function loadFlaggedFrames() {

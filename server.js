@@ -841,6 +841,9 @@ app.get(
       play_style: req.user.play_style,
       coins: req.user.coins || 0,
       presence_status: req.user.presence_status || 'online',
+      // ECA Digital (Lei 15.211/25) — usado só pro frontend mostrar um aviso
+      // de segurança pra própria pessoa; nunca é exposto a outros usuários.
+      is_minor: isMinorAccount(req.user.birth_date),
     });
   })
 );
@@ -2729,6 +2732,20 @@ function dmChannelId(a, b) {
 // Interpreta um identificador estilo Discord "@Username#1234" ou
 // "Username#1234" digitado pela pessoa — separa o nome da hashtag de 4
 // dígitos. Se não tiver "#" (ou o que vem depois não for 4 dígitos), trata
+// ECA Digital (Lei 15.211/25) — idade calculada a partir da data de
+// nascimento salva no cadastro. Usada tanto pra validar o cadastro quanto
+// pra sinalizar contas de menores (aviso pro próprio usuário + painel admin).
+function ageFromBirthDate(birthDateStr) {
+  if (!birthDateStr) return null;
+  const birth = new Date(birthDateStr + 'T00:00:00Z');
+  if (isNaN(birth.getTime())) return null;
+  return (Date.now() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+}
+function isMinorAccount(birthDateStr) {
+  const age = ageFromBirthDate(birthDateStr);
+  return age !== null && age < 18;
+}
+
 // tudo como nome puro (discriminator null), pra continuar funcionando a
 // busca antiga por nome parcial.
 function parseUserTag(raw) {
@@ -2812,7 +2829,7 @@ app.get(
       );
       if (!other) continue;
       const lastMsg = await db.get(
-        'SELECT content, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 1',
+        'SELECT content, attachment, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 1',
         [row.id]
       );
       // Ocultei essa conversa — some da lista, A NÃO SER que tenha chegado
@@ -3359,6 +3376,78 @@ async function triggerAiReply(channelId, user) {
 // infantil especificamente, porque isso não é um uso apropriado/confiável de
 // um modelo generativo e a maioria dos provedores de IA proíbe esse uso.
 // Nunca guardamos a imagem em si — só o veredito, pra revisão humana.
+//
+// moderateImageWithGroq() é a função de verdade, reaproveitada tanto pelo
+// endpoint de frame de tela compartilhada quanto pela checagem de imagens
+// anexadas em mensagens (ver chat:message) — mesmo modelo, mesmo prompt,
+// mesma política de nunca guardar a imagem.
+async function moderateImageWithGroq(imageDataUrl, promptText) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return { flagged: false, skipped: true };
+  try {
+    // A Groq aposentou o meta-llama/llama-4-scout em 17/07/2026 — todo
+    // pedido pra esse modelo passou a voltar 404 "model_not_found". Modelo
+    // de visão atual recomendado pela própria Groq: qwen/qwen3.6-27b.
+    const visionModel = process.env.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b';
+    const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+      body: JSON.stringify({
+        model: visionModel,
+        max_tokens: 200,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: promptText },
+              { type: 'image_url', image_url: { url: imageDataUrl } },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!apiRes.ok) {
+      const errText = await apiRes.text();
+      console.error('Erro na moderação de imagem (Groq):', apiRes.status, errText);
+      return { flagged: false, error: true };
+    }
+
+    const data = await apiRes.json();
+    const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '{}';
+    try {
+      const match = text.match(/\{[\s\S]*\}/);
+      return JSON.parse(match ? match[0] : text);
+    } catch (_) {
+      return {};
+    }
+  } catch (err) {
+    console.error('Erro na moderação de imagem (Groq):', err.message);
+    return { flagged: false, error: true };
+  }
+}
+
+const ATTACHMENT_MODERATION_PROMPT =
+  'Esta imagem foi anexada por alguém numa mensagem de chat de uma plataforma pra gamers e ' +
+  'equipes de trabalho. Responda APENAS um JSON, sem texto extra, no formato ' +
+  '{"flagged": true ou false, "categories": [...], "reason": "..."}. ' +
+  'Marque flagged=true SOMENTE se a imagem mostrar claramente: nudez ou conteúdo sexual explícito ' +
+  'real (não desenho/arte), violência física grave/sangue real, armas de fogo reais anunciadas pra ' +
+  'venda, ou qualquer imagem envolvendo uma criança/adolescente em contexto sexualizado ou de risco ' +
+  '(se tiver a menor dúvida sobre isso, marque flagged=true e categoria "revisar_urgente"). Não ' +
+  'marque memes, prints de jogos, fotos comuns do dia a dia, ou arte/desenho fictício. Na dúvida ' +
+  'fora dos casos acima, marque flagged=false.';
+
+const FRAME_MODERATION_PROMPT =
+  'Esta imagem é um print de uma tela compartilhada numa plataforma de chat/voz pra gamers e ' +
+  'equipes de trabalho. Responda APENAS um JSON, sem texto extra, no formato ' +
+  '{"flagged": true ou false, "categories": [...], "reason": "..."}. ' +
+  'Marque flagged=true SOMENTE se a imagem mostrar claramente: armas de fogo reais anunciadas ' +
+  'pra venda, instruções de fabricação de explosivos, violência física grave/sangue real (não ' +
+  'de jogos, filmes ou desenhos), ou conteúdo sexual explícito real. NÃO marque telas de jogos, ' +
+  'código, memes, capturas de tela comuns, ou qualquer conteúdo fictício/ficcional. Na dúvida, ' +
+  'marque flagged=false.';
+
 app.post(
   '/api/moderate-frame',
   requireAuth,
@@ -3367,60 +3456,9 @@ app.post(
     if (!image || typeof image !== 'string' || !image.startsWith('data:image/')) {
       return res.status(400).json({ error: 'Imagem inválida' });
     }
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) return res.json({ flagged: false, skipped: true });
-
     try {
-      // A Groq aposentou o meta-llama/llama-4-scout em 17/07/2026 — todo
-      // pedido pra esse modelo passou a voltar 404 "model_not_found", daí os
-      // logs cheios de erro repetido a cada captura de frame (a cada ~15s
-      // durante qualquer compartilhamento de tela). Modelo de visão atual
-      // recomendado pela própria Groq: qwen/qwen3.6-27b.
-      const visionModel = process.env.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b';
-      const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
-        body: JSON.stringify({
-          model: visionModel,
-          max_tokens: 200,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text:
-                    'Esta imagem é um print de uma tela compartilhada numa plataforma de chat/voz pra gamers e ' +
-                    'equipes de trabalho. Responda APENAS um JSON, sem texto extra, no formato ' +
-                    '{"flagged": true ou false, "categories": [...], "reason": "..."}. ' +
-                    'Marque flagged=true SOMENTE se a imagem mostrar claramente: armas de fogo reais anunciadas ' +
-                    'pra venda, instruções de fabricação de explosivos, violência física grave/sangue real (não ' +
-                    'de jogos, filmes ou desenhos), ou conteúdo sexual explícito real. NÃO marque telas de jogos, ' +
-                    'código, memes, capturas de tela comuns, ou qualquer conteúdo fictício/ficcional. Na dúvida, ' +
-                    'marque flagged=false.',
-                },
-                { type: 'image_url', image_url: { url: image } },
-              ],
-            },
-          ],
-        }),
-      });
-
-      if (!apiRes.ok) {
-        const errText = await apiRes.text();
-        console.error('Erro na moderação de frame (Groq):', apiRes.status, errText);
-        return res.json({ flagged: false, error: true });
-      }
-
-      const data = await apiRes.json();
-      const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '{}';
-      let parsed = {};
-      try {
-        const match = text.match(/\{[\s\S]*\}/);
-        parsed = JSON.parse(match ? match[0] : text);
-      } catch (_) {
-        parsed = {};
-      }
+      const parsed = await moderateImageWithGroq(image, FRAME_MODERATION_PROMPT);
+      if (parsed.error) return res.json({ flagged: false, error: true });
 
       if (parsed.flagged) {
         const id = uuidv4();
@@ -3467,6 +3505,39 @@ app.post(
   asyncHandler(async (req, res) => {
     await db.run('UPDATE flagged_frames SET reviewed = 1 WHERE id = ?', [req.params.id]);
     res.json({ ok: true });
+  })
+);
+
+// ECA Digital (Lei 15.211/25) — lista de contas sinalizadas como menores de
+// idade, pra moderação prioritária e pra dar base ao relatório que a lei
+// exige de plataformas com muitos usuários menores. Cálculo é feito em JS
+// em vez de SQL porque o SQLite do libSQL não tem uma função de data
+// confiável pra "idade em anos" — o volume de usuários não justifica a
+// complexidade de fazer isso em SQL.
+app.get(
+  '/api/admin/minors',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT id, username, username_tag, email, birth_date, created_at FROM users WHERE birth_date IS NOT NULL AND id != ?`,
+      [AI_BOT_USER_ID]
+    );
+    const minors = rows
+      .map((u) => ({ ...u, age: ageFromBirthDate(u.birth_date) }))
+      .filter((u) => u.age !== null && u.age < 18)
+      .map((u) => ({
+        id: u.id,
+        username: u.username,
+        username_tag: u.username_tag,
+        email: u.email,
+        birth_date: u.birth_date,
+        age: Math.floor(u.age),
+        created_at: u.created_at,
+      }))
+      .sort((a, b) => a.age - b.age);
+    const totalWithBirthDate = rows.length;
+    res.json({ total_minors: minors.length, total_with_birth_date: totalWithBirthDate, minors });
   })
 );
 
@@ -4813,10 +4884,19 @@ app.get(
     const access = await requireChannelAccess(req.params.id, req.user);
     if (!access.ok) return res.status(access.status).json({ error: access.error });
     const rows = await db.all(
-      'SELECT id, channel_id, user_id, username, content, edited, pinned, thread_parent_id, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 50',
+      'SELECT id, channel_id, user_id, username, content, edited, pinned, thread_parent_id, attachment, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at DESC LIMIT 50',
       [req.params.id]
     );
     const messages = rows.reverse();
+    messages.forEach((m) => {
+      if (m.attachment) {
+        try {
+          m.attachment = JSON.parse(m.attachment);
+        } catch (_) {
+          m.attachment = null;
+        }
+      }
+    });
     if (messages.length > 0) {
       const ids = messages.map((m) => m.id);
       const placeholders = ids.map(() => '?').join(',');
@@ -5684,10 +5764,41 @@ io.on('connection', (socket) => {
     socket.to(channelId).emit('presence:leave', { userId: user.id, username: user.username });
   });
 
-  socket.on('chat:message', async ({ channelId, content, threadParentId }) => {
+  socket.on('chat:message', async ({ channelId, content, threadParentId, attachment }) => {
     try {
-      if (!channelId || !content || typeof content !== 'string' || !content.trim()) return;
-      if (content.length > 2000) {
+      const rawContent = typeof content === 'string' ? content : '';
+      // Anexo de arquivo (opcional): valida a forma básica aqui — nome,
+      // tipo, tamanho — antes de qualquer outra checagem. Mensagem precisa
+      // ter texto OU anexo (não pode vir totalmente vazia).
+      let attachmentToStore = null;
+      if (attachment && typeof attachment === 'object') {
+        const { name, type, size, data } = attachment;
+        const validShape =
+          typeof name === 'string' &&
+          name.length > 0 &&
+          name.length <= 200 &&
+          typeof type === 'string' &&
+          typeof data === 'string' &&
+          data.startsWith('data:') &&
+          Number.isFinite(size);
+        // 5MB de limite no ARQUIVO REAL — como base64 infla ~33%, o texto
+        // do data URL pode chegar a uns 7MB; checa o tamanho de verdade
+        // (data.length), não só o "size" que o cliente mandou (que pode
+        // mentir).
+        if (validShape && data.length <= 7 * 1024 * 1024) {
+          attachmentToStore = {
+            name: name.slice(0, 200),
+            type: type.slice(0, 100),
+            size,
+            data,
+          };
+        } else {
+          socket.emit('chat:blocked', { reason: 'Anexo inválido ou maior que 5MB.', categories: [] });
+          return;
+        }
+      }
+      if (!channelId || (!rawContent.trim() && !attachmentToStore)) return;
+      if (rawContent.length > 2000) {
         socket.emit('chat:blocked', { reason: 'Mensagem muito longa (limite: 2000 caracteres).', categories: [] });
         return;
       }
@@ -5695,6 +5806,10 @@ io.on('connection', (socket) => {
         socket.emit('chat:blocked', { reason: 'Você está enviando mensagens rápido demais. Aguarde um pouco.', categories: [] });
         return;
       }
+      // A partir daqui, "content" sempre se refere ao texto (pode ser string
+      // vazia se a mensagem for só um anexo) — nunca undefined, senão o
+      // driver do banco rejeita o bind (mesmo bug que já corrigimos no login).
+      content = rawContent;
 
       // Timeout (mute temporário aplicado por um admin) — checa fresco no
       // banco a cada mensagem, já que o "user" da conexão pode estar
@@ -5763,6 +5878,37 @@ io.on('connection', (socket) => {
         return;
       }
 
+      // Anexo de imagem passa pela mesma moderação por IA usada em
+      // compartilhamento de tela — camada extra de segurança, revisada por
+      // humano quando sinalizada, NUNCA um substituto de moderação humana
+      // ou de detecção de CSAM especializada (PhotoDNA/Thorn Safer).
+      if (attachmentToStore && attachmentToStore.type.startsWith('image/')) {
+        const verdict = await moderateImageWithGroq(attachmentToStore.data, ATTACHMENT_MODERATION_PROMPT);
+        if (verdict.flagged) {
+          const flagId = uuidv4();
+          await db.run(
+            'INSERT INTO flagged_frames (id, channel_id, user_id, username, reason, categories) VALUES (?, ?, ?, ?, ?, ?)',
+            [
+              flagId,
+              channelId,
+              user.id,
+              user.username,
+              verdict.reason || 'anexo de imagem sinalizado',
+              JSON.stringify(verdict.categories || []),
+            ]
+          );
+          io.emit('moderation:frame-flagged', {
+            username: user.username,
+            reason: verdict.reason || 'anexo de imagem sinalizado',
+          });
+          socket.emit('chat:blocked', {
+            reason: 'Esse arquivo foi bloqueado pelo filtro de conteúdo e registrado para revisão de um moderador.',
+            categories: verdict.categories || [],
+          });
+          return;
+        }
+      }
+
       // Anti-link "leve": só marca a mensagem (fica visível pro remetente e
       // consultável por um admin), não bloqueia — link é uso legítimo demais
       // nesse app (convites, clipes, etc) pra travar todo mundo.
@@ -5781,8 +5927,9 @@ io.on('connection', (socket) => {
       }
 
       const id = uuidv4();
+      const attachmentJson = attachmentToStore ? JSON.stringify(attachmentToStore) : null;
       await db.run(
-        'INSERT INTO messages (id, channel_id, user_id, username, content, flagged, flag_categories, has_link, thread_parent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO messages (id, channel_id, user_id, username, content, flagged, flag_categories, has_link, thread_parent_id, attachment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           id,
           channelId,
@@ -5793,6 +5940,7 @@ io.on('connection', (socket) => {
           JSON.stringify(scan.categories),
           hasLink ? 1 : 0,
           validThreadParentId,
+          attachmentJson,
         ]
       );
 
@@ -5804,6 +5952,7 @@ io.on('connection', (socket) => {
         content,
         created_at: new Date().toISOString(),
         thread_parent_id: validThreadParentId,
+        attachment: attachmentToStore,
       };
       io.to(channelId).emit('chat:message', payload);
       if (validThreadParentId) {

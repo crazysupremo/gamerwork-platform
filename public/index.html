@@ -280,6 +280,16 @@
   </nav>
 
   <div class="app-main">
+  <!-- Aviso pra contas sinalizadas como menores de idade (ECA Digital) —
+       só aparece pra quem preencheu data de nascimento < 18 anos no
+       cadastro. Dispensável, mas volta a aparecer depois de alguns dias. -->
+  <div id="minor-safety-banner" class="minor-safety-banner hidden">
+    <span class="ng-icon-wrap" data-icon="shield-check"></span>
+    <span>Este espaço tem medidas extras de segurança pra usuários mais jovens.
+      <a href="#" id="minor-banner-link">Saiba mais</a>
+    </span>
+    <button type="button" id="minor-banner-close" aria-label="Fechar"><span class="ng-icon-wrap" data-icon="x"></span></button>
+  </div>
   <!-- Barra de topo: busca, notificações, mensagens e amigos -->
   <header id="top-navbar" class="top-navbar">
     <div class="navbar-search">
@@ -455,7 +465,16 @@
         <span class="reply-banner-text"></span>
         <button type="button" id="btn-cancel-reply"><span class="ng-icon-wrap" data-icon="x"></span></button>
       </div>
+      <!-- Prévia do arquivo escolhido antes de enviar — some depois de enviar
+           ou ao clicar em remover. -->
+      <div id="attachment-preview" class="attachment-preview hidden">
+        <span class="ng-icon-wrap" data-icon="upload"></span>
+        <span id="attachment-preview-name"></span>
+        <button type="button" id="btn-remove-attachment" aria-label="Remover anexo"><span class="ng-icon-wrap" data-icon="x"></span></button>
+      </div>
       <form id="form-message" class="message-form">
+        <input type="file" id="message-attachment-input" class="hidden" />
+        <button type="button" id="btn-attach-file" aria-label="Anexar arquivo" title="Anexar arquivo (até 5MB)"><span class="ng-icon-wrap" data-icon="upload"></span></button>
         <input type="text" id="message-input" placeholder="Escreva uma mensagem..." autocomplete="off" />
         <button type="submit" aria-label="Enviar"><span class="ng-icon-wrap" data-icon="send"></span></button>
       </form>
@@ -511,7 +530,14 @@
         <div id="voice-chat-col" class="voice-chat-col hidden">
           <div class="voice-chat-header">Chat da Sala</div>
           <div id="voice-chat-messages" class="messages"></div>
+          <div id="voice-attachment-preview" class="attachment-preview hidden">
+            <span class="ng-icon-wrap" data-icon="upload"></span>
+            <span id="voice-attachment-preview-name"></span>
+            <button type="button" id="btn-remove-voice-attachment" aria-label="Remover anexo"><span class="ng-icon-wrap" data-icon="x"></span></button>
+          </div>
           <form id="form-voice-message" class="message-form">
+            <input type="file" id="voice-message-attachment-input" class="hidden" />
+            <button type="button" id="btn-attach-file-voice" aria-label="Anexar arquivo" title="Anexar arquivo (até 5MB)"><span class="ng-icon-wrap" data-icon="upload"></span></button>
             <input type="text" id="voice-message-input" placeholder="Mensagem..." autocomplete="off" />
             <button type="submit"><span class="ng-icon-wrap" data-icon="send"></span></button>
           </form>
@@ -1482,6 +1508,10 @@
       <div class="safety-info-item">
         <span class="ng-icon-wrap" data-icon="inbox"></span>
         <div><strong>Canal de contato</strong><span>Denúncias mais sérias podem ser enviadas pro e-mail de suporte da plataforma pra análise da equipe.</span></div>
+      </div>
+      <div class="safety-info-item">
+        <span class="ng-icon-wrap" data-icon="globe"></span>
+        <div><strong>Denúncia externa e independente</strong><span>Suspeita de crime contra criança/adolescente (aliciamento, exploração) também pode ser denunciada direto pra <a href="https://new.safernet.org.br/denuncie" target="_blank" rel="noopener" style="color:#5865f2;">SaferNet Brasil</a>, organização independente que recebe e apura denúncias, sem precisar se identificar.</span></div>
       </div>
     </div>
     <p class="hint" style="margin-top:12px;">
