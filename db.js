@@ -680,6 +680,10 @@ async function initDb() {
   await ensureColumn('users', 'discriminator TEXT');
   await ensureColumn('users', 'username_tag TEXT');
 
+  // ECA Digital (Lei 15.211/25) — data de nascimento coletada no cadastro
+  // pra permitir sinalizar/priorizar moderação de contas de menores.
+  await ensureColumn('users', 'birth_date TEXT');
+
   const seedChannels = [
     { id: 'gamers-geral', name: 'geral', category: 'gamers', type: 'texto' },
     { id: 'gamers-lfg', name: 'procurando-grupo', category: 'gamers', type: 'texto' },

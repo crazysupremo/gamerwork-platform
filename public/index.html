@@ -79,7 +79,10 @@
       </div>
 
       <div class="home-stats landing-stats auth-left-stats" id="landing-stats"></div>
-      <p class="auth-left-footer">© 2026 NEXT GAME. Todos os direitos reservados.</p>
+      <p class="auth-left-footer">
+        © 2026 NEXT GAME. Todos os direitos reservados. ·
+        <a href="#" id="link-safety-info" class="auth-left-footer-link">Segurança e proteção de menores</a>
+      </p>
     </div>
 
     <div class="auth-card" id="auth-card">
@@ -130,6 +133,8 @@
         <input type="password" id="wiz-password" placeholder="Crie uma senha (mín. 6 caracteres)" required />
         <label class="wizard-label">Confirmar senha</label>
         <input type="password" id="wiz-password-confirm" placeholder="Confirme sua senha" required />
+        <label class="wizard-label">Data de nascimento</label>
+        <input type="date" id="wiz-birthdate" required />
         <button type="button" id="wiz-step1-next" class="wizard-next-btn">CONTINUAR</button>
         <p class="wizard-footer-link">Já tem uma conta? <a id="wiz-goto-login">Entrar</a></p>
       </div>
@@ -452,7 +457,7 @@
       </div>
       <form id="form-message" class="message-form">
         <input type="text" id="message-input" placeholder="Escreva uma mensagem..." autocomplete="off" />
-        <button type="submit">Enviar</button>
+        <button type="submit" aria-label="Enviar"><span class="ng-icon-wrap" data-icon="send"></span></button>
       </form>
     </section>
 
@@ -801,6 +806,13 @@
         Conexões — nome de usuário nas outras plataformas (auto-declarado, sem verificação OAuth ainda).
       </p>
       <div id="integrations-list"></div>
+
+      <p class="hint" style="margin:18px 0 10px; border-top:1px solid #3a3c42; padding-top:14px;">
+        Proteção de crianças e adolescentes, conforme o ECA Digital (Lei 15.211/25).
+      </p>
+      <button type="button" id="link-safety-info-settings" class="profile-preview-action-btn">
+        <span class="ng-icon-wrap" data-icon="shield-check"></span> Ver medidas de segurança e denúncia
+      </button>
     </div>
 
     <div id="settings-tab-notificacoes" class="manage-tab-panel hidden">
@@ -1437,6 +1449,48 @@
     <div id="verify-result" class="verify-result"></div>
     <div class="modal-actions">
       <button type="button" id="btn-close-verify">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Segurança e Proteção de Menores (ECA Digital, Lei 15.211/25) -->
+<div id="modal-safety-info" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width:480px;">
+    <h2><span class="ng-icon-wrap" data-icon="shield-check"></span> Segurança e proteção de menores</h2>
+    <p class="hint" style="margin-bottom:10px;">
+      O NEXT GAME segue as diretrizes do ECA Digital (Lei 15.211/25), que estabelece
+      obrigações de segurança pra plataformas digitais acessíveis por crianças e
+      adolescentes no Brasil. Estas são as medidas que já temos em funcionamento:
+    </p>
+    <div class="safety-info-list">
+      <div class="safety-info-item">
+        <span class="ng-icon-wrap" data-icon="monitor"></span>
+        <div><strong>Moderação de conteúdo</strong><span>Compartilhamento de tela é analisado automaticamente e mensagens podem ser denunciadas por qualquer pessoa.</span></div>
+      </div>
+      <div class="safety-info-item">
+        <span class="ng-icon-wrap" data-icon="flag"></span>
+        <div><strong>Denúncia em toda mensagem e perfil</strong><span>Conteúdo de assédio, bullying, automutilação ou suicídio pode ser reportado direto pra moderação.</span></div>
+      </div>
+      <div class="safety-info-item">
+        <span class="ng-icon-wrap" data-icon="shield-off"></span>
+        <div><strong>Bloqueio de usuários</strong><span>Qualquer pessoa pode bloquear outra a qualquer momento — quem bloqueia para de receber mensagens, pedidos e convites.</span></div>
+      </div>
+      <div class="safety-info-item">
+        <span class="ng-icon-wrap" data-icon="calendar"></span>
+        <div><strong>Data de nascimento no cadastro</strong><span>Toda conta nova informa a data de nascimento, permitindo priorizar a moderação de contas de menores de idade.</span></div>
+      </div>
+      <div class="safety-info-item">
+        <span class="ng-icon-wrap" data-icon="inbox"></span>
+        <div><strong>Canal de contato</strong><span>Denúncias mais sérias podem ser enviadas pro e-mail de suporte da plataforma pra análise da equipe.</span></div>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:12px;">
+      Aviso importante: não somos um escritório de advocacia — esta página descreve as
+      medidas técnicas já implementadas, mas não constitui garantia de conformidade
+      jurídica plena com a legislação.
+    </p>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-safety-info">Fechar</button>
     </div>
   </div>
 </div>

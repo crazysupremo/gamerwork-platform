@@ -290,7 +290,7 @@ function resetWizard() {
   wizardState.avatar = undefined;
   document.querySelectorAll('.wizard-tag-chip.active, .wizard-choice-btn.active').forEach((el) => el.classList.remove('active'));
   document.getElementById('wiz-avatar-preview').innerHTML = '📷';
-  ['wiz-fullname', 'wiz-username', 'wiz-email', 'wiz-password', 'wiz-password-confirm', 'wiz-rank'].forEach((id) => {
+  ['wiz-fullname', 'wiz-username', 'wiz-email', 'wiz-password', 'wiz-password-confirm', 'wiz-rank', 'wiz-birthdate'].forEach((id) => {
     document.getElementById(id).value = '';
   });
   document.getElementById('register-error').textContent = '';
@@ -305,10 +305,15 @@ document.getElementById('wiz-step1-next').onclick = () => {
   const email = document.getElementById('wiz-email').value.trim();
   const password = document.getElementById('wiz-password').value;
   const confirm = document.getElementById('wiz-password-confirm').value;
+  const birthdate = document.getElementById('wiz-birthdate').value;
   if (username.length < 3) return (errorEl.textContent = 'Username precisa ter pelo menos 3 caracteres.');
   if (!email.includes('@')) return (errorEl.textContent = 'Digite um e-mail válido.');
   if (password.length < 6) return (errorEl.textContent = 'Senha precisa ter pelo menos 6 caracteres.');
   if (password !== confirm) return (errorEl.textContent = 'As senhas não são iguais.');
+  // ECA Digital (Lei 15.211/25) — data de nascimento passou a ser
+  // obrigatória no cadastro (ver nota completa no servidor).
+  if (!birthdate) return (errorEl.textContent = 'Preencha sua data de nascimento.');
+  if (new Date(birthdate) > new Date()) return (errorEl.textContent = 'Data de nascimento inválida.');
   goToWizardStep(2);
 };
 
@@ -329,6 +334,7 @@ document.getElementById('wiz-submit').onclick = async () => {
     preferred_rank: document.getElementById('wiz-rank').value.trim(),
     play_style: wizardState.playStyle,
     avatar: wizardState.avatar,
+    birth_date: document.getElementById('wiz-birthdate').value,
   };
   await authRequest('/api/register', body);
 };
@@ -3565,6 +3571,19 @@ document.getElementById('btn-pinned-messages').onclick = () => {
 };
 document.getElementById('btn-close-pinned-messages').onclick = () =>
   document.getElementById('modal-pinned-messages').classList.add('hidden');
+
+// Modal "Segurança e proteção de menores" (ECA Digital) — acessível tanto
+// no rodapé da tela de login (antes de logar) quanto na aba Privacidade
+// das Configurações (depois de logado). É só informativo, sem estado.
+function openSafetyInfoModal(e) {
+  if (e) e.preventDefault();
+  document.getElementById('modal-safety-info').classList.remove('hidden');
+}
+document.getElementById('link-safety-info').onclick = openSafetyInfoModal;
+const linkSafetySettings = document.getElementById('link-safety-info-settings');
+if (linkSafetySettings) linkSafetySettings.onclick = openSafetyInfoModal;
+document.getElementById('btn-close-safety-info').onclick = () =>
+  document.getElementById('modal-safety-info').classList.add('hidden');
 
 // ---------- BUSCA DE MENSAGENS ----------
 

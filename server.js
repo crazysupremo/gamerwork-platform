@@ -614,6 +614,7 @@ app.post(
       platforms,
       preferred_rank,
       play_style,
+      birth_date,
     } = req.body || {};
     if (
       !username ||
@@ -632,6 +633,19 @@ app.post(
     }
     if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email) || email.length > 200) {
       return res.status(400).json({ error: 'E-mail inválido' });
+    }
+    // ECA Digital (Lei 15.211/25) — data de nascimento passa a ser
+    // obrigatória no cadastro. Não bloqueia menores de criar conta (a
+    // plataforma não é exclusiva pra adultos), só permite sinalizar essas
+    // contas depois pra moderação prioritária, como a lei pede.
+    if (!birth_date || typeof birth_date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(birth_date)) {
+      return res.status(400).json({ error: 'Data de nascimento é obrigatória' });
+    }
+    const birthDateObj = new Date(birth_date + 'T00:00:00Z');
+    const now = new Date();
+    const ageYears = (now - birthDateObj) / (365.25 * 24 * 60 * 60 * 1000);
+    if (isNaN(birthDateObj.getTime()) || birthDateObj > now || ageYears > 120) {
+      return res.status(400).json({ error: 'Data de nascimento inválida' });
     }
     const existingUsername = await db.get('SELECT id FROM users WHERE username = ?', [username]);
     if (existingUsername) return res.status(409).json({ error: 'Usuário já existe' });
@@ -675,8 +689,8 @@ app.post(
       `INSERT INTO users (
         id, username, password_hash, email, email_verified, is_admin, avatar, full_name,
         country, language, favorite_games, platforms, preferred_rank, play_style,
-        discriminator, username_tag
-      ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        discriminator, username_tag, birth_date
+      ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         username,
@@ -693,6 +707,7 @@ app.post(
         ['competitivo', 'casual', 'ambos'].includes(play_style) ? play_style : null,
         discriminator,
         usernameTag,
+        birth_date,
       ]
     );
 

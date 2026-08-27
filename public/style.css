@@ -1770,3 +1770,116 @@ video:fullscreen { background: #000; object-fit: contain; }
 .profile-preview-action-btn:hover { background: #33353d; }
 .profile-preview-action-danger { color: #f23f42; }
 .profile-preview-action-danger:hover { background: rgba(242,63,66,0.15); }
+
+/* ============================================================
+   POLIMENTO GERAL — pedido do usuário: "mais lindo, redondinho,
+   profissional". Vem por cima do CSS acima (cascata), então só
+   ajusta arredondamento/sombra/espaçamento — não mexe em nenhuma
+   regra de layout (flex/grid/display), então não quebra nada que
+   já funciona, só deixa mais acabado visualmente.
+   ============================================================ */
+
+* { scrollbar-width: thin; scrollbar-color: #3a3c44 transparent; }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #35373f; border-radius: 20px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: #45474f; }
+
+/* Cards e paineizinhos em geral — mais arredondados, com uma sombra
+   suave que dá profundidade sem exagerar. */
+.home-tournament-banner, .home-quick-action, .home-server-card, .home-activity-item,
+.home-side-card, .voice-info-card, .friend-row, .game-invite-card, .dm-info-card,
+.profile-stat, .home-stat-card, .streak-progress-card, .liga-standings,
+.settings-content-card, .tournament-card {
+  border-radius: 16px !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.home-quick-action:hover, .home-server-card:hover, .friend-row:hover {
+  box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+}
+
+/* Botões — mais arredondados (pill-ish), sombra sutil no hover pra
+   parecer clicável de um jeito mais "produzido". */
+.home-btn-primary, .btn-register, button[type="submit"], .modal-actions button[type="submit"],
+.game-invite-actions button, .bracket-report-submit, .profile-preview-action-btn {
+  border-radius: 12px !important;
+}
+.home-btn-primary:hover, .btn-register:hover { box-shadow: 0 4px 16px rgba(88,101,242,0.45); transform: translateY(-1px); }
+
+.sidebar-nav-item, .header-icon-btn, .server-icon-wrap, .home-quick-action-icon,
+.settings-sidebar-item, .dm-friends-shortcut-btn {
+  border-radius: 12px !important;
+}
+.header-icon-btn { width: 32px !important; height: 32px !important; }
+
+/* Avatares — anel sutil pra dar acabamento premium, sem mudar tamanho. */
+.message-avatar, .profile-preview-avatar, .friend-row .avatar-circle, .home-server-card .server-icon {
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.06);
+}
+
+/* Modais — cantos e sombra mais "app profissional". */
+.modal-content { border-radius: 18px !important; box-shadow: 0 20px 60px rgba(0,0,0,0.55) !important; }
+
+/* ---- Chat: redesign estilo Discord premium ---- */
+.messages { padding: 18px 20px; gap: 2px; }
+.message {
+  border-radius: 10px;
+  padding: 6px 10px;
+  transition: background 0.12s ease;
+}
+.message:hover { background: rgba(255,255,255,0.035) !important; }
+.message-avatar {
+  width: 38px; height: 38px;
+  border-radius: 50% !important;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.07);
+}
+.message .meta { gap: 8px; margin-bottom: 1px; }
+.message .meta strong { font-size: 14.5px; font-weight: 700; }
+.message .content { font-size: 14.5px; line-height: 1.5; color: #e6e6e6; }
+.message.bot-message { border-radius: 10px; }
+
+.game-invite-card { padding: 12px 14px; border: 1px solid #3a3c42; }
+.game-invite-actions button { border-radius: 8px !important; font-weight: 700; }
+
+/* Barra de mensagem: vira uma pílula flutuante, mais "gamer premium"
+   (referência Discord novo), com o botão de enviar circular. */
+.message-form {
+  border-top: none;
+  padding: 10px 16px 16px;
+  gap: 10px;
+  align-items: center;
+}
+.message-form input {
+  border-radius: 24px !important;
+  background: #26272e;
+  padding: 12px 18px;
+  font-size: 14.5px;
+  border: 1px solid transparent;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+.message-form input:focus {
+  border-color: #5865f2;
+  box-shadow: 0 0 0 3px rgba(88,101,242,0.18);
+}
+.message-form button {
+  border-radius: 50% !important;
+  width: 44px; height: 44px;
+  padding: 0;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 10px rgba(88,101,242,0.35);
+}
+.message-form button:hover { box-shadow: 0 5px 16px rgba(88,101,242,0.5); transform: translateY(-1px) scale(1.02); }
+
+.reaction-chip { border-radius: 14px !important; }
+.typing-indicator { padding: 2px 20px 4px; }
+
+.auth-left-footer-link { color: #9aa0ab; text-decoration: underline; cursor: pointer; }
+.auth-left-footer-link:hover { color: #dbdee1; }
+
+.safety-info-list { display: flex; flex-direction: column; gap: 12px; }
+.safety-info-item { display: flex; align-items: flex-start; gap: 10px; }
+.safety-info-item .ng-icon-wrap { flex-shrink: 0; margin-top: 2px; color: #5865f2; }
+.safety-info-item strong { display: block; font-size: 13.5px; color: #e6e6e6; margin-bottom: 2px; }
+.safety-info-item span { display: block; font-size: 12.5px; color: #9aa0ab; line-height: 1.45; }
