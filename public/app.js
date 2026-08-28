@@ -3809,28 +3809,30 @@ function openSupportModal(e) {
   document.getElementById('form-support').classList.remove('hidden');
   document.getElementById('modal-support').classList.remove('hidden');
 }
-// Botão de baixar o app de desktop, na própria tela de login — ativa
-// SOZINHO assim que o instalador existir. Basta colocar o arquivo em
-// /public/downloads/NEXT-GAME-Setup.exe (mesmo nome) que, no próximo carregar
-// da página, o botão já vira o link de download de verdade — sem precisar
-// mexer em nenhuma linha de código aqui.
-const DESKTOP_DOWNLOAD_PATH = '/downloads/NEXT-GAME-Setup.exe';
+// Botão de baixar o app de desktop, na própria tela de login.
+//
+// O instalador (.exe) é um arquivo grande (~70-100MB) — maior do que o
+// limite de 25MB da área de "arraste os arquivos aqui" do GitHub, então ele
+// NÃO fica dentro deste repositório (subiria o peso do projeto pra sempre e
+// pesaria todo redeploy). O jeito certo é publicar como "Release" no GitHub
+// (aceita arquivo grande) e colar o link direto aqui embaixo — é só isso,
+// uma linha, sem precisar reempacotar nada além do próprio arquivo do site.
+//
+// Deixa null que o botão mostra "em breve" sozinho, sem quebrar nada.
+const DESKTOP_DOWNLOAD_URL = 'https://github.com/crazysupremo/next-game-desktop/releases/download/v1.0.3/NEXT-GAME-Setup.exe';
+
 const downloadLink = document.getElementById('link-download-desktop');
 if (downloadLink) {
-  downloadLink.onclick = (e) => {
-    e.preventDefault();
-    alert('O instalador pra PC está quase pronto — em breve dá pra baixar direto por aqui!');
-  };
-  fetch(DESKTOP_DOWNLOAD_PATH, { method: 'HEAD' })
-    .then((res) => {
-      if (!res.ok) return;
-      downloadLink.href = DESKTOP_DOWNLOAD_PATH;
-      downloadLink.setAttribute('download', '');
-      downloadLink.onclick = null;
-      const label = document.getElementById('link-download-desktop-label');
-      if (label) label.textContent = 'Baixar NEXT GAME para PC';
-    })
-    .catch(() => {});
+  if (DESKTOP_DOWNLOAD_URL) {
+    downloadLink.href = DESKTOP_DOWNLOAD_URL;
+    const label = document.getElementById('link-download-desktop-label');
+    if (label) label.textContent = 'Baixar NEXT GAME para PC';
+  } else {
+    downloadLink.onclick = (e) => {
+      e.preventDefault();
+      alert('O instalador pra PC está quase pronto — em breve dá pra baixar direto por aqui!');
+    };
+  }
 }
 
 document.getElementById('link-support').onclick = openSupportModal;

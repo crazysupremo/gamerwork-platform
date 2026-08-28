@@ -1,9 +1,11 @@
-Quando o instalador do NEXT GAME Desktop estiver pronto (gerado a partir do
-projeto next-game-desktop, rodando "npm run dist:win"), coloque o arquivo
-.exe aqui nesta pasta com o nome exato:
+Essa pasta não é mais usada pra hospedar o instalador — o arquivo .exe é
+grande demais pra viver dentro deste repositório (a área de upload do
+GitHub aceita no máximo 25MB por arquivo arrastado, e o instalador passa
+bem disso).
 
-NEXT-GAME-Setup.exe
+O jeito certo: publicar o .exe como "Release" no GitHub do próprio
+repositório do NEXT GAME (aceita arquivo grande, sem esse limite) e colar
+o link direto no arquivo public/app.js, na constante DESKTOP_DOWNLOAD_URL
+(procure por "Botão de baixar o app de desktop" perto do fim do arquivo).
 
-Não precisa mexer em nenhum código depois disso — a tela de login já checa
-sozinha se esse arquivo existe e troca o botão "Baixar para PC (em breve)"
-pelo link de download de verdade automaticamente.
+Veja o passo a passo completo no README.md do projeto next-game-desktop.
