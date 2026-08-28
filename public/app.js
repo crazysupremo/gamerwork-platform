@@ -591,13 +591,34 @@ async function loadMembers() {
   } catch (_) {}
 }
 
-function renderMembers() {
+// PRIVACIDADE: o painel de membros (coluna da direita) mostrava TODO MUNDO
+// que já tem conta na plataforma, mesmo quem nunca entrou nesse servidor —
+// virava uma lista pública de "todo mundo que existe" pra qualquer pessoa
+// logada, sem ninguém ter escolhido aparecer ali. Agora só mostra quem é
+// membro DE VERDADE do servidor atual (igual Discord). A exceção é o admin
+// master, que continua vendo a lista completa da plataforma (útil pra
+// moderação), igual já era antes.
+async function renderMembers() {
   const container = document.getElementById('members-list');
   if (!container) return;
-  container.innerHTML = '';
 
-  const online = allUsers.filter((u) => onlineUserIds.has(u.id));
-  const offline = allUsers.filter((u) => !onlineUserIds.has(u.id));
+  let users;
+  if (me && me.is_admin) {
+    users = allUsers;
+  } else if (activeServerCategory) {
+    try {
+      const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/members`, { credentials: 'include' });
+      users = res.ok ? await res.json() : [];
+    } catch (_) {
+      users = [];
+    }
+  } else {
+    users = [];
+  }
+
+  container.innerHTML = '';
+  const online = users.filter((u) => onlineUserIds.has(u.id));
+  const offline = users.filter((u) => !onlineUserIds.has(u.id));
 
   const buildGroup = (title, users, isOffline) => {
     if (users.length === 0) return;
@@ -7326,7 +7347,52 @@ function enforceScreenQualityForPlan() {
   if (select) select.value = screenShareQuality;
 }
 
-document.getElementById('btn-share-screen').onclick = async () => {
+// ---------- MODAL "O que você quer compartilhar?" ----------
+// Tela própria do NEXT GAME (estilo Discord) que aparece ANTES do seletor
+// nativo do navegador. O navegador é quem de fato lista telas/janelas/abas —
+// nenhum site consegue substituir esse picker por segurança — mas aqui a
+// gente confirma a qualidade e lembra da opção de áudio antes de abrir ele.
+function populateSharePickerQuality() {
+  const select = document.getElementById('share-picker-quality-select');
+  select.value = screenShareQuality;
+}
+
+document.getElementById('btn-share-screen').onclick = () => {
+  populateSharePickerQuality();
+  document.getElementById('share-picker-status').classList.add('hidden');
+  document.getElementById('modal-share-picker').classList.remove('hidden');
+};
+
+document.getElementById('share-picker-quality-select').onchange = (e) => {
+  const option = e.target.selectedOptions[0];
+  if (option.dataset.plus && !isPlusUser()) {
+    e.target.value = screenShareQuality;
+    document.getElementById('share-picker-quality-upsell').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('share-picker-quality-upsell').classList.add('hidden');
+  screenShareQuality = e.target.value;
+  localStorage.setItem('ng_screen_quality', screenShareQuality);
+  // mantém a outra seleção (dentro de Configurações de voz) em sincronia
+  const otherSelect = document.getElementById('screen-quality-select');
+  if (otherSelect) otherSelect.value = screenShareQuality;
+};
+
+document.getElementById('link-open-plus-from-share-picker').onclick = (e) => {
+  e.preventDefault();
+  document.getElementById('modal-share-picker').classList.add('hidden');
+  openPlusUpgradeModal();
+};
+
+document.getElementById('btn-cancel-share-picker').onclick = () => {
+  document.getElementById('modal-share-picker').classList.add('hidden');
+};
+
+document.getElementById('btn-confirm-share-picker').onclick = async () => {
+  const statusEl = document.getElementById('share-picker-status');
+  statusEl.classList.remove('hidden');
+  statusEl.textContent = 'Abrindo o seletor do navegador...';
+
   // Defensivo: se por algum motivo ainda tinha uma tela antiga presa (ex.:
   // clique duplo, erro anterior), limpa direito antes de começar outra —
   // evita acumular sender fantasma na conexão (era a causa da tela preta
@@ -7352,9 +7418,11 @@ document.getElementById('btn-share-screen').onclick = async () => {
       },
     });
   } catch (err) {
+    document.getElementById('modal-share-picker').classList.add('hidden');
     alert('Não foi possível iniciar o compartilhamento de tela: ' + err.message);
     return;
   }
+  document.getElementById('modal-share-picker').classList.add('hidden');
   updateLocalTile();
   Object.values(peers).forEach((pc) => {
     localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));

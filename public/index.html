@@ -755,6 +755,51 @@
   </div>
 </div>
 
+<!-- MODAL: "O que você quer compartilhar?" — tela própria do NEXT GAME antes
+     de abrir o seletor nativo do navegador (que é quem realmente lista as
+     telas/janelas/abas — nenhum site consegue substituir isso por segurança).
+     Aqui a gente mostra a qualidade que vai ser usada e lembra da opção de
+     áudio, igual o Discord faz antes de abrir o picker do sistema. -->
+<div id="modal-share-picker" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2><span class="ng-icon-wrap" data-icon="monitor"></span> O que você quer compartilhar?</h2>
+    <p class="hint" style="margin-top:-6px;">
+      Na próxima tela, o navegador vai pedir pra você escolher entre <strong>tela inteira</strong>,
+      <strong>uma janela</strong> ou <strong>uma aba</strong> — isso é escolhido ali, não aqui.
+    </p>
+
+    <label>Qualidade da transmissão</label>
+    <select id="share-picker-quality-select">
+      <option value="720p30" selected>720p · 30fps</option>
+      <option value="1080p30" data-plus="1">1080p · 30fps 🔒 NEXTGAME PLUS</option>
+      <option value="1080p60" data-plus="1">1080p · 60fps 🔒 NEXTGAME PLUS</option>
+      <option value="1440p60" data-plus="1">1440p · 60fps 🔒 NEXTGAME PLUS</option>
+      <option value="2160p60" data-plus="1">4K · 60fps 🔒 NEXTGAME PLUS</option>
+    </select>
+    <p id="share-picker-quality-upsell" class="hint hidden" style="margin-top:6px;">
+      Qualidade acima de 720p é exclusiva do <strong>NEXTGAME PLUS</strong>.
+      <a href="#" id="link-open-plus-from-share-picker">Assinar agora</a>
+    </p>
+
+    <div class="share-picker-audio-note">
+      <span class="ng-icon-wrap" data-icon="volume-2"></span>
+      <span>
+        Quer que quem está na chamada ouça o som (jogo, vídeo, música)? Marque a caixinha
+        <strong>"Compartilhar áudio"</strong> na janela que o navegador vai abrir a seguir.
+        Se você escolher <strong>uma janela específica</strong>, alguns navegadores só
+        compartilham áudio ao escolher <strong>a aba</strong> ou <strong>a tela inteira</strong>.
+      </span>
+    </div>
+
+    <div class="share-picker-status hidden" id="share-picker-status"></div>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-cancel-share-picker">Cancelar</button>
+      <button type="button" id="btn-confirm-share-picker" class="primary">Continuar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: editar perfil (email, senha, avatar, status) -->
 <div id="modal-profile" class="modal-overlay hidden">
   <div class="modal-card modal-card-wide settings-modal-card">

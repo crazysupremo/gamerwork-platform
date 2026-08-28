@@ -1398,6 +1398,18 @@ video:fullscreen { background: #000; object-fit: contain; }
 }
 .modal-actions button[type="submit"] { background: var(--gradient-brand); color: white; font-weight: 700; }
 .modal-actions button[type="button"] { background: #404249; color: #e6e6e6; }
+.modal-actions button.primary { background: var(--gradient-brand); color: white; font-weight: 700; }
+
+.share-picker-audio-note {
+  display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: #dbdee1;
+  background: rgba(88,101,242,0.1); border: 1px solid rgba(88,101,242,0.3); border-radius: 8px;
+  padding: 10px; margin-top: 12px; line-height: 1.5;
+}
+.share-picker-audio-note .ng-icon-wrap { flex-shrink: 0; margin-top: 1px; }
+.share-picker-status {
+  font-size: 12px; color: #23a55a; background: rgba(35,165,90,0.12); border: 1px solid rgba(35,165,90,0.3);
+  border-radius: 8px; padding: 8px 10px; margin-top: 10px;
+}
 .modal-actions button.danger-action { background: #f23f42; color: white; }
 .modal-actions button.danger-action:hover { background: #d3373a; }
 
