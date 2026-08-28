@@ -571,9 +571,17 @@ function startApp() {
       // Tinha "?channel=" mas o canal continua fora do alcance (ex: convite
       // inválido/expirado, ou a sala foi apagada) — avisa em vez de sumir.
       showCopyToast('Não foi possível entrar nessa sala pelo link.');
-      loadHomeDashboard();
+      goHome();
     } else {
-      loadHomeDashboard();
+      // BUG CORRIGIDO: esse é o caminho mais comum de todos (abrir/recarregar
+      // a página já logado, sem link de convite) e chamava só
+      // loadHomeDashboard() — que carrega o painel mas NUNCA esconde os
+      // ícones de busca/fixados/membros do cabeçalho (isso só acontecia
+      // dentro de goHome()). Resultado: o ícone de membros ficava visível e
+      // clicável na tela de Início logo na abertura do app, sem nenhum canal
+      // selecionado — abrindo a lista de membros sem contexto nenhum.
+      // goHome() já chama loadHomeDashboard() por dentro, então cobre os dois.
+      goHome();
     }
     history.replaceState({}, '', window.location.pathname);
   })();
@@ -4032,6 +4040,11 @@ function goHome() {
   ['btn-search-messages', 'btn-pinned-messages', 'btn-toggle-members'].forEach((id) => {
     document.getElementById(id).classList.add('hidden');
   });
+  // BUG CORRIGIDO: se o painel de membros (coluna da direita) já estava
+  // aberto, ele continuava aberto mesmo depois de voltar pra Início — só o
+  // BOTÃO sumia, a lista ficava presa na tela. Agora fecha os dois juntos.
+  document.getElementById('members-panel').classList.add('hidden');
+  document.getElementById('btn-toggle-members').classList.remove('active-state');
   loadHomeDashboard();
 
   // Início fica "viva": ranking, atividade recente e quem tá jogando agora
