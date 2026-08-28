@@ -6120,6 +6120,29 @@ function registerSocketHandlers() {
     if (!me.is_admin) return;
     alert(`⚠️ Transmissão de ${username} foi marcada pela moderação: ${reason || 'conteúdo sinalizado'}. Confira no painel de admin.`);
   });
+
+  // Alerta URGENTE pra admin: a IA suspendeu uma conta automaticamente
+  // (suspeita de conteúdo infantil em contexto de risco) — precisa de
+  // revisão humana o quanto antes.
+  socket.on('moderation:auto-suspended-alert', ({ username, reason }) => {
+    if (!me.is_admin) return;
+    alert(`🚨 SUSPENSÃO AUTOMÁTICA: a conta de ${username} foi suspensa pela IA de moderação (${reason || 'conteúdo sinalizado'}). Revise urgentemente no painel de admin.`);
+  });
+
+  // A própria pessoa foi tirada da chamada pela moderação (tela/câmera
+  // sinalizada) — sai da call na hora, sem esperar o servidor derrubar a
+  // conexão P2P por timeout.
+  socket.on('moderation:kicked-from-call', ({ reason }) => {
+    alert('Você foi removido da chamada pelo filtro de segurança: ' + (reason || 'conteúdo sinalizado') + '. Isso foi registrado para revisão de um moderador.');
+    disconnectVoice();
+  });
+
+  // A conta foi suspensa (banida) enquanto a pessoa estava com a aba
+  // aberta — derruba a sessão local na hora, não espera a próxima ação.
+  socket.on('account:suspended', () => {
+    alert('Sua conta foi suspensa automaticamente pelo filtro de segurança, aguardando revisão de um moderador.');
+    window.location.reload();
+  });
 }
 
 // ---------- WEBRTC (voz / compartilhamento de tela) ----------

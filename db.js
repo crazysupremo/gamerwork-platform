@@ -650,6 +650,12 @@ async function initDb() {
   await ensureColumn('users', 'totp_secret TEXT');
   await ensureColumn('users', 'totp_enabled INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'timeout_until TEXT');
+  // Suspensão AUTOMÁTICA da IA de moderação (distinta de um admin banindo na
+  // mão) — pra suspeita de conteúdo infantil em contexto de risco flagrada
+  // em foto/tela/câmera. auto_suspended=1 marca que precisa de revisão
+  // humana urgente (não é uma decisão definitiva, é uma pausa de segurança).
+  await ensureColumn('users', 'auto_suspended INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'ban_reason TEXT');
   await ensureColumn('messages', 'thread_parent_id TEXT');
   await ensureColumn('messages', 'has_link INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'reputation INTEGER NOT NULL DEFAULT 0');

@@ -3862,12 +3862,18 @@ app.post(
             JSON.stringify(parsed.categories || []),
           ]
         );
-        // Avisa admins conectados na hora — a ação de verdade (banir, encerrar
-        // a call) fica com um humano revisando no painel, nunca automática.
         io.emit('moderation:frame-flagged', {
           username: req.user.username,
           reason: parsed.reason || 'conteúdo sinalizado',
         });
+        // Ação automática (ver AUTO_SUSPEND_CATEGORIES acima): sempre tira a
+        // pessoa da chamada na hora; suspende a conta também só pra suspeita
+        // de conteúdo infantil em contexto de risco — o resto vai pra
+        // revisão humana no painel, sem banir sozinho.
+        kickUserFromVoice(req.user.id, parsed.reason);
+        if (shouldAutoSuspend(parsed.categories)) {
+          await autoSuspendUser(req.user.id, req.user.username, parsed.reason);
+        }
       }
 
       res.json({ flagged: !!parsed.flagged });
@@ -5681,7 +5687,10 @@ app.post(
   requireAuth,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    await db.run('UPDATE users SET is_banned = 0 WHERE id = ?', [req.params.id]);
+    // Zera também auto_suspended/ban_reason — depois que um humano revisou
+    // e decidiu desbanir, não faz sentido a conta continuar marcada como
+    // "suspensão automática pendente de revisão".
+    await db.run('UPDATE users SET is_banned = 0, auto_suspended = 0, ban_reason = NULL WHERE id = ?', [req.params.id]);
     res.json({ ok: true });
     logAudit(req.user, 'unban_user', 'user', req.params.id);
   })
@@ -5753,7 +5762,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, is_admin, is_banned, timeout_until, coins, reputation, plan, created_at FROM users ORDER BY created_at DESC'
+        'SELECT id, username, is_admin, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, created_at FROM users ORDER BY created_at DESC'
       )
     );
   })
@@ -6088,6 +6097,67 @@ function disconnectDuplicateUserSessions(userId, excludeSocketId) {
   }
 }
 
+// ---------- AÇÃO AUTOMÁTICA DE MODERAÇÃO (câmera/tela/anexo sinalizados) ----------
+// Duas coisas SEMPRE acontecem quando a IA sinaliza algo numa chamada de
+// voz/vídeo: a pessoa é tirada da call na hora (kickUserFromVoice) e o
+// conteúdo em si nunca chega a ser enviado/salvo (já bloqueado antes disso).
+// Suspensão automática de CONTA (bloqueia login até um admin revisar) só
+// acontece pra suspeita de conteúdo infantil em contexto de risco — as
+// outras categorias (violência, maus-tratos a animais, armas) ficam só
+// marcadas pra revisão humana, sem banir sozinho: IA de visão erra, e um
+// banimento automático indevido é um dano sério pra quem foi banido à toa.
+const AUTO_SUSPEND_CATEGORIES = ['revisar_urgente'];
+
+function shouldAutoSuspend(categories) {
+  return Array.isArray(categories) && categories.some((c) => AUTO_SUSPEND_CATEGORIES.includes(c));
+}
+
+// Derruba TODAS as conexões socket ativas da pessoa (chat, presença, voz —
+// tudo), não só a chamada. O middleware de HTTP (requireAuth) já barra a
+// PRÓXIMA requisição via is_banned, isso aqui é só pra não deixar nada "ao
+// vivo" rodando entre o flag e a próxima requisição dela.
+function forceDisconnectUserSockets(userId) {
+  for (const [, s] of io.sockets.sockets) {
+    if (s.user && s.user.id === userId) {
+      s.emit('account:suspended');
+      s.disconnect(true);
+    }
+  }
+}
+
+// Tira a pessoa de qualquer sala de voz/vídeo em que estiver, na hora —
+// mesmo padrão já usado pra sessão duplicada (rtc:peer-left imediato pros
+// outros participantes, sem esperar timeout de ICE).
+function kickUserFromVoice(userId, reason) {
+  for (const [roomId, participants] of voiceRooms.entries()) {
+    for (const [socketId, info] of participants.entries()) {
+      if (info.userId !== userId) continue;
+      const s = io.sockets.sockets.get(socketId);
+      if (s) {
+        s.leave('rtc:' + roomId);
+        s.emit('moderation:kicked-from-call', { reason: reason || 'conteúdo sinalizado pela checagem de segurança' });
+      }
+      io.to('rtc:' + roomId).emit('rtc:peer-left', { socketId, username: info.username });
+      participants.delete(socketId);
+      broadcastVoiceRoom(roomId);
+      maybeDeleteEmptyQuickRoom(roomId);
+    }
+  }
+}
+
+async function autoSuspendUser(userId, username, reason) {
+  const finalReason = reason || 'Suspensão automática — conteúdo sinalizado como possível risco a menor. Aguardando revisão humana.';
+  await db.run('UPDATE users SET is_banned = 1, auto_suspended = 1, ban_reason = ? WHERE id = ?', [finalReason, userId]);
+  await logAudit({ id: 'system', username: 'Sistema (IA de moderação)' }, 'auto_suspend_user', 'user', userId, {
+    username,
+    reason: finalReason,
+  });
+  // Alerta em tempo real pra quem tiver o painel admin aberto — isso é
+  // urgente, não deve esperar até a próxima vez que alguém abrir o painel.
+  io.emit('moderation:auto-suspended-alert', { userId, username, reason: finalReason });
+  forceDisconnectUserSockets(userId);
+}
+
 // Sala Rápida: se o último participante saiu e a sala é temporária
 // (is_quick), apaga ela do banco e avisa todo mundo pra sumir da lista.
 async function maybeDeleteEmptyQuickRoom(roomId) {
@@ -6330,6 +6400,12 @@ io.on('connection', (socket) => {
             reason: 'Esse arquivo foi bloqueado pelo filtro de conteúdo e registrado para revisão de um moderador.',
             categories: verdict.categories || [],
           });
+          // O anexo já nunca chega a ser enviado/salvo (para aqui embaixo).
+          // Suspensão automática de conta só pra suspeita de conteúdo
+          // infantil em contexto de risco — ver AUTO_SUSPEND_CATEGORIES.
+          if (shouldAutoSuspend(verdict.categories)) {
+            await autoSuspendUser(user.id, user.username, verdict.reason);
+          }
           return;
         }
       }

@@ -406,7 +406,13 @@ async function loadUsers() {
       <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
       <td>${u.is_admin ? 'Sim' : 'Não'}</td>
       <td>${u.plan === 'plus' ? '✨ PLUS' : 'Free'}</td>
-      <td>${u.is_banned ? 'Banido' : 'Ativo'}</td>
+      <td>${
+        u.auto_suspended
+          ? `<span title="${escapeHtml(u.ban_reason || '')}" style="color:#f23f42;font-weight:700;">⚠️ Suspensão automática — revisar</span>`
+          : u.is_banned
+          ? 'Banido'
+          : 'Ativo'
+      }</td>
       <td>
         ${u.is_banned
           ? `<button class="action" data-action="unban" data-id="${u.id}">Desbanir</button>`
