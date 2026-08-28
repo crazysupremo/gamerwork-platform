@@ -3810,6 +3810,74 @@ async function moderateImageWithGroq(imageDataUrl, promptText) {
   }
 }
 
+// ---------- INTEGRAÇÃO COM O PROTECTION BLUEX (BLUE SPORTS GAMES) ----------
+// O NEXT GAME agora é cliente do próprio produto de detecção/análise que
+// virou a API standalone BLUEX — mesma lógica de moderação de imagem, mais
+// uma camada NOVA de análise de texto (aliciamento/comportamento suspeito)
+// que o NEXT GAME sozinho não tinha antes. Isso é opcional: se
+// BLUEX_API_URL/BLUEX_API_KEY não estiverem configuradas, tudo cai de volta
+// pro Groq direto (comportamento de sempre) — nada quebra pra quem ainda não
+// configurou o BLUEX. Se o BLUEX estiver configurado mas fora do ar no
+// momento da chamada, também cai pro Groq direto como respaldo, em vez de
+// falhar a moderação inteira.
+//
+// IMPORTANTE (repetindo a decisão que já tomamos): a verificação de idade
+// por câmera do cadastro continua 100% no navegador da pessoa — a foto NUNCA
+// é enviada pra nenhum servidor, nem o do NEXT GAME nem o do BLUEX. Só a
+// moderação de imagem (que já passava pelo servidor de qualquer forma) e a
+// análise de texto (que é sempre server-side, é mensagem de chat) usam o
+// BLUEX quando configurado.
+function isBluexConfigured() {
+  return !!(process.env.BLUEX_API_URL && process.env.BLUEX_API_KEY);
+}
+
+async function bluexRequest(endpointPath, body) {
+  const base = process.env.BLUEX_API_URL.replace(/\/+$/, '');
+  const res = await fetch(base + endpointPath, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': process.env.BLUEX_API_KEY },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`BLUEX ${endpointPath} respondeu ${res.status}: ${errText}`);
+  }
+  return res.json();
+}
+
+// Moderação de imagem unificada: usa o BLUEX se configurado (com Groq direto
+// como respaldo se o BLUEX falhar), senão usa o Groq direto como sempre. As
+// categorias detectadas são as mesmas dos dois lados (o prompt do BLUEX foi
+// literalmente copiado do ATTACHMENT_MODERATION_PROMPT abaixo), então serve
+// igual tanto pra anexo de chat quanto pra frame de tela/câmera.
+async function moderateImage(imageDataUrlOrUrl) {
+  if (isBluexConfigured()) {
+    try {
+      const result = await bluexRequest('/v1/moderate-image', imageDataUrlOrUrl.startsWith('http') ? { image_url: imageDataUrlOrUrl } : { image: imageDataUrlOrUrl });
+      return { flagged: !!result.flagged, categories: result.categories || [], reason: result.reason || null };
+    } catch (err) {
+      console.error('BLUEX indisponível, usando Groq direto como respaldo:', err.message);
+    }
+  }
+  return moderateImageWithGroq(imageDataUrlOrUrl, ATTACHMENT_MODERATION_PROMPT);
+}
+
+// Análise de texto (aliciamento/comportamento suspeito) — capacidade NOVA no
+// NEXT GAME, só existe quando o BLUEX está configurado (não tem equivalente
+// direto no Groq aqui, é exclusiva da integração). Roda em cima do que já
+// passou pelo scanText() comum, como uma camada a mais específica pra risco
+// a menor.
+async function analyzeTextForGrooming(text) {
+  if (!isBluexConfigured()) return { flagged: false, skipped: true };
+  try {
+    const result = await bluexRequest('/v1/analyze-text', { text });
+    return { flagged: !!result.flagged, categories: result.categories || [], reason: result.reason || null };
+  } catch (err) {
+    console.error('BLUEX analyze-text indisponível:', err.message);
+    return { flagged: false, error: true };
+  }
+}
+
 const ATTACHMENT_MODERATION_PROMPT =
   'Esta imagem foi anexada por alguém numa mensagem de chat de uma plataforma pra gamers e ' +
   'equipes de trabalho. Responda APENAS um JSON, sem texto extra, no formato ' +
@@ -3846,7 +3914,7 @@ app.post(
       return res.status(400).json({ error: 'Imagem inválida' });
     }
     try {
-      const parsed = await moderateImageWithGroq(image, FRAME_MODERATION_PROMPT);
+      const parsed = await moderateImage(image);
       if (parsed.error) return res.json({ flagged: false, error: true });
 
       if (parsed.flagged) {
@@ -5819,6 +5887,7 @@ app.get(
         resend_configured: !!process.env.RESEND_API_KEY,
         anthropic_configured: !!process.env.ANTHROPIC_API_KEY,
         turn_configured: !!process.env.TURN_URL,
+        bluex_configured: isBluexConfigured(),
         node_env: process.env.NODE_ENV || 'development',
       },
       realtime: {
@@ -6370,15 +6439,46 @@ io.on('connection', (socket) => {
         return;
       }
 
+      // Análise de aliciamento/comportamento suspeito via BLUEX — capacidade
+      // NOVA que só existe quando BLUEX_API_URL/BLUEX_API_KEY estão
+      // configuradas (sem isso, analyzeTextForGrooming() retorna
+      // flagged:false na hora, sem chamada de rede nenhuma — não atrasa o
+      // chat pra quem não usa a integração). Mesma política das outras
+      // sinalizações: bloqueia a mensagem + registra sempre; suspende a
+      // conta automaticamente só pra categoria "revisar_urgente".
+      if (content && content.trim()) {
+        const groomingCheck = await analyzeTextForGrooming(content);
+        if (groomingCheck.flagged) {
+          const blockedId = uuidv4();
+          await db.run(
+            'INSERT INTO blocked_messages (id, channel_id, user_id, username, content, flag_categories) VALUES (?, ?, ?, ?, ?, ?)',
+            [blockedId, channelId, user.id, user.username, content, JSON.stringify(groomingCheck.categories)]
+          );
+          io.emit('moderation:frame-flagged', {
+            username: user.username,
+            reason: groomingCheck.reason || 'texto sinalizado (comportamento suspeito)',
+          });
+          socket.emit('chat:blocked', {
+            reason: 'Mensagem bloqueada pelo filtro de segurança e registrada para revisão de um moderador.',
+            categories: groomingCheck.categories,
+          });
+          if (shouldAutoSuspend(groomingCheck.categories)) {
+            await autoSuspendUser(user.id, user.username, groomingCheck.reason);
+          }
+          return;
+        }
+      }
+
       // Anexo de imagem passa pela mesma moderação por IA usada em
       // compartilhamento de tela — camada extra de segurança, revisada por
       // humano quando sinalizada, NUNCA um substituto de moderação humana
       // ou de detecção de CSAM especializada (PhotoDNA/Thorn Safer).
       if (attachmentToStore && attachmentToStore.type.startsWith('image/')) {
-        // A Groq aceita tanto data URL (base64) quanto uma URL http(s)
-        // normal em image_url.url — funciona igual pra anexo pequeno (banco)
-        // ou grande (R2), sem precisar baixar/reconverter nada aqui.
-        const verdict = await moderateImageWithGroq(attachmentToStore.data || attachmentToStore.url, ATTACHMENT_MODERATION_PROMPT);
+        // Aceita tanto data URL (base64) quanto uma URL http(s) normal —
+        // funciona igual pra anexo pequeno (banco) ou grande (R2), sem
+        // precisar baixar/reconverter nada aqui. moderateImage() usa o BLUEX
+        // se configurado, com Groq direto como respaldo.
+        const verdict = await moderateImage(attachmentToStore.data || attachmentToStore.url);
         if (verdict.flagged) {
           const flagId = uuidv4();
           await db.run(

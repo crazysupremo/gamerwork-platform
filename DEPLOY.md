@@ -89,6 +89,33 @@ Pra ativar:
    atualize essa variável com um modelo ativo.
 5. Salve — o Render redeploya sozinho e o assistente passa a responder de verdade.
 
+## Passo 6.5 — Integração com o PROTECTION BLUEX (opcional)
+
+O NEXT GAME pode usar o **PROTECTION BLUEX** (o produto da BLUE SPORTS GAMES,
+publicado separado) pra fazer a moderação de imagem (anexos de chat, tela e
+câmera compartilhadas) e, como camada nova, análise de texto pra sinalizar
+comportamento suspeito/aliciamento nas mensagens do chat. Isso é totalmente
+opcional: sem configurar, o NEXT GAME continua usando a Groq direto como
+sempre (nada quebra).
+
+**Importante:** a verificação de idade por câmera do cadastro NÃO passa por
+essa integração — continua 100% no navegador da pessoa, a foto nunca sai do
+dispositivo dela, por decisão de privacidade já tomada.
+
+Pra ativar:
+
+1. Publique o PROTECTION BLUEX primeiro (é outro serviço, outro repositório —
+   veja o README dele) e anote a URL pública (ex:
+   `https://protection-bluex-api.onrender.com`).
+2. No painel admin do PROTECTION BLUEX, crie um cliente chamado "NEXT GAME"
+   e copie a chave de API gerada (começa com `bluex_`).
+3. No Render do NEXT GAME, abra seu serviço → aba **Environment** → adicione:
+   - Key: `BLUEX_API_URL` → Value: a URL do PROTECTION BLUEX (sem barra no final)
+   - Key: `BLUEX_API_KEY` → Value: a chave `bluex_...` que você copiou
+4. Salve — o Render redeploya sozinho. A partir daí, moderação de imagem e
+   análise de texto passam pelo BLUEX; se o BLUEX cair, o NEXT GAME volta
+   sozinho pra Groq direto como respaldo, sem parar de funcionar.
+
 ## Depois de publicar
 
 - Acesse a URL, registre-se — **o primeiro usuário que se cria vira admin**
