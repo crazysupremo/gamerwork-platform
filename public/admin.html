@@ -32,6 +32,36 @@
   <p id="admin-guard" class="auth-error"></p>
 
   <div id="admin-content" class="hidden">
+    <h2>🔷 BLUEX — Painel de Proteção</h2>
+    <p style="color:#949ba4; font-size:13px;">
+      Verificação de idade, moderação de imagem/tela/câmera e análise de texto por aliciamento — tudo
+      embutido no próprio NEXT GAME (funciona mesmo sem o BLUEX publicado à parte). Atualiza sozinho a
+      cada 10s.
+    </p>
+    <div id="bluex-status-row" class="stats-grid"></div>
+
+    <h3 style="margin-top:20px; font-size:14px; color:#f23f42;">
+      ⚠️ Suspensão automática — aguardando sua revisão
+    </h3>
+    <p style="color:#949ba4; font-size:13px;">
+      Contas suspensas automaticamente por suspeita de conteúdo infantil em contexto de risco (a
+      categoria mais grave). Isso NÃO é uma decisão definitiva — é uma pausa de segurança até você
+      revisar. As outras categorias (violência, maus-tratos a animais, armas) não suspendem sozinhas,
+      só ficam marcadas pra revisão logo abaixo.
+    </p>
+    <table id="bluex-suspended-table">
+      <thead><tr><th>Usuário</th><th>Motivo</th><th>Ações</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="empty-hint hidden" id="bluex-suspended-empty" style="color:#949ba4; font-size:13px; padding:8px 0;">Nenhuma conta suspensa automaticamente no momento.</p>
+
+    <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Resumo de sinalizações recentes</h3>
+    <div id="bluex-flags-grid" class="stats-grid"></div>
+    <p style="color:#949ba4; font-size:13px; margin-top:8px;">
+      Detalhe completo de cada sinalização (imagem e texto) fica logo mais abaixo, nas seções
+      "Mensagens bloqueadas" e "Transmissões de tela marcadas pela IA".
+    </p>
+
     <h2>🩺 Monitoramento (dados, erros, lag)</h2>
     <p style="color:#949ba4; font-size:13px;">
       Atualiza sozinho a cada 10s. <span id="monitoring-updated"></span>

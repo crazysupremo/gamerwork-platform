@@ -14,6 +14,8 @@ async function init() {
   document.getElementById('admin-content').classList.remove('hidden');
   loadMonitoring();
   setInterval(loadMonitoring, 10000);
+  loadBluexPanel();
+  setInterval(loadBluexPanel, 10000);
   loadAnalytics();
   loadSuspiciousAccounts();
   loadMinors();
@@ -110,6 +112,88 @@ async function loadMonitoring() {
         )
         .join('')
     : '<tr><td colspan="3" style="color:#949ba4;">Nenhum erro recente. 🎉</td></tr>';
+}
+
+// ---------- 🔷 BLUEX — Painel de Proteção ----------
+// Junta em um lugar só: status da proteção (Groq embutido + BLUEX externo,
+// se configurado), contas suspensas automaticamente aguardando revisão
+// (o item mais urgente), e um resumo de quantas sinalizações recentes
+// existem — sem duplicar as tabelas detalhadas que já existem mais abaixo
+// (Mensagens bloqueadas / Transmissões marcadas), só reaproveita os mesmos
+// dados numa visão consolidada.
+async function loadBluexPanel() {
+  try {
+    const [monRes, usersRes, framesRes, blockedRes] = await Promise.all([
+      fetch('/api/admin/monitoring', { credentials: 'include' }),
+      fetch('/api/admin/users', { credentials: 'include' }),
+      fetch('/api/admin/flagged-frames', { credentials: 'include' }),
+      fetch('/api/admin/blocked-messages', { credentials: 'include' }),
+    ]);
+    if (!monRes.ok || !usersRes.ok || !framesRes.ok || !blockedRes.ok) return;
+    const mon = await monRes.json();
+    const users = await usersRes.json();
+    const frames = await framesRes.json();
+    const blocked = await blockedRes.json();
+
+    // Status — o que está de fato rodando agora
+    const statusRow = document.getElementById('bluex-status-row');
+    const statusCards = [
+      {
+        label: 'Moderação de imagem/texto (Groq embutido)',
+        ok: mon.environment.groq_configured,
+        okText: 'Ativa',
+        offText: 'Falta GROQ_API_KEY',
+      },
+      {
+        label: 'BLUEX externo (opcional, centraliza vários apps)',
+        ok: mon.environment.bluex_configured,
+        okText: 'Conectado',
+        offText: 'Não configurado — usando só o Groq embutido, funciona igual',
+      },
+    ];
+    statusRow.innerHTML = statusCards
+      .map(
+        (c) => `
+        <div class="stat-card" style="background:${c.ok ? '#23a55a22' : '#f23f4222'};">
+          <div class="num" style="font-size:15px; color:${c.ok ? '#23a55a' : '#f23f42'};">${c.ok ? '✅ ' + c.okText : '⚠️ ' + c.offText}</div>
+          <div class="label">${c.label}</div>
+        </div>`
+      )
+      .join('');
+
+    // Contas suspensas automaticamente — o item mais urgente de todos
+    const suspended = users.filter((u) => u.auto_suspended);
+    const suspTbody = document.querySelector('#bluex-suspended-table tbody');
+    suspTbody.innerHTML = suspended
+      .map(
+        (u) => `
+        <tr>
+          <td>${escapeHtml(u.username)}</td>
+          <td>${escapeHtml(u.ban_reason || '—')}</td>
+          <td><button class="action" data-action="unban" data-id="${u.id}">Revisei — desbanir</button></td>
+        </tr>`
+      )
+      .join('');
+    document.getElementById('bluex-suspended-empty').classList.toggle('hidden', suspended.length > 0);
+    document.getElementById('bluex-suspended-table').classList.toggle('hidden', suspended.length === 0);
+    suspTbody.querySelectorAll('button[data-action="unban"]').forEach((btn) =>
+      btn.addEventListener('click', () => unbanUser(btn.dataset.id))
+    );
+
+    // Resumo de sinalizações — só contagem, detalhe fica nas tabelas de baixo
+    const framesUnreviewed = frames.filter((f) => !f.reviewed).length;
+    const flagsGrid = document.getElementById('bluex-flags-grid');
+    flagsGrid.innerHTML = [
+      ['Imagens/telas sinalizadas (total)', frames.length],
+      ['Ainda sem revisão', framesUnreviewed],
+      ['Mensagens de texto bloqueadas', blocked.length],
+      ['Contas suspensas aguardando revisão', suspended.length],
+    ]
+      .map(([label, num]) => `<div class="stat-card"><div class="num">${num}</div><div class="label">${label}</div></div>`)
+      .join('');
+  } catch (err) {
+    console.error('Erro ao carregar painel BLUEX:', err);
+  }
 }
 
 async function loadAnalytics() {
