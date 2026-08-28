@@ -8,6 +8,10 @@ let localStream = null; // tela compartilhada
 let micStream = null; // áudio do microfone
 let micMuted = false;
 let isDeafened = false;
+// Volume geral da chamada (0 a 1) — multiplica o volume de TODAS as pessoas
+// remotas de uma vez, junto com o slider individual de cada tile. Lembrado
+// entre chamadas via localStorage, igual as outras preferências de áudio.
+let masterCallVolume = Number(localStorage.getItem('ng_master_volume') ?? 100) / 100;
 const peers = {}; // socketId -> RTCPeerConnection
 const remoteStreams = {}; // socketId -> MediaStream combinada (áudio + vídeo do peer)
 const remotePeerInfo = {}; // socketId -> { username, avatar, avatar_frame } — pra mostrar a foto de perfil na tile
@@ -881,6 +885,31 @@ document.getElementById('btn-toggle-channel-sidebar').onclick = () => {
   setChannelSidebarOpen(document.getElementById('channel-sidebar').classList.contains('hidden'));
 };
 document.getElementById('btn-close-channel-sidebar').onclick = () => setChannelSidebarOpen(false);
+
+// ---------- MENU MOBILE (gaveta de navegação no celular) ----------
+// Só existe visualmente abaixo de 768px (o botão ☰ fica escondido em tela
+// grande via CSS) — mas o JS funciona sempre, sem custo nenhum se não for usado.
+const mobileBackdrop = document.getElementById('mobile-drawer-backdrop');
+function setMobileSidebarOpen(open) {
+  document.getElementById('app-sidebar').classList.toggle('mobile-open', open);
+  mobileBackdrop.classList.toggle('hidden', !open);
+}
+const btnMobileMenu = document.getElementById('btn-mobile-menu');
+if (btnMobileMenu) btnMobileMenu.onclick = () => setMobileSidebarOpen(true);
+mobileBackdrop.onclick = () => {
+  // Fecha o que estiver aberto no momento (gaveta de navegação, canais ou membros).
+  setMobileSidebarOpen(false);
+  setChannelSidebarOpen(false);
+  document.getElementById('members-panel').classList.add('hidden');
+};
+// Escolher qualquer coisa na gaveta de navegação (Início, Amigos, um
+// servidor...) já fecha ela sozinha — sem isso, no celular a pessoa clica,
+// a tela muda por trás, mas a gaveta continua aberta por cima cobrindo tudo.
+document.getElementById('app-sidebar').addEventListener('click', (e) => {
+  if (e.target.closest('.sidebar-nav-item, .server-row, .navbar-profile')) {
+    setMobileSidebarOpen(false);
+  }
+});
 
 function renderServerRail(categories) {
   const list = document.getElementById('server-rail-list');
@@ -3809,31 +3838,11 @@ function openSupportModal(e) {
   document.getElementById('form-support').classList.remove('hidden');
   document.getElementById('modal-support').classList.remove('hidden');
 }
-// Botão de baixar o app de desktop, na própria tela de login.
-//
-// O instalador (.exe) é um arquivo grande (~70-100MB) — maior do que o
-// limite de 25MB da área de "arraste os arquivos aqui" do GitHub, então ele
-// NÃO fica dentro deste repositório (subiria o peso do projeto pra sempre e
-// pesaria todo redeploy). O jeito certo é publicar como "Release" no GitHub
-// (aceita arquivo grande) e colar o link direto aqui embaixo — é só isso,
-// uma linha, sem precisar reempacotar nada além do próprio arquivo do site.
-//
-// Deixa null que o botão mostra "em breve" sozinho, sem quebrar nada.
-const DESKTOP_DOWNLOAD_URL = 'https://github.com/crazysupremo/next-game-desktop/releases/download/v1.0.4/NEXT-GAME-Setup.exe';
-
-const downloadLink = document.getElementById('link-download-desktop');
-if (downloadLink) {
-  if (DESKTOP_DOWNLOAD_URL) {
-    downloadLink.href = DESKTOP_DOWNLOAD_URL;
-    const label = document.getElementById('link-download-desktop-label');
-    if (label) label.textContent = 'Baixar NEXT GAME para PC';
-  } else {
-    downloadLink.onclick = (e) => {
-      e.preventDefault();
-      alert('O instalador pra PC está quase pronto — em breve dá pra baixar direto por aqui!');
-    };
-  }
-}
+// Botão de baixar o app de desktop — removido temporariamente da tela de
+// login (o app de desktop ainda está com um bug de tela preta em
+// investigação). Quando o next-game-desktop estiver estável de novo, é só
+// devolver o bloco <a id="link-download-desktop"> no index.html e a lógica
+// de ativação aqui.
 
 document.getElementById('link-support').onclick = openSupportModal;
 const linkSupportSettings = document.getElementById('link-support-settings');
@@ -4117,9 +4126,12 @@ function selectChannel(channel, options = {}) {
     document.getElementById('voice-panel').classList.remove('hidden');
     if (autoConnect && connectedVoiceRoomId !== channel.id) {
       if (connectedVoiceRoomId) disconnectVoice();
-      connectVoice(channel.id);
+      // Mesma correção do botão "Entrar na chamada": só atualiza a tela
+      // depois que connectVoice() (assíncrono) realmente terminar.
+      connectVoice(channel.id).then(() => updateVoicePanelView(channel));
+    } else {
+      updateVoicePanelView(channel);
     }
-    updateVoicePanelView(channel);
     // se já está conectado nessa mesma sala, só mostra a tela de novo — os
     // tiles de vídeo/áudio continuam vivos desde a última vez.
   } else {
@@ -4170,9 +4182,17 @@ function renderVoicePreview(channel) {
       listEl.appendChild(chip);
     });
   }
-  document.getElementById('btn-join-voice-preview').onclick = () => {
+  // BUG DO "PRECISA CLICAR DUAS VEZES" CORRIGIDO: connectVoice() é async
+  // (espera a confirmação do servidor antes de marcar connectedVoiceRoomId).
+  // Antes, updateVoicePanelView(channel) rodava logo em seguida, SEM esperar
+  // esse await terminar — então ela via connectedVoiceRoomId ainda vazio e
+  // mostrava a tela de "Entrar na chamada" de novo, mesmo já tendo entrado
+  // de verdade por trás. Só no SEGUNDO clique (quando o primeiro já tinha
+  // terminado) a tela finalmente trocava pra visão de dentro da call. Agora
+  // espera connectVoice() terminar antes de atualizar a tela.
+  document.getElementById('btn-join-voice-preview').onclick = async () => {
     if (connectedVoiceRoomId && connectedVoiceRoomId !== channel.id) disconnectVoice();
-    connectVoice(channel.id);
+    await connectVoice(channel.id);
     updateVoicePanelView(channel);
   };
 }
@@ -5660,7 +5680,14 @@ function renderAttachmentHtml(attachment) {
   if (!src) return '';
   const safeName = escapeHtml(attachment.name || 'arquivo');
   if ((attachment.type || '').startsWith('image/')) {
-    return `<img class="message-attachment-image" src="${src}" alt="${safeName}" loading="lazy" />`;
+    return `
+      <div class="message-attachment-image-wrap">
+        <img class="message-attachment-image" src="${src}" alt="${safeName}" loading="lazy" />
+        <a class="message-attachment-download-btn" href="${src}" download="${safeName}" title="Baixar imagem" onclick="event.stopPropagation()">
+          <span class="ng-icon-wrap" data-icon="download"></span>
+        </a>
+      </div>
+    `;
   }
   return `
     <a class="message-attachment-card" href="${src}" download="${safeName}" target="_blank" rel="noopener">
@@ -6996,12 +7023,15 @@ function addVideoTile(peerId, username, stream, userInfo) {
       }
     };
 
-    // Volume individual dessa pessoa (só ajusta o que você ouve, não afeta os outros)
+    // Volume individual dessa pessoa, multiplicado pelo volume geral da
+    // chamada (slider da barra fixa) — os dois se combinam, igual Discord:
+    // o geral sobe/desce tudo de uma vez, e o individual ainda ajusta só
+    // aquela pessoa por cima disso.
     const volumeSlider = tile.querySelector('.tile-volume');
     if (volumeSlider) {
       volumeSlider.oninput = (e) => {
         e.stopPropagation();
-        tile.querySelector('video').volume = Number(volumeSlider.value) / 100;
+        tile.querySelector('video').volume = masterCallVolume * (Number(volumeSlider.value) / 100);
       };
       volumeSlider.onclick = (e) => e.stopPropagation();
     }
@@ -7012,6 +7042,11 @@ function addVideoTile(peerId, username, stream, userInfo) {
   // A tile "local" é a sua própria câmera/mic — sempre muda pra você mesmo
   // (senão você ouviria seu próprio microfone de volta, causando eco/feedback).
   videoEl.muted = peerId === 'local' ? true : isDeafened;
+  if (isRemote) {
+    const existingSlider = tile.querySelector('.tile-volume');
+    const pct = existingSlider ? Number(existingSlider.value) : 100;
+    videoEl.volume = masterCallVolume * (pct / 100);
+  }
   applyOutputDevice(videoEl);
   videoEl.play().catch(() => {
     // Alguns navegadores bloqueiam autoplay com áudio fora de um gesto direto
@@ -7458,6 +7493,57 @@ document.getElementById('voice-connected-info').onclick = () => {
 };
 document.getElementById('bar-btn-mute').onclick = toggleMic;
 document.getElementById('bar-btn-deafen').onclick = toggleDeafen;
+
+// ---------- VOLUME GERAL DA CHAMADA (aumentar/diminuir/mutar tudo de uma vez) ----------
+function applyMasterVolumeToAllTiles() {
+  document.querySelectorAll('#video-grid .video-tile').forEach((tile) => {
+    if (tile.id === 'tile-local' || tile.id === 'tile-local-camera') return;
+    const video = tile.querySelector('video');
+    if (!video) return;
+    const slider = tile.querySelector('.tile-volume');
+    const pct = slider ? Number(slider.value) : 100;
+    video.volume = masterCallVolume * (pct / 100);
+  });
+}
+
+const barVolumeSlider = document.getElementById('bar-volume-slider');
+const barVolumeIconBtn = document.getElementById('bar-btn-volume-icon');
+let volumeBeforeMute = masterCallVolume * 100;
+
+function updateVolumeIcon() {
+  if (!barVolumeIconBtn) return;
+  const wrap = barVolumeIconBtn.querySelector('.ng-icon-wrap');
+  if (!wrap) return;
+  const iconName = masterCallVolume <= 0 ? 'volume-x' : 'volume-2';
+  wrap.setAttribute('data-icon', iconName);
+  wrap.innerHTML = icon(iconName, wrap.getAttribute('data-icon-class') || '');
+}
+
+if (barVolumeSlider) {
+  barVolumeSlider.value = Math.round(masterCallVolume * 100);
+  barVolumeSlider.oninput = () => {
+    masterCallVolume = Number(barVolumeSlider.value) / 100;
+    localStorage.setItem('ng_master_volume', String(barVolumeSlider.value));
+    applyMasterVolumeToAllTiles();
+    updateVolumeIcon();
+  };
+}
+if (barVolumeIconBtn) {
+  // Clicar no ícone muta/desmuta rápido, sem perder o nível que você tinha ajustado.
+  barVolumeIconBtn.onclick = () => {
+    if (masterCallVolume > 0) {
+      volumeBeforeMute = masterCallVolume * 100;
+      masterCallVolume = 0;
+    } else {
+      masterCallVolume = (volumeBeforeMute || 100) / 100;
+    }
+    if (barVolumeSlider) barVolumeSlider.value = Math.round(masterCallVolume * 100);
+    localStorage.setItem('ng_master_volume', String(Math.round(masterCallVolume * 100)));
+    applyMasterVolumeToAllTiles();
+    updateVolumeIcon();
+  };
+}
+updateVolumeIcon();
 document.getElementById('bar-btn-disconnect').onclick = () => {
   disconnectVoice();
   if (currentChannel && currentChannel.type === 'voz') {

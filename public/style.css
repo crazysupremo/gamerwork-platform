@@ -366,7 +366,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 /* APP LAYOUT */
 .app { display: flex; flex-direction: row; height: 100vh; }
 .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.app-body { display: flex; flex: 1; min-height: 0; }
+.app-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 
 /* SIDEBAR ÚNICA À ESQUERDA — marca, navegação, servidores e rodapé */
 .app-sidebar {
@@ -554,6 +554,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 
 .sidebar {
   width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; padding: 12px 8px;
+  min-height: 0; overflow-y: auto;
 }
 .sidebar-header {
   font-weight: 800; padding: 8px; color: #e6e6e6; display: flex;
@@ -1545,10 +1546,21 @@ video:fullscreen { background: #000; object-fit: contain; }
 .voice-connected-controls button.active-state { background: #f23f42; color: white; }
 #bar-btn-disconnect:hover { background: #f23f42; color: white; }
 
+/* Volume geral da chamada — aumenta/diminui o que você ouve de todo mundo de
+   uma vez (independente do volume individual de cada pessoa, que continua
+   ajustável na própria tile de vídeo). Clicar no ícone muta/desmuta rápido. */
+.voice-volume-wrap { display: flex; align-items: center; gap: 4px; padding: 0 2px; }
+.voice-volume-wrap button {
+  width: 26px; height: 26px; border-radius: 6px; border: none; background: #35373c;
+  color: #e6e6e6; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.voice-volume-wrap button:hover { background: #404249; }
+#bar-volume-slider { width: 64px; accent-color: var(--accent); cursor: pointer; }
+
 /* PAINEL DE MEMBROS (online/offline), igual Discord */
 .members-panel {
   width: 220px; background: var(--bg-sidebar); border-left: 1px solid #2c2e36;
-  padding: 12px 8px; overflow-y: auto; flex-shrink: 0;
+  padding: 12px 8px; overflow-y: auto; flex-shrink: 0; height: 100%; min-height: 0;
 }
 .member-group-title {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
@@ -2007,3 +2019,84 @@ video:fullscreen { background: #000; object-fit: contain; }
 .message-attachment-card .attachment-name { font-size: 13px; color: #e6e6e6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .message-attachment-card .attachment-size { font-size: 11px; color: #9aa0ab; }
 .message-attachment-image { max-width: 320px; max-height: 260px; border-radius: 10px; margin-top: 4px; display: block; cursor: pointer; }
+.message-attachment-image-wrap { position: relative; display: inline-block; margin-top: 4px; }
+.message-attachment-image-wrap .message-attachment-image { margin-top: 0; }
+.message-attachment-download-btn {
+  position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 8px;
+  background: rgba(0,0,0,0.55); color: white; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.15s ease, background 0.15s ease; text-decoration: none;
+}
+.message-attachment-image-wrap:hover .message-attachment-download-btn { opacity: 1; }
+.message-attachment-download-btn:hover { background: rgba(0,0,0,0.8); }
+/* No celular não tem "hover" — deixa sempre visível, senão ninguém acha o botão */
+@media (hover: none) {
+  .message-attachment-download-btn { opacity: 1; }
+}
+
+/* ==========================================================================
+   RESPONSIVO — CELULAR (sem precisar instalar nada, direto pelo navegador)
+   ==========================================================================
+   O app inteiro (fora a tela de login, que já tinha um breakpoint próprio)
+   era desktop-only: sidebar de navegação (260px) + lista de canais (240px)
+   + painel de membros (220px) lado a lado, sem sobrar quase nada pra tela
+   principal numa tela de ~375-430px. Em vez de espremer as 3 colunas, elas
+   viram "gavetas" que deslizam por cima do conteúdo (igual o app do
+   Discord/Instagram no celular) — abre uma de cada vez, fecha tocando fora
+   ou no X. Acima de 768px nada muda, continua exatamente como era. */
+.mobile-only { display: none; }
+.mobile-drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 45; }
+
+@media (max-width: 768px) {
+  .mobile-only { display: flex; }
+
+  /* Sidebar de navegação (logo, Início/Amigos/Chat, servidores, rodapé) —
+     vira uma gaveta que desliza da esquerda, aberta pelo botão ☰ no topo. */
+  .app-sidebar {
+    position: fixed; top: 0; left: 0; height: 100dvh; z-index: 50; max-width: 82vw;
+    transform: translateX(-100%); transition: transform 0.22s ease; box-shadow: 2px 0 24px rgba(0,0,0,0.4);
+  }
+  .app-sidebar.mobile-open { transform: translateX(0); }
+
+  /* Lista de canais do servidor — já era um "popup" que aparece/some
+     (classe .hidden), só precisa ficar por CIMA do conteúdo em vez de
+     espremer o chat quando aberta. */
+  #channel-sidebar:not(.hidden) {
+    position: fixed; top: 0; left: 0; height: 100dvh; width: 82vw; max-width: 320px; z-index: 48;
+    box-shadow: 2px 0 24px rgba(0,0,0,0.4);
+  }
+
+  /* Painel de membros — mesma ideia, vira gaveta da direita. */
+  #members-panel:not(.hidden) {
+    position: fixed; top: 0; right: 0; height: 100dvh; width: 78vw; max-width: 280px; z-index: 48;
+    box-shadow: -2px 0 24px rgba(0,0,0,0.4);
+  }
+
+  /* Barra de topo mais enxuta — cabe o ☰, a busca e o sino sem espremer. */
+  .top-navbar { padding: 0 10px; gap: 8px; height: 52px; }
+  .navbar-search { flex: 1; min-width: 0; }
+  .navbar-search input::placeholder { font-size: 11px; }
+
+  /* Cabeçalho do canal — ícones de ação (buscar, fixados, membros...) numa
+     fileira que pode quebrar linha em vez de cortar/empurrar pra fora. */
+  .main-header { flex-wrap: wrap; height: auto; min-height: 52px; padding: 8px 10px; gap: 6px; }
+
+  /* Grade de vídeo da chamada — tiles menores, senão 2-3 pessoas já force
+     rolagem horizontal numa tela de celular. */
+  .video-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); grid-auto-rows: 120px; gap: 8px; }
+
+  /* Cartões/formulários largos (modais) não devem ultrapassar a tela. */
+  .modal-card, .modal-card-wide { width: 92vw; max-width: 420px; }
+
+  /* Mensagens e anexos de imagem ocupam a largura disponível em vez de um
+     tamanho fixo pensado pra tela grande. */
+  .message-attachment-image { max-width: 78vw; }
+  .message-attachment-card { max-width: 78vw; }
+}
+
+@media (max-width: 480px) {
+  /* Telas bem pequenas: aperta mais um pouco a barra de topo e some com o
+     texto do campo de busca (o ícone de lupa já dá o contexto). */
+  .top-navbar { gap: 6px; }
+  .navbar-search input { font-size: 12px; }
+  .video-grid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); grid-auto-rows: 100px; }
+}

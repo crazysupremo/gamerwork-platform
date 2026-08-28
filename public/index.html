@@ -58,10 +58,6 @@
             A rede social pra comunidades gamer: chat, voz, servidores, torneios, ranking e proteção
             de menores integrada — é o que você está usando agora.
           </p>
-          <a class="blue-product-download" href="#" id="link-download-desktop">
-            <span class="ng-icon-wrap" data-icon="monitor"></span>
-            <span id="link-download-desktop-label">Baixar NEXT GAME para PC (em breve)</span>
-          </a>
         </div>
 
         <div class="blue-product-card">
@@ -280,6 +276,11 @@
        e rodapé com avatar/status/config — substitui a navbar de cima +
        trilho de servidores que existia antes. Todo elemento com ID que o
        app.js já usava continua aqui, só mudou de lugar/estilo. -->
+  <!-- Fundo escuro atrás da gaveta de navegação no celular — toca aqui pra
+       fechar. Fica invisível/sem efeito em telas grandes (só existe no
+       layout mobile). -->
+  <div id="mobile-drawer-backdrop" class="mobile-drawer-backdrop hidden"></div>
+
   <nav id="app-sidebar" class="app-sidebar">
     <div class="app-sidebar-logo">
       <img src="/assets/logo.png" alt="NEXT GAME" class="app-sidebar-logo-img" />
@@ -374,6 +375,7 @@
   </div>
   <!-- Barra de topo: busca, notificações, mensagens e amigos -->
   <header id="top-navbar" class="top-navbar">
+    <button class="navbar-icon-btn mobile-only" id="btn-mobile-menu" title="Menu"><span class="ng-icon-wrap" data-icon="menu"></span></button>
     <div class="navbar-search">
       <span><span class="ng-icon-wrap" data-icon="search"></span></span>
       <input type="text" id="navbar-search-input" placeholder="Buscar jogadores, servidores, torneios, clipes..." autocomplete="off" />
@@ -440,6 +442,10 @@
         </div>
       </div>
       <div class="voice-connected-controls">
+        <div class="voice-volume-wrap" title="Volume geral">
+          <button type="button" id="bar-btn-volume-icon"><span class="ng-icon-wrap" data-icon="volume-2"></span></button>
+          <input type="range" id="bar-volume-slider" min="0" max="100" value="100" title="Volume geral" />
+        </div>
         <button id="bar-btn-mute" title="Mutar/Ativar microfone"><span class="ng-icon-wrap" data-icon="mic"></span></button>
         <button id="bar-btn-deafen" title="Ensurdecer"><span class="ng-icon-wrap" data-icon="headphones"></span></button>
         <button id="bar-btn-disconnect" title="Desconectar"><span class="ng-icon-wrap" data-icon="phone-off"></span></button>
