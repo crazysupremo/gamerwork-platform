@@ -3753,8 +3753,9 @@ async function triggerAiReply(channelId, user) {
 // tratado como, um substituto de serviços especializados de detecção de CSAM
 // (PhotoDNA/Thorn), que comparam contra bancos de hashes conhecidos em vez de
 // "olhar e julgar" a imagem. Por isso o prompt abaixo pede pra marcar só
-// categorias gerais (armas, violência gráfica real, conteúdo sexual
-// explícito) — nunca pedimos ao modelo pra tentar identificar exploração
+// categorias gerais (armas, violência gráfica real, maus-tratos reais a
+// animais, crime real em andamento, conteúdo sexual explícito) — nunca
+// pedimos ao modelo pra tentar identificar exploração
 // infantil especificamente, porque isso não é um uso apropriado/confiável de
 // um modelo generativo e a maioria dos provedores de IA proíbe esse uso.
 // Nunca guardamos a imagem em si — só o veredito, pra revisão humana.
@@ -3814,11 +3815,14 @@ const ATTACHMENT_MODERATION_PROMPT =
   'equipes de trabalho. Responda APENAS um JSON, sem texto extra, no formato ' +
   '{"flagged": true ou false, "categories": [...], "reason": "..."}. ' +
   'Marque flagged=true SOMENTE se a imagem mostrar claramente: nudez ou conteúdo sexual explícito ' +
-  'real (não desenho/arte), violência física grave/sangue real, armas de fogo reais anunciadas pra ' +
-  'venda, ou qualquer imagem envolvendo uma criança/adolescente em contexto sexualizado ou de risco ' +
-  '(se tiver a menor dúvida sobre isso, marque flagged=true e categoria "revisar_urgente"). Não ' +
-  'marque memes, prints de jogos, fotos comuns do dia a dia, ou arte/desenho fictício. Na dúvida ' +
-  'fora dos casos acima, marque flagged=false.';
+  'real (não desenho/arte), violência física grave/sangue real, maus-tratos ou crueldade real contra ' +
+  'animais (agressão, ferimentos, negligência grave — não caça/pesca/pecuária legais retratadas de ' +
+  'forma normal), um crime real acontecendo no momento da foto (ex: agressão, roubo, sequestro), ' +
+  'armas de fogo reais anunciadas pra venda, ou qualquer imagem envolvendo uma criança/adolescente ' +
+  'em contexto sexualizado ou de risco (se tiver a menor dúvida sobre isso, marque flagged=true e ' +
+  'categoria "revisar_urgente"). Não marque memes, prints de jogos, fotos comuns do dia a dia, cenas ' +
+  'de caça/pesca/criação de animais dentro da normalidade, ou arte/desenho fictício. Na dúvida fora ' +
+  'dos casos acima, marque flagged=false.';
 
 const FRAME_MODERATION_PROMPT =
   'Esta imagem é um print de uma tela compartilhada numa plataforma de chat/voz pra gamers e ' +
@@ -3826,9 +3830,12 @@ const FRAME_MODERATION_PROMPT =
   '{"flagged": true ou false, "categories": [...], "reason": "..."}. ' +
   'Marque flagged=true SOMENTE se a imagem mostrar claramente: armas de fogo reais anunciadas ' +
   'pra venda, instruções de fabricação de explosivos, violência física grave/sangue real (não ' +
-  'de jogos, filmes ou desenhos), ou conteúdo sexual explícito real. NÃO marque telas de jogos, ' +
-  'código, memes, capturas de tela comuns, ou qualquer conteúdo fictício/ficcional. Na dúvida, ' +
-  'marque flagged=false.';
+  'de jogos, filmes ou desenhos), maus-tratos ou crueldade real contra animais (agressão, ' +
+  'ferimentos, negligência grave — não caça/pesca/pecuária legais retratadas de forma normal), um ' +
+  'crime real acontecendo no momento da captura (ex: agressão, roubo, sequestro), ou conteúdo ' +
+  'sexual explícito real. NÃO marque telas de jogos, código, memes, capturas de tela comuns, cenas ' +
+  'de caça/pesca/criação de animais dentro da normalidade, ou qualquer conteúdo fictício/ficcional. ' +
+  'Na dúvida, marque flagged=false.';
 
 app.post(
   '/api/moderate-frame',

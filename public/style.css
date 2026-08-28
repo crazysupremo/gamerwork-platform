@@ -284,22 +284,26 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .wizard-avatar-upload span { font-size: 11px; color: #9aa0ab; text-align: center; }
 
 .wizard-tag-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; position: relative; z-index: 1; }
-.wizard-tag-chip {
+/* Especificidade reforçada (.wizard-tag-picker .wizard-tag-chip, não só .wizard-tag-chip):
+   ".auth-form button" tinha prioridade maior que ".wizard-tag-chip" sozinha e pintava
+   TODOS os chips com o gradiente desde o início — parecia que tudo já estava selecionado
+   e por isso o clique "não fazia nada" visualmente. Esse era o bug real dos passos 2/3. */
+.wizard-tag-picker .wizard-tag-chip {
   padding: 7px 13px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.12); background: #1a1b20;
   color: #dbdee1; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s ease;
   position: relative; z-index: 1; pointer-events: auto;
 }
-.wizard-tag-chip:hover { border-color: var(--accent); }
-.wizard-tag-chip.active { background: var(--gradient-brand); border-color: transparent; color: white; }
+.wizard-tag-picker .wizard-tag-chip:hover { border-color: var(--accent); }
+.wizard-tag-picker .wizard-tag-chip.active { background: var(--gradient-brand); border-color: transparent; color: white; }
 
 .wizard-choice-group { display: flex; gap: 8px; position: relative; z-index: 1; }
-.wizard-choice-btn {
+.wizard-choice-group .wizard-choice-btn {
   flex: 1; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: #1a1b20;
   color: #dbdee1; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s ease;
   position: relative; z-index: 1; pointer-events: auto;
 }
-.wizard-choice-btn:hover { border-color: var(--accent); }
-.wizard-choice-btn.active { background: var(--gradient-brand); border-color: transparent; color: white; }
+.wizard-choice-group .wizard-choice-btn:hover { border-color: var(--accent); }
+.wizard-choice-group .wizard-choice-btn.active { background: var(--gradient-brand); border-color: transparent; color: white; }
 
 /* BUG relatado: chips/selects dos passos 2 e 3 do cadastro "não clicáveis".
    Reforço defensivo — garante que esses controles fiquem sempre acima de
@@ -1425,6 +1429,10 @@ video:fullscreen { background: #000; object-fit: contain; }
 
 /* CONFIGURAÇÕES DE VOZ */
 .mic-status { font-size: 12px; color: #949ba4; padding: 0 0 8px; }
+.camera-moderation-badge {
+  font-size: 11px; line-height: 1.4; color: #d9c04a; background: rgba(217,192,74,0.1);
+  border: 1px solid rgba(217,192,74,0.3); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px;
+}
 .mic-test-row { display: flex; gap: 8px; margin-top: 12px; }
 .mic-test-row button {
   flex: 1; padding: 8px; border-radius: 6px; border: none; background: #404249;

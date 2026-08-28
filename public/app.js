@@ -237,7 +237,7 @@ function buildWizardTagPicker(containerId, options, stateKey, multi) {
   });
 }
 buildWizardTagPicker('wiz-games-picker', WIZARD_GAMES, 'favoriteGames', true);
-buildWizardTagPicker('wiz-platform-picker', WIZARD_PLATFORMS, 'platforms', true);
+buildWizardTagPicker('wiz-platform-picker', WIZARD_PLATFORMS, 'platforms', false);
 
 document.querySelectorAll('#wiz-playstyle-group .wizard-choice-btn').forEach((btn) => {
   btn.onclick = () => {
@@ -6203,6 +6203,7 @@ function disconnectVoice(skipServerNotify) {
     cameraStream.getTracks().forEach((t) => t.stop());
     cameraStream = null;
     updateCameraButton();
+    updateCameraModerationBadge();
   }
   document.getElementById('video-grid').innerHTML = '';
   document.getElementById('btn-share-screen').classList.remove('hidden');
@@ -7069,6 +7070,8 @@ async function toggleCamera() {
     cameraStream = null;
     updateLocalTile();
     updateCameraButton();
+    updateCameraModerationBadge();
+    stopFrameModerationIfIdle();
     SFX.cameraOff();
     return;
   }
@@ -7084,6 +7087,8 @@ async function toggleCamera() {
   });
   updateLocalTile();
   updateCameraButton();
+  updateCameraModerationBadge();
+  startFrameModeration();
   SFX.cameraOn();
   cameraStream.getVideoTracks()[0].onended = () => {
     if (cameraStream) toggleCamera();
@@ -7375,18 +7380,28 @@ function stopScreenShare() {
   document.getElementById('btn-stop-share').classList.add('hidden');
   updateLocalTile();
   SFX.screenShareStop();
-  stopFrameModeration();
+  stopFrameModerationIfIdle();
 }
 
-// ---------- MODERAÇÃO DE TELA COMPARTILHADA (camada extra de segurança) ----------
-// Enquanto alguém está compartilhando a tela, manda um print periódico pro
-// servidor analisar. Não é substituto de moderação humana nem de detecção
+// ---------- MODERAÇÃO DE TELA COMPARTILHADA E CÂMERA (camada extra de segurança) ----------
+// Enquanto alguém está compartilhando a tela OU com a câmera ligada numa
+// chamada, manda um print periódico pro servidor analisar (armas, violência
+// real, maus-tratos a animais, crime em andamento, conteúdo sexual
+// explícito). Não é substituto de moderação humana nem de detecção
 // especializada de CSAM — é só mais uma camada, com limitações reais.
+// A pessoa é avisada disso com um aviso visível (ver updateCameraModerationBadge).
 let frameModerationInterval = null;
 
 function startFrameModeration() {
   stopFrameModeration();
   frameModerationInterval = setInterval(captureAndModerateFrame, 15000);
+}
+
+// Só para de verdade se NENHUMA fonte de vídeo local (tela OU câmera)
+// ainda estiver ativa — senão desligar a câmera pararia também a checagem
+// da tela compartilhada (e vice-versa).
+function stopFrameModerationIfIdle() {
+  if (!localStream && !cameraStream) stopFrameModeration();
 }
 
 function stopFrameModeration() {
@@ -7395,24 +7410,39 @@ function stopFrameModeration() {
 }
 
 async function captureAndModerateFrame() {
-  const videoEl = document.querySelector('#tile-local video');
-  if (!videoEl || !videoEl.videoWidth) return;
-  try {
-    const canvas = document.createElement('canvas');
-    const scale = Math.min(1, 640 / videoEl.videoWidth);
-    canvas.width = Math.round(videoEl.videoWidth * scale);
-    canvas.height = Math.round(videoEl.videoHeight * scale);
-    canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-    const image = canvas.toDataURL('image/jpeg', 0.6);
-    await fetch('/api/moderate-frame', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ image, channelId: connectedVoiceRoomId }),
-    });
-  } catch (_) {
-    // falha silenciosa — não deve atrapalhar quem está compartilhando a tela
+  // Modera QUALQUER vídeo local ativo no momento: tela compartilhada
+  // (#tile-local) e/ou câmera (#tile-local-camera) — as duas rodam
+  // independentes, então podem coexistir.
+  const videoEls = [
+    document.querySelector('#tile-local video'),
+    document.querySelector('#tile-local-camera video'),
+  ].filter((el) => el && el.videoWidth);
+  for (const videoEl of videoEls) {
+    try {
+      const canvas = document.createElement('canvas');
+      const scale = Math.min(1, 640 / videoEl.videoWidth);
+      canvas.width = Math.round(videoEl.videoWidth * scale);
+      canvas.height = Math.round(videoEl.videoHeight * scale);
+      canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+      const image = canvas.toDataURL('image/jpeg', 0.6);
+      await fetch('/api/moderate-frame', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ image, channelId: connectedVoiceRoomId }),
+      });
+    } catch (_) {
+      // falha silenciosa — não deve atrapalhar quem está na chamada
+    }
   }
+}
+
+// Aviso visível de que a câmera está sob a mesma checagem de segurança da
+// tela compartilhada — transparência: a pessoa precisa saber que isso roda.
+function updateCameraModerationBadge() {
+  const el = document.getElementById('camera-moderation-badge');
+  if (!el) return;
+  el.classList.toggle('hidden', !cameraStream);
 }
 
 document.getElementById('btn-leave-voice').onclick = () => {
