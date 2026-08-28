@@ -3819,7 +3819,7 @@ function openSupportModal(e) {
 // uma linha, sem precisar reempacotar nada além do próprio arquivo do site.
 //
 // Deixa null que o botão mostra "em breve" sozinho, sem quebrar nada.
-const DESKTOP_DOWNLOAD_URL = 'https://github.com/crazysupremo/next-game-desktop/releases/download/v1.0.3/NEXT-GAME-Setup.exe';
+const DESKTOP_DOWNLOAD_URL = 'https://github.com/crazysupremo/next-game-desktop/releases/download/v1.0.4/NEXT-GAME-Setup.exe';
 
 const downloadLink = document.getElementById('link-download-desktop');
 if (downloadLink) {
