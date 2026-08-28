@@ -3862,20 +3862,73 @@ async function moderateImage(imageDataUrlOrUrl) {
   return moderateImageWithGroq(imageDataUrlOrUrl, ATTACHMENT_MODERATION_PROMPT);
 }
 
-// Análise de texto (aliciamento/comportamento suspeito) — capacidade NOVA no
-// NEXT GAME, só existe quando o BLUEX está configurado (não tem equivalente
-// direto no Groq aqui, é exclusiva da integração). Roda em cima do que já
-// passou pelo scanText() comum, como uma camada a mais específica pra risco
-// a menor.
-async function analyzeTextForGrooming(text) {
-  if (!isBluexConfigured()) return { flagged: false, skipped: true };
+// Análise de texto (aliciamento/comportamento suspeito) — EMBUTIDA no
+// próprio NEXT GAME, funciona sempre, com ou sem BLUEX configurado. Isso é
+// pra ser uma barreira de segurança de verdade: não pode depender de um
+// serviço externo estar no ar pra existir. Se BLUEX_API_URL/BLUEX_API_KEY
+// estiverem configuradas, usa o BLUEX primeiro (deixa tudo centralizado lá);
+// se não estiver configurado, ou se o BLUEX falhar por qualquer motivo
+// (fora do ar, chave errada, etc.), cai automaticamente pro Groq chamado
+// direto daqui de dentro — mesmo padrão já usado em moderateImage() pra
+// imagem. Roda em cima do que já passou pelo scanText() comum (filtro de
+// palavras-chave), como uma camada a mais, mais sensível a nuance, específica
+// pra risco a menor.
+const ANALYZE_TEXT_PROMPT_PREFIX =
+  'Você é um classificador de segurança pra uma plataforma que recebe mensagens de texto entre usuários. Responda APENAS ' +
+  'um JSON, sem texto extra, no formato {"flagged": true ou false, "categories": [...], "reason": "..."}. ' +
+  'Marque flagged=true SOMENTE se o texto mostrar sinais claros de: um adulto tentando esconder a própria idade ou se ' +
+  'passar por menor pra se aproximar de uma criança/adolescente, tentativa de aliciamento (grooming) — insistência pra sair ' +
+  'do app público, pedido de fotos/vídeos, pedido de dados pessoais (endereço, escola, telefone) de quem parece ser menor, ' +
+  'ou ameaças/coerção envolvendo menor. NÃO marque conversas comuns entre adultos, flerte comum entre adultos, ou ' +
+  'linguagem de jogo (ex: "te mato" num contexto de partida). Na dúvida, marque flagged=false, exceto se envolver risco a ' +
+  'menor — nesse caso marque flagged=true com categoria "revisar_urgente" mesmo com dúvida. ' +
+  'Texto a analisar (delimitado por ---): ---';
+
+async function callGroqText(promptText) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return { flagged: false, skipped: true };
   try {
-    const result = await bluexRequest('/v1/analyze-text', { text });
-    return { flagged: !!result.flagged, categories: result.categories || [], reason: result.reason || null };
+    const textModel = process.env.GROQ_TEXT_MODEL || 'llama-3.3-70b-versatile';
+    const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+      body: JSON.stringify({
+        model: textModel,
+        max_tokens: 250,
+        messages: [{ role: 'user', content: promptText }],
+      }),
+    });
+    if (!apiRes.ok) {
+      const errText = await apiRes.text();
+      console.error('Erro na Groq (análise de texto):', apiRes.status, errText);
+      return { flagged: false, error: true };
+    }
+    const data = await apiRes.json();
+    const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '{}';
+    const match = text.match(/\{[\s\S]*\}/);
+    try {
+      return JSON.parse(match ? match[0] : text);
+    } catch (_) {
+      return {};
+    }
   } catch (err) {
-    console.error('BLUEX analyze-text indisponível:', err.message);
+    console.error('Erro na Groq (análise de texto):', err.message);
     return { flagged: false, error: true };
   }
+}
+
+async function analyzeTextForGrooming(text) {
+  if (isBluexConfigured()) {
+    try {
+      const result = await bluexRequest('/v1/analyze-text', { text });
+      return { flagged: !!result.flagged, categories: result.categories || [], reason: result.reason || null };
+    } catch (err) {
+      console.error('BLUEX indisponível, usando Groq direto como respaldo (análise de texto):', err.message);
+    }
+  }
+  const prompt = ANALYZE_TEXT_PROMPT_PREFIX + String(text).slice(0, 3000) + '---';
+  const result = await callGroqText(prompt);
+  return { flagged: !!result.flagged, categories: result.categories || [], reason: result.reason || null };
 }
 
 const ATTACHMENT_MODERATION_PROMPT =
