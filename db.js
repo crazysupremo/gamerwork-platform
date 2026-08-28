@@ -153,6 +153,27 @@ async function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Canal de reclamação/suporte com a Blue (empresa por trás do NEXT GAME) —
+    -- separado de "reports" (que é denúncia de UM USUÁRIO sobre OUTRO). Aqui é
+    -- a pessoa falando direto com o suporte da plataforma. user_id fica NULL
+    -- quando quem manda nem tem conta ativa (ex: alguém banido tentando
+    -- recorrer) — nesse caso name/email vêm preenchidos manualmente no form.
+    CREATE TABLE IF NOT EXISTS support_tickets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      username TEXT,
+      name TEXT,
+      email TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'outro',
+      subject TEXT NOT NULL,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'aberto',
+      admin_response TEXT,
+      responded_by TEXT,
+      responded_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS message_reactions (
       id TEXT PRIMARY KEY,
       message_id TEXT NOT NULL,

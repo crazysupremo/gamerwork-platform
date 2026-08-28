@@ -13,6 +13,10 @@ const { Server } = require('socket.io');
 const db = require('./db');
 const { AI_BOT_USER_ID, AI_BOT_USERNAME } = require('./db');
 const { scanText } = require('./moderation');
+// generateVerificationCode já existe mais abaixo (selo "auditável" tipo
+// NG-XXXXXXXXXX) — sem relação com o código de 6 dígitos de confirmação de
+// e-mail, então importa com outro nome pra não colidir.
+const { sendVerificationEmail, generateVerificationCode: generateEmailVerificationCode } = require('./mailer');
 const { authenticator } = require('otplib');
 const QRCode = require('qrcode');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
@@ -165,6 +169,16 @@ function applySessionDuration(req, remember) {
   }
 }
 
+// Rotas que uma conta NÃO verificada ainda pode chamar — só o essencial pra
+// completar a verificação e sair, nada além disso. Tudo mais fica bloqueado
+// (item pedido: "bloqueia até confirmar", sem meio-termo).
+const EMAIL_VERIFICATION_ALLOWLIST = new Set([
+  '/api/me',
+  '/api/logout',
+  '/api/verify-email',
+  '/api/resend-verification-code',
+]);
+
 async function requireAuth(req, res, next) {
   try {
     if (!req.session.userId || !req.session.sessionId) {
@@ -178,6 +192,12 @@ async function requireAuth(req, res, next) {
     ]);
     if (!sessionRow || sessionRow.revoked) {
       return res.status(401).json({ error: 'Sua sessão foi encerrada — faça login de novo' });
+    }
+    // Conta sem e-mail confirmado: bloqueia tudo, exceto a lista acima
+    // (própria verificação + logout + checar quem é). Vale tanto pra quem
+    // acabou de se cadastrar quanto pra conta antiga que nunca confirmou.
+    if (!user.email_verified && !EMAIL_VERIFICATION_ALLOWLIST.has(req.path)) {
+      return res.status(403).json({ error: 'Confirme seu e-mail antes de continuar.', requiresEmailVerification: true });
     }
     // Atualiza "visto por último" sem travar a resposta nisso.
     db.run("UPDATE user_sessions SET last_seen_at = datetime('now') WHERE id = ?", [sessionRow.id]).catch(() => {});
@@ -699,8 +719,9 @@ app.post(
     // backend. Ver nota completa na resposta final sobre essa decisão.
     const discriminator = await db.generateUniqueDiscriminator(username);
     const usernameTag = `${username}#${discriminator}`;
-    // email_verified fica 1 direto — sem etapa de confirmação por código, o
-    // e-mail é salvo só como dado de cadastro (a pedido do usuário).
+    // email_verified começa em 0 — a conta é criada, mas fica bloqueada
+    // (ver requireAuth) até a pessoa confirmar o código de 6 dígitos
+    // enviado por e-mail. Reativado a pedido do usuário.
     // Idade estimada por câmera é opcional e calculada no navegador da
     // pessoa — aqui só sanitiza (número plausível entre 1 e 100) ou ignora
     // qualquer coisa fora disso, já que veio do cliente e pode vir zoado.
@@ -709,17 +730,23 @@ app.post(
         ? Math.round(Number(estimated_age))
         : null;
 
+    const verificationCode = generateEmailVerificationCode();
+    const verificationExpires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
     await db.run(
       `INSERT INTO users (
-        id, username, password_hash, email, email_verified, is_admin, avatar, full_name,
+        id, username, password_hash, email, email_verified, verification_code, verification_expires,
+        is_admin, avatar, full_name,
         country, language, favorite_games, platforms, preferred_rank, play_style,
         discriminator, username_tag, birth_date, estimated_age
-      ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         username,
         password_hash,
         email,
+        verificationCode,
+        verificationExpires,
         isFirstUser ? 1 : 0,
         avatarValue,
         (full_name || '').slice(0, 80) || null,
@@ -736,10 +763,23 @@ app.post(
       ]
     );
 
+    sendVerificationEmail(email, verificationCode, username).catch((err) =>
+      console.error('Falha ao enviar e-mail de verificação:', err)
+    );
+
     applySessionDuration(req, remember !== false);
     req.session.userId = id;
     req.session.sessionId = await createUserSession(id, req);
-    res.json({ id, username, is_admin: isFirstUser ? 1 : 0, discriminator, username_tag: usernameTag });
+    res.json({
+      id,
+      username,
+      email,
+      is_admin: isFirstUser ? 1 : 0,
+      discriminator,
+      username_tag: usernameTag,
+      email_verified: false,
+      requiresEmailVerification: true,
+    });
 
     // Cada conta começa sem nenhum servidor — igual Discord: cria o seu
     // próprio (dono desde o início) ou entra em outro só com convite/senha.
@@ -782,11 +822,64 @@ app.post(
     res.json({
       id: user.id,
       username: user.username,
+      email: user.email,
       is_admin: user.is_admin,
       discriminator: user.discriminator,
       username_tag: user.username_tag || `${user.username}#${user.discriminator || '0000'}`,
+      email_verified: !!user.email_verified,
+      requiresEmailVerification: !user.email_verified,
     });
     updateStreakAndRewards(user).catch((err) => console.error('Erro ao atualizar streak:', err));
+  })
+);
+
+// ---------- CONFIRMAÇÃO DE E-MAIL POR CÓDIGO (bloqueio até confirmar) ----------
+// requireAuth já barra qualquer rota fora da allowlist pra quem tem
+// email_verified=0 — estas duas rotas ESTÃO na allowlist, então funcionam
+// mesmo pra conta ainda não confirmada (é exatamente o que ela precisa
+// poder chamar pra sair do bloqueio).
+app.post(
+  '/api/verify-email',
+  authLimiter,
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { code } = req.body || {};
+    if (req.user.email_verified) return res.json({ ok: true, already_verified: true });
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'Informe o código recebido por e-mail.' });
+    }
+    if (!req.user.verification_code || req.user.verification_code !== code.trim()) {
+      return res.status(400).json({ error: 'Código incorreto.' });
+    }
+    if (!req.user.verification_expires || new Date(req.user.verification_expires) < new Date()) {
+      return res.status(400).json({ error: 'Código expirado — peça um novo.' });
+    }
+    await db.run(
+      'UPDATE users SET email_verified = 1, verification_code = NULL, verification_expires = NULL WHERE id = ?',
+      [req.user.id]
+    );
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  '/api/resend-verification-code',
+  authLimiter,
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.user.email_verified) return res.json({ ok: true, already_verified: true });
+    if (!req.user.email) {
+      return res.status(400).json({ error: 'Sua conta não tem e-mail cadastrado — fale com o suporte.' });
+    }
+    const code = generateEmailVerificationCode();
+    const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    await db.run('UPDATE users SET verification_code = ?, verification_expires = ? WHERE id = ?', [
+      code,
+      expires,
+      req.user.id,
+    ]);
+    await sendVerificationEmail(req.user.email, code, req.user.username);
+    res.json({ ok: true });
   })
 );
 
@@ -815,9 +908,12 @@ app.post(
     res.json({
       id: user.id,
       username: user.username,
+      email: user.email,
       is_admin: user.is_admin,
       discriminator: user.discriminator,
       username_tag: user.username_tag || `${user.username}#${user.discriminator || '0000'}`,
+      email_verified: !!user.email_verified,
+      requiresEmailVerification: !user.email_verified,
     });
     updateStreakAndRewards(user).catch((err) => console.error('Erro ao atualizar streak:', err));
   })
@@ -852,6 +948,7 @@ app.get(
       username_tag: req.user.username_tag || `${req.user.username}#${req.user.discriminator || '0000'}`,
       is_admin: req.user.is_admin,
       email: req.user.email,
+      email_verified: !!req.user.email_verified,
       status_message: req.user.status_message,
       avatar: req.user.avatar,
       avatar_frame: req.user.avatar_frame,
@@ -5750,7 +5847,96 @@ app.post(
   })
 );
 
+// ---------- SUPPORT (fale com o suporte / reclamações) ----------
+// Diferente de /api/reports (denúncia de UM USUÁRIO sobre OUTRO), isso é a
+// pessoa falando direto com a Blue. De propósito NÃO usa requireAuth — se
+// usasse, uma conta banida (que tecnicamente ainda pode ter cookie de sessão
+// válido) ficaria sem conseguir reclamar/recorrer, e é exatamente esse tipo
+// de gente que mais precisa desse canal. Então funciona logado (com ou sem
+// e-mail confirmado) OU deslogado — nesse caso a pessoa preenche nome/e-mail
+// na mão.
+const supportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Muitas mensagens em pouco tempo. Aguarde alguns minutos e tente de novo.' },
+});
+
+app.post(
+  '/api/support/tickets',
+  supportLimiter,
+  asyncHandler(async (req, res) => {
+    const { category, subject, message } = req.body || {};
+    if (!subject || !String(subject).trim() || !message || !String(message).trim()) {
+      return res.status(400).json({ error: 'Preencha o assunto e a mensagem.' });
+    }
+    const validCategories = ['reclamacao', 'duvida', 'denuncia', 'conta_banida', 'cobranca', 'outro'];
+    const categoryValue = validCategories.includes(category) ? category : 'outro';
+
+    // Se tiver sessão válida (logado), usa os dados da conta — mesmo que a
+    // conta esteja banida ou sem e-mail confirmado, isso aqui não passa pelo
+    // requireAuth então não é bloqueado por nenhum dos dois casos.
+    let userId = null;
+    let username = null;
+    let name = null;
+    let email = null;
+    if (req.session.userId) {
+      const user = await db.get('SELECT id, username, email, full_name FROM users WHERE id = ?', [req.session.userId]);
+      if (user) {
+        userId = user.id;
+        username = user.username;
+        name = user.full_name || user.username;
+        email = user.email;
+      }
+    }
+    if (!email) {
+      const { name: bodyName, email: bodyEmail } = req.body || {};
+      if (!bodyEmail || !String(bodyEmail).trim().includes('@')) {
+        return res.status(400).json({ error: 'Informe um e-mail válido pra gente poder responder.' });
+      }
+      name = (bodyName || '').slice(0, 100) || null;
+      email = String(bodyEmail).trim().slice(0, 200);
+    }
+
+    const id = uuidv4();
+    await db.run(
+      `INSERT INTO support_tickets (id, user_id, username, name, email, category, subject, message)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, userId, username, name, email, categoryValue, String(subject).trim().slice(0, 150), String(message).trim().slice(0, 4000)]
+    );
+    res.json({ ok: true, id });
+  })
+);
+
 // ---------- ADMIN ----------
+
+app.get(
+  '/api/admin/support/tickets',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    res.json(await db.all('SELECT * FROM support_tickets ORDER BY created_at DESC LIMIT 300'));
+  })
+);
+
+app.post(
+  '/api/admin/support/tickets/:id/respond',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { admin_response, status } = req.body || {};
+    const validStatuses = ['aberto', 'respondido', 'fechado'];
+    const statusValue = validStatuses.includes(status) ? status : 'respondido';
+    await db.run(
+      `UPDATE support_tickets
+       SET admin_response = ?, status = ?, responded_by = ?, responded_at = datetime('now')
+       WHERE id = ?`,
+      [(admin_response || '').slice(0, 4000) || null, statusValue, req.user.username, req.params.id]
+    );
+    res.json({ ok: true });
+  })
+);
 
 app.get(
   '/api/admin/reports',

@@ -63,6 +63,28 @@ Render reinicia o serviço. Sem essas duas variáveis, o site continua
 funcionando normalmente, só volta a usar um arquivo local que se perde a
 cada redeploy (bom só pra testar).
 
+## Trocar o nome do serviço (e a URL) depois de criado
+
+Se você já publicou o site com um nome (ex: `gamerwork-platform`) e quer trocar
+pra refletir a Blue Games como dona/desenvolvedora (ex: `bluegames-nextgame`),
+não precisa recriar nada — é só renomear o serviço existente:
+
+1. No painel do Render, abra o serviço do NEXT GAME
+2. Vá em **Settings** (aba lateral)
+3. Encontre o campo **Name**, troque pro nome novo (ex: `bluegames-nextgame`)
+4. Salve — a URL muda na hora pra `https://bluegames-nextgame.onrender.com`
+   (mesmo serviço, mesmo banco de dados, só o endereço muda)
+
+**Importante depois de renomear:** qualquer lugar que já tinha a URL antiga
+guardada precisa ser atualizado manualmente, porque o Render não redireciona
+sozinho do endereço velho pro novo. Isso inclui:
+
+- O site institucional da Blue Games (blue-games-site) — os links "Acessar",
+  "Painel do produto" e "Fale com o suporte" do card do NEXT GAME
+- O app de desktop (next-game-desktop) — a URL padrão que ele abre
+- Qualquer link salvo/compartilhado com jogadores (convites antigos com o
+  domínio velho param de funcionar)
+
 ## Passo 6 — Assistente de IA (opcional, gratuito)
 
 O NEXT GAME tem um contato fixo chamado **"NEXT GAME IA"** que qualquer

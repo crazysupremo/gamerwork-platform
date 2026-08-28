@@ -1,0 +1,9 @@
+Quando o instalador do NEXT GAME Desktop estiver pronto (gerado a partir do
+projeto next-game-desktop, rodando "npm run dist:win"), coloque o arquivo
+.exe aqui nesta pasta com o nome exato:
+
+NEXT-GAME-Setup.exe
+
+Não precisa mexer em nenhum código depois disso — a tela de login já checa
+sozinha se esse arquivo existe e troca o botão "Baixar para PC (em breve)"
+pelo link de download de verdade automaticamente.

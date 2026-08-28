@@ -22,6 +22,7 @@ async function init() {
   loadClipsAdmin();
   loadShopAdmin();
   loadReports();
+  loadSupportTickets();
   loadBlocked();
   loadFlaggedFrames();
   loadFlagged();
@@ -349,6 +350,56 @@ async function updateReport(id, status) {
     body: JSON.stringify({ status }),
   });
   loadReports();
+}
+
+const SUPPORT_CATEGORY_LABELS = {
+  reclamacao: 'Reclamação',
+  duvida: 'Dúvida',
+  conta_banida: 'Recurso de banimento',
+  cobranca: 'Cobrança/Plus',
+  denuncia: 'Denúncia',
+  outro: 'Outro',
+};
+
+async function loadSupportTickets() {
+  const res = await fetch('/api/admin/support/tickets', { credentials: 'include' });
+  const tickets = await res.json();
+  const tbody = document.querySelector('#support-tickets-table tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  tickets.forEach((t) => {
+    const tr = document.createElement('tr');
+    const statusColor = t.status === 'aberto' ? '#f23f42' : t.status === 'respondido' ? '#faa61a' : '#3ba55c';
+    tr.innerHTML = `
+      <td>${new Date(t.created_at).toLocaleString('pt-BR')}</td>
+      <td>${escapeHtml(t.username || t.name || '-')}<br><span style="color:#949ba4; font-size:11px;">${escapeHtml(t.email)}</span></td>
+      <td>${escapeHtml(SUPPORT_CATEGORY_LABELS[t.category] || t.category)}</td>
+      <td>${escapeHtml(t.subject)}</td>
+      <td style="max-width:260px; white-space:pre-wrap;">${escapeHtml(t.message)}</td>
+      <td style="color:${statusColor}; font-weight:700;">${escapeHtml(t.status)}</td>
+      <td>
+        <button class="action" data-action="support-respond" data-id="${t.id}">Responder/Fechar</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('button[data-action="support-respond"]').forEach((btn) =>
+    btn.addEventListener('click', () => respondSupportTicket(btn.dataset.id))
+  );
+}
+
+async function respondSupportTicket(id) {
+  const admin_response = prompt('Resposta (opcional, fica só registrada aqui pro seu controle — a plataforma ainda não manda essa resposta por e-mail automaticamente):');
+  if (admin_response === null) return;
+  const status = confirm('Marcar como FECHADO? (Cancelar = marca só como "respondido", continua na lista)') ? 'fechado' : 'respondido';
+  await fetch(`/api/admin/support/tickets/${id}/respond`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ admin_response, status }),
+  });
+  loadSupportTickets();
 }
 
 async function loadBlocked() {

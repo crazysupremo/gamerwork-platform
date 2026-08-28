@@ -457,6 +457,10 @@ async function authRequest(url, body, remember = true) {
     if (remember) localStorage.setItem('ng_remember_me', 'true');
     else localStorage.removeItem('ng_remember_me');
     me = data;
+    if (data.requiresEmailVerification) {
+      showEmailVerificationScreen();
+      return;
+    }
     startApp();
   } catch (err) {
     authError.textContent = 'Erro de conexão com o servidor';
@@ -467,6 +471,80 @@ document.getElementById('form-2fa').onsubmit = async (e) => {
   e.preventDefault();
   const code = document.getElementById('login-2fa-code').value.trim();
   await authRequest('/api/login/2fa', { tempToken: pending2FALoginToken, code }, pendingLoginRemember);
+};
+
+// ---------- CONFIRMAÇÃO DE E-MAIL (bloqueia até confirmar) ----------
+// Mostrada tanto logo após o cadastro quanto pra quem faz login numa conta
+// antiga que nunca confirmou o e-mail — em ambos os casos o backend recusa
+// (403) qualquer outra rota até isso ser resolvido, então nem tenta abrir o
+// app por trás.
+function showEmailVerificationScreen() {
+  document.getElementById('boot-loading').classList.add('hidden');
+  document.getElementById('auth-screen').classList.remove('hidden');
+  formLogin.classList.add('hidden');
+  formRegister.classList.add('hidden');
+  document.getElementById('form-2fa').classList.add('hidden');
+  document.getElementById('email-verify-address').textContent = (me && me.email) || 'seu e-mail';
+  document.getElementById('email-verify-error').textContent = '';
+  document.getElementById('email-verify-info').textContent = '';
+  document.getElementById('email-verify-code').value = '';
+  document.getElementById('form-email-verify').classList.remove('hidden');
+  document.getElementById('email-verify-code').focus();
+  const titleEl = document.getElementById('auth-card-title');
+  const subtitleEl = document.getElementById('auth-card-subtitle');
+  if (titleEl && subtitleEl) {
+    titleEl.textContent = 'CONFIRME SEU E-MAIL';
+    subtitleEl.textContent = 'Falta pouco — digite o código que enviamos.';
+  }
+}
+
+document.getElementById('form-email-verify').onsubmit = async (e) => {
+  e.preventDefault();
+  const code = document.getElementById('email-verify-code').value.trim();
+  const errEl = document.getElementById('email-verify-error');
+  errEl.textContent = '';
+  try {
+    const res = await fetch('/api/verify-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Código incorreto';
+      return;
+    }
+    // Confirmado — busca o /api/me atualizado (email_verified agora true) e entra.
+    const meRes = await fetch('/api/me', { credentials: 'include' });
+    me = await meRes.json();
+    document.getElementById('form-email-verify').classList.add('hidden');
+    startApp();
+  } catch (err) {
+    errEl.textContent = 'Erro de conexão com o servidor';
+  }
+};
+
+document.getElementById('btn-resend-verify-code').onclick = async () => {
+  const infoEl = document.getElementById('email-verify-info');
+  const errEl = document.getElementById('email-verify-error');
+  infoEl.textContent = 'Enviando...';
+  errEl.textContent = '';
+  try {
+    const res = await fetch('/api/resend-verification-code', { method: 'POST', credentials: 'include' });
+    const data = await res.json();
+    infoEl.textContent = res.ok ? 'Código reenviado — confira sua caixa de entrada (e o spam).' : '';
+    if (!res.ok) errEl.textContent = data.error || 'Não deu pra reenviar agora';
+  } catch (err) {
+    infoEl.textContent = '';
+    errEl.textContent = 'Erro de conexão com o servidor';
+  }
+};
+
+document.getElementById('btn-logout-from-verify').onclick = async () => {
+  await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+  localStorage.removeItem('ng_remember_me');
+  window.location.reload();
 };
 
 document.getElementById('btn-logout').onclick = async () => {
@@ -495,6 +573,10 @@ async function tryResumeSession() {
     const res = await fetch('/api/me', { credentials: 'include' });
     if (res.ok) {
       me = await res.json();
+      if (me.email_verified === false) {
+        showEmailVerificationScreen();
+        return;
+      }
       startApp();
       bootLoading.classList.add('hidden');
       return;
@@ -3713,6 +3795,81 @@ const linkSafetySettings = document.getElementById('link-safety-info-settings');
 if (linkSafetySettings) linkSafetySettings.onclick = openSafetyInfoModal;
 document.getElementById('btn-close-safety-info').onclick = () =>
   document.getElementById('modal-safety-info').classList.add('hidden');
+
+// ---------- FALE COM O SUPORTE (reclamação/dúvida) ----------
+// Funciona tanto logado (pré-preenche com a conta) quanto deslogado — por
+// isso fica acessível já na tela de login, sem precisar de sessão válida
+// (útil inclusive pra quem foi banido e não consegue mais entrar).
+function openSupportModal(e) {
+  if (e) e.preventDefault();
+  const guestFields = document.getElementById('support-guest-fields');
+  guestFields.classList.toggle('hidden', !!me);
+  document.getElementById('support-error').textContent = '';
+  document.getElementById('support-success').classList.add('hidden');
+  document.getElementById('form-support').classList.remove('hidden');
+  document.getElementById('modal-support').classList.remove('hidden');
+}
+// Botão de baixar o app de desktop, na própria tela de login — ativa
+// SOZINHO assim que o instalador existir. Basta colocar o arquivo em
+// /public/downloads/NEXT-GAME-Setup.exe (mesmo nome) que, no próximo carregar
+// da página, o botão já vira o link de download de verdade — sem precisar
+// mexer em nenhuma linha de código aqui.
+const DESKTOP_DOWNLOAD_PATH = '/downloads/NEXT-GAME-Setup.exe';
+const downloadLink = document.getElementById('link-download-desktop');
+if (downloadLink) {
+  downloadLink.onclick = (e) => {
+    e.preventDefault();
+    alert('O instalador pra PC está quase pronto — em breve dá pra baixar direto por aqui!');
+  };
+  fetch(DESKTOP_DOWNLOAD_PATH, { method: 'HEAD' })
+    .then((res) => {
+      if (!res.ok) return;
+      downloadLink.href = DESKTOP_DOWNLOAD_PATH;
+      downloadLink.setAttribute('download', '');
+      downloadLink.onclick = null;
+      const label = document.getElementById('link-download-desktop-label');
+      if (label) label.textContent = 'Baixar NEXT GAME para PC';
+    })
+    .catch(() => {});
+}
+
+document.getElementById('link-support').onclick = openSupportModal;
+const linkSupportSettings = document.getElementById('link-support-settings');
+if (linkSupportSettings) linkSupportSettings.onclick = openSupportModal;
+document.getElementById('btn-close-support').onclick = () => document.getElementById('modal-support').classList.add('hidden');
+
+document.getElementById('form-support').onsubmit = async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('support-error');
+  const okEl = document.getElementById('support-success');
+  errEl.textContent = '';
+  const body = {
+    category: document.getElementById('support-category').value,
+    subject: document.getElementById('support-subject').value.trim(),
+    message: document.getElementById('support-message').value.trim(),
+  };
+  if (!me) {
+    body.name = document.getElementById('support-name').value.trim();
+    body.email = document.getElementById('support-email').value.trim();
+  }
+  try {
+    const res = await fetch('/api/support/tickets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Não deu pra enviar agora, tenta de novo em instantes.';
+      return;
+    }
+    document.getElementById('form-support').classList.add('hidden');
+    okEl.classList.remove('hidden');
+  } catch (err) {
+    errEl.textContent = 'Erro de conexão com o servidor';
+  }
+};
 
 // Aviso de segurança pra contas sinalizadas como menores (ECA Digital) —
 // some ao fechar e não volta por 7 dias, pra não incomodar toda vez que
@@ -7887,4 +8044,19 @@ document.getElementById('btn-test-output').onclick = async () => {
   observer.observe(document.getElementById('auth-screen'), { attributes: true, attributeFilter: ['class'] });
 })();
 
-tryResumeSession();
+// ?support=1 na URL abre direto a tela "Fale com o suporte" — usado pelo
+// site da Blue Games pra linkar direto pro suporte do NEXT GAME sem duplicar
+// o formulário em outro lugar. Espera o tryResumeSession terminar primeiro,
+// pra já saber se a pessoa está logada (decide mostrar os campos de
+// nome/e-mail de convidado ou não).
+tryResumeSession().then(() => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('support') === '1') {
+    openSupportModal();
+    // Limpa o parâmetro da URL sem recarregar a página, pra não reabrir o
+    // modal de novo se a pessoa der F5.
+    params.delete('support');
+    const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+    window.history.replaceState({}, '', cleanUrl);
+  }
+});

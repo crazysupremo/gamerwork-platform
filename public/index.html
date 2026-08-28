@@ -45,6 +45,51 @@
       <div class="auth-left-corner auth-left-corner-tl"></div>
       <div class="auth-left-corner auth-left-corner-br"></div>
 
+      <div class="blue-products-col">
+        <span class="blue-products-label">Produtos Blue Games</span>
+
+        <div class="blue-product-card blue-product-card-active">
+          <div class="blue-product-card-top">
+            <span class="blue-product-dot blue-product-dot-active"></span>
+            <span class="blue-product-name">NEXT GAME</span>
+            <span class="blue-product-tag blue-product-tag-active">Você está aqui</span>
+          </div>
+          <p class="blue-product-desc">
+            A rede social pra comunidades gamer: chat, voz, servidores, torneios, ranking e proteção
+            de menores integrada — é o que você está usando agora.
+          </p>
+          <a class="blue-product-download" href="#" id="link-download-desktop">
+            <span class="ng-icon-wrap" data-icon="monitor"></span>
+            <span id="link-download-desktop-label">Baixar NEXT GAME para PC (em breve)</span>
+          </a>
+        </div>
+
+        <div class="blue-product-card">
+          <div class="blue-product-card-top">
+            <span class="blue-product-dot blue-product-dot-live"></span>
+            <span class="blue-product-name">PROTECTION BLUEX</span>
+            <span class="blue-product-tag">Ativo</span>
+          </div>
+          <p class="blue-product-desc">
+            Segurança infantil e moderação de conteúdo como API — verificação de idade, análise de
+            imagem/texto — pra outras empresas integrarem. É o motor de proteção que já roda aqui dentro.
+          </p>
+          <a class="blue-product-link" href="https://protection-bluex.onrender.com" target="_blank" rel="noopener">Acessar →</a>
+        </div>
+
+        <div class="blue-product-card blue-product-card-disabled">
+          <div class="blue-product-card-top">
+            <span class="blue-product-dot blue-product-dot-soon"></span>
+            <span class="blue-product-name">BLUEX SECURITY</span>
+            <span class="blue-product-tag blue-product-tag-soon">Em breve</span>
+          </div>
+          <p class="blue-product-desc">
+            Detecção de furto/roubo por câmera de segurança comercial, via API — pensado pra lojas e
+            estabelecimentos de varejo integrarem no próprio sistema de câmeras.
+          </p>
+        </div>
+      </div>
+
       <p class="auth-left-tagline">A próxima geração da comunidade gamer.</p>
 
       <div class="auth-features">
@@ -81,7 +126,11 @@
       <div class="home-stats landing-stats auth-left-stats" id="landing-stats"></div>
       <p class="auth-left-footer">
         © 2026 NEXT GAME. Todos os direitos reservados. ·
-        <a href="#" id="link-safety-info" class="auth-left-footer-link">Segurança e proteção de menores</a>
+        <a href="#" id="link-safety-info" class="auth-left-footer-link">Segurança e proteção de menores</a> ·
+        <a href="#" id="link-support" class="auth-left-footer-link">Fale com o suporte</a>
+      </p>
+      <p class="auth-left-powered-by">
+        Powered by <strong>Blue Sports Games</strong>, uma subsidiária da <strong>Blue Games</strong>.
       </p>
     </div>
 
@@ -212,6 +261,24 @@
         <input type="text" id="login-2fa-code" placeholder="000000" maxlength="6" style="text-align:center; letter-spacing:4px;" required />
       </div>
       <button type="submit">✅ Confirmar</button>
+    </form>
+
+    <form id="form-email-verify" class="auth-form hidden">
+      <p class="hint" style="margin-bottom:6px;">
+        Enviamos um código de 6 dígitos para <strong id="email-verify-address"></strong>. Confirme para
+        continuar — sua conta fica bloqueada até isso.
+      </p>
+      <div class="input-icon-wrap">
+        <span class="input-icon">✉️</span>
+        <input type="text" id="email-verify-code" placeholder="000000" maxlength="6" style="text-align:center; letter-spacing:4px;" required />
+      </div>
+      <button type="submit">✅ Confirmar e-mail</button>
+      <p id="email-verify-error" class="auth-error"></p>
+      <p id="email-verify-info" class="hint" style="margin-top:10px;"></p>
+      <div style="display:flex; justify-content:space-between; margin-top:8px;">
+        <button type="button" id="btn-resend-verify-code" class="link-btn">Reenviar código</button>
+        <button type="button" id="btn-logout-from-verify" class="link-btn">Sair</button>
+      </div>
     </form>
 
       <p id="auth-error" class="auth-error"></p>
@@ -922,6 +989,9 @@
       <button type="button" id="link-safety-info-settings" class="profile-preview-action-btn">
         <span class="ng-icon-wrap" data-icon="shield-check"></span> Ver medidas de segurança e denúncia
       </button>
+      <button type="button" id="link-support-settings" class="profile-preview-action-btn">
+        <span class="ng-icon-wrap" data-icon="headphones"></span> Fale com o suporte
+      </button>
     </div>
 
     <div id="settings-tab-notificacoes" class="manage-tab-panel hidden">
@@ -1605,6 +1675,47 @@
     <div class="modal-actions">
       <button type="button" id="btn-close-safety-info">Fechar</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: FALE COM O SUPORTE (reclamação/dúvida/denúncia) — funciona logado
+     ou deslogado, inclusive pra conta banida que não consegue mais entrar. -->
+<div id="modal-support" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2><span class="ng-icon-wrap" data-icon="headphones"></span> Fale com o suporte</h2>
+    <p class="hint" style="margin-bottom:6px;">
+      Reclamação, dúvida, problema com sua conta ou qualquer outro assunto — sua mensagem cai direto
+      no painel da equipe da Blue.
+    </p>
+    <form id="form-support">
+      <div id="support-guest-fields" class="hidden">
+        <label>Seu nome</label>
+        <input type="text" id="support-name" placeholder="Nome" />
+        <label>Seu e-mail (pra gente responder)</label>
+        <input type="email" id="support-email" placeholder="voce@email.com" />
+      </div>
+      <label>Assunto</label>
+      <select id="support-category">
+        <option value="reclamacao">Reclamação</option>
+        <option value="duvida">Dúvida</option>
+        <option value="conta_banida">Recurso de conta banida/suspensa</option>
+        <option value="cobranca">Cobrança / NEXT GAME Plus</option>
+        <option value="denuncia">Denúncia</option>
+        <option value="outro">Outro</option>
+      </select>
+      <label>Título</label>
+      <input type="text" id="support-subject" placeholder="Resuma em poucas palavras" maxlength="150" required />
+      <label>Mensagem</label>
+      <textarea id="support-message" rows="5" placeholder="Descreva com detalhes..." maxlength="4000" required style="width:100%;"></textarea>
+      <p id="support-error" class="auth-error"></p>
+      <p id="support-success" class="hint hidden" style="color:#3ba55c; margin-top:6px;">
+        ✅ Mensagem enviada! A equipe vai te responder pelo e-mail informado.
+      </p>
+      <div class="modal-actions">
+        <button type="button" id="btn-close-support">Fechar</button>
+        <button type="submit" id="btn-send-support">Enviar</button>
+      </div>
+    </form>
   </div>
 </div>
 

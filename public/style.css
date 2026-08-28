@@ -153,6 +153,42 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   filter: drop-shadow(0 10px 26px rgba(88,101,242,0.55));
   animation: authLogoFloat 3.6s ease-in-out infinite;
 }
+/* Coluna com os produtos da Blue Games, no topo do painel esquerdo da tela
+   de login — mostra que o NEXT GAME faz parte de uma holding maior (a
+   página em si é do NEXT GAME, mas os produtos irmãos aparecem explicados
+   aqui), com descrição de cada um, link pro que já está ativo (PROTECTION
+   BLUEX), aviso do que está por vir (BLUEX SECURITY) e o botão de baixar o
+   app de desktop do próprio NEXT GAME. */
+.blue-products-col {
+  display: flex; flex-direction: column; gap: 10px; margin-bottom: 26px;
+  padding-bottom: 22px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.blue-products-label {
+  font-size: 10.5px; font-weight: 800; color: #6d7178; text-transform: uppercase;
+  letter-spacing: 1px; margin-bottom: 2px;
+}
+.blue-product-card {
+  padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.blue-product-card-active { background: rgba(88,101,242,0.08); border-color: rgba(88,101,242,0.25); }
+.blue-product-card-disabled { opacity: 0.6; }
+.blue-product-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.blue-product-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.blue-product-dot-active { background: #5865f2; box-shadow: 0 0 6px #5865f2; }
+.blue-product-dot-live { background: #3ba55c; box-shadow: 0 0 6px #3ba55c; }
+.blue-product-dot-soon { background: #faa61a; }
+.blue-product-name { font-size: 12.5px; font-weight: 800; color: #dfe1e6; flex: 1; letter-spacing: 0.3px; }
+.blue-product-tag { font-size: 9.5px; font-weight: 700; color: #6d7178; text-transform: uppercase; }
+.blue-product-tag-active { color: #a3aaf5; }
+.blue-product-tag-soon { color: #faa61a; }
+.blue-product-desc { font-size: 11.5px; line-height: 1.5; color: #9aa0ab; margin: 0; }
+.blue-product-link, .blue-product-download {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11.5px;
+  font-weight: 700; color: #5865f2; text-decoration: none;
+}
+.blue-product-link:hover, .blue-product-download:hover { text-decoration: underline; }
+
 .auth-left-tagline {
   font-size: 17px; font-weight: 700; color: #dfe1e6; margin: 0 0 30px; max-width: 380px;
 }
@@ -168,6 +204,8 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .auth-left-stats.home-stats { margin-bottom: 18px; gap: 10px; }
 .auth-left-stats .home-stat { padding: 12px; background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
 .auth-left-footer { font-size: 11px; color: #6d7178; margin: 0; }
+.auth-left-powered-by { font-size: 11px; color: #4d5157; margin: 4px 0 0; }
+.auth-left-powered-by strong { color: #6d7178; }
 
 .auth-card {
   position: relative; z-index: 2; flex: 1; min-width: 0;
@@ -232,6 +270,11 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .auth-form button:hover { filter: brightness(1.12); box-shadow: 0 8px 22px rgba(88,101,242,0.5); }
 .auth-form button:active { transform: scale(0.98); }
 .auth-error { color: #f23f42; font-size: 13px; min-height: 18px; margin-top: 6px; }
+.link-btn {
+  background: none; box-shadow: none; color: #949ba4; font-size: 12px; font-weight: 600;
+  padding: 4px 2px; text-decoration: underline; margin-top: 0;
+}
+.link-btn:hover { color: #e6e6e6; filter: none; box-shadow: none; }
 /* ASSISTENTE DE CADASTRO EM 3 PASSOS */
 .register-wizard { text-align: left; }
 .wizard-steps { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 22px; }
