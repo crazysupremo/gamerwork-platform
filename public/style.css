@@ -1539,8 +1539,12 @@ video:fullscreen { background: #000; object-fit: contain; }
 /* Aviso de nova versão do site — canto inferior direito, fica até a pessoa
    atualizar ou fechar (diferente do copy-toast, que some sozinho). */
 .update-banner {
+  /* position:fixed é relativo à janela (não à página) — some ao rolar a
+     página inteira, fica sempre visível/"grudada" no canto enquanto a
+     pessoa lê o resto do site por baixo. */
   position: fixed; right: 20px; bottom: -400px; z-index: 10001;
   width: 320px; max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 48px); overflow-y: auto;
   background: #1e1f22; border: 1px solid #3a3c42; border-radius: 14px;
   box-shadow: 0 16px 40px rgba(0,0,0,0.5);
   padding: 16px; display: flex; gap: 12px; align-items: flex-start;
@@ -1555,7 +1559,12 @@ video:fullscreen { background: #000; object-fit: contain; }
 .update-banner-body { flex: 1; min-width: 0; font-size: 13px; color: #dbdee1; }
 .update-banner-body strong { display: block; margin-bottom: 2px; color: #f2f3f5; font-size: 13.5px; }
 .update-banner-hint { display: block; color: #6d7178; font-size: 11.5px; margin-bottom: 6px; }
-.update-banner-changes { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 3px; }
+/* Se a atualização mudou muita coisa, a lista ganha rolagem própria em vez
+   de esticar o aviso pra fora da tela — o resto (título, botões) fica fixo. */
+.update-banner-changes {
+  margin: 0; padding-left: 16px; padding-right: 4px; display: flex; flex-direction: column; gap: 3px;
+  max-height: 160px; overflow-y: auto;
+}
 .update-banner-changes li { color: #9aa0ab; font-size: 12px; line-height: 1.4; }
 .update-banner-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
 .update-banner-reload {

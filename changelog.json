@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.5.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Tela de login remodelada, com a arte nova do NEXT GAME",
+      "Sino de novidades no topo — mostra a lista de mudanças da atualização quando você quiser, não só no popup",
+      "Lista de novidades do popup de atualização agora tem rolagem própria em vez de estourar a tela",
+      "Campo de senha do login ganhou botão de mostrar/esconder"
+    ]
+  },
+  {
     "version": "0.4.0",
     "date": "2026-08-30",
     "changes": [

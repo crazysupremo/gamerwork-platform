@@ -1158,11 +1158,17 @@ function renderCategories(channels) {
 // de tempos em tempos (setInterval) e sempre que o socket reconecta — que é
 // justamente quando é mais provável que o servidor tenha sido reiniciado
 // por um deploy.
+// Guarda o último changelog que a gente buscou, pra o sino de novidades
+// (nav-update-bell) conseguir mostrar de novo a qualquer momento — não só
+// no instante em que o popup automático aparece sozinho.
+let ngLatestChangelogData = null;
+
 async function checkForUpdates() {
   try {
     const res = await fetch('/api/version', { credentials: 'include' });
     if (!res.ok) return;
     const data = await res.json();
+    ngLatestChangelogData = data;
     if (!ngAppVersion) {
       // Primeira checagem desta aba: só guarda a versão atual como
       // referência, sem avisar nada (senão todo mundo que abre o site pela
@@ -1173,6 +1179,9 @@ async function checkForUpdates() {
     if (data.version !== ngAppVersion) {
       ngAppVersion = data.version;
       showUpdateBanner(data);
+      // Fica marcado até a pessoa abrir o sino ou o popup mesmo — assim,
+      // mesmo se fechar o popup sem ler direito, dá pra voltar depois.
+      document.getElementById('navbar-update-badge').classList.remove('hidden');
     }
   } catch (err) {
     // Checagem de versão não pode nunca quebrar o resto do app.
@@ -1181,15 +1190,18 @@ async function checkForUpdates() {
 
 function showUpdateBanner({ version, changes }) {
   if (document.getElementById('update-banner')) return; // já tem um na tela
+  // Foi mostrado (seja pelo popup automático ou pelo sino) — conta como
+  // "visto", tira a bolinha do sino.
+  document.getElementById('navbar-update-badge').classList.add('hidden');
   const banner = document.createElement('div');
   banner.id = 'update-banner';
   banner.className = 'update-banner';
+  // Sem limite artificial de itens — a lista tem altura máxima com rolagem
+  // própria (.update-banner-changes), então mesmo uma atualização com muita
+  // coisa mudando não estoura a tela nem empurra os botões pra fora.
   const changesHtml =
     Array.isArray(changes) && changes.length
-      ? `<ul class="update-banner-changes">${changes
-          .slice(0, 6)
-          .map((c) => `<li>${escapeHtml(c)}</li>`)
-          .join('')}</ul>`
+      ? `<ul class="update-banner-changes">${changes.map((c) => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`
       : '';
   banner.innerHTML = `
     <div class="update-banner-icon">${icon('sparkles')}</div>
@@ -1220,6 +1232,21 @@ function showUpdateBanner({ version, changes }) {
     setTimeout(() => banner.remove(), 200);
   };
 }
+
+// Sino de novidades no topo — mostra o changelog mais recente que a gente já
+// buscou, a qualquer momento (a pessoa não precisa ter visto o popup
+// automático, nem esperar ele aparecer de novo). Se ainda não buscou nada
+// nesta aba por algum motivo, busca na hora.
+document.getElementById('nav-update-bell').onclick = async () => {
+  document.getElementById('navbar-update-badge').classList.add('hidden');
+  if (!ngLatestChangelogData) {
+    try {
+      const res = await fetch('/api/version', { credentials: 'include' });
+      if (res.ok) ngLatestChangelogData = await res.json();
+    } catch (_) {}
+  }
+  if (ngLatestChangelogData) showUpdateBanner(ngLatestChangelogData);
+};
 
 function showCopyToast(text) {
   const toast = document.createElement('div');
