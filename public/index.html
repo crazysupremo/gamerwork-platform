@@ -42,85 +42,88 @@
 
   <div class="auth-split">
     <div class="auth-left">
-      <div class="auth-left-corner auth-left-corner-tl"></div>
-      <div class="auth-left-corner auth-left-corner-br"></div>
+      <img src="/assets/auth-hero.png" alt="" class="auth-hero-img" />
+      <div class="auth-hero-overlay"></div>
 
-      <div class="blue-products-col">
-        <span class="blue-products-label">Produtos Blue Games</span>
-
-        <div class="blue-product-card blue-product-card-active">
-          <div class="blue-product-card-top">
-            <span class="blue-product-dot blue-product-dot-active"></span>
-            <span class="blue-product-name">NEXT GAME</span>
-            <span class="blue-product-tag blue-product-tag-active">Você está aqui</span>
+      <div class="auth-hero-topbar">
+        <div class="auth-hero-brand">
+          <img src="/assets/logo.png" alt="NEXT GAME" class="auth-hero-brand-logo" />
+          <div class="auth-hero-brand-text">
+            <span class="auth-hero-brand-name">NEXT <strong>GAME</strong></span>
+            <span class="auth-hero-brand-tagline">PLAY. CONNECT. WIN.</span>
           </div>
-          <p class="blue-product-desc">
-            A rede social pra comunidades gamer: chat, voz, servidores, torneios, ranking e proteção
-            de menores integrada — é o que você está usando agora.
-          </p>
         </div>
-
-        <div class="blue-product-card">
-          <div class="blue-product-card-top">
-            <span class="blue-product-dot blue-product-dot-live"></span>
-            <span class="blue-product-name">PROTECTION BLUEX</span>
-            <span class="blue-product-tag">Ativo</span>
-          </div>
-          <p class="blue-product-desc">
-            É o sistema de segurança que já protege você aqui dentro do NEXT GAME: confere a idade
-            informada no cadastro, analisa imagens e mensagens em busca de conteúdo de risco e ajuda a
-            manter a comunidade mais segura pra todo mundo — principalmente pra menores de idade.
-          </p>
-        </div>
+        <span class="auth-hero-bluex-badge">
+          <span class="auth-hero-bluex-dot"></span> PROTECTION BLUEX <strong>ATIVO</strong>
+        </span>
       </div>
 
-      <p class="auth-left-tagline">A próxima geração da comunidade gamer.</p>
+      <div class="auth-hero-body">
+        <span class="auth-hero-kicker">A REDE GAMER DO FUTURO</span>
+        <h1 class="auth-hero-title">Conecte. Jogue.<br /><span class="auth-hero-title-gradient">Evolua.</span></h1>
+        <p class="auth-hero-desc">
+          O <strong>NEXT GAME</strong> é mais que uma plataforma. É onde gamers se unem, competem e
+          constroem histórias incríveis juntos.
+        </p>
 
-      <div class="auth-features">
-        <div class="auth-feature">
-          <span class="auth-feature-icon">👥</span>
-          <div class="auth-feature-text">
-            <strong>Encontre Jogadores</strong>
-            <p>Matchmaking por região, idioma e rank pra formar seu grupo.</p>
+        <div class="auth-hero-ctas">
+          <button type="button" id="btn-hero-explore" class="auth-hero-cta-primary">
+            <span class="ng-icon-wrap" data-icon="play"></span> Explorar Comunidade
+          </button>
+          <button type="button" id="btn-hero-features" class="auth-hero-cta-secondary">
+            <span class="ng-icon-wrap" data-icon="zap"></span> Ver Recursos
+          </button>
+        </div>
+
+        <div class="auth-features" id="auth-features">
+          <div class="auth-feature">
+            <span class="auth-feature-icon"><span class="ng-icon-wrap" data-icon="users"></span></span>
+            <div class="auth-feature-text">
+              <strong>Comunidade Ativa</strong>
+              <p>Converse, faça amigos e faça parte de uma comunidade única.</p>
+            </div>
+          </div>
+          <div class="auth-feature">
+            <span class="auth-feature-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></span>
+            <div class="auth-feature-text">
+              <strong>Torneios &amp; Rankings</strong>
+              <p>Participe de torneios e suba no ranking global entre os melhores.</p>
+            </div>
+          </div>
+          <div class="auth-feature">
+            <span class="auth-feature-icon"><span class="ng-icon-wrap" data-icon="shield-check"></span></span>
+            <div class="auth-feature-text">
+              <strong>Proteção BlueX</strong>
+              <p>Segurança avançada para manter você e sua comunidade sempre protegidos.</p>
+            </div>
+          </div>
+          <div class="auth-feature">
+            <span class="auth-feature-icon"><span class="ng-icon-wrap" data-icon="zap"></span></span>
+            <div class="auth-feature-text">
+              <strong>Evolução Constante</strong>
+              <p>Ganhe XP, desbloqueie conquistas e personalize seu perfil.</p>
+            </div>
           </div>
         </div>
-        <div class="auth-feature">
-          <span class="auth-feature-icon">🏆</span>
-          <div class="auth-feature-text">
-            <strong>Dispute Torneios</strong>
-            <p>Chaves automáticas, temporadas e premiação pra sua comunidade.</p>
-          </div>
-        </div>
-        <div class="auth-feature">
-          <span class="auth-feature-icon">📈</span>
-          <div class="auth-feature-text">
-            <strong>Suba no Ranking</strong>
-            <p>Mostre seu talento e seja reconhecido no ranking global.</p>
-          </div>
-        </div>
-        <div class="auth-feature">
-          <span class="auth-feature-icon">⚡</span>
-          <div class="auth-feature-text">
-            <strong>Evolua Sempre</strong>
-            <p>Ganhe XP, desbloqueie conquistas e personalize seu perfil.</p>
-          </div>
-        </div>
+
+        <div class="auth-stats" id="landing-stats"></div>
+
+        <p class="auth-left-footer">
+          © 2026 NEXT GAME. Todos os direitos reservados. ·
+          <a href="#" id="link-safety-info" class="auth-left-footer-link">Segurança e proteção de menores</a> ·
+          <a href="#" id="link-support" class="auth-left-footer-link">Fale com o suporte</a>
+        </p>
+        <p class="auth-left-powered-by">
+          Powered by <strong>Blue Sports Games</strong>.
+        </p>
       </div>
-
-      <div class="home-stats landing-stats auth-left-stats" id="landing-stats"></div>
-      <p class="auth-left-footer">
-        © 2026 NEXT GAME. Todos os direitos reservados. ·
-        <a href="#" id="link-safety-info" class="auth-left-footer-link">Segurança e proteção de menores</a> ·
-        <a href="#" id="link-support" class="auth-left-footer-link">Fale com o suporte</a>
-      </p>
-      <p class="auth-left-powered-by">
-        Powered by <strong>Blue Sports Games</strong>.
-      </p>
     </div>
 
     <div class="auth-card" id="auth-card">
-      <img src="/assets/logo.png" alt="NEXT GAME" class="auth-logo-img" />
-      <h1 class="auth-card-title" id="auth-card-title">BEM-VINDO DE VOLTA</h1>
+      <div class="auth-logo-badge">
+        <img src="/assets/logo.png" alt="NEXT GAME" class="auth-logo-img" />
+      </div>
+      <h1 class="auth-card-title" id="auth-card-title">Bem-vindo de volta!</h1>
       <p class="subtitle" id="auth-card-subtitle">Entre para continuar sua jornada no <strong>NEXT GAME</strong>.</p>
 
       <div class="auth-tabs">
@@ -130,18 +133,24 @@
 
     <form id="form-login" class="auth-form">
       <div class="input-icon-wrap">
-        <span class="input-icon">👤</span>
+        <span class="input-icon input-icon-svg"><span class="ng-icon-wrap" data-icon="user"></span></span>
         <input type="text" id="login-username" placeholder="Usuário" required />
       </div>
       <div class="input-icon-wrap">
-        <span class="input-icon">🔒</span>
+        <span class="input-icon input-icon-svg"><span class="ng-icon-wrap" data-icon="lock"></span></span>
         <input type="password" id="login-password" placeholder="Senha" required />
+        <button type="button" id="btn-toggle-login-password" class="input-icon-toggle" title="Mostrar senha" aria-label="Mostrar senha">
+          <span class="ng-icon-wrap" data-icon="eye"></span>
+        </button>
       </div>
-      <label class="checkbox-row auth-remember-row">
-        <input type="checkbox" id="login-remember" />
-        Continuar conectado neste navegador
-      </label>
-      <button type="submit">🚀 Entrar</button>
+      <div class="auth-remember-row-wrap">
+        <label class="checkbox-row auth-remember-row">
+          <input type="checkbox" id="login-remember" />
+          Continuar conectado
+        </label>
+        <a href="#" id="link-forgot-password" class="auth-forgot-link">Esqueceu a senha?</a>
+      </div>
+      <button type="submit"><span class="ng-icon-wrap" data-icon="rocket"></span> Entrar</button>
     </form>
 
     <div id="form-register" class="auth-form hidden register-wizard">
@@ -266,6 +275,14 @@
     </form>
 
       <p id="auth-error" class="auth-error"></p>
+
+      <div class="auth-promo-card">
+        <span class="auth-promo-icon"><span class="ng-icon-wrap" data-icon="gamepad-2"></span></span>
+        <div class="auth-promo-text">
+          <strong>Junte-se à nossa comunidade gamer</strong>
+          <p>Crie comunidades, jogue, transmita e evolua com o NEXT GAME.</p>
+        </div>
+      </div>
     </div>
   </div>
 </div>

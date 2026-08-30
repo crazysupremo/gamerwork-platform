@@ -155,10 +155,10 @@ function switchTab(which) {
   const subtitleEl = document.getElementById('auth-card-subtitle');
   if (titleEl && subtitleEl) {
     if (which === 'login') {
-      titleEl.textContent = 'BEM-VINDO DE VOLTA';
+      titleEl.textContent = 'Bem-vindo de volta!';
       subtitleEl.innerHTML = 'Entre para continuar sua jornada no <strong>NEXT GAME</strong>.';
     } else {
-      titleEl.textContent = 'CRIAR CONTA';
+      titleEl.textContent = 'Criar conta';
       subtitleEl.innerHTML = 'É grátis — junte-se à comunidade em segundos.';
       if (typeof resetWizard === 'function') resetWizard();
     }
@@ -166,17 +166,50 @@ function switchTab(which) {
 }
 
 // ---------- LANDING PÚBLICA (antes do login) ----------
-// Estatísticas públicas (sem precisar estar logado) pra landing.
+// Estatísticas públicas (sem precisar estar logado) pra landing. Números
+// reais (vêm de /api/stats) — de propósito não inventamos um "98% uptime"
+// ou qualquer stat que não temos como calcular de verdade.
 fetch('/api/stats')
   .then((res) => res.json())
   .then((stats) => {
     document.getElementById('landing-stats').innerHTML = `
-      <div class="home-stat"><span class="home-stat-num">${stats.members}</span><span class="home-stat-label">👥 Membros</span></div>
-      <div class="home-stat"><span class="home-stat-num">${stats.servers}</span><span class="home-stat-label">🎮 Servidores</span></div>
-      <div class="home-stat"><span class="home-stat-num">${stats.tournaments}</span><span class="home-stat-label">🏆 Torneios</span></div>
+      <div class="auth-stat"><span class="auth-stat-icon"><span class="ng-icon-wrap" data-icon="users"></span></span><span class="auth-stat-num">${stats.members}+</span><span class="auth-stat-label">Jogadores Ativos</span></div>
+      <div class="auth-stat"><span class="auth-stat-icon"><span class="ng-icon-wrap" data-icon="gamepad-2"></span></span><span class="auth-stat-num">${stats.servers}+</span><span class="auth-stat-label">Comunidades</span></div>
+      <div class="auth-stat"><span class="auth-stat-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></span><span class="auth-stat-num">${stats.tournaments}+</span><span class="auth-stat-label">Torneios Realizados</span></div>
     `;
+    document.querySelectorAll('#landing-stats [data-icon]').forEach((el) => {
+      el.innerHTML = icon(el.getAttribute('data-icon'));
+    });
   })
   .catch(() => {});
+
+// Botões do hero da tela de login: sem conta ainda pra "explorar" de
+// verdade, então o mais honesto é levar direto pro fluxo de cadastro (o que
+// a pessoa realmente precisa fazer pra "explorar a comunidade") e rolar até
+// os cards de recursos, que já estão na própria tela.
+document.getElementById('btn-hero-explore').onclick = () => switchTab('register');
+document.getElementById('btn-hero-features').onclick = () => {
+  document.getElementById('auth-features').scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+// Mostrar/esconder a senha no login — só alterna o type do campo, nada é
+// enviado nem logado em lugar nenhum.
+document.getElementById('btn-toggle-login-password').onclick = () => {
+  const input = document.getElementById('login-password');
+  const btn = document.getElementById('btn-toggle-login-password');
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  btn.innerHTML = icon(showing ? 'eye' : 'eye-off');
+  btn.title = showing ? 'Mostrar senha' : 'Esconder senha';
+};
+
+// "Esqueceu a senha?" — ainda não temos recuperação automática por e-mail,
+// então abre o mesmo formulário de suporte que já existe (funciona sem
+// login) em vez de um link morto ou uma promessa de algo que não existe.
+document.getElementById('link-forgot-password').onclick = (e) => {
+  e.preventDefault();
+  if (typeof openSupportModal === 'function') openSupportModal();
+};
 
 formLogin.onsubmit = async (e) => {
   e.preventDefault();

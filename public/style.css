@@ -126,114 +126,136 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 
 .auth-left {
-  position: relative; flex: 1.15; min-width: 0; padding: 48px 44px;
-  display: flex; flex-direction: column; justify-content: center;
-  background: linear-gradient(180deg, rgba(10,11,15,0.15) 0%, rgba(10,11,15,0.35) 55%, rgba(10,11,15,0.6) 100%);
+  position: relative; flex: 1.25; min-width: 0; min-height: 640px;
+  display: flex; flex-direction: column;
   border-right: 1px solid rgba(255,255,255,0.06);
   overflow: hidden;
 }
-.auth-left-corner {
-  position: absolute; width: 90px; height: 90px; pointer-events: none; opacity: 0.6;
+/* Foto de fundo (o "herói" da tela de login) + camada escura por cima pra
+   o texto ficar legível em qualquer trecho da imagem. object-position
+   puxado pra direita porque é onde o personagem/cidade ficam — a esquerda
+   (onde o texto mora) sobra mais escura/vazia na própria foto. */
+.auth-hero-img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  object-position: 68% center; z-index: 0;
 }
-.auth-left-corner-tl {
-  top: -20px; left: -20px; border-top: 2px solid var(--accent-2); border-left: 2px solid var(--accent-2);
-  border-radius: 0 0 0 0; transform: rotate(0deg); clip-path: polygon(0 0, 100% 0, 0 0, 0 100%);
+.auth-hero-overlay {
+  position: absolute; inset: 0; z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(8,8,14,0.96) 0%, rgba(8,8,14,0.82) 32%, rgba(8,8,14,0.35) 62%, rgba(8,8,14,0.15) 100%),
+    linear-gradient(180deg, rgba(6,6,10,0.75) 0%, rgba(6,6,10,0.05) 22%, rgba(6,6,10,0.1) 60%, rgba(6,6,10,0.92) 100%);
 }
-.auth-left-corner-tl::before {
-  content: ''; position: absolute; top: 18px; left: 18px; width: 60px; height: 60px;
-  border-top: 2px solid rgba(0,217,192,0.5); border-left: 2px solid rgba(0,217,192,0.5);
+.auth-hero-topbar {
+  position: relative; z-index: 2; display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: 28px 32px 0;
 }
-.auth-left-corner-br {
-  bottom: -60px; right: -60px; width: 220px; height: 220px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(145,70,255,0.35), transparent 70%);
-  opacity: 0.5;
+.auth-hero-brand { display: flex; align-items: center; gap: 10px; }
+.auth-hero-brand-logo { height: 34px; width: auto; filter: drop-shadow(0 4px 12px rgba(88,101,242,0.5)); }
+.auth-hero-brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.auth-hero-brand-name { font-size: 16px; font-weight: 900; color: #f2f3f5; letter-spacing: 0.02em; }
+.auth-hero-brand-name strong { background: var(--gradient-brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.auth-hero-brand-tagline { font-size: 8.5px; font-weight: 700; color: #9aa0ab; letter-spacing: 0.18em; margin-top: 1px; }
+.auth-hero-bluex-badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px;
+  background: rgba(59,165,92,0.14); border: 1px solid rgba(59,165,92,0.4); color: #7de3a0;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; white-space: nowrap;
 }
-.auth-left-logo {
-  height: 72px; width: auto; margin-bottom: 14px;
-  filter: drop-shadow(0 10px 26px rgba(88,101,242,0.55));
-  animation: authLogoFloat 3.6s ease-in-out infinite;
+.auth-hero-bluex-badge strong { color: #a8f0bf; }
+.auth-hero-bluex-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #3ba55c; box-shadow: 0 0 8px #3ba55c;
+  animation: authDotPulse 1.8s ease-in-out infinite;
 }
-/* Coluna com os produtos da Blue Games, no topo do painel esquerdo da tela
-   de login — mostra que o NEXT GAME faz parte de uma holding maior (a
-   página em si é do NEXT GAME, mas os produtos irmãos aparecem explicados
-   aqui), com descrição de cada um, link pro que já está ativo (PROTECTION
-   BLUEX), aviso do que está por vir (BLUEX SECURITY) e o botão de baixar o
-   app de desktop do próprio NEXT GAME. */
-.blue-products-col {
-  display: flex; flex-direction: column; gap: 10px; margin-bottom: 26px;
-  padding-bottom: 22px; border-bottom: 1px solid rgba(255,255,255,0.08);
-}
-.blue-products-label {
-  font-size: 10.5px; font-weight: 800; color: #6d7178; text-transform: uppercase;
-  letter-spacing: 1px; margin-bottom: 2px;
-}
-.blue-product-card {
-  padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
-}
-.blue-product-card-active { background: rgba(88,101,242,0.08); border-color: rgba(88,101,242,0.25); }
-.blue-product-card-disabled { opacity: 0.6; }
-.blue-product-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-.blue-product-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.blue-product-dot-active { background: #5865f2; box-shadow: 0 0 6px #5865f2; }
-.blue-product-dot-live { background: #3ba55c; box-shadow: 0 0 6px #3ba55c; }
-.blue-product-dot-soon { background: #faa61a; }
-.blue-product-name { font-size: 12.5px; font-weight: 800; color: #dfe1e6; flex: 1; letter-spacing: 0.3px; }
-.blue-product-tag { font-size: 9.5px; font-weight: 700; color: #6d7178; text-transform: uppercase; }
-.blue-product-tag-active { color: #a3aaf5; }
-.blue-product-tag-soon { color: #faa61a; }
-.blue-product-desc { font-size: 11.5px; line-height: 1.5; color: #9aa0ab; margin: 0; }
-.blue-product-link, .blue-product-download {
-  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11.5px;
-  font-weight: 700; color: #5865f2; text-decoration: none;
-}
-.blue-product-link:hover, .blue-product-download:hover { text-decoration: underline; }
+@keyframes authDotPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-.auth-left-tagline {
-  font-size: 17px; font-weight: 700; color: #dfe1e6; margin: 0 0 30px; max-width: 380px;
+.auth-hero-body {
+  position: relative; z-index: 2; margin-top: auto; padding: 24px 32px 28px;
+  display: flex; flex-direction: column;
 }
-.auth-features { display: flex; flex-direction: column; gap: 18px; margin-bottom: 30px; }
-.auth-feature { display: flex; align-items: flex-start; gap: 14px; }
+.auth-hero-kicker {
+  font-size: 11px; font-weight: 800; color: var(--accent-3); letter-spacing: 0.12em;
+  text-transform: uppercase; margin-bottom: 10px;
+}
+.auth-hero-title {
+  font-size: 40px; font-weight: 900; line-height: 1.08; color: #f5f6f8; margin: 0 0 14px;
+  letter-spacing: -0.01em;
+}
+.auth-hero-title-gradient {
+  background: var(--gradient-brand); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.auth-hero-desc { font-size: 14px; line-height: 1.55; color: #b9bec7; max-width: 440px; margin: 0 0 22px; }
+.auth-hero-desc strong { color: #f2f3f5; }
+.auth-hero-ctas { display: flex; gap: 12px; margin-bottom: 30px; flex-wrap: wrap; }
+.auth-hero-cta-primary, .auth-hero-cta-secondary {
+  display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 9px;
+  font-weight: 700; font-size: 13.5px; cursor: pointer; transition: filter 0.15s ease, transform 0.1s ease, background 0.15s ease;
+}
+.auth-hero-cta-primary {
+  border: none; background: var(--gradient-brand); color: white; box-shadow: 0 8px 22px rgba(88,101,242,0.4);
+}
+.auth-hero-cta-primary:hover { filter: brightness(1.1); }
+.auth-hero-cta-secondary {
+  border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.03); color: #e6e6e6;
+}
+.auth-hero-cta-secondary:hover { background: rgba(255,255,255,0.08); }
+.auth-hero-cta-primary:active, .auth-hero-cta-secondary:active { transform: scale(0.98); }
+
+.auth-features { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+.auth-feature {
+  display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 12px;
+  background: rgba(20,21,28,0.55); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(6px);
+}
 .auth-feature-icon {
-  flex-shrink: 0; width: 42px; height: 42px; border-radius: 12px;
-  background: rgba(88,101,242,0.14); border: 1px solid rgba(88,101,242,0.35);
-  display: flex; align-items: center; justify-content: center; font-size: 19px;
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px;
+  background: rgba(88,101,242,0.18); border: 1px solid rgba(88,101,242,0.4); color: var(--accent-3);
+  display: flex; align-items: center; justify-content: center;
 }
-.auth-feature-text strong { display: block; font-size: 14px; color: #f2f3f5; margin-bottom: 2px; }
-.auth-feature-text p { margin: 0; font-size: 12.5px; color: #9aa0ab; line-height: 1.4; }
-.auth-left-stats.home-stats { margin-bottom: 18px; gap: 10px; }
-.auth-left-stats .home-stat { padding: 12px; background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
-.auth-left-footer { font-size: 11px; color: #6d7178; margin: 0; }
-.auth-left-powered-by { font-size: 11px; color: #4d5157; margin: 4px 0 0; }
-.auth-left-powered-by strong { color: #6d7178; }
+.auth-feature-icon .ng-icon { width: 18px; height: 18px; }
+.auth-feature-text strong { display: block; font-size: 13px; color: #f2f3f5; margin-bottom: 2px; }
+.auth-feature-text p { margin: 0; font-size: 11.5px; color: #9aa0ab; line-height: 1.4; }
+
+.auth-stats { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.auth-stat {
+  flex: 1; min-width: 110px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  padding: 12px 14px; border-radius: 12px; background: rgba(20,21,28,0.5); border: 1px solid rgba(255,255,255,0.07);
+}
+.auth-stat-icon {
+  width: 30px; height: 30px; border-radius: 8px; background: rgba(88,101,242,0.18); color: var(--accent-3);
+  display: flex; align-items: center; justify-content: center; margin-bottom: 2px;
+}
+.auth-stat-icon .ng-icon { width: 15px; height: 15px; }
+.auth-stat-num { font-size: 19px; font-weight: 900; color: white; line-height: 1; }
+.auth-stat-label { font-size: 10.5px; color: #9aa0ab; }
+
+.auth-left-footer { font-size: 11px; color: #8b909a; margin: 0; }
+.auth-left-powered-by { font-size: 11px; color: #6d7178; margin: 4px 0 0; }
+.auth-left-powered-by strong { color: #8b909a; }
 
 .auth-card {
   position: relative; z-index: 2; flex: 1; min-width: 0;
   background: rgba(20, 21, 27, 0.7);
-  padding: 48px 44px;
+  padding: 44px 40px;
   text-align: center;
   display: flex; flex-direction: column; align-items: stretch; justify-content: center;
 }
-.auth-logo {
-  width: 64px; height: 64px; border-radius: 20px; margin: 0 auto 14px;
-  background: var(--gradient-brand); display: flex; align-items: center; justify-content: center;
-  font-size: 30px; box-shadow: 0 8px 24px rgba(88,101,242,0.45);
-  animation: authLogoFloat 3.2s ease-in-out infinite;
+/* Emblema circular com brilho ao redor da logo, igual selo/medalha —
+   substitui a logo "achatada" que tinha antes só na tela de login. */
+.auth-logo-badge {
+  width: 108px; height: 108px; border-radius: 50%; margin: 0 auto 18px;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle, rgba(88,101,242,0.22) 0%, rgba(20,21,27,0.4) 70%);
+  border: 1px solid rgba(88,101,242,0.5);
+  box-shadow: 0 0 0 6px rgba(88,101,242,0.08), 0 0 40px rgba(88,101,242,0.35);
+  animation: authLogoFloat 3.6s ease-in-out infinite;
 }
-.auth-logo-img {
-  display: block; height: 50px; width: auto; margin: 0 auto 16px;
-  filter: drop-shadow(0 6px 18px rgba(88,101,242,0.5));
-  animation: authLogoFloat 3.2s ease-in-out infinite;
-}
+.auth-logo-img { display: block; height: 62px; width: auto; }
 @keyframes authLogoFloat {
-  0%, 100% { transform: translateY(0) rotate(-2deg); }
-  50% { transform: translateY(-5px) rotate(2deg); }
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-6px) rotate(1.5deg); }
 }
 .auth-card-title {
   margin: 0 0 6px;
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: 0.04em;
+  font-size: 22px;
+  font-weight: 800;
   color: #f2f3f5;
 }
 .subtitle { color: #9aa0ab; margin-top: 0; font-size: 13px; margin-bottom: 22px; }
@@ -241,7 +263,8 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 
 @media (max-width: 860px) {
   .auth-split { flex-direction: column; max-width: 460px; border-radius: 20px; }
-  .auth-left { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); padding: 32px 28px; }
+  .auth-left { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); min-height: 360px; }
+  .auth-hero-title { font-size: 30px; }
   .auth-features { display: none; }
   .auth-card { padding: 32px 28px; }
 }
@@ -255,21 +278,51 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .input-icon-wrap { position: relative; display: flex; align-items: center; }
 .input-icon {
   position: absolute; left: 12px; font-size: 14px; opacity: 0.6; pointer-events: none;
+  display: flex; align-items: center;
 }
+.input-icon-svg .ng-icon { width: 15px; height: 15px; }
 .auth-form input {
   width: 100%; padding: 12px 12px 12px 36px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);
   background: #101116; color: #e6e6e6; font-size: 14px; transition: border-color 0.15s ease, background 0.15s ease;
 }
 .auth-form input:focus { outline: none; border-color: var(--accent); background: #14151c; }
+/* Botão de mostrar/esconder senha, dentro do próprio campo — só existe no
+   login de propósito (não precisa disso em toda tela de senha do site). */
+.input-icon-toggle {
+  position: absolute; right: 6px; background: none; border: none; color: #8b909a; opacity: 0.7;
+  padding: 6px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; margin: 0;
+  box-shadow: none; transition: opacity 0.15s ease, background 0.15s ease;
+}
+.input-icon-toggle:hover { opacity: 1; background: rgba(255,255,255,0.06); filter: none; box-shadow: none; }
+.input-icon-toggle .ng-icon { width: 16px; height: 16px; }
+.auth-form .input-icon-wrap:has(.input-icon-toggle) input { padding-right: 38px; }
+#login-password { padding-right: 38px; }
+.auth-remember-row-wrap { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 2px; flex-wrap: wrap; }
+.auth-remember-row-wrap .auth-remember-row { margin: 0; }
+.auth-forgot-link { font-size: 12px; color: var(--accent-3); text-decoration: none; font-weight: 600; }
+.auth-forgot-link:hover { text-decoration: underline; }
 .auth-form button {
   padding: 12px; border-radius: 8px; border: none; background: var(--gradient-brand); color: white;
   font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 6px;
   transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
   box-shadow: 0 6px 18px rgba(88,101,242,0.35);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
 }
+.auth-form button .ng-icon { width: 16px; height: 16px; }
 .auth-form button:hover { filter: brightness(1.12); box-shadow: 0 8px 22px rgba(88,101,242,0.5); }
 .auth-form button:active { transform: scale(0.98); }
 .auth-error { color: #f23f42; font-size: 13px; min-height: 18px; margin-top: 6px; }
+.auth-promo-card {
+  display: flex; align-items: center; gap: 12px; margin-top: 20px; padding: 14px 16px; text-align: left;
+  border-radius: 12px; background: rgba(88,101,242,0.08); border: 1px solid rgba(88,101,242,0.25);
+}
+.auth-promo-icon {
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px; background: rgba(88,101,242,0.2);
+  color: var(--accent-3); display: flex; align-items: center; justify-content: center;
+}
+.auth-promo-icon .ng-icon { width: 18px; height: 18px; }
+.auth-promo-text strong { display: block; font-size: 13px; color: #f2f3f5; margin-bottom: 2px; }
+.auth-promo-text p { margin: 0; font-size: 11.5px; color: #9aa0ab; line-height: 1.4; }
 .link-btn {
   background: none; box-shadow: none; color: #949ba4; font-size: 12px; font-weight: 600;
   padding: 4px 2px; text-decoration: underline; margin-top: 0;
