@@ -1,6 +1,6 @@
 {
   "name": "next-game",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "NEXT GAME - plataforma de chat/voz para gamers e trabalho, com salas criadas por usuários, compartilhamento de tela e moderação de conteúdo",
   "main": "server.js",
   "engines": {

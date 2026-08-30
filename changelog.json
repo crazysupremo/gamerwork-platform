@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.4.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Corrigido bug que travava a tela ao sair de uma chamada de voz",
+      "Painel de membros agora mostra seus amigos, não mais todo mundo da plataforma",
+      "Pedido de mensagem: dá pra chamar quem não é seu amigo, mas só vira conversa normal se a pessoa aceitar",
+      "Botão de mensagem direto no perfil de qualquer usuário",
+      "Novo selo de verificado ✔️ pra contas oficiais do NEXT GAME",
+      "Painel admin mais seguro (2FA obrigatório) e reorganizado em abas",
+      "Logo nova",
+      "Removido o balão de chat flutuante — já tem o Chat fixo no menu"
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-08-30",
     "changes": [

@@ -12,6 +12,16 @@ const { Server } = require('socket.io');
 
 // Versão do app + changelog — usados pelo /api/version pra avisar quem tá
 // com o site aberto que saiu uma atualização (ver rota mais abaixo).
+//
+// IMPORTANTE — pra o aviso de "nova versão" aparecer certo em toda
+// atualização: sempre que mudar algo no site, bump os DOIS juntos:
+//   1. version em package.json (qualquer bump serve, ex: 0.4.0 → 0.4.1)
+//   2. uma entrada NOVA no topo de changelog.json (changelog[0]) com o que
+//      mudou, em linguagem simples pra quem usa o site
+// A rota /api/version sempre manda o changelog[0] atual, sem checar se ele
+// bate com a versão — se só um dos dois for esquecido, o aviso aparece com
+// a lista de mudanças errada (ou nem aparece). Ver CHANGELOG.md/README pra
+// mais contexto se precisar.
 const APP_VERSION = require('./package.json').version;
 const CHANGELOG = require('./changelog.json');
 
