@@ -364,7 +364,11 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .link-button:hover { color: #e6e6e6; }
 
 /* APP LAYOUT */
-.app { display: flex; flex-direction: row; height: 100vh; }
+/* Usa 100dvh (com 100vh de fallback pra navegador antigo) em vez de só
+   100vh: no celular, 100vh conta a altura "cheia" da tela sem descontar a
+   barra de endereço/teclado virtual, o que empurrava a barra de digitar
+   pra fora da área visível. 100dvh acompanha a altura real visível. */
+.app { display: flex; flex-direction: row; height: 100vh; height: 100dvh; }
 .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .app-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 
