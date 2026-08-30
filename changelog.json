@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.6.3",
+    "date": "2026-08-30",
+    "changes": [
+      "Espaço da lista de Servidores na barra lateral aumentado",
+      "Amigos remodelado: abas Todos/Online/Pendentes com contagem real e busca"
+    ]
+  },
+  {
     "version": "0.6.2",
     "date": "2026-08-30",
     "changes": [

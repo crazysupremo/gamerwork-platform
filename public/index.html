@@ -531,6 +531,22 @@
          quem você adicionou/pediu/recebeu. -->
     <section id="friends-panel" class="home-panel hidden">
       <h2 style="margin-top:0;"><span class="ng-icon-wrap" data-icon="users"></span> Amigos</h2>
+
+      <!-- Abas com contagem real (mesmos dados de sempre, só filtram o que
+           já é mostrado embaixo — Todos mostra tudo, igual antes). -->
+      <div class="friends-tabs">
+        <button type="button" class="friends-tab active" data-friends-tab="todos">Todos <span id="friends-tab-count-todos" class="friends-tab-count"></span></button>
+        <button type="button" class="friends-tab" data-friends-tab="online">Online <span id="friends-tab-count-online" class="friends-tab-count"></span></button>
+        <button type="button" class="friends-tab" data-friends-tab="pendentes">Pendentes <span id="friends-tab-count-pendentes" class="friends-tab-count"></span></button>
+      </div>
+
+      <div class="friends-search-row">
+        <div class="input-icon-wrap" style="flex:1;">
+          <span class="input-icon"><span class="ng-icon-wrap" data-icon="search"></span></span>
+          <input type="text" id="friends-search-input" placeholder="Buscar amigos..." />
+        </div>
+      </div>
+
       <form id="form-add-friend" style="display:flex; gap:8px; margin-bottom:14px;">
         <div class="input-icon-wrap" style="flex:1;">
           <span class="input-icon"><span class="ng-icon-wrap" data-icon="user"></span></span>
@@ -540,18 +556,22 @@
       </form>
       <p id="add-friend-error" class="auth-error"></p>
 
-      <div id="friends-incoming-section" class="hidden">
-        <div class="home-section-title"><span class="ng-icon-wrap" data-icon="inbox"></span> Pedidos recebidos</div>
-        <div id="friends-incoming-list" class="friends-list"></div>
+      <div id="friends-pendentes-group">
+        <div id="friends-incoming-section" class="hidden">
+          <div class="home-section-title"><span class="ng-icon-wrap" data-icon="inbox"></span> Pedidos recebidos</div>
+          <div id="friends-incoming-list" class="friends-list"></div>
+        </div>
+
+        <div id="friends-outgoing-section" class="hidden">
+          <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="upload"></span> Pedidos enviados</div>
+          <div id="friends-outgoing-list" class="friends-list"></div>
+        </div>
       </div>
 
-      <div id="friends-outgoing-section" class="hidden">
-        <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="upload"></span> Pedidos enviados</div>
-        <div id="friends-outgoing-list" class="friends-list"></div>
+      <div id="friends-todos-group">
+        <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="check"></span> Seus amigos</div>
+        <div id="friends-list" class="friends-list"></div>
       </div>
-
-      <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="check"></span> Seus amigos</div>
-      <div id="friends-list" class="friends-list"></div>
     </section>
 
     <!-- Painel Início: dashboard com dados reais da comunidade -->

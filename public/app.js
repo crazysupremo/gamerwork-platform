@@ -2802,6 +2802,8 @@ async function loadFriends() {
     const row = document.createElement('div');
     row.className = 'friend-row';
     const isOnline = onlineUserIds.has(f.user.id);
+    row.dataset.online = isOnline ? '1' : '0';
+    row.dataset.searchName = f.user.username.toLowerCase();
     row.innerHTML = `
       <div class="member-avatar-wrap">
         <div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
@@ -2823,7 +2825,47 @@ async function loadFriends() {
     };
     friendsList.appendChild(row);
   });
+
+  updateFriendsTabCounts(data);
+  applyFriendsFilter();
 }
+
+// ---------- ABAS E BUSCA DO PAINEL DE AMIGOS ----------
+// Só filtram/mostram o que loadFriends() já monta — nenhum dado novo, é
+// puramente visual (Todos = tudo, Online = só quem tá com bolinha verde,
+// Pendentes = recebidos + enviados).
+let friendsActiveTab = 'todos';
+
+function updateFriendsTabCounts(data) {
+  const onlineCount = data.friends.filter((f) => onlineUserIds.has(f.user.id)).length;
+  document.getElementById('friends-tab-count-todos').textContent = data.friends.length;
+  document.getElementById('friends-tab-count-online').textContent = onlineCount;
+  const pendCount = data.incoming.length + data.outgoing.length;
+  const pendBadge = document.getElementById('friends-tab-count-pendentes');
+  pendBadge.textContent = pendCount;
+  pendBadge.classList.toggle('hidden', pendCount === 0);
+}
+
+function applyFriendsFilter() {
+  const term = document.getElementById('friends-search-input').value.trim().toLowerCase();
+  document.getElementById('friends-todos-group').classList.toggle('hidden', friendsActiveTab === 'pendentes');
+  document.getElementById('friends-pendentes-group').classList.toggle('hidden', friendsActiveTab !== 'pendentes' && friendsActiveTab !== 'todos');
+  document.querySelectorAll('#friends-list .friend-row').forEach((row) => {
+    const matchesSearch = !term || (row.dataset.searchName || '').includes(term);
+    const matchesTab = friendsActiveTab !== 'online' || row.dataset.online === '1' || !row.dataset.searchName; // não filtra a linha da IA (sem searchName)
+    row.style.display = matchesSearch && matchesTab ? '' : 'none';
+  });
+}
+
+document.querySelectorAll('.friends-tab').forEach((tab) => {
+  tab.onclick = () => {
+    document.querySelectorAll('.friends-tab').forEach((t) => t.classList.remove('active'));
+    tab.classList.add('active');
+    friendsActiveTab = tab.dataset.friendsTab;
+    applyFriendsFilter();
+  };
+});
+document.getElementById('friends-search-input').oninput = applyFriendsFilter;
 
 // ---------- MENSAGENS DIRETAS (DM) ----------
 // Reaproveita selectChannel/connectVoice — a única diferença é que o
