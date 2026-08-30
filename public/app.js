@@ -5697,9 +5697,18 @@ document.getElementById('navbar-create-clip').onclick = () => {
   }, 50);
 };
 
-// Chip de perfil no topo — mesmo destino do avatar/nome já existente no
-// rodapé da sidebar (abre o mesmo menu), só que também à mão lá em cima.
-document.getElementById('navbar-profile-chip').onclick = () => document.getElementById('btn-footer-more').click();
+// Chip de perfil no topo — abre o mesmo menu de sempre (footerMoreMenu).
+// BUG CORRIGIDO: antes isso chamava btn-footer-more.click() pra "emprestar"
+// o clique do botão antigo — só que .click() dispara um evento novo que
+// borbulha até o document DENTRO do clique original. O listener de "fechar
+// ao clicar fora" (mais abaixo) então via o clique original chegando no
+// document DEPOIS do menu já ter sido aberto por esse clique emprestado, e
+// fechava ele na hora — o menu abria e fechava no mesmo clique, parecia não
+// fazer nada. Agora o chip abre o menu direto, sem passar pelo botão antigo.
+document.getElementById('navbar-profile-chip').onclick = (e) => {
+  e.stopPropagation();
+  footerMoreMenu.classList.toggle('hidden');
+};
 
 // Prévia clicável das conversas diretas mais recentes — abre direto na
 // conversa sem precisar passar pelo painel de Amigos primeiro.

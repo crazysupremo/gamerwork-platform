@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.6.2",
+    "date": "2026-08-30",
+    "changes": [
+      "Corrigido o menu do chip de perfil (topo direito) — abria e fechava no mesmo clique, agora funciona"
+    ]
+  },
+  {
     "version": "0.6.1",
     "date": "2026-08-30",
     "changes": [
