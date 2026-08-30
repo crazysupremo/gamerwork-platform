@@ -598,6 +598,7 @@ async function loadUsers() {
       <td>${escapeHtml(u.username)}</td>
       <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
       <td>${u.is_admin ? 'Sim' : 'Não'}</td>
+      <td>${u.is_verified ? '✔️ Verificado' : '—'}</td>
       <td>${u.plan === 'plus' ? '✨ PLUS' : 'Free'}</td>
       <td>${
         u.auto_suspended
@@ -614,6 +615,7 @@ async function loadUsers() {
         ${u.plan === 'plus'
           ? `<button class="action" data-action="revoke-plan" data-id="${u.id}">Remover Plus</button>`
           : `<button class="action" data-action="grant-plan" data-id="${u.id}">Conceder Plus</button>`}
+        <button class="action" data-action="toggle-verify" data-id="${u.id}">${u.is_verified ? 'Remover selo' : '✔️ Verificar'}</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -633,6 +635,13 @@ async function loadUsers() {
   );
   tbody.querySelectorAll('button[data-action="revoke-plan"]').forEach((btn) =>
     btn.addEventListener('click', () => setUserPlanAdmin(btn.dataset.id, 'free'))
+  );
+  tbody.querySelectorAll('button[data-action="toggle-verify"]').forEach((btn) =>
+    btn.addEventListener('click', async () => {
+      await fetch(`/api/admin/users/${btn.dataset.id}/verify`, { method: 'POST', credentials: 'include' });
+      loadUsers();
+      loadAuditLogs();
+    })
   );
 }
 

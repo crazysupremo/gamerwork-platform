@@ -748,7 +748,7 @@ async function renderMembers() {
           <span class="member-status-dot member-status-${presence}"></span>
         </div>
         <div class="member-info">
-          <div class="member-name">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}</div>
+          <div class="member-name">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${u.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}</div>
           ${u.status_message ? `<div class="member-game">🎮 ${escapeHtml(u.status_message)}</div>` : ''}
         </div>
       `;
@@ -1622,7 +1622,7 @@ async function loadManageMembers() {
     row.innerHTML = `
       <div class="member-avatar ${avatarFrameClass(m)}">${renderAvatarHtml(m)}</div>
       <div class="server-member-info">
-        <div class="server-member-name">${escapeHtml(m.username)}<span class="user-tag-inline">${escapeHtml(userTag(m))}</span>${m.is_owner ? ' 👑' : ''}</div>
+        <div class="server-member-name">${escapeHtml(m.username)}<span class="user-tag-inline">${escapeHtml(userTag(m))}</span>${m.is_owner ? ' 👑' : ''}${m.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}</div>
         <div class="server-member-roles">${rolesHtml}</div>
       </div>
       <div class="server-member-actions">
@@ -2580,8 +2580,7 @@ async function refreshMessagesBadge() {
     const total = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
     const tabBadge = document.getElementById('dm-tab-badge');
     const sidebarBadge = document.getElementById('sidebar-messages-badge');
-    const floatingBadge = document.getElementById('floating-chat-badge');
-    [tabBadge, sidebarBadge, floatingBadge].forEach((badge) => {
+    [tabBadge, sidebarBadge].forEach((badge) => {
       if (!badge) return;
       if (total > 0) {
         badge.textContent = total > 99 ? '99+' : total;
@@ -3262,7 +3261,8 @@ async function openProfilePreview(user) {
   const avatarEl = document.getElementById('profile-preview-avatar');
   avatarEl.innerHTML = renderAvatarHtml(user);
   avatarEl.className = 'profile-preview-avatar ' + avatarFrameClass(user);
-  document.getElementById('profile-preview-username').textContent = user.username + (user.is_admin ? ' 👑' : '');
+  document.getElementById('profile-preview-username').innerHTML =
+    `${escapeHtml(user.username)}${user.is_admin ? ' 👑' : ''}${user.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}`;
   document.getElementById('profile-preview-status').textContent = user.status_message ? '🎮 ' + user.status_message : '';
 
   // Identificador estilo Discord (@Username#1234) — sistema de hashtag.
@@ -4374,6 +4374,14 @@ function goHome() {
   document.getElementById('voice-panel').classList.add('hidden');
   document.getElementById('friends-panel').classList.add('hidden');
   document.getElementById('home-panel').classList.remove('hidden');
+  // BUG CORRIGIDO: nem exitChatMode() nem esta função fechavam de fato a
+  // coluna do meio (channel-sidebar) — só trocavam o CONTEÚDO dela (lista de
+  // conversas → lista de canais). Como na Início não tem servidor ativo,
+  // renderCategories() (chamado logo abaixo) mostra ela com o cabeçalho
+  // padrão "NEXT GAME" e nenhum canal — uma coluna vazia e confusa flutuando
+  // do lado da tela de Início. Ela não faz sentido nenhum fora de um
+  // servidor ou do modo Chat, então agora fecha de vez.
+  setChannelSidebarOpen(false);
   setNavActive('nav-inicio', true);
   renderCategories(allChannels);
   updateClearChannelButton();
@@ -4439,7 +4447,8 @@ function clearMessagesView(channelId) {
 
 function updateNavbarProfile() {
   renderAvatarInto(document.getElementById('navbar-avatar'), me);
-  document.getElementById('navbar-username').textContent = me.username;
+  document.getElementById('navbar-username').innerHTML =
+    `${escapeHtml(me.username)}${me.is_admin ? ' 👑' : ''}${me.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}`;
   const level = Math.max(1, Math.floor((me.message_count || 0) / 10) + 1);
   document.getElementById('navbar-level').textContent = `Nível ${level}`;
 }
@@ -5278,10 +5287,10 @@ document.getElementById('nav-ranking-link').onclick = () => {
   }
   document.getElementById('btn-ranking').click();
 };
-// "Chat" — só dois jeitos de chegar aqui agora (coluna esquerda da sidebar e
-// o botão flutuante), pra não ter 3 caminhos diferentes pra mesma coisa.
+// "Chat" — o balão flutuante foi removido (redundante com isso aqui e com o
+// atalho do rodapé do perfil), então esse é o único caminho pra entrar no
+// modo Chat agora.
 document.getElementById('nav-sidebar-chat').onclick = () => enterChatMode('mensagens');
-document.getElementById('btn-floating-chat').onclick = () => enterChatMode('mensagens');
 
 // ---------- SONS E EFEITOS (liga/desliga geral) ----------
 
@@ -5375,7 +5384,7 @@ async function runGlobalSearch(term) {
       .map(
         (u) => `<div class="search-result-item" data-kind="player" data-id="${u.id}">
           <div class="search-result-icon round">${renderAvatarHtml(u)}</div>
-          <div class="search-result-text"><span class="search-result-title">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}</span><span class="search-result-meta">${escapeHtml(userTag(u))}${u.status_message ? ' · 🎮 ' + escapeHtml(u.status_message) : ''}</span></div>
+          <div class="search-result-text"><span class="search-result-title">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${u.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}</span><span class="search-result-meta">${escapeHtml(userTag(u))}${u.status_message ? ' · 🎮 ' + escapeHtml(u.status_message) : ''}</span></div>
         </div>`
       )
       .join('')}</div>`;
@@ -5926,6 +5935,7 @@ function renderMessage(msg) {
       <div class="message-body">
         <div class="meta">
           <strong>${escapeHtml(msg.username)}</strong>
+          ${author && author.is_verified ? '<span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}
           ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
           · ${time}
           ${msg.edited ? '<span class="edited-tag">(editado)</span>' : ''}

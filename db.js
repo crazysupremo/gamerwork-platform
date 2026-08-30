@@ -852,6 +852,18 @@ async function initDb() {
       u.id,
     ]);
   }
+
+  // ---------- SELO VERIFICADO (conta oficial NEXT GAME) ----------
+  // Separado do 👑 de admin de propósito: admin é poder de moderação, selo
+  // verificado é só "essa conta é oficial/confiável" — dá pra um admin
+  // verificar gente que trabalha pra ele (suporte, staff) sem dar acesso de
+  // moderação, e vice-versa. Toda conta admin e o bot de IA vêm verificados
+  // por padrão (roda a cada início pra garantir isso mesmo se alguém tirar
+  // sem querer); qualquer outra conta o admin verifica manualmente pelo
+  // painel /admin.html.
+  await ensureColumn('users', 'is_verified INTEGER NOT NULL DEFAULT 0');
+  await run('UPDATE users SET is_verified = 1 WHERE is_admin = 1');
+  await run('UPDATE users SET is_verified = 1 WHERE id = ?', [AI_BOT_USER_ID]);
 }
 
 module.exports = { run, get, all, initDb, AI_BOT_USER_ID, AI_BOT_USERNAME, generateUniqueDiscriminator };

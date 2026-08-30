@@ -1011,6 +1011,9 @@ app.get(
       discriminator: req.user.discriminator,
       username_tag: req.user.username_tag || `${req.user.username}#${req.user.discriminator || '0000'}`,
       is_admin: req.user.is_admin,
+      // Selo de verificado (conta oficial NEXT GAME) — separado de is_admin,
+      // ver /api/admin/users/:id/verify.
+      is_verified: !!req.user.is_verified,
       email: req.user.email,
       email_verified: !!req.user.email_verified,
       status_message: req.user.status_message,
@@ -1772,7 +1775,7 @@ app.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const user = await db.get(
-      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, bio, country, language,
+      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified, bio, country, language,
         region, reputation, points, login_streak, longest_streak, created_at, favorite_games, platforms,
         preferred_rank, play_style
        FROM users WHERE id = ? AND is_banned = 0`,
@@ -2907,7 +2910,7 @@ app.get(
 
     const server = await db.get('SELECT owner_id FROM servers WHERE category = ?', [req.params.category]);
     const members = await db.all(
-      `SELECT u.id, u.username, u.discriminator, u.username_tag, u.avatar, u.avatar_frame
+      `SELECT u.id, u.username, u.discriminator, u.username_tag, u.avatar, u.avatar_frame, u.is_admin, u.is_verified
        FROM server_members sm JOIN users u ON u.id = sm.user_id
        WHERE sm.category = ? ORDER BY u.username`,
       [req.params.category]
@@ -3177,7 +3180,7 @@ app.get(
     const otherIds = rows.map((r) => r.other_id);
     const placeholders = otherIds.map(() => '?').join(',');
     const users = await db.all(
-      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message FROM users WHERE id IN (${placeholders})`,
+      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified FROM users WHERE id IN (${placeholders})`,
       otherIds
     );
     const usersMap = {};
@@ -3345,7 +3348,7 @@ app.get(
     }
 
     const target = await db.get(
-      'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, is_admin FROM users WHERE id = ?',
+      'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, is_admin, is_verified FROM users WHERE id = ?',
       [targetId]
     );
     if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -3426,7 +3429,7 @@ app.get(
       const hiddenAt = iAmA ? row.hidden_for_a : row.hidden_for_b;
 
       const other = await db.get(
-        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame FROM users WHERE id = ?',
+        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, is_admin, is_verified FROM users WHERE id = ?',
         [otherId]
       );
       if (!other) continue;
@@ -5806,12 +5809,12 @@ app.get(
     const parsedTag = parseUserTag(q);
     const playersQuery = parsedTag.discriminator
       ? db.all(
-          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin
+          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified
            FROM users WHERE is_banned = 0 AND username = ? AND discriminator = ? AND id != ?`,
           [parsedTag.username, parsedTag.discriminator, req.user.id]
         )
       : db.all(
-          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin
+          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified
            FROM users WHERE is_banned = 0 AND username LIKE ? AND id != ? ORDER BY username LIMIT ?`,
           [like, req.user.id, limit]
         );
@@ -5963,7 +5966,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin FROM users WHERE is_banned = 0 AND id != ? ORDER BY username',
+        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified FROM users WHERE is_banned = 0 AND id != ? ORDER BY username',
         [AI_BOT_USER_ID]
       )
     );
@@ -6209,9 +6212,27 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, is_admin, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, created_at FROM users ORDER BY created_at DESC'
+        'SELECT id, username, is_admin, is_verified, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, created_at FROM users ORDER BY created_at DESC'
       )
     );
+  })
+);
+
+// Selo de verificado (conta oficial NEXT GAME) — separado de is_admin de
+// propósito: dá pra verificar gente que trabalha pra você (suporte, staff)
+// sem dar poder de moderação nenhum. Admin sempre pode alternar em
+// qualquer conta, inclusive a própria.
+app.post(
+  '/api/admin/users/:id/verify',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const target = await db.get('SELECT is_verified FROM users WHERE id = ?', [req.params.id]);
+    if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
+    const newValue = target.is_verified ? 0 : 1;
+    await db.run('UPDATE users SET is_verified = ? WHERE id = ?', [newValue, req.params.id]);
+    logAudit(req.user, newValue ? 'verify_user' : 'unverify_user', 'user', req.params.id, {});
+    res.json({ ok: true, is_verified: !!newValue });
   })
 );
 
