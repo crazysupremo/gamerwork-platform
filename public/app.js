@@ -4371,8 +4371,10 @@ function selectChannel(channel, options = {}) {
   }
 
   currentChannel = channel;
+  // DM já tem o prefixo 💬 no próprio nome (posto em openDmText) — não
+  // precisa também do "# " de canal de servidor, ficava "# 💬 nome".
   document.getElementById('current-channel-name').textContent =
-    (channel.type === 'voz' ? '🔊 ' : '# ') + channel.name;
+    channel.type === 'voz' ? '🔊 ' + channel.name : isDm ? channel.name : '# ' + channel.name;
   document.getElementById('home-panel').classList.add('hidden');
   document.getElementById('friends-panel').classList.add('hidden');
   setNavActive('nav-inicio', false);
@@ -6258,12 +6260,17 @@ function renderMessage(msg) {
   if (!container) return;
   const el = document.createElement('div');
   const isBot = msg.user_id === BOT_USER_ID;
-  el.className = 'message' + (isBot ? ' bot-message' : '');
-  el.dataset.id = msg.id;
   const time = new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const author = allUsers.find((u) => u.id === msg.user_id);
   const isOwn = msg.user_id === me.id;
   const canDelete = (isOwn || me.is_admin) && !isBot;
+  // DM (conversa 1:1) vira "balãozinho" estilo iMessage/WhatsApp — mensagem
+  // própria à direita em roxo, da outra pessoa à esquerda em cinza. Canal de
+  // servidor (várias pessoas) continua no formato de lista normal (faz mais
+  // sentido pra grupo — bolha alinhada não escala bem pra N participantes).
+  const isDm = msg.channel_id.startsWith('dm::');
+  el.className =
+    'message' + (isBot ? ' bot-message' : '') + (isDm ? ' dm-message' + (isOwn ? ' dm-message-own' : ' dm-message-their') : '');
 
   const avatarHtml = isBot
     ? '<span>🤖</span>'

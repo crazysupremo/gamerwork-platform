@@ -1096,6 +1096,37 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .message-actions button:hover { background: #35373c; }
 
+/* ---------- BALÕES DE DM (conversa 1:1) ---------- */
+/* Só ativa quando .dm-message está presente (canal começa com "dm::") — em
+   canal de servidor a mensagem continua no formato de lista normal. */
+.message.dm-message { padding: 3px 4px; }
+.dm-message .message-row { align-items: flex-end; gap: 8px; }
+.dm-message-own .message-row { flex-direction: row-reverse; }
+.dm-message .message-avatar { width: 28px; height: 28px; margin: 0; }
+.dm-message-own .message-avatar { display: none; } /* seu avatar não precisa repetir do seu lado */
+.dm-message .message-body { flex: 0 1 auto; max-width: 72%; min-width: 0; }
+.dm-message-own .message-body { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; }
+.dm-message-their .message-body { display: flex; flex-direction: column; align-items: flex-start; }
+.dm-message .meta {
+  font-size: 10.5px; color: #6d7178; margin-bottom: 3px; gap: 4px;
+}
+.dm-message-own .meta strong { display: none; } /* seu próprio nome não precisa aparecer */
+.dm-message .content {
+  display: inline-block; padding: 9px 14px; border-radius: 16px; font-size: 13.5px; line-height: 1.4;
+  max-width: 100%; overflow-wrap: break-word;
+}
+.dm-message-their .content { background: #2b2d31; color: #e6e6e6; border-bottom-left-radius: 4px; }
+.dm-message-own .content { background: var(--gradient-brand); color: white; border-bottom-right-radius: 4px; }
+.dm-message .message-reactions { justify-content: flex-start; }
+.dm-message-own .message-reactions { justify-content: flex-end; }
+.dm-message-own .message-actions { right: auto; left: 6px; }
+/* Read receipt (✓✓) simples — mostra que a mensagem foi enviada. Não temos
+   confirmação de "lido" ainda (exigiria rastrear leitura por mensagem, não
+   só por canal), então é só um "enviado", igual um único check. */
+.dm-message-own .content::after {
+  content: '✓'; display: inline-block; margin-left: 6px; font-size: 10px; opacity: 0.7; vertical-align: middle;
+}
+
 .reaction-picker {
   position: absolute; top: -46px; right: 6px; background: #26272e; border-radius: 8px;
   padding: 4px; display: none; gap: 2px; box-shadow: 0 2px 10px rgba(0,0,0,0.4); z-index: 5;
@@ -1136,18 +1167,23 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .dm-request-decline { background: #404249; color: #dbdee1; }
 .dm-request-decline:hover { background: #4a4d55; }
 
-.message-form { display: flex; padding: 12px 16px; gap: 8px; border-top: 1px solid #2c2e36; }
+.message-form { display: flex; align-items: center; padding: 12px 16px; gap: 8px; border-top: 1px solid #2c2e36; }
 .message-form input {
-  flex: 1; padding: 10px; border-radius: 6px; border: 1px solid transparent; background: #26272e; color: #e6e6e6;
-  transition: border-color 0.15s ease;
+  flex: 1; padding: 11px 16px; border-radius: 22px; border: 1px solid transparent; background: #26272e; color: #e6e6e6;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
-.message-form input:focus { outline: none; border-color: var(--accent); }
+.message-form input:focus { outline: none; border-color: var(--accent); background: #2b2d33; }
 .message-form button {
-  padding: 10px 18px; border-radius: 6px; border: none; background: var(--gradient-brand); color: white;
+  padding: 10px 18px; border-radius: 22px; border: none; background: var(--gradient-brand); color: white;
   font-weight: 700; cursor: pointer; transition: filter 0.15s ease, transform 0.1s ease;
+  display: flex; align-items: center; justify-content: center;
 }
 .message-form button:hover { filter: brightness(1.1); }
 .message-form button:active { transform: scale(0.97); }
+.message-form #btn-attach-file {
+  background: #26272e; border-radius: 50%; width: 40px; height: 40px; padding: 0; flex-shrink: 0;
+}
+.message-form #btn-attach-file:hover { background: #2f3037; filter: none; }
 
 .voice-panel {
   flex: 1; display: flex; flex-direction: column; min-height: 0;

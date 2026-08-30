@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.6.4",
+    "date": "2026-08-30",
+    "changes": [
+      "Conversas diretas (DM) agora aparecem em balõezinho — sua mensagem à direita em roxo, da outra pessoa à esquerda em cinza",
+      "Campo de digitar e botão de enviar mais arredondados e modernos",
+      "Corrigido nome duplicado no topo da conversa (\"# 💬 nome\" virou só o nome)"
+    ]
+  },
+  {
     "version": "0.6.3",
     "date": "2026-08-30",
     "changes": [
