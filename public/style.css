@@ -432,6 +432,88 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .app-sidebar-logo { padding: 4px 6px 16px; display: flex; align-items: center; gap: 8px; }
 .app-sidebar-logo-img { height: 30px; width: auto; display: block; }
+/* "+ Criar" da navbar + menu suspenso */
+.navbar-create-wrap { position: relative; }
+.navbar-create-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: none;
+  background: var(--gradient-brand); color: white; font-weight: 700; font-size: 13px; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(88,101,242,0.35); transition: filter 0.15s ease;
+}
+.navbar-create-btn:hover { filter: brightness(1.1); }
+.navbar-create-btn .ng-icon { width: 15px; height: 15px; }
+.navbar-create-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; width: 180px;
+  background: #1e1f22; border: 1px solid #3a3c42; border-radius: 10px; padding: 6px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.45); display: flex; flex-direction: column; gap: 2px;
+}
+.navbar-create-menu button {
+  display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 6px; border: none;
+  background: none; color: #dbdee1; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left;
+}
+.navbar-create-menu button:hover { background: #2b2d31; }
+.navbar-create-menu .ng-icon { width: 15px; height: 15px; color: var(--accent-3); }
+
+/* Chip de perfil no topo (além do rodapé da sidebar) */
+.navbar-profile-chip {
+  display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 24px; border: none;
+  background: #1a1b20; border: 1px solid #26272e; cursor: pointer; transition: background 0.15s ease;
+}
+.navbar-profile-chip:hover { background: #202127; }
+.navbar-profile-chip .member-avatar { width: 30px; height: 30px; }
+.navbar-profile-chip-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+#navbar-chip-username { font-size: 12.5px; font-weight: 700; color: #f2f3f5; }
+.navbar-chip-level { font-size: 10px; color: var(--accent-3); font-weight: 700; }
+.navbar-chip-chevron { width: 13px; height: 13px; color: #6d7178; transform: rotate(90deg); margin-left: 2px; }
+@media (max-width: 900px) { .navbar-profile-chip-text { display: none; } }
+
+/* Eventos em Destaque (coluna lateral da Início) */
+.home-events-list { display: flex; flex-direction: column; gap: 6px; }
+.home-event-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px; border-radius: 9px; cursor: pointer;
+  background: #1a1b20; border: 1px solid #26272e; transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.home-event-row:hover { transform: translateX(2px); border-color: var(--accent); }
+.home-event-icon {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 8px; background: rgba(250,166,26,0.16); color: #ffd76b;
+  display: flex; align-items: center; justify-content: center;
+}
+.home-event-icon .ng-icon { width: 14px; height: 14px; }
+.home-event-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.home-event-info strong { font-size: 12.5px; color: #f2f3f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-event-info span { font-size: 10.5px; color: #9aa0ab; }
+.home-event-status { flex-shrink: 0; font-size: 8.5px; font-weight: 800; padding: 3px 7px; border-radius: 10px; text-align: center; }
+.home-event-status-open { background: rgba(59,165,92,0.16); color: #7de3a0; }
+.home-event-status-live { background: rgba(250,166,26,0.16); color: #ffd76b; }
+.home-event-status-full { background: rgba(242,63,66,0.16); color: #ff9296; }
+
+/* Jogos Salvos (modal) */
+.saved-game-add-row { display: flex; gap: 8px; margin: 4px 0 12px; }
+.saved-game-add-row input {
+  flex: 1; padding: 9px 12px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.08);
+  background: #101116; color: #e6e6e6; font-size: 13px;
+}
+.saved-game-add-row button {
+  padding: 9px 14px; border-radius: 7px; border: none; background: var(--gradient-brand); color: white;
+  font-weight: 700; font-size: 12.5px; cursor: pointer; white-space: nowrap;
+}
+.saved-games-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.saved-game-row {
+  display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border-radius: 8px;
+  background: #1a1b20; border: 1px solid #26272e; font-size: 13px; color: #dbdee1;
+}
+.saved-game-row .ng-icon { width: 14px; height: 14px; color: var(--accent-3); margin-right: 6px; vertical-align: -2px; }
+.saved-game-remove { background: none; border: none; color: #6d7178; cursor: pointer; padding: 3px; display: flex; }
+.saved-game-remove:hover { color: #f23f42; }
+
+/* Modal do vídeo de apresentação */
+.watch-video-card { padding: 0; background: black; border-radius: 14px; overflow: hidden; position: relative; max-width: 720px; }
+.watch-video-card video { width: 100%; display: block; max-height: 70vh; }
+.watch-video-close {
+  position: absolute; top: 10px; right: 10px; z-index: 2; width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(0,0,0,0.55); border: none; color: white; display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+
 .beta-tag {
   background: rgba(88,101,242,0.18); color: #a7b0ff; border: 1px solid rgba(88,101,242,0.4);
   font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 5px;
@@ -722,30 +804,42 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .home-btn-secondary { background: rgba(255,255,255,0.06); color: #e6e6e6; border: 1px solid rgba(255,255,255,0.1); }
 .home-btn-primary:hover, .home-btn-secondary:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
-/* Banner de torneio em destaque — o cartão principal da tela de Início */
-.home-tournament-banner-inner {
-  border-radius: 14px; padding: 18px 22px; display: flex; align-items: center; gap: 16px;
-  position: relative; overflow: hidden;
-  background:
-    radial-gradient(circle at 15% 30%, rgba(88,101,242,0.4), transparent 55%),
-    radial-gradient(circle at 90% 70%, rgba(145,70,255,0.3), transparent 50%),
-    linear-gradient(135deg, #1a1b20, #101116);
-  border: 1px solid rgba(255,255,255,0.06);
+/* Banner em destaque — o cartão principal da tela de Início. Agora um hero
+   grande com a imagem de fundo do NEXT GAME (mesma arte do login), em vez
+   de uma faixa fina — dá o "cara de plataforma premium" pedido, sem
+   precisar de nenhuma imagem nova. */
+.home-tournament-banner {
+  position: relative; border-radius: 16px; overflow: hidden; min-height: 220px;
+  background-image:
+    linear-gradient(100deg, rgba(8,8,14,0.94) 0%, rgba(8,8,14,0.75) 40%, rgba(8,8,14,0.25) 75%, rgba(8,8,14,0.1) 100%),
+    url('/assets/auth-hero.png');
+  background-size: cover; background-position: 75% 30%;
+  border: 1px solid rgba(255,255,255,0.08);
+  display: flex; flex-direction: column; justify-content: center; padding: 26px 30px;
 }
+.home-tournament-banner-inner { display: flex; align-items: center; gap: 16px; position: relative; z-index: 1; }
 .home-tournament-banner-icon {
   flex-shrink: 0; width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center;
-  justify-content: center; font-size: 24px; background: rgba(255,255,255,0.06);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+  justify-content: center; font-size: 24px; background: rgba(255,255,255,0.08);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
 }
 .home-tournament-banner-text { flex: 1; min-width: 0; }
 .home-tournament-banner-kicker {
-  font-size: 10px; font-weight: 800; letter-spacing: 0.08em; color: var(--accent-3);
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; color: var(--accent-3);
 }
-.home-tournament-banner-text h2 { font-size: 17px; font-weight: 900; margin: 2px 0 4px; }
-.home-tournament-banner-prize { font-size: 12px; color: #dbdee1; margin: 0 0 2px; }
+.home-tournament-banner-text h2 { font-size: 26px; font-weight: 900; margin: 4px 0 6px; line-height: 1.1; }
+.home-tournament-banner-prize { font-size: 13px; color: #dbdee1; margin: 0 0 3px; }
 .home-tournament-banner-prize strong { color: #ffd76b; }
-.home-tournament-banner-slots { font-size: 11px; color: #9aa0ab; }
-.home-tournament-banner-inner .home-btn-primary { flex-shrink: 0; padding: 10px 20px; font-size: 12.5px; letter-spacing: 0.03em; }
+.home-tournament-banner-slots { font-size: 12px; color: #9aa0ab; }
+.home-tournament-banner-inner .home-btn-primary { flex-shrink: 0; padding: 11px 22px; font-size: 13px; letter-spacing: 0.03em; }
+/* Ações secundárias fixas do hero (Explorar Comunidade / Assistir vídeo) —
+   aparecem sempre, junto do que já era dinâmico (torneio ou convite pra
+   criar um), igual ao mockup. */
+.home-hero-secondary-actions { display: flex; gap: 10px; margin-top: 18px; position: relative; z-index: 1; }
+.home-hero-secondary-actions .home-btn-primary, .home-hero-secondary-actions .home-btn-secondary {
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.home-hero-secondary-actions .home-btn-secondary { background: rgba(255,255,255,0.05); backdrop-filter: blur(4px); }
 
 /* EXPLORAR SERVIDORES */
 .explore-grid { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; }
@@ -782,14 +876,20 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .home-quick-action-text strong { font-size: 12.5px; color: #f2f3f5; }
 .home-quick-action-text span { font-size: 10.5px; color: #9aa0ab; }
 
-.home-stats { display: flex; gap: 10px; margin-bottom: 16px; }
+.home-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
 .home-stat {
-  flex: 1; background: #1a1b20; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column;
+  background: #1a1b20; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column;
   gap: 2px; border: 1px solid #26272e; transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 .home-stat:hover { transform: translateY(-2px); border-color: var(--accent-3); box-shadow: 0 8px 18px rgba(0,217,192,0.14); }
-.home-stat-num { font-size: 19px; font-weight: 900; color: white; }
+.home-stat-icon {
+  width: 28px; height: 28px; border-radius: 8px; background: rgba(88,101,242,0.16); color: var(--accent-3);
+  display: flex; align-items: center; justify-content: center; margin-bottom: 4px;
+}
+.home-stat-icon .ng-icon { width: 14px; height: 14px; }
+.home-stat-num { font-size: 20px; font-weight: 900; color: white; }
 .home-stat-label { font-size: 11px; color: #9aa0ab; }
+.home-stat-trend { font-size: 10px; color: #3ba55c; font-weight: 700; margin-top: 2px; }
 
 .home-section-title {
   font-size: 12.5px; font-weight: 800; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
@@ -799,25 +899,33 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .home-grid { display: grid; grid-template-columns: 1fr 280px; gap: 16px; align-items: start; }
 .home-servers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
 .home-server-card {
-  background: #1a1b20; border: 1px solid #26272e; border-radius: 10px; padding: 10px 8px; text-align: center;
-  cursor: pointer; transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  background: #1a1b20; border: 1px solid #26272e; border-radius: 12px; overflow: hidden; text-align: center;
+  cursor: pointer; transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease; padding-bottom: 8px;
 }
 .home-server-card:hover {
   transform: translateY(-3px) scale(1.02); border-color: var(--accent);
   box-shadow: 0 10px 20px rgba(88,101,242,0.22);
 }
 .home-server-card:active { transform: translateY(-1px) scale(0.99); }
-.home-server-icon {
-  width: 34px; height: 34px; margin: 0 auto 6px; border-radius: 10px; background: var(--gradient-brand);
-  display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 15px;
+/* Faixa colorida no topo do card (gradientForName no JS) — substitui a
+   "capa" de jogo que não temos como gerar; dá o mesmo efeito visual de
+   card mais rico, sem imagem nenhuma. */
+.home-server-banner {
+  height: 52px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px;
 }
-.home-server-name { font-size: 12px; font-weight: 700; color: #e6e6e6; margin-bottom: 2px; }
-.home-server-meta { font-size: 10px; color: #8b909a; }
+.home-server-icon {
+  width: 34px; height: 34px; border-radius: 10px; background: rgba(0,0,0,0.25);
+  display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 15px;
+  backdrop-filter: blur(2px);
+}
+.home-server-name { font-size: 12px; font-weight: 700; color: #e6e6e6; margin-bottom: 2px; padding: 0 6px; }
+.home-server-meta { font-size: 10px; color: #8b909a; padding: 0 6px; }
 
-.home-playing-now { display: flex; flex-wrap: wrap; gap: 6px; }
+.home-playing-now { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .playing-now-card {
-  display: flex; align-items: center; gap: 7px; background: #1a1b20; border: 1px solid #26272e;
-  border-radius: 8px; padding: 6px 10px; transition: transform 0.15s ease, border-color 0.15s ease;
+  display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #1a1b20, #202127);
+  border: 1px solid #26272e; border-radius: 10px; padding: 9px 11px;
+  transition: transform 0.15s ease, border-color 0.15s ease;
 }
 .playing-now-card:hover { transform: translateY(-2px); border-color: var(--accent-2); }
 
@@ -1075,6 +1183,31 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   border-top: 1px solid #26272e; background: #16171b;
 }
 .voice-room-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+/* Cartão de destaque no topo da sala de voz conectada — mesma linguagem
+   visual do hero da Início, só que menor e com o nome da sala. */
+.voice-room-hero {
+  display: flex; align-items: center; gap: 16px; padding: 22px 24px; border-radius: 14px; margin-bottom: 16px;
+  position: relative; overflow: hidden;
+  background:
+    linear-gradient(100deg, rgba(8,8,14,0.9) 0%, rgba(8,8,14,0.55) 55%, rgba(8,8,14,0.2) 100%),
+    radial-gradient(circle at 85% 30%, rgba(88,101,242,0.35), transparent 55%),
+    linear-gradient(135deg, #1a1b20, #101116);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.voice-room-hero-icon {
+  flex-shrink: 0; width: 56px; height: 56px; border-radius: 16px; background: rgba(88,101,242,0.18);
+  border: 1px solid rgba(88,101,242,0.4); color: var(--accent-3); display: flex; align-items: center; justify-content: center;
+}
+.voice-room-hero-icon .ng-icon { width: 26px; height: 26px; }
+.voice-room-hero-text { min-width: 0; }
+.voice-room-hero-text h2 { font-size: 20px; font-weight: 900; margin: 0 0 4px; color: #f5f6f8; }
+.voice-room-hero-text p { margin: 0 0 10px; font-size: 12.5px; color: #b9bec7; max-width: 480px; }
+.voice-room-hero-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.voice-room-hero-tag {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: #dbdee1;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 20px;
+}
+.voice-room-hero-tag .ng-icon { width: 12px; height: 12px; color: var(--accent-3); }
 .voice-participant-badge {
   background: #1a1b20; color: #9aa0ab; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 14px;
 }

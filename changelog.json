@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.6.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Início remodelada: banner principal maior com a arte do NEXT GAME, botão \"+ Criar\" na barra de topo, estatísticas com tendência real da semana",
+      "Nova seção \"Eventos em Destaque\" na Início",
+      "Novo recurso: Jogos Salvos — sua biblioteca pessoal de jogos favoritos",
+      "Cards de servidor e \"Jogando Agora\" com visual mais rico",
+      "Sala de voz ganhou um cartão de destaque no topo com o nome e as tags da sala",
+      "Chip de perfil também no topo da tela, além do rodapé da barra lateral"
+    ]
+  },
+  {
     "version": "0.5.0",
     "date": "2026-08-30",
     "changes": [

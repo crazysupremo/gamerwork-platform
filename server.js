@@ -1812,6 +1812,43 @@ app.get(
   })
 );
 
+// ---------- JOGOS SALVOS (biblioteca pessoal) ----------
+app.get(
+  '/api/saved-games',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json(await db.all('SELECT id, game_name FROM saved_games WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]));
+  })
+);
+
+app.post(
+  '/api/saved-games',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const gameName = String((req.body || {}).game_name || '').trim().slice(0, 60);
+    if (!gameName) return res.status(400).json({ error: 'Nome do jogo é obrigatório.' });
+    try {
+      await db.run('INSERT INTO saved_games (id, user_id, game_name) VALUES (?, ?, ?)', [
+        uuidv4(),
+        req.user.id,
+        gameName,
+      ]);
+    } catch (err) {
+      // UNIQUE(user_id, game_name) — já tinha salvo esse jogo, não é erro de verdade.
+    }
+    res.json(await db.all('SELECT id, game_name FROM saved_games WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]));
+  })
+);
+
+app.delete(
+  '/api/saved-games/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM saved_games WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    res.json({ ok: true });
+  })
+);
+
 // ---------- PERFIL GAMER (por jogo) ----------
 
 app.get(
@@ -5646,21 +5683,33 @@ app.get('/api/version', (req, res) => {
   });
 });
 
-// Estatísticas gerais da plataforma pra tela de início.
+// Estatísticas gerais da plataforma pra tela de início. Os deltas
+// ("novos esta semana") são contagens reais (usuários/servidores criados
+// nos últimos 7 dias) — nada inventado, diferente de um "+12" decorativo.
 app.get(
   '/api/stats',
   // Sem requireAuth de propósito: são só contagens (nada pessoal), usadas
   // também na landing pública antes do login.
   asyncHandler(async (req, res) => {
-    const [users, servers, tournaments] = await Promise.all([
+    const [users, servers, tournaments, newUsers, newServers, playingNow] = await Promise.all([
       db.get('SELECT COUNT(*) as c FROM users WHERE is_banned = 0'),
       db.get('SELECT COUNT(DISTINCT category) as c FROM channels'),
       db.get('SELECT COUNT(*) as c FROM tournaments'),
+      db.get("SELECT COUNT(*) as c FROM users WHERE is_banned = 0 AND created_at >= datetime('now', '-7 days')"),
+      db.get("SELECT COUNT(DISTINCT category) as c FROM servers WHERE created_at >= datetime('now', '-7 days')"),
+      db.get("SELECT COUNT(*) as c FROM users WHERE is_banned = 0 AND status_message IS NOT NULL AND status_message != ''"),
     ]);
     res.json({
       members: Number(users.c),
       servers: Number(servers.c),
       tournaments: Number(tournaments.c),
+      new_members_week: Number(newUsers.c),
+      new_servers_week: Number(newServers.c),
+      // "Jogando agora" real exigiria saber quem tá online neste exato
+      // instante (isso só o servidor com sockets ativos sabe) — aqui é uma
+      // aproximação server-side (quantos têm status de jogo definido), o
+      // número exato de quem tá online agora já vem por socket no cliente.
+      playing_now_approx: Number(playingNow.c),
     });
   })
 );

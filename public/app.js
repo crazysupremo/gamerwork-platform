@@ -4386,7 +4386,13 @@ function updateVoicePanelView(channel) {
   const isConnected = connectedVoiceRoomId === channel.id;
   document.getElementById('voice-preview').classList.toggle('hidden', isConnected);
   document.getElementById('voice-incall').classList.toggle('hidden', !isConnected);
-  if (!isConnected) renderVoicePreview(channel);
+  if (!isConnected) {
+    renderVoicePreview(channel);
+  } else {
+    document.getElementById('voice-room-hero-name').textContent = channel.name;
+    document.getElementById('voice-room-hero-quality').innerHTML =
+      `${icon('mic')} Qualidade de voz: Alta`;
+  }
 }
 
 function renderVoicePreview(channel) {
@@ -4507,10 +4513,18 @@ function clearMessagesView(channelId) {
 
 function updateNavbarProfile() {
   renderAvatarInto(document.getElementById('navbar-avatar'), me);
-  document.getElementById('navbar-username').innerHTML =
-    `${escapeHtml(me.username)}${me.is_admin ? ' 👑' : ''}${me.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}`;
+  const badgeHtml = `${me.is_admin ? ' 👑' : ''}${me.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}`;
+  document.getElementById('navbar-username').innerHTML = `${escapeHtml(me.username)}${badgeHtml}`;
   const level = Math.max(1, Math.floor((me.message_count || 0) / 10) + 1);
   document.getElementById('navbar-level').textContent = `Nível ${level}`;
+
+  // Chip de perfil no topo — mesmos dados, só um lugar a mais que mostra.
+  const chipAvatar = document.getElementById('navbar-chip-avatar');
+  if (chipAvatar) {
+    renderAvatarInto(chipAvatar, me);
+    document.getElementById('navbar-chip-username').innerHTML = `${escapeHtml(me.username)}${badgeHtml}`;
+    document.getElementById('navbar-chip-level').textContent = `Nível ${level}`;
+  }
 }
 
 document.getElementById('nav-inicio').onclick = () => goHome();
@@ -5542,7 +5556,149 @@ async function loadHomeDashboard() {
   loadHomeRanking();
   loadHomeStreakCard();
   loadHomeConversations();
+  loadHomeEvents();
 }
+
+// "Eventos em Destaque" na coluna lateral da Início — usa o sistema de
+// Eventos que já existe (/api/events, o mesmo da aba "Eventos" do Feed),
+// não é um recurso novo nem duplica Torneios.
+async function loadHomeEvents() {
+  const el = document.getElementById('home-events');
+  if (!el) return;
+  let events;
+  try {
+    const res = await fetch('/api/events', { credentials: 'include' });
+    events = await res.json();
+  } catch (_) {
+    el.innerHTML = '<p class="empty-hint">Erro ao carregar eventos.</p>';
+    return;
+  }
+  if (!Array.isArray(events) || events.length === 0) {
+    el.innerHTML = '<p class="empty-hint">Nenhum evento em destaque agora.</p>';
+    return;
+  }
+  const todayStr = new Date().toISOString().slice(0, 10);
+  el.innerHTML = events
+    .slice(0, 3)
+    .map((e) => {
+      const isToday = e.event_date === todayStr;
+      const isFull = e.max_participants && e.participant_count >= e.max_participants;
+      const statusLabel = isToday ? 'EM ANDAMENTO' : isFull ? 'LOTADO' : 'INSCRIÇÕES ABERTAS';
+      const statusClass = isToday ? 'home-event-status-live' : isFull ? 'home-event-status-full' : 'home-event-status-open';
+      const dateText = e.event_date ? new Date(e.event_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'Data a definir';
+      return `
+      <div class="home-event-row" data-id="${e.id}">
+        <div class="home-event-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></div>
+        <div class="home-event-info">
+          <strong>${escapeHtml(e.name)}</strong>
+          <span>${escapeHtml(e.game || 'Geral')} · ${dateText}</span>
+        </div>
+        <span class="home-event-status ${statusClass}">${statusLabel}</span>
+      </div>`;
+    })
+    .join('');
+  document.querySelectorAll('#home-events [data-icon]').forEach((elIcon) => {
+    elIcon.innerHTML = icon(elIcon.getAttribute('data-icon'));
+  });
+  el.querySelectorAll('.home-event-row').forEach((row) => {
+    row.onclick = () => document.getElementById('nav-feed').click();
+  });
+}
+
+// ---------- JOGOS SALVOS ----------
+async function loadSavedGames() {
+  const res = await fetch('/api/saved-games', { credentials: 'include' });
+  const games = await res.json();
+  const listEl = document.getElementById('saved-games-list');
+  if (games.length === 0) {
+    listEl.innerHTML = '<p class="empty-hint">Nenhum jogo salvo ainda.</p>';
+  } else {
+    listEl.innerHTML = games
+      .map(
+        (g) => `
+      <div class="saved-game-row" data-id="${g.id}">
+        <span><span class="ng-icon-wrap" data-icon="gamepad-2"></span> ${escapeHtml(g.game_name)}</span>
+        <button type="button" class="saved-game-remove" data-id="${g.id}" aria-label="Remover"><span class="ng-icon-wrap" data-icon="x"></span></button>
+      </div>`
+      )
+      .join('');
+    document.querySelectorAll('#saved-games-list [data-icon]').forEach((elIcon) => {
+      elIcon.innerHTML = icon(elIcon.getAttribute('data-icon'));
+    });
+    listEl.querySelectorAll('.saved-game-remove').forEach((btn) => {
+      btn.onclick = async () => {
+        await fetch(`/api/saved-games/${btn.dataset.id}`, { method: 'DELETE', credentials: 'include' });
+        loadSavedGames();
+      };
+    });
+  }
+  const suggestions = document.getElementById('saved-game-suggestions');
+  if (suggestions && !suggestions.childElementCount && typeof WIZARD_GAMES !== 'undefined') {
+    suggestions.innerHTML = WIZARD_GAMES.map((g) => `<option value="${escapeHtml(g)}"></option>`).join('');
+  }
+}
+document.getElementById('nav-saved-games').onclick = () => {
+  document.getElementById('modal-saved-games').classList.remove('hidden');
+  loadSavedGames();
+};
+document.getElementById('btn-close-saved-games').onclick = () => document.getElementById('modal-saved-games').classList.add('hidden');
+document.getElementById('btn-saved-game-add').onclick = async () => {
+  const input = document.getElementById('saved-game-input');
+  const name = input.value.trim();
+  if (!name) return;
+  await fetch('/api/saved-games', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ game_name: name }),
+  });
+  input.value = '';
+  loadSavedGames();
+};
+
+// Atalhos novos da sidebar: Clipes e Configurações reaproveitam telas que
+// já existem (aba de Clipes do Feed, modal de perfil/configurações) — não
+// são funcionalidades novas, só ficaram mais fáceis de achar.
+document.getElementById('nav-clipes').onclick = () => {
+  document.getElementById('nav-feed').click();
+  setTimeout(() => {
+    const tab = document.querySelector('#modal-feed .manage-tab[data-feed-tab="clipes"]');
+    if (tab) tab.click();
+  }, 50);
+};
+document.getElementById('nav-configuracoes').onclick = () => document.getElementById('btn-edit-profile').click();
+
+// ---------- "+ CRIAR" (navbar) ----------
+document.getElementById('btn-navbar-create').onclick = (e) => {
+  e.stopPropagation();
+  document.getElementById('navbar-create-menu').classList.toggle('hidden');
+};
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('navbar-create-menu');
+  if (!menu.classList.contains('hidden') && !menu.contains(e.target) && e.target.id !== 'btn-navbar-create') {
+    menu.classList.add('hidden');
+  }
+});
+document.getElementById('navbar-create-server').onclick = () => {
+  document.getElementById('navbar-create-menu').classList.add('hidden');
+  document.getElementById('btn-new-server').click();
+};
+document.getElementById('navbar-create-tournament').onclick = () => {
+  document.getElementById('navbar-create-menu').classList.add('hidden');
+  document.getElementById('nav-torneios').click();
+};
+document.getElementById('navbar-create-clip').onclick = () => {
+  document.getElementById('navbar-create-menu').classList.add('hidden');
+  document.getElementById('nav-feed').click();
+  setTimeout(() => {
+    const tab = document.querySelector('#modal-feed .manage-tab[data-feed-tab="clipes"]');
+    if (tab) tab.click();
+  }, 50);
+};
+
+// Chip de perfil no topo — mesmo destino do avatar/nome já existente no
+// rodapé da sidebar (abre o mesmo menu), só que também à mão lá em cima.
+document.getElementById('navbar-profile-chip').onclick = () => document.getElementById('btn-footer-more').click();
 
 // Prévia clicável das conversas diretas mais recentes — abre direto na
 // conversa sem precisar passar pelo painel de Amigos primeiro.
@@ -5647,11 +5803,50 @@ async function loadHomeStats() {
   const res = await fetch('/api/stats', { credentials: 'include' });
   const stats = await res.json();
   const el = document.getElementById('home-stats');
+  const trend = (n, label) => (n > 0 ? `<span class="home-stat-trend">↑ +${n} ${label}</span>` : '');
   el.innerHTML = `
-    <div class="home-stat"><span class="home-stat-num">${stats.members}</span><span class="home-stat-label">👥 Membros</span></div>
-    <div class="home-stat"><span class="home-stat-num">${stats.servers}</span><span class="home-stat-label">🎮 Servidores</span></div>
-    <div class="home-stat"><span class="home-stat-num">${stats.tournaments}</span><span class="home-stat-label">🏆 Torneios</span></div>
+    <div class="home-stat">
+      <span class="home-stat-icon"><span class="ng-icon-wrap" data-icon="users"></span></span>
+      <span class="home-stat-num">${stats.members}</span>
+      <span class="home-stat-label">Membros</span>
+      ${trend(stats.new_members_week, 'esta semana')}
+    </div>
+    <div class="home-stat">
+      <span class="home-stat-icon"><span class="ng-icon-wrap" data-icon="gamepad-2"></span></span>
+      <span class="home-stat-num">${stats.servers}</span>
+      <span class="home-stat-label">Servidores</span>
+      ${trend(stats.new_servers_week, 'novos')}
+    </div>
+    <div class="home-stat">
+      <span class="home-stat-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></span>
+      <span class="home-stat-num">${stats.tournaments}</span>
+      <span class="home-stat-label">Torneios</span>
+    </div>
+    <div class="home-stat">
+      <span class="home-stat-icon"><span class="ng-icon-wrap" data-icon="zap"></span></span>
+      <span class="home-stat-num">${onlineUserIds.size}</span>
+      <span class="home-stat-label">Online agora</span>
+    </div>
   `;
+  document.querySelectorAll('#home-stats [data-icon]').forEach((elIcon) => {
+    elIcon.innerHTML = icon(elIcon.getAttribute('data-icon'));
+  });
+}
+
+// Paleta fixa (hash simples pelo nome) pra cada card de servidor ganhar uma
+// faixa de cor diferente — sem precisar de nenhuma imagem/capa de jogo.
+const SERVER_CARD_GRADIENTS = [
+  'linear-gradient(135deg, #5865f2, #9146ff)',
+  'linear-gradient(135deg, #00d9c0, #5865f2)',
+  'linear-gradient(135deg, #f23f6a, #9146ff)',
+  'linear-gradient(135deg, #faa61a, #f23f6a)',
+  'linear-gradient(135deg, #3ba55c, #00d9c0)',
+  'linear-gradient(135deg, #9146ff, #5865f2)',
+];
+function gradientForName(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return SERVER_CARD_GRADIENTS[hash % SERVER_CARD_GRADIENTS.length];
 }
 
 function loadHomeServers() {
@@ -5669,7 +5864,9 @@ function loadHomeServers() {
     card.dataset.name = category.toLowerCase();
     const voiceCount = allChannels.filter((c) => c.category === category && c.type === 'voz').length;
     card.innerHTML = `
-      <div class="home-server-icon">${serverIcons[category] ? serverIcons[category] : serverInitials(category)}</div>
+      <div class="home-server-banner" style="background:${gradientForName(category)};">
+        <div class="home-server-icon">${serverIcons[category] ? serverIcons[category] : serverInitials(category)}</div>
+      </div>
       <div class="home-server-name">${escapeHtml(category)}</div>
       <div class="home-server-meta">${channelCount} sala${channelCount === 1 ? '' : 's'}${voiceCount > 0 ? ` · 🎙️ ${voiceCount} de voz` : ''}</div>
     `;
@@ -5728,18 +5925,34 @@ async function loadHomeTournamentBanner() {
   const tournaments = await res.json();
   const upcoming = tournaments.filter((t) => !t.event_date || new Date(t.event_date) >= new Date()).slice(0, 1)[0];
 
+  // Ações fixas do hero (Explorar Comunidade / Assistir vídeo) — aparecem
+  // sempre, além do que já é dinâmico (torneio em destaque ou convite pra
+  // criar o primeiro).
+  const secondaryActionsHtml = `
+    <div class="home-hero-secondary-actions">
+      <button type="button" class="home-btn-primary" id="home-hero-explore-btn">
+        <span class="ng-icon-wrap" data-icon="play"></span> Explorar Comunidade
+      </button>
+      <button type="button" class="home-btn-secondary" id="home-hero-watch-btn">
+        <span class="ng-icon-wrap" data-icon="play"></span> Assistir vídeo
+      </button>
+    </div>
+  `;
+
   if (!upcoming) {
     el.innerHTML = `
       <div class="home-tournament-banner-inner">
         <div class="home-tournament-banner-icon">🏆</div>
         <div class="home-tournament-banner-text">
-          <span class="home-tournament-banner-kicker">SEM TORNEIOS NO MOMENTO</span>
-          <h2>Que tal organizar o primeiro?</h2>
+          <span class="home-tournament-banner-kicker">FAÇA PARTE DA NOVA GERAÇÃO GAMER</span>
+          <h2>Conecte-se. Jogue junto. Vença.</h2>
         </div>
         <button class="home-btn-primary" id="home-tournament-banner-cta">Ver Torneios</button>
       </div>
+      ${secondaryActionsHtml}
     `;
     document.getElementById('home-tournament-banner-cta').onclick = () => document.getElementById('home-quick-tournaments').click();
+    wireHomeHeroSecondaryActions();
     return;
   }
 
@@ -5759,6 +5972,7 @@ async function loadHomeTournamentBanner() {
         ${upcoming.is_registered ? 'Você já está inscrito ✅' : 'PARTICIPAR'}
       </button>
     </div>
+    ${secondaryActionsHtml}
   `;
   if (!upcoming.is_registered) {
     document.getElementById('home-tournament-banner-join').onclick = async () => {
@@ -5771,7 +5985,22 @@ async function loadHomeTournamentBanner() {
       loadHomeTournamentBanner();
     };
   }
+  wireHomeHeroSecondaryActions();
 }
+
+function wireHomeHeroSecondaryActions() {
+  document.getElementById('home-hero-explore-btn').onclick = () => document.getElementById('nav-jogos').click();
+  document.getElementById('home-hero-watch-btn').onclick = () => {
+    document.getElementById('modal-watch-video').classList.remove('hidden');
+    const player = document.getElementById('watch-video-player');
+    player.currentTime = 0;
+    player.play().catch(() => {});
+  };
+}
+document.getElementById('btn-close-watch-video').onclick = () => {
+  document.getElementById('modal-watch-video').classList.add('hidden');
+  document.getElementById('watch-video-player').pause();
+};
 
 async function loadHomeRanking() {
   const el = document.getElementById('home-ranking');

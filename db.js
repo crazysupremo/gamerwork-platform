@@ -853,6 +853,18 @@ async function initDb() {
     ]);
   }
 
+  // ---------- JOGOS SALVOS ("biblioteca" pessoal na barra lateral) ----------
+  await run(`
+    CREATE TABLE IF NOT EXISTS saved_games (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      game_name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, game_name)
+    )
+  `);
+  await run('CREATE INDEX IF NOT EXISTS idx_saved_games_user ON saved_games(user_id)');
+
   // ---------- SELO VERIFICADO (conta oficial NEXT GAME) ----------
   // Separado do 👑 de admin de propósito: admin é poder de moderação, selo
   // verificado é só "essa conta é oficial/confiável" — dá pra um admin
