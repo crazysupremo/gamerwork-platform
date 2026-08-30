@@ -719,9 +719,14 @@ app.post(
     // backend. Ver nota completa na resposta final sobre essa decisão.
     const discriminator = await db.generateUniqueDiscriminator(username);
     const usernameTag = `${username}#${discriminator}`;
-    // email_verified começa em 0 — a conta é criada, mas fica bloqueada
-    // (ver requireAuth) até a pessoa confirmar o código de 6 dígitos
-    // enviado por e-mail. Reativado a pedido do usuário.
+    // Confirmação de e-mail DESATIVADA por enquanto (a pedido): a conta já
+    // nasce com email_verified = 1, sem gerar/enviar código nem bloquear
+    // login. Toda a lógica de verificação continua no arquivo (rotas
+    // /api/verify-email, /api/resend-verification-code, mailer.js, allowlist
+    // em requireAuth) — pra reativar, basta reverter este bloco: voltar
+    // email_verified para 0 na query abaixo, descomentar a geração do
+    // código e a chamada a sendVerificationEmail, e ajustar a resposta do
+    // /api/register no final desta rota.
     // Idade estimada por câmera é opcional e calculada no navegador da
     // pessoa — aqui só sanitiza (número plausível entre 1 e 100) ou ignora
     // qualquer coisa fora disso, já que veio do cliente e pode vir zoado.
@@ -730,8 +735,8 @@ app.post(
         ? Math.round(Number(estimated_age))
         : null;
 
-    const verificationCode = generateEmailVerificationCode();
-    const verificationExpires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    // const verificationCode = generateEmailVerificationCode();
+    // const verificationExpires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
     await db.run(
       `INSERT INTO users (
@@ -739,14 +744,12 @@ app.post(
         is_admin, avatar, full_name,
         country, language, favorite_games, platforms, preferred_rank, play_style,
         discriminator, username_tag, birth_date, estimated_age
-      ) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, 1, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         username,
         password_hash,
         email,
-        verificationCode,
-        verificationExpires,
         isFirstUser ? 1 : 0,
         avatarValue,
         (full_name || '').slice(0, 80) || null,
@@ -763,9 +766,9 @@ app.post(
       ]
     );
 
-    sendVerificationEmail(email, verificationCode, username).catch((err) =>
-      console.error('Falha ao enviar e-mail de verificação:', err)
-    );
+    // sendVerificationEmail(email, verificationCode, username).catch((err) =>
+    //   console.error('Falha ao enviar e-mail de verificação:', err)
+    // );
 
     applySessionDuration(req, remember !== false);
     req.session.userId = id;
@@ -777,8 +780,8 @@ app.post(
       is_admin: isFirstUser ? 1 : 0,
       discriminator,
       username_tag: usernameTag,
-      email_verified: false,
-      requiresEmailVerification: true,
+      email_verified: true,
+      requiresEmailVerification: false,
     });
 
     // Cada conta começa sem nenhum servidor — igual Discord: cria o seu
