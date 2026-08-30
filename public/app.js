@@ -1147,6 +1147,7 @@ function showUpdateBanner({ version, changes }) {
     <div class="update-banner-icon">${icon('sparkles')}</div>
     <div class="update-banner-body">
       <strong>Nova versão do NEXT GAME disponível${version ? ` — v${escapeHtml(version)}` : ''}</strong>
+      <span class="update-banner-hint">Fica pra quando você quiser — nada muda até você clicar em atualizar.</span>
       ${changesHtml}
     </div>
     <div class="update-banner-actions">
@@ -1156,7 +1157,16 @@ function showUpdateBanner({ version, changes }) {
   `;
   document.body.appendChild(banner);
   requestAnimationFrame(() => banner.classList.add('update-banner-show'));
-  banner.querySelector('.update-banner-reload').onclick = () => window.location.reload();
+  banner.querySelector('.update-banner-reload').onclick = () => {
+    // Recarregar a página derruba WebRTC (chamada de voz/tela em
+    // andamento), então se a pessoa estiver numa call, confirma antes em
+    // vez de tirar ela do nada.
+    if (connectedVoiceRoomId) {
+      const ok = confirm('Você está numa chamada de voz — atualizar agora vai te desconectar dela. Quer continuar?');
+      if (!ok) return;
+    }
+    window.location.reload();
+  };
   banner.querySelector('.update-banner-dismiss').onclick = () => {
     banner.classList.remove('update-banner-show');
     setTimeout(() => banner.remove(), 200);
@@ -2589,6 +2599,7 @@ async function loadDmConversations() {
     row.className = 'friend-row';
     row.dataset.searchName = c.other_user.username.toLowerCase();
     row.classList.toggle('friend-row-active', currentChannel && currentChannel.id === c.channel_id);
+    row.classList.toggle('friend-row-unread', c.unread_count > 0);
     row.innerHTML = `
       <div class="member-avatar-wrap">
         <div class="member-avatar ${avatarFrameClass(c.other_user)}">${renderAvatarHtml(c.other_user)}</div>
@@ -5646,6 +5657,7 @@ async function joinTextChannel(channelId) {
   const messages = await res.json();
   const container = document.getElementById('messages');
   container.innerHTML = '';
+  delete container.dataset.lastDateKey;
   messages.forEach(renderMessage);
   container.scrollTop = container.scrollHeight;
   markChannelRead(channelId);
@@ -5668,6 +5680,7 @@ async function loadVoiceChatHistory(channelId) {
   const messages = await res.json();
   const container = document.getElementById('voice-chat-messages');
   container.innerHTML = '';
+  delete container.dataset.lastDateKey;
   messages.forEach(renderMessage);
   container.scrollTop = container.scrollHeight;
 }
@@ -5737,7 +5750,7 @@ function renderMessageContentHtml(msg) {
       `;
     }
   }
-  const textHtml = msg.content ? `<div class="content">${linkifyHtml(escapeHtml(msg.content))}</div>` : '';
+  const textHtml = msg.content ? `<div class="content">${linkifyHtml(highlightMentionsHtml(escapeHtml(msg.content)))}</div>` : '';
   return textHtml + renderAttachmentHtml(msg.attachment);
 }
 
@@ -5769,6 +5782,43 @@ function renderAttachmentHtml(attachment) {
       </div>
     </a>
   `;
+}
+
+// Divisor "Hoje" / "Ontem" / data — igual Discord, aparece sozinho quando a
+// mensagem seguinte é de um dia diferente da anterior nesse mesmo painel.
+// O container guarda a última data vista num data-attribute (resetado toda
+// vez que a conversa troca, em joinTextChannel/loadVoiceChatHistory).
+function formatDateDividerLabel(date) {
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return 'Hoje';
+  if (date.toDateString() === yesterday.toDateString()) return 'Ontem';
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  });
+}
+function insertDateDividerIfNeeded(container, msg) {
+  const msgDate = new Date(msg.created_at);
+  const dateKey = msgDate.toDateString();
+  if (container.dataset.lastDateKey === dateKey) return;
+  container.dataset.lastDateKey = dateKey;
+  const divider = document.createElement('div');
+  divider.className = 'message-date-divider';
+  divider.innerHTML = `<span>${formatDateDividerLabel(msgDate)}</span>`;
+  container.appendChild(divider);
+}
+
+// Destaca @menções no texto da mensagem (pill arroxeada, igual Discord).
+// Roda em cima do texto já escapado, então é seguro contra HTML injetado —
+// só marca sequências "@algumacoisa" como span, sem interpretar tags.
+function highlightMentionsHtml(escapedText) {
+  return escapedText.replace(/(^|[^\w@])@([a-zA-Z0-9_.-]{2,32})\b/g, (full, pre, name) => {
+    const isMe = me && name.toLowerCase() === me.username.toLowerCase();
+    return `${pre}<span class="mention${isMe ? ' mention-me' : ''}">@${escapeHtml(name)}</span>`;
+  });
 }
 
 function renderMessage(msg) {
@@ -5895,6 +5945,7 @@ function renderMessage(msg) {
     };
   }
 
+  insertDateDividerIfNeeded(container, msg);
   container.appendChild(el);
   if (msg.reactions && msg.reactions.length > 0) renderReactions(msg.id, msg.reactions);
   container.scrollTop = container.scrollHeight;
