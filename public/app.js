@@ -696,20 +696,21 @@ async function loadMembers() {
 }
 
 // PRIVACIDADE: o painel de membros (coluna da direita) mostrava TODO MUNDO
-// que já tem conta na plataforma, mesmo quem nunca entrou nesse servidor —
-// virava uma lista pública de "todo mundo que existe" pra qualquer pessoa
-// logada, sem ninguém ter escolhido aparecer ali. Agora só mostra quem é
-// membro DE VERDADE do servidor atual (igual Discord). A exceção é o admin
-// master, que continua vendo a lista completa da plataforma (útil pra
-// moderação), igual já era antes.
+// que já tem conta na plataforma pra quem fosse admin, mesmo fora de
+// qualquer servidor — virava uma lista de "todo mundo que existe" só por
+// abrir a Início. Agora tem duas regras, iguais pra admin e pra qualquer
+// pessoa: dentro de um servidor, mostra quem é membro DE VERDADE daquele
+// servidor (igual Discord); fora de um servidor (ex: painel aberto pela
+// Início/Comunidade), mostra só os AMIGOS de quem está olhando — não é mais
+// uma lista pública de todo mundo. Pra ver todos os usuários da plataforma
+// (moderação), o admin tem o painel /admin.html → aba Usuários, que já
+// existe pra isso.
 async function renderMembers() {
   const container = document.getElementById('members-list');
   if (!container) return;
 
   let users;
-  if (me && me.is_admin) {
-    users = allUsers;
-  } else if (activeServerCategory) {
+  if (activeServerCategory) {
     try {
       const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/members`, { credentials: 'include' });
       users = res.ok ? await res.json() : [];
@@ -717,7 +718,13 @@ async function renderMembers() {
       users = [];
     }
   } else {
-    users = [];
+    try {
+      const res = await fetch('/api/friends', { credentials: 'include' });
+      const data = res.ok ? await res.json() : { friends: [] };
+      users = (data.friends || []).map((f) => f.user).filter(Boolean);
+    } catch (_) {
+      users = [];
+    }
   }
 
   container.innerHTML = '';
@@ -757,6 +764,14 @@ async function renderMembers() {
 
   buildGroup('Online', online, false);
   buildGroup('Offline', offline, true);
+
+  if (users.length === 0 && !activeServerCategory) {
+    const hint = document.createElement('p');
+    hint.className = 'empty-hint';
+    hint.style.padding = '10px';
+    hint.textContent = 'Você ainda não tem amigos adicionados — use a busca ou a aba Amigos pra adicionar alguém.';
+    container.appendChild(hint);
+  }
 }
 
 document.getElementById('btn-toggle-members').onclick = () => {
@@ -2607,6 +2622,7 @@ async function loadDmConversations() {
       </div>
       <span class="friend-name" style="flex:1; min-width:0;">
         <strong style="${c.unread_count > 0 ? 'color:#fff;' : ''}">${escapeHtml(c.other_user.username)}</strong><span class="user-tag-inline">${escapeHtml(userTag(c.other_user))}</span>
+        ${c.is_pending_for_me ? '<span class="dm-pending-tag">Pedido de mensagem</span>' : ''}
         <span class="friend-status" style="display:block; ${c.unread_count > 0 ? 'color:#dbdee1; font-weight:600;' : ''}">${preview}</span>
         <span class="hint" style="font-size:11px;">${when}</span>
       </span>
@@ -2764,6 +2780,7 @@ async function openDmText(userId, username) {
   if (!inChatMode) enterChatMode();
   document.getElementById('friends-panel').classList.add('hidden');
   selectChannel({ id: data.channel_id, type: 'texto', name: '💬 ' + username });
+  updateDmRequestBanner({ ...data, channel_id: data.channel_id });
 }
 
 async function openDmCall(userId, username) {
@@ -3257,6 +3274,22 @@ async function openProfilePreview(user) {
       () => showCopyToast('Não foi possível copiar — copia manual: ' + tag)
     );
   };
+
+  // Botão de mensagem em destaque no topo do perfil — some na sua própria
+  // página, some pro bot de IA (que já tem um jeito próprio de conversar).
+  // Amigo ou gente do mesmo servidor abre a conversa na hora; sem isso, vira
+  // um pedido de mensagem que a pessoa precisa aceitar (a resposta de
+  // openDmText já sabe qual dos dois casos é e mostra o aviso certo).
+  const msgBtn = document.getElementById('profile-preview-message-btn');
+  if (user.id === me.id || user.id === AI_BOT_USER_ID) {
+    msgBtn.classList.add('hidden');
+  } else {
+    msgBtn.classList.remove('hidden');
+    msgBtn.onclick = () => {
+      modalProfilePreview.classList.add('hidden');
+      openDmText(user.id, user.username);
+    };
+  }
 
   const actionsEl = document.getElementById('profile-preview-actions');
   actionsEl.innerHTML = '';
@@ -4177,9 +4210,58 @@ document.getElementById('search-messages-input').oninput = (e) => {
 // `options.autoConnect` pula a telinha de "Entrar na chamada" e conecta na
 // hora — usado só quando a intenção já é 100% clara (ligar pra um amigo,
 // atender uma chamada recebida), igual o botão de ligação do Discord.
+// Esconde a faixa de "pedido de mensagem" e devolve o campo de digitar ao
+// normal — chamado sempre que troca de canal, pra nunca deixar o aviso de
+// uma DM antiga "grudado" na tela ao entrar num canal de servidor (ou noutra
+// DM). openDmText() chama updateDmRequestBanner() logo em seguida, se for o
+// caso, pra mostrar o estado certo daquela conversa específica.
+function resetDmRequestBanner() {
+  document.getElementById('dm-request-banner').classList.add('hidden');
+  const input = document.getElementById('message-input');
+  input.disabled = false;
+  input.placeholder = 'Escreva uma mensagem...';
+}
+
+// Mostra (ou não) a faixa de pedido de mensagem no topo do formulário,
+// dependendo do status devolvido por /api/dm/:userId — ver comentário da
+// rota no server.js pra entender os três estados (active/pending/declined).
+function updateDmRequestBanner(data) {
+  resetDmRequestBanner();
+  if (data.status !== 'pending') return;
+
+  const banner = document.getElementById('dm-request-banner');
+  const textEl = document.getElementById('dm-request-banner-text');
+  const actionsEl = document.getElementById('dm-request-banner-actions');
+  const input = document.getElementById('message-input');
+  const iAmRequester = data.requested_by === me.id;
+
+  banner.classList.remove('hidden');
+  if (iAmRequester) {
+    textEl.textContent = `Pedido de mensagem enviado — ${data.other_user.username} precisa aceitar pra conversa virar normal.`;
+    actionsEl.classList.add('hidden');
+  } else {
+    textEl.textContent = `${data.other_user.username} não é seu amigo nem está num servidor com você — isso é um pedido de mensagem.`;
+    actionsEl.classList.remove('hidden');
+    input.disabled = true;
+    input.placeholder = 'Aceite o pedido pra poder responder...';
+
+    document.getElementById('btn-dm-request-accept').onclick = async () => {
+      await fetch(`/api/dm/${encodeURIComponent(data.channel_id)}/accept`, { method: 'POST', credentials: 'include' });
+      openDmText(data.other_user.id, data.other_user.username);
+    };
+    document.getElementById('btn-dm-request-decline').onclick = async () => {
+      if (!confirm(`Recusar o pedido de mensagem de ${data.other_user.username}?`)) return;
+      await fetch(`/api/dm/${encodeURIComponent(data.channel_id)}/decline`, { method: 'POST', credentials: 'include' });
+      goHome();
+      loadDmConversations();
+    };
+  }
+}
+
 function selectChannel(channel, options = {}) {
   const autoConnect = !!options.autoConnect;
   const isDm = channel.type !== 'voz' && channel.id.startsWith('dm::');
+  resetDmRequestBanner();
 
   // sai do canal de TEXTO anterior (sala de voz não é "deixada" só por trocar de tela)
   if (currentChannel && currentChannel.type === 'texto') {
@@ -7671,13 +7753,14 @@ if (barVolumeIconBtn) {
   };
 }
 updateVolumeIcon();
+// Mesmo bug do botão "Sair da sala" (ver comentário lá) — corrigido do mesmo
+// jeito. Só volta pra Início se a pessoa estava mesmo olhando a tela da sala
+// de voz na hora de desconectar (se estava vendo outro canal enquanto a
+// call rodava em segundo plano, continua exatamente onde estava).
 document.getElementById('bar-btn-disconnect').onclick = () => {
   disconnectVoice();
   if (currentChannel && currentChannel.type === 'voz') {
-    document.getElementById('voice-panel').classList.add('hidden');
-    currentChannel = null;
-    document.getElementById('current-channel-name').textContent = 'Selecione um canal';
-    renderCategories(allChannels);
+    goHome();
   }
 };
 
@@ -7921,12 +8004,15 @@ function updateCameraModerationBadge() {
   el.classList.toggle('hidden', !cameraStream);
 }
 
+// BUG CORRIGIDO: ao sair da chamada, isso zerava a tela pra um estado sem
+// nenhum painel visível (nem Início, nem texto, nem voz) e o cabeçalho
+// ficava travado em "Selecione um canal" — parecia o app ter travado. Agora
+// usa goHome() (a mesma função do botão "Início"), que devolve a pessoa pra
+// tela inicial de verdade, com tudo consistente (painel de membros fechado,
+// ícones do cabeçalho certos, etc).
 document.getElementById('btn-leave-voice').onclick = () => {
   disconnectVoice();
-  document.getElementById('voice-panel').classList.add('hidden');
-  currentChannel = null;
-  document.getElementById('current-channel-name').textContent = 'Selecione um canal';
-  renderCategories(allChannels);
+  goHome();
 };
 
 // ---------- CONFIGURAÇÕES DE VOZ (dispositivos + teste de microfone) ----------

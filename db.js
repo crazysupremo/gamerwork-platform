@@ -713,6 +713,15 @@ async function initDb() {
   // a conversa reaparece sozinha pra essa pessoa.
   await ensureColumn('dm_channels', 'hidden_for_a TEXT');
   await ensureColumn('dm_channels', 'hidden_for_b TEXT');
+  // PEDIDO DE MENSAGEM: antes, mandar DM pra alguém que não é seu amigo e
+  // não está em nenhum servidor com você era bloqueado com erro — agora vira
+  // um "pedido de mensagem" (igual Instagram/Messenger): o canal já existe e
+  // quem mandou pode escrever, mas fica como status='pending' até a outra
+  // pessoa aceitar (POST /api/dm/:channelId/accept) ou recusar
+  // (POST /api/dm/:channelId/decline). Amigos e gente do mesmo servidor
+  // continuam abrindo a conversa direto, status='active', sem pedido nenhum.
+  await ensureColumn('dm_channels', "status TEXT NOT NULL DEFAULT 'active'");
+  await ensureColumn('dm_channels', 'requested_by TEXT');
 
   // ---------- IDENTIFICAÇÃO POR HASHTAG (@Username#1234, estilo Discord) ----------
   // discriminator = os 4 dígitos; username_tag = "username#1234" já pronto

@@ -549,6 +549,17 @@
     <section id="text-panel" class="text-panel hidden">
       <div id="messages" class="messages"></div>
       <div id="typing-indicator" class="typing-indicator"></div>
+      <!-- Pedido de mensagem (DM com quem não é amigo nem do mesmo servidor):
+           quem recebeu vê Aceitar/Recusar aqui em vez do campo de digitar;
+           quem pediu vê só um aviso de "aguardando", mas continua podendo
+           escrever normalmente. -->
+      <div id="dm-request-banner" class="dm-request-banner hidden">
+        <span id="dm-request-banner-text"></span>
+        <div id="dm-request-banner-actions" class="dm-request-banner-actions hidden">
+          <button type="button" id="btn-dm-request-accept" class="dm-request-accept">Aceitar</button>
+          <button type="button" id="btn-dm-request-decline" class="dm-request-decline">Recusar</button>
+        </div>
+      </div>
       <div id="reply-banner" class="reply-banner hidden">
         <span class="reply-banner-text"></span>
         <button type="button" id="btn-cancel-reply"><span class="ng-icon-wrap" data-icon="x"></span></button>
@@ -1585,6 +1596,9 @@
       </button>
     </p>
     <p id="profile-preview-status" class="profile-preview-status"></p>
+    <button type="button" id="profile-preview-message-btn" class="profile-preview-message-btn hidden">
+      <span class="ng-icon-wrap" data-icon="message-circle"></span> <span id="profile-preview-message-btn-label">Mandar mensagem</span>
+    </button>
     <div id="profile-preview-actions" class="profile-preview-actions"></div>
 
     <div class="profile-stats-row" id="profile-stats-row"></div>

@@ -3321,15 +3321,18 @@ app.get(
     );
     if (blockedEitherWay) return res.status(403).json({ error: 'Não é possível conversar com esse usuário' });
 
+    // Amigos ou gente do MESMO servidor abre a conversa direto, como sempre.
+    // Sem nenhum dos dois, antes isso era bloqueado com erro — agora vira um
+    // PEDIDO DE MENSAGEM (igual Instagram/Messenger): o canal é criado do
+    // mesmo jeito e quem mandou já pode escrever, mas fica pendente até a
+    // outra pessoa aceitar ou recusar (ver /accept e /decline abaixo).
+    let requiresRequest = false;
     if (targetId !== AI_BOT_USER_ID) {
       const [a, b] = [req.user.id, targetId].sort();
       const friendship = await db.get(
         "SELECT id FROM friendships WHERE user_a = ? AND user_b = ? AND status = 'accepted'",
         [a, b]
       );
-      // Amigos sempre podem. Sem amizade, ainda dá pra conversar se as duas
-      // pessoas estiverem no MESMO servidor — pedia amizade antes até pra
-      // quem já tava jogando junto no mesmo lugar, travava demais.
       const sharedServer = friendship
         ? null
         : await db.get(
@@ -3338,9 +3341,7 @@ app.get(
              WHERE sm1.user_id = ? AND sm2.user_id = ? LIMIT 1`,
             [req.user.id, targetId]
           );
-      if (!friendship && !sharedServer) {
-        return res.status(403).json({ error: 'Vocês precisam ser amigos ou estar no mesmo servidor pra conversar diretamente' });
-      }
+      requiresRequest = !friendship && !sharedServer;
     }
 
     const target = await db.get(
@@ -3351,9 +3352,62 @@ app.get(
 
     const id = dmChannelId(req.user.id, targetId);
     const [userA, userB] = [req.user.id, targetId].sort();
-    await db.run('INSERT OR IGNORE INTO dm_channels (id, user_a, user_b) VALUES (?, ?, ?)', [id, userA, userB]);
+    // Só marca como pedido pendente se o canal está sendo CRIADO agora — se
+    // já existia (conversa antiga, ou já tinha sido aceita antes), o INSERT
+    // OR IGNORE não faz nada e o status atual do canal continua o que era.
+    await db.run(
+      'INSERT OR IGNORE INTO dm_channels (id, user_a, user_b, status, requested_by) VALUES (?, ?, ?, ?, ?)',
+      [id, userA, userB, requiresRequest ? 'pending' : 'active', requiresRequest ? req.user.id : null]
+    );
 
-    res.json({ channel_id: id, other_user: target });
+    const channelRow = await db.get('SELECT status, requested_by FROM dm_channels WHERE id = ?', [id]);
+    res.json({
+      channel_id: id,
+      other_user: target,
+      status: channelRow ? channelRow.status : 'active',
+      requested_by: channelRow ? channelRow.requested_by : null,
+    });
+  })
+);
+
+// Aceita um pedido de mensagem — só quem RECEBEU o pedido pode aceitar (não
+// quem mandou). Depois disso a conversa vira normal, sem nenhuma restrição.
+app.post(
+  '/api/dm/:channelId/accept',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const row = await db.get('SELECT * FROM dm_channels WHERE id = ?', [req.params.channelId]);
+    if (!row || (row.user_a !== req.user.id && row.user_b !== req.user.id)) {
+      return res.status(404).json({ error: 'Conversa não encontrada' });
+    }
+    if (row.status !== 'pending') return res.json({ ok: true, status: row.status });
+    if (row.requested_by === req.user.id) {
+      return res.status(403).json({ error: 'Quem pediu não pode aceitar o próprio pedido' });
+    }
+    await db.run("UPDATE dm_channels SET status = 'active' WHERE id = ?", [req.params.channelId]);
+    res.json({ ok: true, status: 'active' });
+  })
+);
+
+// Recusa um pedido de mensagem — some da lista de conversas de quem recusou
+// (o canal continua existindo pra não perder o histórico, mas oculto pra
+// essa pessoa, igual "ocultar conversa" já funciona pra DM normal).
+app.post(
+  '/api/dm/:channelId/decline',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const row = await db.get('SELECT * FROM dm_channels WHERE id = ?', [req.params.channelId]);
+    if (!row || (row.user_a !== req.user.id && row.user_b !== req.user.id)) {
+      return res.status(404).json({ error: 'Conversa não encontrada' });
+    }
+    if (row.requested_by === req.user.id) {
+      return res.status(403).json({ error: 'Quem pediu não pode recusar o próprio pedido' });
+    }
+    const column = row.user_a === req.user.id ? 'hidden_for_a' : 'hidden_for_b';
+    await db.run(`UPDATE dm_channels SET status = 'declined', ${column} = datetime('now') WHERE id = ?`, [
+      req.params.channelId,
+    ]);
+    res.json({ ok: true, status: 'declined' });
   })
 );
 
@@ -3401,6 +3455,10 @@ app.get(
         other_user: other,
         last_message: lastMsg || null,
         unread_count: Number(unreadRow.c),
+        status: row.status || 'active',
+        // pra o front saber se É a pessoa que precisa aceitar/recusar (quem
+        // pediu vê como "aguardando", quem recebeu vê os botões de ação).
+        is_pending_for_me: row.status === 'pending' && row.requested_by !== req.user.id,
       });
     }
     results.sort((x, y) => {
@@ -6739,6 +6797,22 @@ io.on('connection', (socket) => {
             }
             slowModeLastMessage.set(key, Date.now());
           }
+        }
+      } else {
+        // DM: se ainda é um PEDIDO DE MENSAGEM pendente (ver /api/dm/:userId
+        // e /accept), só quem mandou o pedido pode continuar escrevendo —
+        // quem recebeu precisa aceitar antes de poder responder.
+        const dmRow = await db.get('SELECT status, requested_by FROM dm_channels WHERE id = ?', [channelId]);
+        if (dmRow && dmRow.status === 'pending' && dmRow.requested_by && dmRow.requested_by !== user.id) {
+          socket.emit('chat:blocked', {
+            reason: 'Isso é um pedido de mensagem — aceite o pedido antes de responder.',
+            categories: [],
+          });
+          return;
+        }
+        if (dmRow && dmRow.status === 'declined') {
+          socket.emit('chat:blocked', { reason: 'Essa conversa foi recusada.', categories: [] });
+          return;
         }
       }
 
