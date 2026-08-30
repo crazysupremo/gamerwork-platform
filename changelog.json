@@ -1,0 +1,19 @@
+[
+  {
+    "version": "0.3.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Cadastro não pede mais confirmação por e-mail (temporário)",
+      "Corrigido bug que empurrava a barra de digitar pra fora da tela",
+      "Atividade Recente agora tem rolagem própria, sem deixar a página gigante",
+      "Novo aviso automático quando sai uma atualização do site"
+    ]
+  },
+  {
+    "version": "0.2.0",
+    "date": "2026-08-01",
+    "changes": [
+      "Versão anterior do NEXT GAME"
+    ]
+  }
+]

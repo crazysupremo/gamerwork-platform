@@ -24,6 +24,8 @@ let presenceStatusMap = {}; // userId -> 'online' | 'ausente' | 'ocupado' (quem 
 let typingUsers = {}; // channelId -> { userId: username }
 let typingTimeout = null;
 let homeRefreshInterval = null; // atualiza ranking/atividade/jogando-agora sozinho enquanto a Início está aberta
+let ngAppVersion = null; // versão do site conhecida nesta aba (ver checkForUpdates)
+let ngVersionCheckInterval = null;
 
 const AVATAR_EMOJIS = ['🎮', '🕹️', '👾', '🔥', '⚡', '🐉', '🦊', '🐱', '💀', '👑', '🎯', '🚀'];
 const SERVER_ICONS = ['🎮', '🕹️', '👾', '🔫', '⚔️', '🏆', '⚽', '🏎️', '🧙', '🐉', '💼', '💬', '🎧', '🚀'];
@@ -638,6 +640,14 @@ function startApp() {
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
 
+  // Guarda a versão atual como referência e passa a checar de novo a cada
+  // 5 minutos — o socket reconectando (registerSocketHandlers) também
+  // dispara uma checagem extra, que é o jeito mais rápido de perceber um
+  // deploy novo (o servidor reinicia e todo mundo reconecta).
+  checkForUpdates();
+  if (ngVersionCheckInterval) clearInterval(ngVersionCheckInterval);
+  ngVersionCheckInterval = setInterval(checkForUpdates, 5 * 60 * 1000);
+
   // Processa o convite (se tiver) ANTES de olhar o "?channel=" — senão dava
   // corrida: às vezes o canal ainda não tinha carregado na lista porque a
   // gente ainda não tinha nem entrado no servidor, e a pessoa caía direto
@@ -1092,6 +1102,67 @@ function renderCategories(channels) {
 }
 
 // Pequeno toast simples de confirmação (reaproveitado pros ícones de hover).
+// ---------- AVISO DE NOVA VERSÃO DO SITE ----------
+// Compara a versão que o servidor diz estar rodando agora com a última que
+// essa aba viu. Diferente = saiu um deploy novo enquanto a pessoa tava com
+// o site aberto, então mostra um aviso com o que mudou (vem do
+// changelog.json, servido por /api/version). Roda: pouco depois do login,
+// de tempos em tempos (setInterval) e sempre que o socket reconecta — que é
+// justamente quando é mais provável que o servidor tenha sido reiniciado
+// por um deploy.
+async function checkForUpdates() {
+  try {
+    const res = await fetch('/api/version', { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!ngAppVersion) {
+      // Primeira checagem desta aba: só guarda a versão atual como
+      // referência, sem avisar nada (senão todo mundo que abre o site pela
+      // primeira vez recebia um "atualizou!" falso).
+      ngAppVersion = data.version;
+      return;
+    }
+    if (data.version !== ngAppVersion) {
+      ngAppVersion = data.version;
+      showUpdateBanner(data);
+    }
+  } catch (err) {
+    // Checagem de versão não pode nunca quebrar o resto do app.
+  }
+}
+
+function showUpdateBanner({ version, changes }) {
+  if (document.getElementById('update-banner')) return; // já tem um na tela
+  const banner = document.createElement('div');
+  banner.id = 'update-banner';
+  banner.className = 'update-banner';
+  const changesHtml =
+    Array.isArray(changes) && changes.length
+      ? `<ul class="update-banner-changes">${changes
+          .slice(0, 6)
+          .map((c) => `<li>${escapeHtml(c)}</li>`)
+          .join('')}</ul>`
+      : '';
+  banner.innerHTML = `
+    <div class="update-banner-icon">${icon('sparkles')}</div>
+    <div class="update-banner-body">
+      <strong>Nova versão do NEXT GAME disponível${version ? ` — v${escapeHtml(version)}` : ''}</strong>
+      ${changesHtml}
+    </div>
+    <div class="update-banner-actions">
+      <button type="button" class="update-banner-reload">Atualizar agora</button>
+      <button type="button" class="update-banner-dismiss" aria-label="Fechar">${icon('x')}</button>
+    </div>
+  `;
+  document.body.appendChild(banner);
+  requestAnimationFrame(() => banner.classList.add('update-banner-show'));
+  banner.querySelector('.update-banner-reload').onclick = () => window.location.reload();
+  banner.querySelector('.update-banner-dismiss').onclick = () => {
+    banner.classList.remove('update-banner-show');
+    setTimeout(() => banner.remove(), 200);
+  };
+}
+
 function showCopyToast(text) {
   const toast = document.createElement('div');
   toast.className = 'copy-toast';
@@ -6090,6 +6161,11 @@ function linkifyHtml(escapedText) {
 // ---------- SOCKET HANDLERS ----------
 
 function registerSocketHandlers() {
+  // Reconectar (queda de internet, ou o servidor reiniciando por causa de
+  // um deploy novo) é o gatilho mais rápido pra perceber uma atualização —
+  // não precisa esperar o próximo tick do setInterval de 5 minutos.
+  socket.on('connect', () => checkForUpdates());
+
   socket.on('chat:message', (msg) => {
     if (currentChannel && msg.channel_id === currentChannel.id) {
       renderMessage(msg);

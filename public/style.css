@@ -773,7 +773,10 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .playing-now-info span { color: var(--accent-3); }
 .home-streak-card .home-section-title { margin-bottom: 2px; }
 
-.home-activity { display: flex; flex-direction: column; gap: 2px; }
+.home-activity {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 320px; overflow-y: auto; padding-right: 2px;
+}
 .activity-row {
   display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; background: #1a1b20;
   margin-bottom: 4px;
@@ -1427,6 +1430,42 @@ video:fullscreen { background: #000; object-fit: contain; }
   z-index: 10000; transition: bottom 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .copy-toast.copy-toast-show { bottom: 24px; }
+
+/* Aviso de nova versão do site — canto inferior direito, fica até a pessoa
+   atualizar ou fechar (diferente do copy-toast, que some sozinho). */
+.update-banner {
+  position: fixed; right: 20px; bottom: -400px; z-index: 10001;
+  width: 320px; max-width: calc(100vw - 40px);
+  background: #1e1f22; border: 1px solid #3a3c42; border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  padding: 16px; display: flex; gap: 12px; align-items: flex-start;
+  transition: bottom 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.update-banner.update-banner-show { bottom: 24px; }
+.update-banner-icon {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--gradient-brand); display: flex; align-items: center; justify-content: center;
+}
+.update-banner-icon .ng-icon { width: 18px; height: 18px; color: white; }
+.update-banner-body { flex: 1; min-width: 0; font-size: 13px; color: #dbdee1; }
+.update-banner-body strong { display: block; margin-bottom: 6px; color: #f2f3f5; font-size: 13.5px; }
+.update-banner-changes { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 3px; }
+.update-banner-changes li { color: #9aa0ab; font-size: 12px; line-height: 1.4; }
+.update-banner-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+.update-banner-reload {
+  background: var(--gradient-brand); color: white; border: none; border-radius: 8px;
+  padding: 7px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.update-banner-reload:hover { filter: brightness(1.1); }
+.update-banner-dismiss {
+  background: none; border: none; color: #6d7178; cursor: pointer; padding: 2px;
+  display: flex; align-items: center; justify-content: center;
+}
+.update-banner-dismiss:hover { color: #dbdee1; }
+.update-banner-dismiss .ng-icon { width: 16px; height: 16px; }
+@media (max-width: 520px) {
+  .update-banner { left: 16px; right: 16px; width: auto; }
+}
 .reward-toast-rare { border-color: #ffd76b; background: linear-gradient(135deg, rgba(255,215,107,0.15), #1e1f22); }
 .reward-toast-icon { font-size: 24px; }
 .reward-toast-text { display: flex; flex-direction: column; font-size: 12px; color: #dbdee1; }

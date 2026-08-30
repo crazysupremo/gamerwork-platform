@@ -10,6 +10,11 @@ const { v4: uuidv4 } = require('uuid');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 
+// Versão do app + changelog — usados pelo /api/version pra avisar quem tá
+// com o site aberto que saiu uma atualização (ver rota mais abaixo).
+const APP_VERSION = require('./package.json').version;
+const CHANGELOG = require('./changelog.json');
+
 const db = require('./db');
 const { AI_BOT_USER_ID, AI_BOT_USERNAME } = require('./db');
 const { scanText } = require('./moderation');
@@ -5495,6 +5500,19 @@ app.get(
     res.json(rows);
   })
 );
+
+// Versão atual do app + o que mudou nela — o frontend consulta essa rota de
+// tempos em tempos (e quando o socket reconecta) pra saber se o site foi
+// atualizado enquanto a pessoa estava com a aba aberta, e mostrar o aviso.
+// Sem requireAuth de propósito: precisa funcionar até na tela de login.
+app.get('/api/version', (req, res) => {
+  const latest = CHANGELOG[0] || null;
+  res.json({
+    version: APP_VERSION,
+    date: latest ? latest.date : null,
+    changes: latest ? latest.changes : [],
+  });
+});
 
 // Estatísticas gerais da plataforma pra tela de início.
 app.get(
