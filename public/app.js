@@ -1204,16 +1204,16 @@ function showUpdateBanner({ version, changes }) {
       ? `<ul class="update-banner-changes">${changes.map((c) => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`
       : '';
   banner.innerHTML = `
-    <div class="update-banner-icon">${icon('sparkles')}</div>
-    <div class="update-banner-body">
-      <strong>Nova versão do NEXT GAME disponível${version ? ` — v${escapeHtml(version)}` : ''}</strong>
-      <span class="update-banner-hint">Fica pra quando você quiser — nada muda até você clicar em atualizar.</span>
-      ${changesHtml}
+    <button type="button" class="update-banner-dismiss" aria-label="Fechar">${icon('x')}</button>
+    <div class="update-banner-header">
+      <div class="update-banner-icon">${icon('sparkles')}</div>
+      <div class="update-banner-body">
+        <strong>Nova versão do NEXT GAME disponível${version ? ` — v${escapeHtml(version)}` : ''}</strong>
+        <span class="update-banner-hint">Fica pra quando você quiser — nada muda até você clicar em atualizar.</span>
+      </div>
     </div>
-    <div class="update-banner-actions">
-      <button type="button" class="update-banner-reload">Atualizar agora</button>
-      <button type="button" class="update-banner-dismiss" aria-label="Fechar">${icon('x')}</button>
-    </div>
+    ${changesHtml}
+    <button type="button" class="update-banner-reload">Atualizar agora</button>
   `;
   document.body.appendChild(banner);
   requestAnimationFrame(() => banner.classList.add('update-banner-show'));

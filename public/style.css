@@ -1537,20 +1537,25 @@ video:fullscreen { background: #000; object-fit: contain; }
 .copy-toast.copy-toast-show { bottom: 24px; }
 
 /* Aviso de nova versão do site — canto inferior direito, fica até a pessoa
-   atualizar ou fechar (diferente do copy-toast, que some sozinho). */
+   atualizar ou fechar (diferente do copy-toast, que some sozinho).
+   Layout em COLUNA (não mais ícone+texto+botões espremidos lado a lado —
+   isso deixava a área de texto estreita demais e forçava rolagem pro lado
+   dentro da lista). Mais largo também, pra sobrar espaço de verdade. */
 .update-banner {
   /* position:fixed é relativo à janela (não à página) — some ao rolar a
      página inteira, fica sempre visível/"grudada" no canto enquanto a
      pessoa lê o resto do site por baixo. */
   position: fixed; right: 20px; bottom: -400px; z-index: 10001;
-  width: 320px; max-width: calc(100vw - 40px);
-  max-height: calc(100vh - 48px); overflow-y: auto;
+  width: 400px; max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 48px);
   background: #1e1f22; border: 1px solid #3a3c42; border-radius: 14px;
   box-shadow: 0 16px 40px rgba(0,0,0,0.5);
-  padding: 16px; display: flex; gap: 12px; align-items: flex-start;
+  padding: 18px; display: flex; flex-direction: column; gap: 12px;
+  overflow-x: hidden; overflow-y: auto; box-sizing: border-box;
   transition: bottom 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .update-banner.update-banner-show { bottom: 24px; }
+.update-banner-header { display: flex; gap: 12px; align-items: flex-start; padding-right: 22px; }
 .update-banner-icon {
   flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
   background: var(--gradient-brand); display: flex; align-items: center; justify-content: center;
@@ -1558,22 +1563,25 @@ video:fullscreen { background: #000; object-fit: contain; }
 .update-banner-icon .ng-icon { width: 18px; height: 18px; color: white; }
 .update-banner-body { flex: 1; min-width: 0; font-size: 13px; color: #dbdee1; }
 .update-banner-body strong { display: block; margin-bottom: 2px; color: #f2f3f5; font-size: 13.5px; }
-.update-banner-hint { display: block; color: #6d7178; font-size: 11.5px; margin-bottom: 6px; }
-/* Se a atualização mudou muita coisa, a lista ganha rolagem própria em vez
-   de esticar o aviso pra fora da tela — o resto (título, botões) fica fixo. */
+.update-banner-hint { display: block; color: #6d7178; font-size: 11.5px; }
+/* Se a atualização mudou muita coisa, a lista ganha rolagem própria (só
+   vertical) em vez de esticar o aviso pra fora da tela. width:100% +
+   box-sizing garante que ela nunca passa da largura do card, então não tem
+   rolagem pro lado — só pra cima/baixo quando precisa. */
 .update-banner-changes {
-  margin: 0; padding-left: 16px; padding-right: 4px; display: flex; flex-direction: column; gap: 3px;
-  max-height: 160px; overflow-y: auto;
+  margin: 0; padding-left: 18px; padding-right: 4px; display: flex; flex-direction: column; gap: 5px;
+  max-height: 180px; overflow-y: auto; overflow-x: hidden;
+  width: 100%; box-sizing: border-box;
 }
-.update-banner-changes li { color: #9aa0ab; font-size: 12px; line-height: 1.4; }
-.update-banner-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+.update-banner-changes li { color: #9aa0ab; font-size: 12.5px; line-height: 1.45; overflow-wrap: break-word; }
 .update-banner-reload {
-  background: var(--gradient-brand); color: white; border: none; border-radius: 8px;
-  padding: 7px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  width: 100%; background: var(--gradient-brand); color: white; border: none; border-radius: 8px;
+  padding: 10px 12px; font-size: 13px; font-weight: 700; cursor: pointer;
 }
 .update-banner-reload:hover { filter: brightness(1.1); }
 .update-banner-dismiss {
-  background: none; border: none; color: #6d7178; cursor: pointer; padding: 2px;
+  position: absolute; top: 14px; right: 14px;
+  background: none; border: none; color: #6d7178; cursor: pointer; padding: 4px;
   display: flex; align-items: center; justify-content: center;
 }
 .update-banner-dismiss:hover { color: #dbdee1; }
