@@ -83,6 +83,9 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use('/api/', apiLimiter);
+// Limite extra e mais apertado só pro painel admin (definido logo abaixo,
+// junto de requireAdmin) — os dois limites se somam pras rotas /api/admin/*.
+app.use('/api/admin/', (req, res, next) => adminApiLimiter(req, res, next));
 
 // ---------- MONITORAMENTO (painel de admin: dados, erros e lag) ----------
 // Tudo guardado em memória (não no banco) de propósito — é só pra
@@ -153,13 +156,39 @@ function asyncHandler(fn) {
 // sozinho (sem estado no servidor) não permitiria fazer.
 async function createUserSession(userId, req) {
   const id = uuidv4();
+  const userAgent = String(req.headers['user-agent'] || '').slice(0, 300);
+  const ip = req.ip || '';
   await db.run('INSERT INTO user_sessions (id, user_id, user_agent, ip) VALUES (?, ?, ?, ?)', [
     id,
     userId,
-    String(req.headers['user-agent'] || '').slice(0, 300),
-    req.ip || '',
+    userAgent,
+    ip,
   ]);
   return id;
+}
+
+// SEGURANÇA: pra contas de admin especificamente, checa se esse IP+navegador
+// já logou antes (existe outra sessão com a mesma combinação) — se não
+// existe nenhuma, é um dispositivo/local novo, e isso fica registrado e
+// destacado no Audit Log (ação "admin_login_new_device"), pra dar pra notar
+// rápido um login de admin vindo de algum lugar inesperado. Roda depois do
+// login já ter sido concedido — é só um sinal de auditoria, não bloqueia
+// nada (bloquear login por IP novo derrubaria gente viajando, trocando de
+// rede, etc, sem ganho real de segurança proporcional ao incômodo).
+async function flagIfNewAdminDevice(user, req, newSessionId) {
+  if (!user || !user.is_admin) return;
+  try {
+    const userAgent = String(req.headers['user-agent'] || '').slice(0, 300);
+    const ip = req.ip || '';
+    const priorSession = await db.get(
+      'SELECT id FROM user_sessions WHERE user_id = ? AND ip = ? AND user_agent = ? AND id != ? LIMIT 1',
+      [user.id, ip, userAgent, newSessionId]
+    );
+    if (priorSession) return; // já logou antes com essa combinação de IP+navegador
+    await logAudit(user, 'admin_login_new_device', 'user', user.id, { ip, user_agent: userAgent });
+  } catch (err) {
+    console.error('Erro ao checar dispositivo novo de admin:', err);
+  }
 }
 
 // "Continuar conectado": se a pessoa NÃO marcou a caixinha, o cookie de
@@ -217,8 +246,33 @@ async function requireAuth(req, res, next) {
 
 function requireAdmin(req, res, next) {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Somente admins' });
+  // SEGURANÇA: uma conta de admin protegida só por senha é o alvo nº1 de
+  // qualquer ataque contra o site (acesso a dados de todo mundo, poder de
+  // banir/expulsar, etc). Antes o 2FA era opcional pra qualquer conta,
+  // inclusive admin — agora é OBRIGATÓRIO pra usar o painel. A conta ainda
+  // consegue logar normal no site (senão ninguém conseguiria nem chegar em
+  // /2fa/setup pra ativar!), só fica bloqueada nas rotas /api/admin/* até
+  // ativar. O admin.html já trata esse retorno e mostra a orientação certa.
+  if (!req.user.totp_enabled) {
+    return res.status(403).json({
+      error: 'Sua conta de admin precisa ativar a verificação em duas etapas (2FA) antes de acessar o painel.',
+      requires2faSetup: true,
+    });
+  }
   next();
 }
+
+// Rate limit dedicado ao painel admin — mais apertado que o geral do /api/
+// (120/min), porque aqui é onde ficam ações sensíveis (banir, conceder
+// coins, ver dados de todo mundo). Reduz o estrago de uma sessão de admin
+// comprometida (cookie roubado, por exemplo) tentando varrer tudo rápido.
+const adminApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Muitas requisições ao painel admin em pouco tempo. Aguarde um minuto.' },
+});
 
 // Tokens temporários pra segunda etapa do login com 2FA — vivem só na
 // memória do processo (não precisam persistir, expiram sozinhos em minutos).
@@ -827,6 +881,7 @@ app.post(
     applySessionDuration(req, remember === true);
     req.session.userId = user.id;
     req.session.sessionId = await createUserSession(user.id, req);
+    flagIfNewAdminDevice(user, req, req.session.sessionId).catch(() => {});
     res.json({
       id: user.id,
       username: user.username,
@@ -913,6 +968,7 @@ app.post(
     applySessionDuration(req, pending.remember === true);
     req.session.userId = user.id;
     req.session.sessionId = await createUserSession(user.id, req);
+    flagIfNewAdminDevice(user, req, req.session.sessionId).catch(() => {});
     res.json({
       id: user.id,
       username: user.username,
@@ -984,6 +1040,11 @@ app.get(
       // da plataforma) sempre aparece como Plus — acesso total, sem precisar
       // assinar nada.
       plan: req.user.is_admin ? 'plus' : req.user.plan || 'free',
+      // Usado pelo painel /admin.html pra saber, antes de tentar carregar
+      // qualquer dado, se essa conta de admin já passou pela exigência de
+      // 2FA (ver requireAdmin) — evita uma tela cheia de erros 403 e mostra
+      // direto a orientação certa (ativar 2FA nas configurações da conta).
+      totp_enabled: !!req.user.totp_enabled,
     });
   })
 );

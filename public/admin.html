@@ -7,201 +7,290 @@
 <link rel="apple-touch-icon" href="/assets/favicon-180.png" />
 <link rel="stylesheet" href="/style.css" />
 <style>
-  .admin-wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
-  .admin-wrap h1 { color: #5865f2; }
-  .admin-wrap h2 { margin-top: 32px; border-bottom: 1px solid #3a3c42; padding-bottom: 6px; }
+  html, body { height: 100%; margin: 0; }
+  .admin-topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 20px; border-bottom: 1px solid #2b2d31; background: #1e1f22;
+  }
+  .admin-topbar h1 { color: #5865f2; font-size: 18px; margin: 0; }
+  .admin-topbar .back-link { color: #949ba4; text-decoration: none; font-size: 13px; }
+  .admin-layout { display: flex; min-height: calc(100% - 54px); }
+  .admin-sidebar {
+    width: 210px; flex-shrink: 0; background: #1e1f22; border-right: 1px solid #2b2d31;
+    padding: 14px 10px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .admin-nav-btn {
+    display: flex; align-items: center; gap: 8px; text-align: left; background: none; border: none;
+    color: #b5bac1; padding: 9px 10px; border-radius: 6px; cursor: pointer; font-size: 13.5px; font-weight: 600;
+  }
+  .admin-nav-btn:hover { background: #2b2d31; color: #e6e6e6; }
+  .admin-nav-btn.active { background: #5865f2; color: white; }
+  .admin-nav-btn .badge {
+    margin-left: auto; background: #f23f42; color: white; font-size: 10.5px; font-weight: 800;
+    border-radius: 10px; padding: 1px 6px; min-width: 16px; text-align: center;
+  }
+  .admin-nav-btn .badge.hidden { display: none; }
+  .admin-content { flex: 1; padding: 22px 26px; max-width: 980px; }
+  .admin-tab-panel h2 { margin-top: 0; border-bottom: 1px solid #3a3c42; padding-bottom: 6px; }
+  .admin-tab-panel h2:not(:first-child) { margin-top: 32px; }
+  .admin-tab-panel.hidden { display: none; }
   table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
   th, td { text-align: left; padding: 8px; border-bottom: 1px solid #2b2d31; }
   th { color: #949ba4; }
   button.action { background: #404249; border: none; color: #e6e6e6; padding: 4px 10px; border-radius: 4px; cursor: pointer; margin-right: 4px; }
   button.action:hover { background: #4a4d55; }
   button.danger { background: #f23f42; color: white; }
-  .back-link { color: #949ba4; text-decoration: none; }
   .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 14px; }
   .stat-card { background: #2b2d31; border-radius: 8px; padding: 12px; }
   .stat-card .num { font-size: 22px; font-weight: 800; color: #5865f2; }
   .stat-card .label { font-size: 11px; color: #949ba4; text-transform: uppercase; }
   .admin-form-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   .admin-form-row input { flex: 1; min-width: 100px; padding: 6px; border-radius: 4px; border: 1px solid #3a3c42; background: #1e1f22; color: #e6e6e6; }
+  .admin-2fa-card {
+    max-width: 520px; margin: 60px auto; background: #2b2d31; border: 1px solid #f23f42;
+    border-radius: 10px; padding: 22px 24px;
+  }
+  .admin-2fa-card h2 { color: #f23f42; margin-top: 0; font-size: 16px; }
+  .admin-2fa-card p { color: #dbdee1; font-size: 13.5px; line-height: 1.5; }
+  .admin-2fa-card a.button-link {
+    display: inline-block; margin-top: 10px; background: #5865f2; color: white; text-decoration: none;
+    padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 700;
+  }
+  @media (max-width: 760px) {
+    .admin-layout { flex-direction: column; }
+    .admin-sidebar { width: 100%; flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid #2b2d31; }
+    .admin-content { padding: 16px; }
+  }
 </style>
 </head>
 <body>
-<div class="admin-wrap">
-  <a class="back-link" href="/">← Voltar ao app</a>
-  <h1>Painel de Moderação</h1>
-  <p id="admin-guard" class="auth-error"></p>
-
-  <div id="admin-content" class="hidden">
-    <h2>🔷 BLUEX — Painel de Proteção</h2>
-    <p style="color:#949ba4; font-size:13px;">
-      Verificação de idade, moderação de imagem/tela/câmera e análise de texto por aliciamento — tudo
-      embutido no próprio NEXT GAME (funciona mesmo sem o BLUEX publicado à parte). Atualiza sozinho a
-      cada 10s.
-    </p>
-    <div id="bluex-status-row" class="stats-grid"></div>
-
-    <h3 style="margin-top:20px; font-size:14px; color:#f23f42;">
-      ⚠️ Suspensão automática — aguardando sua revisão
-    </h3>
-    <p style="color:#949ba4; font-size:13px;">
-      Contas suspensas automaticamente por suspeita de conteúdo infantil em contexto de risco (a
-      categoria mais grave). Isso NÃO é uma decisão definitiva — é uma pausa de segurança até você
-      revisar. As outras categorias (violência, maus-tratos a animais, armas) não suspendem sozinhas,
-      só ficam marcadas pra revisão logo abaixo.
-    </p>
-    <table id="bluex-suspended-table">
-      <thead><tr><th>Usuário</th><th>Motivo</th><th>Ações</th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <p class="empty-hint hidden" id="bluex-suspended-empty" style="color:#949ba4; font-size:13px; padding:8px 0;">Nenhuma conta suspensa automaticamente no momento.</p>
-
-    <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Resumo de sinalizações recentes</h3>
-    <div id="bluex-flags-grid" class="stats-grid"></div>
-    <p style="color:#949ba4; font-size:13px; margin-top:8px;">
-      Detalhe completo de cada sinalização (imagem e texto) fica logo mais abaixo, nas seções
-      "Mensagens bloqueadas" e "Transmissões de tela marcadas pela IA".
-    </p>
-
-    <h2>🩺 Monitoramento (dados, erros, lag)</h2>
-    <p style="color:#949ba4; font-size:13px;">
-      Atualiza sozinho a cada 10s. <span id="monitoring-updated"></span>
-    </p>
-    <div id="monitoring-grid" class="stats-grid"></div>
-
-    <div id="monitoring-env-warning" class="hidden" style="background:#f23f4222; border:1px solid #f23f42; border-radius:8px; padding:10px 14px; margin-top:12px; font-size:13px;"></div>
-
-    <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Salas de voz ativas agora</h3>
-    <table id="monitoring-rooms-table">
-      <thead><tr><th>Sala</th><th>Participantes</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Requisições lentas recentes (lag, acima de 800ms)</h3>
-    <table id="monitoring-slow-table">
-      <thead><tr><th>Hora</th><th>Rota</th><th>Status</th><th>Duração</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Erros recentes do servidor</h3>
-    <table id="monitoring-errors-table">
-      <thead><tr><th>Hora</th><th>Origem</th><th>Mensagem</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>📊 Analytics</h2>
-    <div id="analytics-grid" class="stats-grid"></div>
-
-    <h2>🚩 Contas suspeitas (mesmo IP)</h2>
-    <p style="color:#949ba4; font-size:13px;">Só um sinal pra revisão humana — contas do mesmo endereço podem ser legítimas (mesma casa, faculdade, lan house).</p>
-    <table id="suspicious-table">
-      <thead><tr><th>IP</th><th>Contas</th><th>Quantidade</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>🛡️ Contas de menores (ECA Digital)</h2>
-    <p style="color:#949ba4; font-size:13px;">
-      Contas cuja data de nascimento informada no cadastro indica menos de 18 anos — sinalizadas pra
-      moderação prioritária, conforme o ECA Digital (Lei 15.211/25). Não é uma verificação de identidade
-      (a idade é auto-declarada no cadastro).
-    </p>
-    <div id="minors-summary" class="stats-grid"></div>
-    <table id="minors-table">
-      <thead><tr><th>Usuário</th><th>Idade</th><th>E-mail</th><th>Conta criada em</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">
-      Verificação de idade por câmera — possível divergência
-    </h3>
-    <p style="color:#949ba4; font-size:13px;">
-      Conta disse ser adulta no cadastro, mas a estimativa de idade feita pela câmera (opcional,
-      processada no navegador da própria pessoa) sugere claramente uma criança/adolescente. Só um
-      sinal pra revisão humana — o modelo de estimativa por imagem não é preciso o bastante pra
-      decidir isso sozinho.
-    </p>
-    <table id="age-mismatch-table">
-      <thead><tr><th>Usuário</th><th>Idade declarada</th><th>Idade estimada (câmera)</th><th>E-mail</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>🎬 Clipes publicados</h2>
-    <table id="clips-admin-table">
-      <thead><tr><th>Data</th><th>Usuário</th><th>Título</th><th>Views</th><th>Ações</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>🪙 Itens da loja NEXT Coins</h2>
-    <table id="shop-admin-table">
-      <thead><tr><th>Nome</th><th>Custo</th><th>Ações</th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <div class="admin-form-row">
-      <input type="text" id="shop-new-name" placeholder="Nome do item" />
-      <input type="text" id="shop-new-description" placeholder="Descrição" />
-      <input type="number" id="shop-new-cost" placeholder="Custo em coins" min="1" style="max-width:120px;" />
-      <button type="button" id="btn-shop-add" class="action">+ Adicionar item</button>
-    </div>
-
-    <h2>📨 Fale com o suporte (reclamações/dúvidas da Blue)</h2>
-    <p style="color:#949ba4; font-size:13px;">
-      Mensagens enviadas pelo formulário "Fale com o suporte" — funciona logado ou não, então também
-      recebe recursos de conta banida.
-    </p>
-    <table id="support-tickets-table">
-      <thead><tr><th>Data</th><th>De</th><th>Categoria</th><th>Título</th><th>Mensagem</th><th>Status</th><th>Ações</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>Denúncias pendentes</h2>
-    <table id="reports-table">
-      <thead><tr><th>Data</th><th>Motivo</th><th>Denunciante</th><th>Usuário denunciado</th><th>Status</th><th>Ações</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>Mensagens bloqueadas pelo filtro automático</h2>
-    <p style="color:#949ba4; font-size:13px;">Estas mensagens foram barradas antes de chegar a qualquer usuário e ficam aqui só para revisão de moderador.</p>
-    <table id="blocked-table">
-      <thead><tr><th>Data</th><th>Usuário</th><th>Conteúdo</th><th>Categorias</th><th>Ações</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>Transmissões de tela marcadas pela IA</h2>
-    <p style="color:#949ba4; font-size:13px;">
-      Prints tirados periodicamente durante compartilhamentos de tela e analisados por um modelo de IA de propósito
-      geral (Groq). Isso é uma camada extra de segurança, <strong>não</strong> um substituto de moderação humana ou
-      de serviços especializados de detecção de exploração infantil (PhotoDNA/Thorn) — a imagem em si nunca fica
-      salva, só o veredito. Revise cada item com atenção antes de qualquer ação.
-    </p>
-    <table id="flagged-frames-table">
-      <thead><tr><th>Data</th><th>Usuário</th><th>Motivo</th><th>Categorias</th><th>Ações</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>Mensagens sinalizadas (enviadas, mas com termo de atenção)</h2>
-    <table id="flagged-table">
-      <thead><tr><th>Data</th><th>Usuário</th><th>Conteúdo</th><th>Categorias</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>Usuários</h2>
-    <table id="users-table">
-      <thead><tr><th>Usuário</th><th>Criado em</th><th>Admin</th><th>Plano</th><th>Status</th><th>Ações</th></tr></thead>
-      <tbody></tbody>
-    </table>
-
-    <h2>Audit Log</h2>
-    <p style="color:#949ba4; font-size:13px;">Todas as ações de moderação/administração ficam registradas aqui — banir, expulsar, aplicar timeout, limpar canal etc.</p>
-    <div style="display:flex; gap:8px; margin-top:10px;">
-      <input type="text" id="audit-filter-actor" placeholder="Filtrar por quem fez a ação" style="flex:1; padding:6px; border-radius:4px; border:1px solid #3a3c42; background:#1e1f22; color:#e6e6e6;" />
-      <input type="text" id="audit-filter-action" placeholder="Filtrar por ação (ex: ban_user)" style="flex:1; padding:6px; border-radius:4px; border:1px solid #3a3c42; background:#1e1f22; color:#e6e6e6;" />
-      <button type="button" id="btn-audit-filter" class="action">Filtrar</button>
-    </div>
-    <table id="audit-table">
-      <thead><tr><th>Data</th><th>Quem fez</th><th>Ação</th><th>Tipo do alvo</th><th>Alvo</th><th>Detalhes</th></tr></thead>
-      <tbody></tbody>
-    </table>
+  <div class="admin-topbar">
+    <h1>Painel de Moderação</h1>
+    <a class="back-link" href="/">← Voltar ao app</a>
   </div>
-</div>
+  <p id="admin-guard" class="auth-error" style="padding: 16px 20px 0;"></p>
+
+  <div id="admin-2fa-required" class="hidden">
+    <div class="admin-2fa-card">
+      <h2>⚠️ Ative o 2FA pra acessar o painel</h2>
+      <p>
+        Por segurança, toda conta de administrador agora precisa ter a verificação em duas etapas (2FA)
+        ativada antes de acessar o painel de moderação — ele dá acesso a dados de todos os usuários e
+        poder de banir/expulsar, então não pode depender só de senha.
+      </p>
+      <p>
+        Vá até <strong>Configurações da conta → aba Segurança</strong> no próprio site e ative o 2FA com
+        um app autenticador (Google Authenticator, Authy etc). Depois é só voltar aqui.
+      </p>
+      <a class="button-link" href="/">Ir para o NEXT GAME</a>
+    </div>
+  </div>
+
+  <div id="admin-layout" class="admin-layout hidden">
+    <nav class="admin-sidebar">
+      <button type="button" class="admin-nav-btn active" data-tab="seguranca">🔷 Segurança / BLUEX</button>
+      <button type="button" class="admin-nav-btn" data-tab="geral">📊 Visão geral</button>
+      <button type="button" class="admin-nav-btn" data-tab="moderacao">🛡️ Moderação</button>
+      <button type="button" class="admin-nav-btn" data-tab="usuarios">👥 Usuários</button>
+      <button type="button" class="admin-nav-btn" data-tab="conteudo">🎬 Conteúdo / Loja</button>
+      <button type="button" class="admin-nav-btn" data-tab="suporte">📨 Suporte</button>
+      <button type="button" class="admin-nav-btn" data-tab="audit">📜 Audit Log</button>
+    </nav>
+
+    <div class="admin-content">
+
+      <!-- ---------- SEGURANÇA / BLUEX ---------- -->
+      <div id="admin-tab-seguranca" class="admin-tab-panel">
+        <h2>🔷 BLUEX — Painel de Proteção</h2>
+        <p style="color:#949ba4; font-size:13px;">
+          Verificação de idade, moderação de imagem/tela/câmera e análise de texto por aliciamento — tudo
+          embutido no próprio NEXT GAME (funciona mesmo sem o BLUEX publicado à parte). Atualiza sozinho a
+          cada 10s.
+        </p>
+        <div id="bluex-status-row" class="stats-grid"></div>
+
+        <h3 style="margin-top:20px; font-size:14px; color:#f23f42;">
+          ⚠️ Suspensão automática — aguardando sua revisão
+        </h3>
+        <p style="color:#949ba4; font-size:13px;">
+          Contas suspensas automaticamente por suspeita de conteúdo infantil em contexto de risco (a
+          categoria mais grave). Isso NÃO é uma decisão definitiva — é uma pausa de segurança até você
+          revisar. As outras categorias (violência, maus-tratos a animais, armas) não suspendem sozinhas,
+          só ficam marcadas pra revisão na aba Moderação.
+        </p>
+        <table id="bluex-suspended-table">
+          <thead><tr><th>Usuário</th><th>Motivo</th><th>Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="empty-hint hidden" id="bluex-suspended-empty" style="color:#949ba4; font-size:13px; padding:8px 0;">Nenhuma conta suspensa automaticamente no momento.</p>
+
+        <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Resumo de sinalizações recentes</h3>
+        <div id="bluex-flags-grid" class="stats-grid"></div>
+        <p style="color:#949ba4; font-size:13px; margin-top:8px;">
+          Detalhe completo de cada sinalização (imagem e texto) fica na aba <strong>Moderação</strong>, nas
+          seções "Mensagens bloqueadas" e "Transmissões de tela marcadas pela IA".
+        </p>
+      </div>
+
+      <!-- ---------- VISÃO GERAL (Monitoramento + Analytics) ---------- -->
+      <div id="admin-tab-geral" class="admin-tab-panel hidden">
+        <h2>🩺 Monitoramento (dados, erros, lag)</h2>
+        <p style="color:#949ba4; font-size:13px;">
+          Atualiza sozinho a cada 10s. <span id="monitoring-updated"></span>
+        </p>
+        <div id="monitoring-grid" class="stats-grid"></div>
+
+        <div id="monitoring-env-warning" class="hidden" style="background:#f23f4222; border:1px solid #f23f42; border-radius:8px; padding:10px 14px; margin-top:12px; font-size:13px;"></div>
+
+        <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Salas de voz ativas agora</h3>
+        <table id="monitoring-rooms-table">
+          <thead><tr><th>Sala</th><th>Participantes</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Requisições lentas recentes (lag, acima de 800ms)</h3>
+        <table id="monitoring-slow-table">
+          <thead><tr><th>Hora</th><th>Rota</th><th>Status</th><th>Duração</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Erros recentes do servidor</h3>
+        <table id="monitoring-errors-table">
+          <thead><tr><th>Hora</th><th>Origem</th><th>Mensagem</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <h2>📊 Analytics</h2>
+        <div id="analytics-grid" class="stats-grid"></div>
+      </div>
+
+      <!-- ---------- MODERAÇÃO ---------- -->
+      <div id="admin-tab-moderacao" class="admin-tab-panel hidden">
+        <h2>🚩 Contas suspeitas (mesmo IP)</h2>
+        <p style="color:#949ba4; font-size:13px;">Só um sinal pra revisão humana — contas do mesmo endereço podem ser legítimas (mesma casa, faculdade, lan house).</p>
+        <table id="suspicious-table">
+          <thead><tr><th>IP</th><th>Contas</th><th>Quantidade</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <h2>🛡️ Contas de menores (ECA Digital)</h2>
+        <p style="color:#949ba4; font-size:13px;">
+          Contas cuja data de nascimento informada no cadastro indica menos de 18 anos — sinalizadas pra
+          moderação prioritária, conforme o ECA Digital (Lei 15.211/25). Não é uma verificação de identidade
+          (a idade é auto-declarada no cadastro).
+        </p>
+        <div id="minors-summary" class="stats-grid"></div>
+        <table id="minors-table">
+          <thead><tr><th>Usuário</th><th>Idade</th><th>E-mail</th><th>Conta criada em</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">
+          Verificação de idade por câmera — possível divergência
+        </h3>
+        <p style="color:#949ba4; font-size:13px;">
+          Conta disse ser adulta no cadastro, mas a estimativa de idade feita pela câmera (opcional,
+          processada no navegador da própria pessoa) sugere claramente uma criança/adolescente. Só um
+          sinal pra revisão humana — o modelo de estimativa por imagem não é preciso o bastante pra
+          decidir isso sozinho.
+        </p>
+        <table id="age-mismatch-table">
+          <thead><tr><th>Usuário</th><th>Idade declarada</th><th>Idade estimada (câmera)</th><th>E-mail</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <h2>Denúncias pendentes</h2>
+        <table id="reports-table">
+          <thead><tr><th>Data</th><th>Motivo</th><th>Denunciante</th><th>Usuário denunciado</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <h2>Mensagens bloqueadas pelo filtro automático</h2>
+        <p style="color:#949ba4; font-size:13px;">Estas mensagens foram barradas antes de chegar a qualquer usuário e ficam aqui só para revisão de moderador.</p>
+        <table id="blocked-table">
+          <thead><tr><th>Data</th><th>Usuário</th><th>Conteúdo</th><th>Categorias</th><th>Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <h2>Transmissões de tela marcadas pela IA</h2>
+        <p style="color:#949ba4; font-size:13px;">
+          Prints tirados periodicamente durante compartilhamentos de tela e analisados por um modelo de IA de propósito
+          geral (Groq). Isso é uma camada extra de segurança, <strong>não</strong> um substituto de moderação humana ou
+          de serviços especializados de detecção de exploração infantil (PhotoDNA/Thorn) — a imagem em si nunca fica
+          salva, só o veredito. Revise cada item com atenção antes de qualquer ação.
+        </p>
+        <table id="flagged-frames-table">
+          <thead><tr><th>Data</th><th>Usuário</th><th>Motivo</th><th>Categorias</th><th>Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <h2>Mensagens sinalizadas (enviadas, mas com termo de atenção)</h2>
+        <table id="flagged-table">
+          <thead><tr><th>Data</th><th>Usuário</th><th>Conteúdo</th><th>Categorias</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- ---------- USUÁRIOS ---------- -->
+      <div id="admin-tab-usuarios" class="admin-tab-panel hidden">
+        <h2>Usuários</h2>
+        <table id="users-table">
+          <thead><tr><th>Usuário</th><th>Criado em</th><th>Admin</th><th>Plano</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- ---------- CONTEÚDO / LOJA ---------- -->
+      <div id="admin-tab-conteudo" class="admin-tab-panel hidden">
+        <h2>🎬 Clipes publicados</h2>
+        <table id="clips-admin-table">
+          <thead><tr><th>Data</th><th>Usuário</th><th>Título</th><th>Views</th><th>Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <h2>🪙 Itens da loja NEXT Coins</h2>
+        <table id="shop-admin-table">
+          <thead><tr><th>Nome</th><th>Custo</th><th>Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="admin-form-row">
+          <input type="text" id="shop-new-name" placeholder="Nome do item" />
+          <input type="text" id="shop-new-description" placeholder="Descrição" />
+          <input type="number" id="shop-new-cost" placeholder="Custo em coins" min="1" style="max-width:120px;" />
+          <button type="button" id="btn-shop-add" class="action">+ Adicionar item</button>
+        </div>
+      </div>
+
+      <!-- ---------- SUPORTE ---------- -->
+      <div id="admin-tab-suporte" class="admin-tab-panel hidden">
+        <h2>📨 Fale com o suporte (reclamações/dúvidas da Blue)</h2>
+        <p style="color:#949ba4; font-size:13px;">
+          Mensagens enviadas pelo formulário "Fale com o suporte" — funciona logado ou não, então também
+          recebe recursos de conta banida.
+        </p>
+        <table id="support-tickets-table">
+          <thead><tr><th>Data</th><th>De</th><th>Categoria</th><th>Título</th><th>Mensagem</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- ---------- AUDIT LOG ---------- -->
+      <div id="admin-tab-audit" class="admin-tab-panel hidden">
+        <h2>Audit Log</h2>
+        <p style="color:#949ba4; font-size:13px;">Todas as ações de moderação/administração ficam registradas aqui — banir, expulsar, aplicar timeout, limpar canal, e também logins de admin vindos de um dispositivo novo (ação "admin_login_new_device").</p>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <input type="text" id="audit-filter-actor" placeholder="Filtrar por quem fez a ação" style="flex:1; padding:6px; border-radius:4px; border:1px solid #3a3c42; background:#1e1f22; color:#e6e6e6;" />
+          <input type="text" id="audit-filter-action" placeholder="Filtrar por ação (ex: ban_user)" style="flex:1; padding:6px; border-radius:4px; border:1px solid #3a3c42; background:#1e1f22; color:#e6e6e6;" />
+          <button type="button" id="btn-audit-filter" class="action">Filtrar</button>
+        </div>
+        <table id="audit-table">
+          <thead><tr><th>Data</th><th>Quem fez</th><th>Ação</th><th>Tipo do alvo</th><th>Alvo</th><th>Detalhes</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
 
 <script src="/admin.js"></script>
 </body>

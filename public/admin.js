@@ -11,7 +11,17 @@ async function init() {
     document.getElementById('admin-guard').textContent = 'Acesso restrito a administradores.';
     return;
   }
-  document.getElementById('admin-content').classList.remove('hidden');
+  // SEGURANÇA: 2FA agora é obrigatório pra usar o painel (ver requireAdmin
+  // no server.js) — se essa conta de admin ainda não ativou, nem tenta
+  // carregar os dados (todas as chamadas a /api/admin/* dariam 403 mesmo).
+  // Mostra direto a orientação de como ativar, em vez de uma tela quebrada
+  // cheia de tabelas vazias/erros.
+  if (!me.totp_enabled) {
+    document.getElementById('admin-2fa-required').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('admin-layout').classList.remove('hidden');
+  initAdminTabs();
   loadMonitoring();
   setInterval(loadMonitoring, 10000);
   loadBluexPanel();
@@ -28,6 +38,47 @@ async function init() {
   loadFlagged();
   loadUsers();
   loadAuditLogs();
+}
+
+// ---------- Navegação por abas (sidebar) ----------
+// O admin.html antes era uma página só com 15+ seções empilhadas — virou
+// abas agrupadas por tema pra facilitar achar as coisas. Cada botão da
+// sidebar tem um data-tab que casa com o id "admin-tab-<nome>" do painel
+// correspondente; só o painel ativo fica visível.
+function initAdminTabs() {
+  const buttons = document.querySelectorAll('.admin-nav-btn');
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      buttons.forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.admin-tab-panel').forEach((p) => p.classList.add('hidden'));
+      btn.classList.add('active');
+      document.getElementById('admin-tab-' + btn.dataset.tab).classList.remove('hidden');
+    });
+  });
+}
+
+// Mostra um número em destaque no botão da sidebar (ex: quantas contas
+// suspensas aguardando revisão) — ajuda a notar o que precisa de atenção
+// sem precisar entrar em cada aba pra descobrir.
+function setNavBadge(tabName, count) {
+  const btn = document.querySelector(`.admin-nav-btn[data-tab="${tabName}"]`);
+  if (!btn) return;
+  let badge = btn.querySelector('.badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'badge';
+    btn.appendChild(badge);
+  }
+  badge.textContent = count;
+  badge.classList.toggle('hidden', !count);
+}
+
+// A aba "Moderação" junta várias fontes (denúncias, mensagens bloqueadas,
+// transmissões marcadas) — cada load*() abaixo atualiza sua própria fatia
+// aqui, e o badge mostra a soma, sem uma sobrescrever a contagem da outra.
+const moderationCounts = { reports: 0, frames: 0 };
+function updateModeracaoBadge() {
+  setNavBadge('moderacao', moderationCounts.reports + moderationCounts.frames);
 }
 
 function fmtDuration(seconds) {
@@ -180,6 +231,7 @@ async function loadBluexPanel() {
     suspTbody.querySelectorAll('button[data-action="unban"]').forEach((btn) =>
       btn.addEventListener('click', () => unbanUser(btn.dataset.id))
     );
+    setNavBadge('seguranca', suspended.length);
 
     // Resumo de sinalizações — só contagem, detalhe fica nas tabelas de baixo
     const framesUnreviewed = frames.filter((f) => !f.reviewed).length;
@@ -340,6 +392,9 @@ async function loadReports() {
   tbody.querySelectorAll('button[data-action="ban"]').forEach((btn) =>
     btn.addEventListener('click', () => banUser(btn.dataset.id))
   );
+
+  moderationCounts.reports = reports.filter((r) => r.status === 'pendente').length;
+  updateModeracaoBadge();
 }
 
 async function updateReport(id, status) {
@@ -498,6 +553,9 @@ async function loadFlaggedFrames() {
   tbody.querySelectorAll('button[data-action="ban"]').forEach((btn) =>
     btn.addEventListener('click', () => banUser(btn.dataset.id))
   );
+
+  moderationCounts.frames = rows.filter((f) => !f.reviewed).length;
+  updateModeracaoBadge();
 }
 
 async function reviewFlaggedFrame(id) {
