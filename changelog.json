@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.6.5",
+    "date": "2026-08-30",
+    "changes": [
+      "Corrigido campos de busca (Amigos, Conversas, Adicionar amigo) que apareciam como quadrado branco padrão do navegador — agora seguem o mesmo visual escuro arredondado da busca do topo"
+    ]
+  },
+  {
     "version": "0.6.4",
     "date": "2026-08-30",
     "changes": [

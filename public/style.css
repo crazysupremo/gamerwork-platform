@@ -275,7 +275,23 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .auth-tab.active { background: var(--gradient-brand); color: white; box-shadow: 0 4px 12px rgba(88,101,242,0.4); }
 .auth-form { display: flex; flex-direction: column; gap: 11px; }
-.input-icon-wrap { position: relative; display: flex; align-items: center; }
+/* Campo com ícone, estilo "pill" escura — mesma linguagem visual da busca
+   grande do topo (.navbar-search), só menor. Usado em qualquer input com
+   ícone fora da tela de login (login tem o próprio visual, ver .auth-form
+   input mais abaixo, que continua valendo por causa da ordem no arquivo).
+   BUG CORRIGIDO: sem isso, esses campos (busca de amigos/conversas,
+   adicionar amigo etc) caíam no estilo padrão do navegador — quadrado
+   branco destoando de todo o resto do site escuro. */
+.input-icon-wrap {
+  position: relative; display: flex; align-items: center;
+  background: #1a1b20; border: 1px solid #26272e; border-radius: 20px; transition: border-color 0.15s ease;
+}
+.input-icon-wrap:focus-within { border-color: var(--accent); }
+.input-icon-wrap input {
+  width: 100%; padding: 8px 12px 8px 34px; border-radius: 20px; border: none; outline: none;
+  background: none; color: #e6e6e6; font-size: 13px;
+}
+.input-icon-wrap input::placeholder { color: #6d7178; }
 .input-icon {
   position: absolute; left: 12px; font-size: 14px; opacity: 0.6; pointer-events: none;
   display: flex; align-items: center;
