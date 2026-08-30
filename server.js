@@ -5691,12 +5691,25 @@ app.get(
   // Sem requireAuth de propósito: são só contagens (nada pessoal), usadas
   // também na landing pública antes do login.
   asyncHandler(async (req, res) => {
+    // BUG CORRIGIDO: a query de "servidores novos" usava a tabela `servers`
+    // (que só tem linha pra quem configurou descrição/regras/ícone — nem
+    // todo servidor tem) e um WHERE created_at que essa tabela nem possui
+    // (só tem updated_at) — dava erro toda vez e derrubava a rota INTEIRA
+    // com 500, fazendo até members/servers/tournaments (que sempre
+    // funcionaram) virarem "undefined" na tela. "Servidor" aqui sempre foi
+    // "categoria distinta em channels" (é assim que o resto do app conta),
+    // então o "novo esta semana" agora usa a mesma fonte: categoria cujo
+    // canal mais antigo foi criado nos últimos 7 dias.
     const [users, servers, tournaments, newUsers, newServers, playingNow] = await Promise.all([
       db.get('SELECT COUNT(*) as c FROM users WHERE is_banned = 0'),
       db.get('SELECT COUNT(DISTINCT category) as c FROM channels'),
       db.get('SELECT COUNT(*) as c FROM tournaments'),
       db.get("SELECT COUNT(*) as c FROM users WHERE is_banned = 0 AND created_at >= datetime('now', '-7 days')"),
-      db.get("SELECT COUNT(DISTINCT category) as c FROM servers WHERE created_at >= datetime('now', '-7 days')"),
+      db.get(
+        `SELECT COUNT(*) as c FROM (
+           SELECT category, MIN(created_at) as first_created FROM channels GROUP BY category
+         ) t WHERE first_created >= datetime('now', '-7 days')`
+      ),
       db.get("SELECT COUNT(*) as c FROM users WHERE is_banned = 0 AND status_message IS NOT NULL AND status_message != ''"),
     ]);
     res.json({

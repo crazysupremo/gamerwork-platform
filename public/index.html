@@ -312,7 +312,28 @@
            "amigos, chat e servidores não podem ficar escondidos"). -->
       <button class="sidebar-nav-item sidebar-nav-item-solo" id="nav-sidebar-amigos"><span class="ng-icon-wrap" data-icon="users"></span> Amigos<span id="sidebar-friends-badge" class="navbar-badge hidden">0</span></button>
       <button class="sidebar-nav-item sidebar-nav-item-solo" id="nav-sidebar-chat"><span class="ng-icon-wrap" data-icon="message-square"></span> Chat<span id="sidebar-messages-badge" class="navbar-badge hidden">0</span></button>
+    </div>
 
+    <!-- Servidores logo abaixo de Chat — pedido explícito, ficava escondido
+         demais lá no fim da barra lateral. -->
+    <div class="app-sidebar-servers-header">
+      <button type="button" id="btn-toggle-servers" class="app-sidebar-servers-toggle">
+        <span class="ng-icon-wrap" data-icon="chevron-right" id="servers-toggle-chevron"></span>
+        <span class="app-sidebar-section-label">Servidores</span>
+      </button>
+      <div class="app-sidebar-servers-actions">
+        <button id="btn-new-server" class="app-sidebar-icon-btn" title="Criar servidor"><span class="ng-icon-wrap" data-icon="plus"></span></button>
+        <button id="btn-join-invite" class="app-sidebar-icon-btn" title="Entrar com convite"><span class="ng-icon-wrap" data-icon="link"></span></button>
+      </div>
+    </div>
+    <!-- Trilho de servidores: uma linha por "servidor" (categoria). Clica pra
+         trocar de servidor. Fica fechado por padrão pra sobrar mais espaço
+         (abre num popup ao clicar em "Servidores" ou ao trocar de servidor). -->
+    <div id="server-rail" class="app-sidebar-servers hidden">
+      <div id="server-rail-list" class="server-rail-list"></div>
+    </div>
+
+    <div class="app-sidebar-nav">
       <div class="app-sidebar-section-label">Explorar</div>
       <button class="sidebar-nav-item" id="nav-jogos"><span class="ng-icon-wrap" data-icon="search"></span> Explorar</button>
       <button class="sidebar-nav-item" id="nav-lfg"><span class="ng-icon-wrap" data-icon="target"></span> Jogar</button>
@@ -331,24 +352,13 @@
       <button class="sidebar-nav-item" id="nav-sobre"><span class="ng-icon-wrap" data-icon="crown"></span> Sobre</button>
     </div>
 
-    <div class="app-sidebar-servers-header">
-      <button type="button" id="btn-toggle-servers" class="app-sidebar-servers-toggle">
-        <span class="ng-icon-wrap" data-icon="chevron-right" id="servers-toggle-chevron"></span>
-        <span class="app-sidebar-section-label">Servidores</span>
-      </button>
-      <div class="app-sidebar-servers-actions">
-        <button id="btn-new-server" class="app-sidebar-icon-btn" title="Criar servidor"><span class="ng-icon-wrap" data-icon="plus"></span></button>
-        <button id="btn-join-invite" class="app-sidebar-icon-btn" title="Entrar com convite"><span class="ng-icon-wrap" data-icon="link"></span></button>
-      </div>
-    </div>
-    <!-- Trilho de servidores: uma linha por "servidor" (categoria). Clica pra
-         trocar de servidor. Fica fechado por padrão pra sobrar mais espaço
-         (abre num popup ao clicar em "Servidores" ou ao trocar de servidor). -->
-    <div id="server-rail" class="app-sidebar-servers hidden">
-      <div id="server-rail-list" class="server-rail-list"></div>
-    </div>
-
-    <div class="app-sidebar-footer">
+    <!-- Rodapé antigo (avatar/nome/config no canto inferior esquerdo) —
+         removido da tela a pedido (tudo isso agora fica no chip do topo,
+         ver navbar-profile-chip). Os elementos continuam aqui, só invisíveis:
+         o app.js ainda escreve neles em alguns pontos e outros botões ainda
+         "clicam" neles por id, então é mais seguro manter escondido do que
+         apagar de vez. -->
+    <div class="app-sidebar-footer app-sidebar-footer-hidden">
       <button class="navbar-profile" id="nav-profile">
         <div id="navbar-avatar" class="member-avatar"></div>
         <div class="navbar-profile-text">
@@ -359,27 +369,6 @@
       </button>
       <button class="navbar-icon-btn" id="btn-edit-profile" title="Editar perfil"><span class="ng-icon-wrap" data-icon="settings"></span></button>
       <button class="navbar-icon-btn" id="btn-footer-more" title="Mais opções"><span class="ng-icon-wrap" data-icon="chevron-right"></span></button>
-
-      <!-- Menu que abre pra cima ao clicar no "..." — mantém o rodapé enxuto
-           em vez de espremer vários ícones numa faixa só. -->
-      <div id="footer-more-menu" class="footer-more-menu hidden">
-        <button type="button" id="nav-plus-upgrade">
-          <span class="ng-icon-wrap" data-icon="sparkles"></span> <span id="plus-menu-label">NEXTGAME PLUS</span>
-        </button>
-        <button type="button" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos">
-          <span class="ng-icon-wrap" data-icon="volume-2"></span> <span id="sfx-toggle-label">Sons e efeitos</span>
-        </button>
-        <a href="/admin.html" id="admin-link" class="hidden">
-          <span class="ng-icon-wrap" data-icon="shield-check"></span> Admin
-        </a>
-        <button type="button" id="btn-logout">
-          <span class="ng-icon-wrap" data-icon="log-out"></span> Sair
-        </button>
-      </div>
-
-      <!-- me-avatar/me-username não aparecem mais visualmente (o avatar/nome já
-           mostram em cima, no nav-profile) — ficam só escondidos porque o
-           app.js ainda escreve neles em alguns pontos. -->
       <div id="me-avatar" class="member-avatar" style="display:none"></div>
       <span id="me-username" style="display:none"></span>
     </div>
@@ -425,17 +414,38 @@
            quando alguém está com a aba aberta durante um deploy). -->
       <button class="navbar-icon-btn" id="nav-update-bell" title="Novidades da atualização"><span class="ng-icon-wrap" data-icon="sparkles"></span><span id="navbar-update-badge" class="navbar-badge hidden">•</span></button>
       <button class="navbar-icon-btn" id="nav-bell" title="Atividade recente"><span class="ng-icon-wrap" data-icon="bell"></span><span id="navbar-bell-badge" class="navbar-badge hidden">0</span></button>
-      <!-- Chip de perfil no topo (além do rodapé da sidebar) — igual ao
-           mockup, útil em telas largas onde a sidebar já mostra o mesmo,
-           mas fica à mão sem precisar olhar pro canto esquerdo. -->
-      <button type="button" class="navbar-profile-chip" id="navbar-profile-chip">
-        <div id="navbar-chip-avatar" class="member-avatar"></div>
-        <div class="navbar-profile-chip-text">
-          <span id="navbar-chip-username"></span>
-          <span id="navbar-chip-level" class="navbar-chip-level"></span>
+      <!-- Chip de perfil no topo — ponto único agora pra tudo que é "sobre
+           minha conta": editar perfil, NEXTGAME PLUS, sons e efeitos, Admin
+           (se for admin) e Sair. O rodapé antigo da sidebar foi escondido
+           (ver .app-sidebar-footer-hidden) a pedido, isso aqui virou o único
+           lugar visível com essas funções. -->
+      <div class="navbar-profile-chip-wrap">
+        <button type="button" class="navbar-profile-chip" id="navbar-profile-chip">
+          <div id="navbar-chip-avatar" class="member-avatar"></div>
+          <div class="navbar-profile-chip-text">
+            <span id="navbar-chip-username"></span>
+            <span id="navbar-chip-level" class="navbar-chip-level"></span>
+          </div>
+          <span class="ng-icon-wrap" data-icon="chevron-right" data-icon-class="navbar-chip-chevron"></span>
+        </button>
+        <div id="footer-more-menu" class="footer-more-menu hidden">
+          <button type="button" id="nav-edit-profile-menu">
+            <span class="ng-icon-wrap" data-icon="settings"></span> Editar perfil
+          </button>
+          <button type="button" id="nav-plus-upgrade">
+            <span class="ng-icon-wrap" data-icon="sparkles"></span> <span id="plus-menu-label">NEXTGAME PLUS</span>
+          </button>
+          <button type="button" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos">
+            <span class="ng-icon-wrap" data-icon="volume-2"></span> <span id="sfx-toggle-label">Sons e efeitos</span>
+          </button>
+          <a href="/admin.html" id="admin-link" class="hidden">
+            <span class="ng-icon-wrap" data-icon="shield-check"></span> Admin
+          </a>
+          <button type="button" id="btn-logout">
+            <span class="ng-icon-wrap" data-icon="log-out"></span> Sair
+          </button>
         </div>
-        <span class="ng-icon-wrap" data-icon="chevron-right" data-icon-class="navbar-chip-chevron"></span>
-      </button>
+      </div>
     </div>
   </header>
 

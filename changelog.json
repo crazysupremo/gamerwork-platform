@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.6.1",
+    "date": "2026-08-30",
+    "changes": [
+      "Corrigido bug que fazia Membros/Servidores/Torneios aparecerem como \"undefined\" na Início",
+      "Servidores movido pra logo abaixo do Chat na barra lateral, em vez de ficar escondido no fim",
+      "Menu de perfil (editar perfil, NEXTGAME PLUS, admin, sair) consolidado no chip do topo — removido do canto inferior esquerdo"
+    ]
+  },
+  {
     "version": "0.6.0",
     "date": "2026-08-30",
     "changes": [

@@ -5337,6 +5337,7 @@ document.getElementById('nav-bell').onclick = () => {
   setTimeout(() => document.getElementById('home-activity').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 };
 document.getElementById('nav-profile').onclick = () => document.getElementById('btn-edit-profile').click();
+document.getElementById('nav-edit-profile-menu').onclick = () => document.getElementById('btn-edit-profile').click();
 
 // Menu "..." do rodapé (som, admin, sair) — some por padrão, só abre no
 // clique, pra não espremer o avatar numa fileira cheia de ícones.

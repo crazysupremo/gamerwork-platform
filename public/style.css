@@ -453,7 +453,11 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .navbar-create-menu button:hover { background: #2b2d31; }
 .navbar-create-menu .ng-icon { width: 15px; height: 15px; color: var(--accent-3); }
 
-/* Chip de perfil no topo (além do rodapé da sidebar) */
+/* Chip de perfil no topo — agora é o ÚNICO lugar visível com essas funções
+   (editar perfil, Plus, sons, Admin, Sair); o rodapé antigo da sidebar
+   ficou só escondido no DOM (.app-sidebar-footer-hidden), sem sumir de vez
+   pra não arriscar quebrar nada que ainda referencia os ids dele. */
+.navbar-profile-chip-wrap { position: relative; }
 .navbar-profile-chip {
   display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 24px; border: none;
   background: #1a1b20; border: 1px solid #26272e; cursor: pointer; transition: background 0.15s ease;
@@ -465,6 +469,9 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .navbar-chip-level { font-size: 10px; color: var(--accent-3); font-weight: 700; }
 .navbar-chip-chevron { width: 13px; height: 13px; color: #6d7178; transform: rotate(90deg); margin-left: 2px; }
 @media (max-width: 900px) { .navbar-profile-chip-text { display: none; } }
+/* Rodapé antigo — continua existindo no DOM (compatibilidade com o app.js),
+   só não aparece mais na tela. */
+.app-sidebar-footer-hidden { display: none !important; }
 
 /* Eventos em Destaque (coluna lateral da Início) */
 .home-events-list { display: flex; flex-direction: column; gap: 6px; }
@@ -585,9 +592,11 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .app-sidebar-footer .navbar-profile { flex: 1; min-width: 0; }
 .app-sidebar-footer .navbar-icon-btn { width: 30px; height: 30px; font-size: 13px; flex-shrink: 0; }
 
-/* Menu "..." do rodapé — abre pra CIMA (o rodapé é a última coisa da tela) */
+/* Menu do chip de perfil (topo) — abre pra BAIXO, ancorado no chip. Já foi
+   o menu "..." do rodapé antigo (abria pra cima); mudou de lugar junto com
+   o chip pro topo da tela. */
 .footer-more-menu {
-  position: absolute; bottom: calc(100% + 8px); right: 0; width: 190px; background: #1a1b20;
+  position: absolute; top: calc(100% + 8px); right: 0; width: 200px; background: #1a1b20;
   border: 1px solid #26272e; border-radius: 10px; padding: 6px; box-shadow: 0 12px 30px rgba(0,0,0,0.45);
   display: flex; flex-direction: column; gap: 2px; z-index: 40;
 }
