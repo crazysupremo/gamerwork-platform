@@ -9,6 +9,12 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
+// LiveKit — servidor de mídia profissional (SFU) que substitui o antigo
+// mesh P2P pra voz/vídeo/tela. Precisa de LIVEKIT_API_KEY, LIVEKIT_API_SECRET
+// e LIVEKIT_URL nas variáveis de ambiente (conta grátis em livekit.io); sem
+// isso configurado, /api/livekit/token responde "não configurado" — nunca
+// quebra o resto do site.
+const { AccessToken } = require('livekit-server-sdk');
 
 // Versão do app + changelog — usados pelo /api/version pra avisar quem tá
 // com o site aberto que saiu uma atualização (ver rota mais abaixo).
@@ -1212,6 +1218,67 @@ app.get(
       });
     }
     res.json({ iceServers: servers, usingSharedRelay: !turnUrl });
+  })
+);
+
+// ---------- LIVEKIT (voz/vídeo/tela via servidor de mídia de verdade) ----------
+// Substitui o mesh P2P antigo (cada pessoa conectada direto com todo mundo,
+// que só aguentava poucas pessoas por sala sem travar) por um servidor de
+// mídia real (SFU) — cada pessoa manda sua mídia uma vez pro servidor, que
+// distribui pros outros. Aguenta muito mais gente por sala e é bem mais
+// estável em rede ruim. Precisa de conta grátis em livekit.io.
+function isLiveKitConfigured() {
+  return !!(process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET && process.env.LIVEKIT_URL);
+}
+
+app.get(
+  '/api/livekit/config',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json({ configured: isLiveKitConfigured() });
+  })
+);
+
+app.get(
+  '/api/livekit/token',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!isLiveKitConfigured()) {
+      return res.status(503).json({ error: 'Servidor de voz (LiveKit) ainda não configurado.' });
+    }
+    const roomId = String(req.query.roomId || '').trim();
+    if (!roomId) return res.status(400).json({ error: 'roomId é obrigatório' });
+
+    // Mesma checagem de acesso do antigo rtc:join — canal privado por cargo
+    // continua valendo igual.
+    const voiceChannel = await db.get('SELECT * FROM channels WHERE id = ?', [roomId]);
+    if (voiceChannel && !(await canAccessChannel(voiceChannel, req.user))) {
+      return res.status(403).json({ error: 'Você não tem acesso a esse canal de voz.' });
+    }
+
+    const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
+      // identity precisa ser único por pessoa na sala — usa o id da conta.
+      identity: req.user.id,
+      name: req.user.username,
+      // Vai junto em todo participant.metadata que os outros recebem — usa
+      // pra desenhar avatar/moldura/tema PLUS na tile de vídeo sem precisar
+      // de outra requisição.
+      metadata: JSON.stringify({
+        avatar: req.user.avatar || null,
+        avatar_frame: req.user.avatar_frame || null,
+        plus_theme: req.user.plus_theme || null,
+      }),
+      ttl: '10m',
+    });
+    at.addGrant({
+      roomJoin: true,
+      room: roomId,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    });
+    const token = await at.toJwt();
+    res.json({ token, url: process.env.LIVEKIT_URL });
   })
 );
 
@@ -6771,14 +6838,13 @@ function isRateLimited(socketId) {
 // dá pra mostrar "quem está na call" embaixo do nome do canal no menu, igual Discord.
 const voiceRooms = new Map();
 
-// Teto de participantes por sala de voz. A chamada aqui é P2P "mesh" (cada
-// pessoa manda áudio/vídeo direto pra cada outra pessoa, sem passar pelo
-// servidor) — funciona liso até uns 6-8 participantes; passando disso, cada
-// participante precisa enviar sua própria câmera/tela N vezes ao mesmo tempo
-// (upload do celular/PC de cada um, não do servidor) e a call trava/engasga
-// pra todo mundo, não só pra quem entrou por último. Em vez de deixar isso
-// acontecer silenciosamente, barra num número seguro com um aviso claro.
-const MAX_VOICE_ROOM_PARTICIPANTS = 8;
+// Teto de participantes por sala de voz. Antes a chamada era P2P "mesh"
+// (cada pessoa mandava áudio/vídeo direto pra cada outra, sem passar pelo
+// servidor), o que só aguentava uns 6-8 participantes sem travar. Agora a
+// mídia passa pelo LiveKit (servidor de mídia de verdade — cada pessoa manda
+// uma vez, o servidor distribui pros outros), então esse teto é só uma
+// margem de segurança bem mais folgada, não mais um limite técnico real.
+const MAX_VOICE_ROOM_PARTICIPANTS = 40;
 
 function voiceStateSnapshot() {
   const snapshot = {};
@@ -7584,15 +7650,10 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('rtc:signal', ({ to, data }) => {
-    io.to(to).emit('rtc:signal', {
-      from: socket.id,
-      username: user.username,
-      avatar: user.avatar,
-      avatar_frame: user.avatar_frame,
-      data,
-    });
-  });
+  // Nota: rtc:signal (relay manual de offer/answer/ICE) saiu daqui — a
+  // mídia de voz/vídeo/tela agora passa pelo LiveKit (ver
+  // /api/livekit/token mais acima), que tem seu próprio servidor de sinal.
+  // O socket.io continua só cuidando de presença (rtc:join/leave) e chat.
 
   socket.on('disconnect', () => {
     io.emit('presence:disconnect', { userId: user.id });

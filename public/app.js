@@ -7,9 +7,8 @@ let connectedVoiceRoomId = null; // sala de voz em que você está REALMENTE con
 let localStream = null; // tela compartilhada
 let micStream = null; // áudio do microfone
 // Resolve quando o pedido de microfone EM ANDAMENTO terminar (sucesso ou
-// falha) — usado pra fazer quem está criando/respondendo uma conexão
-// WebRTC esperar o mic ficar pronto antes de montar o offer/answer, em vez
-// de mandar sem áudio e torcer pra renegociação automática consertar depois.
+// falha) — outros pontos do código podem esperar por ele antes de publicar
+// algo que dependa do mic já estar pronto.
 let micReadyPromise = Promise.resolve();
 let micMuted = false;
 let isDeafened = false;
@@ -17,9 +16,11 @@ let isDeafened = false;
 // remotas de uma vez, junto com o slider individual de cada tile. Lembrado
 // entre chamadas via localStorage, igual as outras preferências de áudio.
 let masterCallVolume = Number(localStorage.getItem('ng_master_volume') ?? 100) / 100;
-const peers = {}; // socketId -> RTCPeerConnection
-const remoteStreams = {}; // socketId -> MediaStream combinada (áudio + vídeo do peer)
-const remotePeerInfo = {}; // socketId -> { username, avatar, avatar_frame } — pra mostrar a foto de perfil na tile
+// Sala de voz LiveKit ativa (servidor de mídia de verdade — substitui o
+// WebRTC mesh manual antigo, que só aguentava poucas pessoas por sala).
+let lkRoom = null;
+const remoteStreams = {}; // identity (= user id) -> MediaStream combinada (áudio + vídeo da pessoa)
+const remotePeerInfo = {}; // identity -> { username, avatar, avatar_frame, plus_theme } — pra mostrar a foto de perfil na tile
 let voiceParticipants = {}; // channelId -> [{socketId, userId, username}]
 let cameraStream = null; // vídeo da webcam (separado da tela compartilhada)
 let allUsers = []; // cache de /api/users pro painel de membros
@@ -7153,8 +7154,9 @@ function registerSocketHandlers() {
     renderMembers();
   });
 
-  // Sala de voz bateu no teto de participantes (mesh P2P não aguenta mais
-  // sem travar pra todo mundo) — avisa e cancela a tentativa de entrar.
+  // Sala de voz bateu no teto de participantes — avisa e cancela a
+  // tentativa de entrar. Só existe como segurança extra: o LiveKit aguenta
+  // muito mais gente por sala que o mesh antigo, então isso quase nunca dispara.
   socket.on('rtc:room-full', ({ max }) => {
     connectedVoiceRoomId = null;
     alert(`Essa sala de voz está cheia (máximo de ${max} pessoas ao mesmo tempo). Espera alguém sair ou crie outra sala.`);
@@ -7172,60 +7174,11 @@ function registerSocketHandlers() {
     document.getElementById('voice-panel')?.classList.add('hidden');
   });
 
-  socket.on('rtc:peer-joined', async ({ socketId, username, avatar, avatar_frame }) => {
-    // Espera SEU PRÓPRIO microfone terminar de ficar pronto antes de montar
-    // a conexão — evita entrar numa call já em andamento e a primeira
-    // negociação sair sem sua track de áudio (ver comentário em
-    // startMicrophone/micReadyPromise).
-    await micReadyPromise;
-    const pc = createPeerConnection(socketId, username, { username, avatar, avatar_frame });
-    addLocalTracksToPeer(pc);
-    logVoiceActivity(`${username} entrou na sala`);
-    updateVoiceParticipantCount();
-    SFX.peerJoin();
-  });
-
-  socket.on('rtc:peer-left', ({ socketId, username }) => {
-    clearReconnectAttempt(socketId);
-    if (peers[socketId]) {
-      peers[socketId].close();
-      delete peers[socketId];
-    }
-    delete remoteStreams[socketId];
-    delete remotePeerInfo[socketId];
-    stopConnectionQualityMonitor(socketId);
-    logVoiceActivity(`${username || 'Alguém'} saiu da sala`);
-    updateVoiceParticipantCount();
-    removeVideoTile(socketId);
-    SFX.peerLeave();
-  });
-
-  socket.on('rtc:signal', async ({ from, username, avatar, avatar_frame, data }) => {
-    let pc = peers[from];
-    if (!pc) {
-      // Mesma espera do rtc:peer-joined — garante que a resposta (answer)
-      // já sai com sua track de áudio, em vez de depender de uma
-      // renegociação depois pra corrigir.
-      await micReadyPromise;
-      pc = peers[from];
-      if (!pc) {
-        pc = createPeerConnection(from, username, { username, avatar, avatar_frame });
-        addLocalTracksToPeer(pc);
-      }
-    }
-    if (data.type === 'offer') {
-      await pc.setRemoteDescription(data);
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      socket.emit('rtc:signal', { to: from, data: pc.localDescription });
-    } else if (data.type === 'answer') {
-      await pc.setRemoteDescription(data);
-    } else if (data.candidate) {
-      try {
-        await pc.addIceCandidate(data);
-      } catch (_) {}
-    }
-  });
+  // Nota: a sinalização WebRTC manual (rtc:peer-joined, rtc:peer-left,
+  // rtc:signal) saiu daqui — quem cuida da mídia de voz/vídeo/tela agora é
+  // o LiveKit (ver connectLiveKitRoom/wireLiveKitRoomEvents), que já resolve
+  // sozinho quem entrou/saiu e a troca de tracks. O socket.io continua só
+  // com a presença (quem está em qual sala, pro menu lateral) e o chat.
 
   // Presença global: quem está em cada sala de voz, pra mostrar no menu
   // lateral mesmo pra quem não está conectado (igual Discord).
@@ -7365,25 +7318,157 @@ function registerSocketHandlers() {
   });
 }
 
-// ---------- WEBRTC (voz / compartilhamento de tela) ----------
+// ---------- LIVEKIT (voz / vídeo / compartilhamento de tela) ----------
+// Servidor de mídia de verdade — substitui o WebRTC mesh manual antigo.
+// Por que trocar: o jeito antigo conectava cada pessoa direto com todo mundo
+// (mesh P2P) — cada pessoa a mais na sala multiplicava conexões, e a
+// primeira negociação de cada uma podia sair quebrada (áudio faltando,
+// travamento) sem meio de se recuperar direito. O LiveKit é um servidor de
+// mídia de verdade: cada pessoa manda a própria mídia UMA vez pro servidor,
+// que distribui pros outros — muito mais estável, aguenta muito mais gente
+// por sala, e cuida de reconexão sozinho.
+function parseParticipantMetadata(participant) {
+  try {
+    return JSON.parse(participant.metadata || '{}');
+  } catch (_) {
+    return {};
+  }
+}
+
+function remoteUserInfoFor(participant) {
+  const meta = parseParticipantMetadata(participant);
+  return {
+    username: participant.name || meta.username || 'Participante',
+    avatar: meta.avatar || null,
+    avatar_frame: meta.avatar_frame || null,
+    plus_theme: meta.plus_theme || null,
+  };
+}
+
+function getOrCreateRemoteStream(id) {
+  if (!remoteStreams[id]) remoteStreams[id] = new MediaStream();
+  return remoteStreams[id];
+}
+
+// Liga os eventos do Room do LiveKit nas MESMAS funções de tile que já
+// existiam (addVideoTile/removeVideoTile/attachSpeakingDetector) — elas
+// sempre trabalharam com um MediaStream genérico, então não precisaram
+// mudar nada pra funcionar com tracks vindas do LiveKit em vez de
+// RTCPeerConnection direto.
+function wireLiveKitRoomEvents(room) {
+  const LK = window.LivekitClient;
+
+  room.on(LK.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+    const id = participant.identity;
+    const stream = getOrCreateRemoteStream(id);
+    stream.addTrack(track.mediaStreamTrack);
+    remotePeerInfo[id] = remoteUserInfoFor(participant);
+    addVideoTile(id, remotePeerInfo[id].username, stream, remotePeerInfo[id]);
+  });
+
+  room.on(LK.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+    const id = participant.identity;
+    const stream = remoteStreams[id];
+    if (stream) {
+      try {
+        stream.removeTrack(track.mediaStreamTrack);
+      } catch (_) {}
+      if (stream.getTracks().length === 0) {
+        removeVideoTile(id);
+        delete remoteStreams[id];
+      }
+    }
+  });
+
+  room.on(LK.RoomEvent.ParticipantConnected, (participant) => {
+    const info = remoteUserInfoFor(participant);
+    remotePeerInfo[participant.identity] = info;
+    logVoiceActivity(`${info.username} entrou na sala`);
+    updateVoiceParticipantCount();
+    SFX.peerJoin();
+  });
+
+  room.on(LK.RoomEvent.ParticipantDisconnected, (participant) => {
+    const id = participant.identity;
+    removeVideoTile(id);
+    delete remoteStreams[id];
+    const info = remotePeerInfo[id];
+    delete remotePeerInfo[id];
+    logVoiceActivity(`${(info && info.username) || 'Alguém'} saiu da sala`);
+    updateVoiceParticipantCount();
+    SFX.peerLeave();
+  });
+
+  // Indicador de qualidade da conexão (bolinha verde/amarela/vermelha na
+  // tile) — igual antes, só que agora vem pronto do LiveKit em vez de um
+  // monitor de packet loss escrito à mão.
+  room.on(LK.RoomEvent.ConnectionQualityChanged, (quality, participant) => {
+    const id = participant ? participant.identity : 'local';
+    const dot = document.querySelector(`#tile-${id} .quality-dot`);
+    if (!dot) return;
+    dot.classList.remove('quality-good', 'quality-medium', 'quality-poor');
+    if (quality === LK.ConnectionQuality.Poor) dot.classList.add('quality-poor');
+    else if (quality === LK.ConnectionQuality.Excellent) dot.classList.add('quality-good');
+    else dot.classList.add('quality-medium');
+  });
+
+  // Conexão caiu de vez (o LiveKit já tenta reconectar sozinho várias vezes
+  // antes de desistir e disparar isso) — tira a pessoa da sala local com um
+  // aviso claro, em vez de deixar tudo travado numa call morta.
+  room.on(LK.RoomEvent.Disconnected, () => {
+    if (connectedVoiceRoomId) {
+      showCopyToast('A conexão de voz caiu.');
+      disconnectVoice(true);
+    }
+  });
+}
+
+// Pede o token pro backend e conecta no servidor de mídia. Retorna
+// true/false pra connectVoice saber se deu certo.
+async function connectLiveKitRoom(roomId) {
+  const LK = window.LivekitClient;
+  if (!LK) {
+    setMicStatus('Não foi possível carregar o sistema de voz — recarregue a página.');
+    return false;
+  }
+  let tokenData;
+  try {
+    const tokenRes = await fetch('/api/livekit/token?roomId=' + encodeURIComponent(roomId), { credentials: 'include' });
+    tokenData = await tokenRes.json();
+    if (!tokenRes.ok) {
+      setMicStatus(tokenData.error || 'Erro ao entrar na chamada de voz.');
+      return false;
+    }
+  } catch (err) {
+    setMicStatus('Erro de conexão ao entrar na chamada de voz.');
+    return false;
+  }
+  lkRoom = new LK.Room({ adaptiveStream: true, dynacast: true });
+  wireLiveKitRoomEvents(lkRoom);
+  try {
+    await lkRoom.connect(tokenData.url, tokenData.token);
+  } catch (err) {
+    setMicStatus('Não foi possível conectar no servidor de voz: ' + err.message);
+    lkRoom = null;
+    return false;
+  }
+  return true;
+}
 
 async function connectVoice(roomId) {
   // BUG DO "RETORNO" CORRIGIDO: sem essa trava, um duplo-clique em "Entrar na
   // chamada" (ou os dois caminhos que chamam connectVoice — auto-connect ao
   // selecionar o canal e o botão do preview — disparando quase juntos) rodava
-  // startMicrophone() duas vezes pra mesma sala. Isso pegava o microfone de
-  // novo SEM parar o stream antigo, e cada peer passava a receber DUAS
-  // tracks de áudio com o seu mic (uma levemente atrasada da outra) — o que
-  // todo mundo ouvia como eco/retorno na sua voz. Se já está conectado
-  // nessa mesma sala, não faz nada de novo.
+  // startMicrophone() duas vezes pra mesma sala. Se já está conectado nessa
+  // mesma sala, não faz nada de novo.
   if (connectedVoiceRoomId === roomId) return;
 
-  // Espera a confirmação do servidor (sala não cheia, canal acessível) ANTES
-  // de pegar o microfone — senão a pessoa via ouvia o próprio mic ligar numa
-  // sala que na verdade rejeitou a entrada dela (ex: sala cheia).
+  // Continua avisando o servidor via socket.io ANTES de mexer em qualquer
+  // mídia — mantém a checagem de acesso (canal privado por cargo) e a
+  // presença (quem está em cada sala, pro menu lateral) funcionando igual
+  // antes, mesmo com o LiveKit cuidando da mídia em si.
   const joined = await new Promise((resolve) => {
     socket.emit('rtc:join', roomId, (response) => resolve(response || { ok: true }));
-    // Servidor antigo sem suporte a ack — não trava esperando pra sempre.
     setTimeout(() => resolve({ ok: true }), 3000);
   });
   if (!joined.ok) {
@@ -7395,18 +7480,15 @@ async function connectVoice(roomId) {
 
   SFX.join();
   connectedVoiceRoomId = roomId;
+  showConnectingTile();
+  const ok = await connectLiveKitRoom(roomId);
+  removeConnectingTile();
+  if (!ok) {
+    socket.emit('rtc:leave', roomId);
+    connectedVoiceRoomId = null;
+    return;
+  }
 
-  // BUG CORRIGIDO ("ele não me ouve e nem eu ouço ele" ao entrar numa sala
-  // que já tem gente): antes, o mic só era pedido depois de channel:join /
-  // loadVoiceChatHistory / setupVoiceInvite — cada um desses passos
-  // adiciona um pouco de atraso. Nesse meio tempo, quem já estava na sala
-  // recebia o aviso de "peer novo" e criava a conexão pra você ANTES do
-  // seu microfone estar pronto — a primeira negociação WebRTC saía sem
-  // sua track de áudio, e o reparo automático depois (readicionar a track
-  // e renegociar) é frágil e às vezes não completa, deixando os dois sem
-  // se ouvir. Agora o mic é pedido IMEDIATAMENTE após a confirmação do
-  // servidor, antes de qualquer outro passo — a corrida ainda existe em
-  // teoria, mas a janela fica bem menor.
   await startMicrophone();
 
   socket.emit('channel:join', roomId); // pro chat da sala funcionar (mesmo canal, uso duplo texto+voz)
@@ -7419,10 +7501,9 @@ async function connectVoice(roomId) {
 }
 
 // skipServerNotify=true quando o SERVIDOR já sabe que saímos (ex: essa aba
-// levou um "rtc:duplicate-session" porque outra aba assumiu a call) — nesse
-// caso não reemite rtc:leave, senão os outros participantes recebiam o
-// aviso de "saiu da sala" em dobro (um do servidor derrubando, outro dessa
-// aba se despedindo por conta própria logo em seguida).
+// levou um "rtc:duplicate-session" porque outra aba assumiu a call, ou a
+// conexão LiveKit caiu de vez) — nesse caso não reemite rtc:leave, senão os
+// outros participantes recebiam o aviso de "saiu da sala" em dobro.
 function disconnectVoice(skipServerNotify) {
   if (!connectedVoiceRoomId) return;
   SFX.leave();
@@ -7431,13 +7512,12 @@ function disconnectVoice(skipServerNotify) {
     socket.emit('rtc:leave', connectedVoiceRoomId);
     socket.emit('channel:leave', connectedVoiceRoomId);
   }
-  Object.keys(peers).forEach((id) => {
-    clearReconnectAttempt(id);
-    peers[id].close();
-    delete peers[id];
-    stopConnectionQualityMonitor(id);
-  });
+  if (lkRoom) {
+    lkRoom.disconnect();
+    lkRoom = null;
+  }
   Object.keys(remoteStreams).forEach((id) => delete remoteStreams[id]);
+  Object.keys(remotePeerInfo).forEach((id) => delete remotePeerInfo[id]);
   Object.keys(speakingDetectors).forEach((id) => {
     speakingDetectors[id].ctx.close().catch(() => {});
     cancelAnimationFrame(speakingDetectors[id].rafId);
@@ -7656,7 +7736,7 @@ function logVoiceActivity(text) {
 function updateVoiceParticipantCount() {
   const el = document.getElementById('voice-participant-count');
   if (!el || !connectedVoiceRoomId) return;
-  const count = Object.keys(peers).length + 1; // +1 é você mesmo
+  const count = (lkRoom ? lkRoom.remoteParticipants.size : 0) + 1; // +1 é você mesmo
   el.textContent = `${count} na chamada`;
 }
 
@@ -7771,199 +7851,11 @@ function updateVoiceQualitySummary() {
 }
 setInterval(updateVoiceQualitySummary, 3500);
 
-function addLocalTracksToPeer(pc) {
-  if (micStream) {
-    const outgoing = getOutgoingMicStream();
-    outgoing.getTracks().forEach((track) => pc.addTrack(track, outgoing));
-  }
-  if (localStream) {
-    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
-  }
-  if (cameraStream) {
-    cameraStream.getTracks().forEach((track) => pc.addTrack(track, cameraStream));
-  }
-}
-
-function createPeerConnection(peerId, username, userInfo) {
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  peers[peerId] = pc;
-  // Guarda avatar/moldura de quem é esse peer — a tile usa isso pra mostrar a
-  // FOTO de perfil de verdade (não só a inicial) quando a câmera tá desligada.
-  remotePeerInfo[peerId] = userInfo || { username };
-
-  pc.onicecandidate = (e) => {
-    if (e.candidate) socket.emit('rtc:signal', { to: peerId, data: e.candidate });
-  };
-
-  pc.ontrack = (e) => {
-    // Acumula as tracks (áudio do mic + vídeo da tela) numa única stream por
-    // peer, pra tocar tudo junto num único elemento <video> (que também toca áudio).
-    let stream = remoteStreams[peerId];
-    if (!stream) {
-      stream = new MediaStream();
-      remoteStreams[peerId] = stream;
-    }
-    if (!stream.getTracks().includes(e.track)) stream.addTrack(e.track);
-    addVideoTile(peerId, username, stream, remotePeerInfo[peerId]);
-  };
-
-  pc.onnegotiationneeded = async () => {
-    try {
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      socket.emit('rtc:signal', { to: peerId, data: pc.localDescription });
-    } catch (err) {
-      console.error('Erro de negociação WebRTC:', err);
-    }
-  };
-
-  pc.onconnectionstatechange = () => {
-    const state = pc.connectionState;
-    if (state === 'connected') {
-      // Reconectou — cancela qualquer tentativa pendente e tira o aviso da tile.
-      clearReconnectAttempt(peerId);
-      const tile = document.getElementById('tile-' + peerId);
-      if (tile) tile.classList.remove('tile-reconnecting');
-      return;
-    }
-    if (state === 'closed') {
-      // pc.close() já foi chamado de propósito (saiu da sala, peer saiu) —
-      // não tenta reconectar, só limpa.
-      clearReconnectAttempt(peerId);
-      delete remoteStreams[peerId];
-      removeVideoTile(peerId);
-      return;
-    }
-    if (state === 'disconnected' || state === 'failed') {
-      // Queda de conexão real (rede caiu, wifi oscilou etc) — tenta
-      // reconectar sozinho antes de desistir e tirar a pessoa da call
-      // (item 7 do plano: "Reconexão e tratamento de falhas").
-      scheduleReconnectAttempt(peerId, pc, username);
-    }
-  };
-
-  startConnectionQualityMonitor(peerId, pc);
-
-  return pc;
-}
-
-// ---------- RECONEXÃO AUTOMÁTICA DE VOZ ----------
-// failed/disconnected nem sempre é queda definitiva — WebRTC costuma dar um
-// "disconnected" passageiro em qualquer soluço de rede. Em vez de tirar a
-// pessoa da call na hora, tenta ICE restart algumas vezes com espera
-// crescente, e só remove a tile de verdade se todas as tentativas falharem.
-const reconnectTimers = {};
-const reconnectAttempts = {};
-const MAX_RECONNECT_ATTEMPTS = 4;
-
-function clearReconnectAttempt(peerId) {
-  if (reconnectTimers[peerId]) {
-    clearTimeout(reconnectTimers[peerId]);
-    delete reconnectTimers[peerId];
-  }
-  delete reconnectAttempts[peerId];
-}
-
-function scheduleReconnectAttempt(peerId, pc, username) {
-  // Já tem uma tentativa agendada pra esse peer — não empilha outra.
-  if (reconnectTimers[peerId]) return;
-
-  const tile = document.getElementById('tile-' + peerId);
-  if (tile) tile.classList.add('tile-reconnecting');
-
-  const attempt = (reconnectAttempts[peerId] || 0) + 1;
-  reconnectAttempts[peerId] = attempt;
-
-  if (attempt > MAX_RECONNECT_ATTEMPTS) {
-    logVoiceActivity(`${username || 'Alguém'} caiu da chamada`);
-    clearReconnectAttempt(peerId);
-    delete remoteStreams[peerId];
-    if (peers[peerId]) {
-      try {
-        peers[peerId].close();
-      } catch (_) {}
-      delete peers[peerId];
-    }
-    removeVideoTile(peerId);
-    return;
-  }
-
-  const delay = Math.min(1500 * attempt, 6000); // 1.5s, 3s, 4.5s, 6s
-  reconnectTimers[peerId] = setTimeout(async () => {
-    delete reconnectTimers[peerId];
-    // Peer já sumiu (saiu de verdade nesse meio tempo) — nada a fazer.
-    if (!peers[peerId] || peers[peerId] !== pc) return;
-    if (pc.connectionState === 'connected') {
-      clearReconnectAttempt(peerId);
-      return;
-    }
-    try {
-      if (typeof pc.restartIce === 'function') {
-        pc.restartIce();
-      } else {
-        // Navegadores mais antigos: renegocia com iceRestart explícito.
-        const offer = await pc.createOffer({ iceRestart: true });
-        await pc.setLocalDescription(offer);
-        socket.emit('rtc:signal', { to: peerId, data: pc.localDescription });
-      }
-    } catch (err) {
-      console.error('Falha ao tentar reconectar com', username, err);
-    }
-    // Se depois dessa tentativa ainda não conectou, agenda a próxima.
-    setTimeout(() => {
-      if (peers[peerId] === pc && pc.connectionState !== 'connected' && pc.connectionState !== 'closed') {
-        scheduleReconnectAttempt(peerId, pc, username);
-      }
-    }, 2500);
-  }, delay);
-}
-
-// Checa a qualidade da conexão (perda de pacotes) a cada poucos segundos e
-// acende um indicador verde/amarelo/vermelho na tile da pessoa, igual Discord.
-const qualityIntervals = {};
-const qualityLastStats = {};
-
-function startConnectionQualityMonitor(peerId, pc) {
-  stopConnectionQualityMonitor(peerId);
-  qualityIntervals[peerId] = setInterval(async () => {
-    try {
-      const stats = await pc.getStats();
-      let packetsLost = 0;
-      let packetsReceived = 0;
-      stats.forEach((report) => {
-        if (report.type === 'inbound-rtp' && !report.isRemote) {
-          packetsLost += report.packetsLost || 0;
-          packetsReceived += report.packetsReceived || 0;
-        }
-      });
-      const last = qualityLastStats[peerId] || { packetsLost: 0, packetsReceived: 0 };
-      const deltaLost = Math.max(0, packetsLost - last.packetsLost);
-      const deltaReceived = Math.max(0, packetsReceived - last.packetsReceived);
-      qualityLastStats[peerId] = { packetsLost, packetsReceived };
-
-      const total = deltaLost + deltaReceived;
-      const lossRatio = total > 0 ? deltaLost / total : 0;
-
-      const dot = document.querySelector(`#tile-${peerId} .quality-dot`);
-      if (dot) {
-        dot.classList.remove('quality-good', 'quality-medium', 'quality-poor');
-        if (lossRatio > 0.08) dot.classList.add('quality-poor');
-        else if (lossRatio > 0.02) dot.classList.add('quality-medium');
-        else dot.classList.add('quality-good');
-      }
-    } catch (_) {
-      // getStats pode falhar logo depois que a conexão fecha — ignora
-    }
-  }, 3000);
-}
-
-function stopConnectionQualityMonitor(peerId) {
-  if (qualityIntervals[peerId]) {
-    clearInterval(qualityIntervals[peerId]);
-    delete qualityIntervals[peerId];
-  }
-  delete qualityLastStats[peerId];
-}
+// Nota: a criação manual de RTCPeerConnection (addLocalTracksToPeer,
+// createPeerConnection), a reconexão por ICE restart e o monitor de
+// qualidade por packet loss saíram daqui — o LiveKit (ver
+// connectLiveKitRoom/wireLiveKitRoomEvents, mais acima) já resolve tudo
+// isso sozinho, de um jeito mais robusto que o que dava pra escrever à mão.
 
 const speakingDetectors = {}; // peerId -> { ctx, rafId }
 
@@ -8245,17 +8137,18 @@ function getOutgoingMicStream() {
   return micStream;
 }
 
-// Troca a track de áudio já sendo enviada pra cada peer (sem precisar
-// renegociar a conexão) — usado quando liga/desliga o portão de ruído no meio de uma call.
+// Troca a track de áudio já publicada no LiveKit (sem precisar renegociar
+// nada, o replaceTrack cuida disso) — usado quando liga/desliga o portão de
+// ruído no meio de uma call.
 function applyOutgoingMicTrackToPeers() {
   const outgoing = getOutgoingMicStream();
   if (!outgoing) return;
   const newTrack = outgoing.getAudioTracks()[0];
   if (!newTrack) return;
-  Object.values(peers).forEach((pc) => {
-    const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'audio');
-    if (sender) sender.replaceTrack(newTrack).catch(() => {});
-  });
+  if (lkRoom) {
+    const pub = lkRoom.localParticipant.getTrackPublication(window.LivekitClient.Track.Source.Microphone);
+    if (pub && pub.track) pub.track.replaceTrack(newTrack).catch(() => {});
+  }
   updateLocalTile();
 }
 
@@ -8263,9 +8156,8 @@ function applyOutgoingMicTrackToPeers() {
 
 async function startMicrophone() {
   // micReadyPromise só resolve quando ESSE pedido de mic terminar (sucesso
-  // ou falha) — quem estiver montando um offer/answer de voz nesse meio
-  // tempo espera por ele antes de seguir, pra nunca negociar sem a track de
-  // áudio (ver rtc:signal mais abaixo).
+  // ou falha) — outras partes do código podem esperar por ele se precisarem
+  // saber quando o mic está de fato pronto/publicado.
   let resolveMicReady;
   micReadyPromise = new Promise((resolve) => {
     resolveMicReady = resolve;
@@ -8282,8 +8174,8 @@ async function startMicrophone() {
 
     // Segunda camada de proteção contra o bug do "retorno": se por algum
     // motivo já existe um microfone ativo (chamada duplicada, etc), para ele
-    // antes de pegar um novo — nunca deixa dois streams de mic vivos ao mesmo
-    // tempo mandando áudio duplicado pros peers.
+    // antes de pegar um novo — nunca deixa dois streams de mic vivos ao
+    // mesmo tempo publicando áudio duplicado.
     if (micStream) {
       micStream.getTracks().forEach((t) => t.stop());
       micStream = null;
@@ -8300,9 +8192,18 @@ async function startMicrophone() {
     if (noiseGateEnabled) buildNoiseGate(micStream);
     updateMicEnabledState();
     const outgoing = getOutgoingMicStream();
-    Object.values(peers).forEach((pc) => {
-      outgoing.getTracks().forEach((track) => pc.addTrack(track, outgoing));
-    });
+    const track = outgoing.getAudioTracks()[0];
+    if (lkRoom && track) {
+      try {
+        await lkRoom.localParticipant.publishTrack(track, {
+          source: window.LivekitClient.Track.Source.Microphone,
+          name: 'microphone',
+        });
+      } catch (err) {
+        console.error('Erro ao publicar áudio do microfone:', err);
+        setMicStatus('Não foi possível publicar seu áudio na chamada: ' + err.message);
+      }
+    }
     updateMicButton();
     setMicStatus(micMuted ? '🎙️ Microfone mutado' : '🎙️ Microfone ativo');
     removeConnectingTile();
@@ -8344,14 +8245,17 @@ function updateLocalTile() {
 // ---------- CÂMERA (webcam, separada da tela compartilhada) ----------
 
 async function toggleCamera() {
+  const LK = window.LivekitClient;
   if (cameraStream) {
-    const tracksToRemove = cameraStream.getTracks();
-    Object.values(peers).forEach((pc) => {
-      pc.getSenders()
-        .filter((s) => s.track && tracksToRemove.includes(s.track))
-        .forEach((s) => pc.removeTrack(s));
-    });
-    tracksToRemove.forEach((t) => t.stop());
+    if (lkRoom && LK) {
+      const pub = lkRoom.localParticipant.getTrackPublication(LK.Track.Source.Camera);
+      if (pub && pub.track) {
+        try {
+          await lkRoom.localParticipant.unpublishTrack(pub.track);
+        } catch (_) {}
+      }
+    }
+    cameraStream.getTracks().forEach((t) => t.stop());
     cameraStream = null;
     updateLocalTile();
     updateCameraButton();
@@ -8367,9 +8271,14 @@ async function toggleCamera() {
     alert('Não foi possível acessar a câmera: ' + err.message);
     return;
   }
-  Object.values(peers).forEach((pc) => {
-    cameraStream.getTracks().forEach((track) => pc.addTrack(track, cameraStream));
-  });
+  const camTrack = cameraStream.getVideoTracks()[0];
+  if (lkRoom && LK && camTrack) {
+    try {
+      await lkRoom.localParticipant.publishTrack(camTrack, { source: LK.Track.Source.Camera, name: 'camera' });
+    } catch (err) {
+      console.error('Erro ao publicar câmera:', err);
+    }
+  }
   updateLocalTile();
   updateCameraButton();
   updateCameraModerationBadge();
@@ -8717,9 +8626,24 @@ document.getElementById('btn-confirm-share-picker').onclick = async () => {
   }
   document.getElementById('modal-share-picker').classList.add('hidden');
   updateLocalTile();
-  Object.values(peers).forEach((pc) => {
-    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
-  });
+  if (lkRoom) {
+    const LK = window.LivekitClient;
+    const videoTrack = localStream.getVideoTracks()[0];
+    const audioTrack = localStream.getAudioTracks()[0];
+    try {
+      if (videoTrack) {
+        await lkRoom.localParticipant.publishTrack(videoTrack, { source: LK.Track.Source.ScreenShare, name: 'screen' });
+      }
+      if (audioTrack) {
+        await lkRoom.localParticipant.publishTrack(audioTrack, {
+          source: LK.Track.Source.ScreenShareAudio,
+          name: 'screen-audio',
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao publicar compartilhamento de tela:', err);
+    }
+  }
   document.getElementById('btn-share-screen').classList.add('hidden');
   document.getElementById('btn-stop-share').classList.remove('hidden');
   SFX.screenShareStart();
@@ -8739,25 +8663,21 @@ document.getElementById('btn-stop-share').onclick = stopScreenShare;
 
 function stopScreenShare() {
   if (localStream) {
-    // BUG CRÍTICO CORRIGIDO: antes só parava as tracks (t.stop()) sem tirar
-    // o sender da conexão. Uma track parada continua "presa" no
-    // RTCPeerConnection como remetente morto — quem está assistindo fica
-    // com tela preta/congelada em vez do vídeo sumir, e cada vez que a
-    // pessoa compartilha de novo (sem sair da call) um sender morto novo se
-    // acumula em cima do(s) anterior(es), pesando a negociação e causando
-    // lag. A correção é sempre remover o sender de cada peer ANTES de parar
-    // a track — mesmo padrão já usado ao desligar a câmera.
-    const tracksToRemove = localStream.getTracks();
-    Object.values(peers).forEach((pc) => {
-      pc.getSenders()
-        .filter((s) => s.track && tracksToRemove.includes(s.track))
-        .forEach((s) => {
-          try {
-            pc.removeTrack(s);
-          } catch (_) {}
-        });
-    });
-    tracksToRemove.forEach((t) => t.stop());
+    // BUG CRÍTICO CORRIGIDO (antes, quando isso ainda era WebRTC manual):
+    // parar só a track sem tirar o sender deixava um remetente morto preso
+    // na conexão, e quem assistia ficava com tela preta/congelada. O
+    // unpublishTrack do LiveKit já cuida de tirar a track de verdade do ar
+    // pros outros, então não tem mais esse problema.
+    if (lkRoom) {
+      const LK = window.LivekitClient;
+      [LK.Track.Source.ScreenShare, LK.Track.Source.ScreenShareAudio].forEach((source) => {
+        const pub = lkRoom.localParticipant.getTrackPublication(source);
+        if (pub && pub.track) {
+          lkRoom.localParticipant.unpublishTrack(pub.track).catch(() => {});
+        }
+      });
+    }
+    localStream.getTracks().forEach((t) => t.stop());
     localStream = null;
   }
   document.getElementById('btn-share-screen').classList.remove('hidden');

@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.15.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Sistema de voz/vídeo/tela reconstruído do zero em cima do LiveKit (servidor de mídia profissional) — substitui o P2P direto antigo, que só aguentava poucas pessoas por sala. Agora aguenta até 40 pessoas na mesma sala de voz, com reconexão automática de verdade e sem o bug de \"não me ouve\" ao entrar numa call em andamento",
+      "Precisa configurar LIVEKIT_URL, LIVEKIT_API_KEY e LIVEKIT_API_SECRET nas variáveis de ambiente do Render (conta grátis em livekit.io) pra voz funcionar"
+    ]
+  },
+  {
     "version": "0.14.2",
     "date": "2026-09-01",
     "changes": [

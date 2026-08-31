@@ -1988,6 +1988,10 @@
      pessoa, nunca passa nem fica salvo no nosso servidor. -->
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="/socket.io/socket.io.js"></script>
+<!-- LiveKit — SDK do servidor de mídia (SFU) que faz a voz/vídeo/tela de
+     verdade agora, substituindo o WebRTC mesh manual antigo. Carrega antes
+     do app.js pra window.LivekitClient já existir quando ele precisar. -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 <script src="/icons.js"></script>
 <script src="/sfx.js"></script>
 <script src="/app.js"></script>
