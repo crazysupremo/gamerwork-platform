@@ -479,6 +479,12 @@ const PLUS_THEMES = [
   { id: 'gold', name: 'Dourado', from: '#ffd93d', to: '#f7b733' },
   { id: 'ice', name: 'Gelo Ciano', from: '#7ee8ff', to: '#00c2ff' },
   { id: 'platinum', name: 'Platina', from: '#e8e8ec', to: '#a8a8b3' },
+  // Tema oficial da marca NEXTGAME (azul/branco, igual ao pacote de banners
+  // e logo) — o mais completo dos temas: além da cor, tem efeito animado
+  // (brilho pulsante) no nome, moldura do avatar, bolha de DM e banner do
+  // perfil. Continua liberado pra qualquer assinante do PLUS, só é "especial"
+  // pelo efeito, não por ter vaga limitada.
+  { id: 'official', name: 'NEXTGAME Oficial ⚡', from: '#2f7dff', to: '#e8f1ff', special: true },
 ];
 
 const REWARDS_CATALOG = [

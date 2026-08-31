@@ -79,11 +79,15 @@ function avatarFrameClass(user) {
   return [frame, plus].filter(Boolean).join(' ');
 }
 
-// Cor do tema PLUS de alguém, pronta pra ir num atributo style="" — usada no
-// nome de quem manda mensagem no chat (visível pra todo mundo na conversa).
+// Atributo(s) pra pintar o nome de alguém com o tema PLUS que ela escolheu —
+// usado no nome de quem manda mensagem no chat (visível pra todo mundo na
+// conversa). O tema "official" tem efeito animado de verdade (classe CSS
+// com keyframe); os outros são só uma cor sólida (mais simples e leve).
 function plusColorStyle(user) {
   const t = plusThemeById(user && user.plus_theme);
-  return t ? ` style="color:${t.from};"` : '';
+  if (!t) return '';
+  if (t.special) return ' class="plus-name-special"';
+  return ` style="color:${t.from};"`;
 }
 
 // Identificador estilo Discord (@Username#1234) — sistema de hashtag.
@@ -621,22 +625,54 @@ async function tryResumeSession() {
     return;
   }
 
-  try {
-    const res = await fetch('/api/me', { credentials: 'include' });
-    if (res.ok) {
-      me = await res.json();
-      if (me.email_verified === false) {
-        showEmailVerificationScreen();
-        return;
-      }
-      startApp();
+  // BUG CORRIGIDO: antes, qualquer resposta que não fosse "ok" — inclusive
+  // erro passageiro tipo o servidor do Render acordando do modo economia
+  // (fica uns 30-60s lento/instável logo após ficar inativo), instabilidade
+  // de rede, ou um 500 momentâneo — já apagava "Continuar conectado" e
+  // jogava a pessoa pro login, mesmo com a sessão ainda válida no servidor.
+  // Agora só um 401 de verdade (sessão realmente inválida/expirada) apaga a
+  // preferência; qualquer outro erro tenta de novo antes de desistir, e
+  // nunca apaga o "Continuar conectado" por causa de um erro passageiro.
+  const tryFetchMe = async () => {
+    try {
+      return await fetch('/api/me', { credentials: 'include' });
+    } catch (_) {
+      return null;
+    }
+  };
+
+  let res = await tryFetchMe();
+  if (!res || !res.ok) {
+    if (res && res.status === 401) {
+      localStorage.removeItem('ng_remember_me');
       bootLoading.classList.add('hidden');
+      document.getElementById('auth-screen').classList.remove('hidden');
       return;
     }
-  } catch (_) {}
+    // Erro passageiro (servidor acordando, rede instável, 500 momentâneo) —
+    // espera um instante e tenta mais uma vez antes de mostrar o login.
+    await new Promise((r) => setTimeout(r, 1800));
+    res = await tryFetchMe();
+  }
 
-  // Sessão expirou ou não é mais válida — limpa a preferência e pede login.
-  localStorage.removeItem('ng_remember_me');
+  if (res && res.ok) {
+    me = await res.json();
+    if (me.email_verified === false) {
+      showEmailVerificationScreen();
+      return;
+    }
+    startApp();
+    bootLoading.classList.add('hidden');
+    return;
+  }
+
+  // Só chega aqui depois de tentar 2x — se foi 401 de verdade, apaga a
+  // preferência; se continuou sendo erro de rede/servidor, mantém "Continuar
+  // conectado" salvo (a sessão pode muito bem ainda ser válida) e só mostra
+  // o login pra essa tentativa.
+  if (res && res.status === 401) {
+    localStorage.removeItem('ng_remember_me');
+  }
   bootLoading.classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
 }
@@ -3387,6 +3423,7 @@ async function openProfilePreview(user) {
     bannerEl.style.background = theme
       ? `radial-gradient(circle at 15% 15%, rgba(255,255,255,0.2), transparent 45%), linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`
       : '';
+    bannerEl.classList.toggle('profile-banner-official-shimmer', !!(theme && theme.special));
   }
   document.getElementById('profile-preview-username').innerHTML =
     `${escapeHtml(user.username)}${user.is_admin ? ' 👑' : ''}${user.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}`;
@@ -4213,6 +4250,11 @@ function applyOwnPlusTheme() {
     root.removeProperty('--accent-2');
     root.removeProperty('--gradient-brand');
   }
+  // O tema "official" é o mais completo — além da cor, liga um efeito de
+  // brilho animado em várias telas do próprio app (bolha das SUAS DMs,
+  // banner do SEU perfil). Uma classe no <body> resolve tudo isso de um
+  // lugar só, sem precisar repetir lógica em cada tela.
+  document.body.classList.toggle('plus-theme-official-active', !!(theme && theme.special));
 }
 
 function renderPlusThemePicker() {
@@ -4224,9 +4266,9 @@ function renderPlusThemePicker() {
   }
   const swatches = PLUS_THEMES_CACHE.map(
     (t) => `
-    <button type="button" class="plus-theme-swatch ${me.plus_theme === t.id ? 'active' : ''}" data-theme-id="${t.id}"
-      style="background:linear-gradient(135deg, ${t.from} 0%, ${t.to} 100%)" title="${escapeHtml(t.name)}">
-      ${me.plus_theme === t.id ? icon('check') : ''}
+    <button type="button" class="plus-theme-swatch ${t.special ? 'plus-theme-swatch-special' : ''} ${me.plus_theme === t.id ? 'active' : ''}" data-theme-id="${t.id}"
+      style="background:linear-gradient(135deg, ${t.from} 0%, ${t.to} 100%)" title="${escapeHtml(t.name)}${t.special ? ' — tema completo, com efeito animado' : ''}">
+      ${me.plus_theme === t.id ? icon('check') : t.special ? icon('sparkles') : ''}
     </button>`
   ).join('');
   const resetSwatch = `
@@ -6275,6 +6317,20 @@ const STICKER_PACK = ['😂', '❤️', '🔥', '👑', '🎮', '🏆', '👍', 
 // grande, sem precisar de nenhuma arte customizada), só que com um conjunto
 // diferente pra ficar reservado a quem assina.
 const STICKER_PACK_PLUS = ['💎', '🚀', '⚡', '🐐', '🫡', '🎯', '🥇', '💪'];
+// Figurinhas de verdade (PNG, recortadas do pacote de marca NEXTGAME) — pra
+// quem tem essa imagem no /public/assets/brand. Ficam junto do resto do
+// pacote, disponíveis pra todo mundo (não é exclusivo do PLUS).
+const STICKER_PACK_BRAND = [
+  '/assets/brand/sticker-gg.png',
+  '/assets/brand/sticker-nice.png',
+  '/assets/brand/sticker-fire.png',
+  '/assets/brand/sticker-letsgo.png',
+  '/assets/brand/sticker-nextgame.png',
+  '/assets/brand/sticker-heart.png',
+  '/assets/brand/sticker-thumbs.png',
+  '/assets/brand/sticker-lol.png',
+  '/assets/brand/sticker-trophy.png',
+];
 
 // Texto amigável pra prévias (lista de conversas, "última mensagem") —
 // esconde o formato interno do convite de jogo atrás de um resumo legível.
@@ -6285,7 +6341,10 @@ function messagePreviewText(msgOrContent) {
   const content = isObj ? msgOrContent.content : msgOrContent;
   const attachment = isObj ? msgOrContent.attachment : null;
   if (content && content.startsWith(GAME_INVITE_PREFIX)) return '🎮 Convite pra jogar';
-  if (content && content.startsWith(STICKER_PREFIX)) return `${content.slice(STICKER_PREFIX.length)} Figurinha`;
+  if (content && content.startsWith(STICKER_PREFIX)) {
+    const payload = content.slice(STICKER_PREFIX.length);
+    return payload.startsWith('img:') ? '🖼️ Figurinha' : `${payload} Figurinha`;
+  }
   // BUG CORRIGIDO: mensagem que era só um link (convite de servidor, por
   // exemplo) aparecia crua e enorme na prévia da lista de conversas,
   // estourando a largura da coluna. Mostra um resumo curto em vez do link.
@@ -6297,8 +6356,12 @@ function messagePreviewText(msgOrContent) {
 
 function renderMessageContentHtml(msg) {
   if (msg.content.startsWith(STICKER_PREFIX)) {
-    const emoji = msg.content.slice(STICKER_PREFIX.length);
-    return `<div class="content sticker-content">${escapeHtml(emoji)}</div>`;
+    const payload = msg.content.slice(STICKER_PREFIX.length);
+    if (payload.startsWith('img:')) {
+      const src = payload.slice(4);
+      return `<div class="content sticker-content sticker-content-img"><img src="${escapeHtml(src)}" alt="Figurinha NEXTGAME" /></div>`;
+    }
+    return `<div class="content sticker-content">${escapeHtml(payload)}</div>`;
   }
   if (msg.content.startsWith(GAME_INVITE_PREFIX)) {
     let payload;
@@ -6455,7 +6518,10 @@ function renderMessage(msg) {
     const theirTheme = plusThemeById(author && author.plus_theme);
     if (theirTheme) {
       const contentEl = el.querySelector('.content');
-      if (contentEl) contentEl.style.background = `linear-gradient(135deg, ${theirTheme.from} 0%, ${theirTheme.to} 100%)`;
+      if (contentEl) {
+        contentEl.style.background = `linear-gradient(135deg, ${theirTheme.from} 0%, ${theirTheme.to} 100%)`;
+        if (theirTheme.special) contentEl.classList.add('dm-bubble-official-shimmer');
+      }
     }
   }
 
@@ -6746,15 +6812,25 @@ const stickerPicker = document.getElementById('sticker-picker');
 function renderStickerPicker() {
   const plus = isPlusUser();
   const items = plus ? STICKER_PACK.concat(STICKER_PACK_PLUS) : STICKER_PACK;
-  stickerPicker.innerHTML =
-    items.map((s) => `<button type="button" class="sticker-picker-item">${s}</button>`).join('') +
-    (plus
-      ? ''
-      : `<button type="button" id="btn-sticker-plus-hint" class="sticker-picker-plus-hint" title="Mais figurinhas com o NEXTGAME PLUS">${icon('sparkles')}</button>`);
-  stickerPicker.querySelectorAll('.sticker-picker-item').forEach((btn) => {
+  const emojiHtml = items.map((s) => `<button type="button" class="sticker-picker-item">${s}</button>`).join('');
+  const brandHtml = STICKER_PACK_BRAND.map(
+    (src) => `<button type="button" class="sticker-picker-item sticker-picker-item-img" data-src="${src}"><img src="${src}" alt="" loading="lazy" /></button>`
+  ).join('');
+  const hintHtml = plus
+    ? ''
+    : `<button type="button" id="btn-sticker-plus-hint" class="sticker-picker-plus-hint" title="Mais figurinhas com o NEXTGAME PLUS">${icon('sparkles')}</button>`;
+  stickerPicker.innerHTML = emojiHtml + brandHtml + hintHtml;
+  stickerPicker.querySelectorAll('.sticker-picker-item:not(.sticker-picker-item-img)').forEach((btn) => {
     btn.onclick = () => {
       if (!currentChannel) return;
       socket.emit('chat:message', { channelId: currentChannel.id, content: STICKER_PREFIX + btn.textContent });
+      stickerPicker.classList.add('hidden');
+    };
+  });
+  stickerPicker.querySelectorAll('.sticker-picker-item-img').forEach((btn) => {
+    btn.onclick = () => {
+      if (!currentChannel) return;
+      socket.emit('chat:message', { channelId: currentChannel.id, content: STICKER_PREFIX + 'img:' + btn.dataset.src });
       stickerPicker.classList.add('hidden');
     };
   });

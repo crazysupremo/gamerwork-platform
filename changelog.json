@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.11.0",
+    "date": "2026-08-31",
+    "changes": [
+      "Novo tema \"NEXTGAME Oficial\" no PLUS — o mais completo: além da cor da marca (azul/branco), tem efeito animado de brilho no nome, moldura do avatar, bolha de DM e banner do perfil",
+      "Figurinhas de verdade (PNG) adicionadas ao chat — recortadas do pacote de marca NEXTGAME (GG, Nice!, Fogo, Let's Go, coração, joinha, LOL, troféu, logo)",
+      "Corrigido bug de logout indevido: 'Continuar conectado' não apagava mais a sessão à toa quando o servidor demorava a responder (ex: acordando do modo economia do Render) — agora só desloga de verdade numa sessão realmente expirada"
+    ]
+  },
+  {
     "version": "0.10.0",
     "date": "2026-08-31",
     "changes": [
