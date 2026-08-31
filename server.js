@@ -108,13 +108,22 @@ const recentSlowRequests = [];
 const requestTimestamps = []; // usado só pra calcular requisições/minuto
 const REQUEST_TIMESTAMPS_WINDOW_MS = 5 * 60 * 1000;
 
+// Guarda também o stack trace agora (não só a mensagem) e um id próprio —
+// é o que a IA usa pra tentar diagnosticar o erro depois, sob pedido do
+// admin (ver /api/admin/errors/:id/diagnose). Continua tudo em memória, não
+// no banco — mesmo motivo de sempre (é diagnóstico ao vivo, não histórico).
 function logError(source, err) {
-  recentErrors.unshift({
+  const entry = {
+    id: uuidv4(),
     time: new Date().toISOString(),
     source,
     message: err && err.message ? err.message : String(err),
-  });
+    stack: err && err.stack ? String(err.stack).slice(0, 4000) : null,
+    diagnosis: null, // preenchido sob demanda pela IA, guardado aqui pra não gastar API de novo
+  };
+  recentErrors.unshift(entry);
   if (recentErrors.length > MAX_LOG_ENTRIES) recentErrors.length = MAX_LOG_ENTRIES;
+  return entry;
 }
 
 function logSlowRequest(entry) {
@@ -788,14 +797,18 @@ app.post(
     // backend. Ver nota completa na resposta final sobre essa decisão.
     const discriminator = await db.generateUniqueDiscriminator(username);
     const usernameTag = `${username}#${discriminator}`;
-    // Confirmação de e-mail DESATIVADA por enquanto (a pedido): a conta já
-    // nasce com email_verified = 1, sem gerar/enviar código nem bloquear
-    // login. Toda a lógica de verificação continua no arquivo (rotas
-    // /api/verify-email, /api/resend-verification-code, mailer.js, allowlist
-    // em requireAuth) — pra reativar, basta reverter este bloco: voltar
-    // email_verified para 0 na query abaixo, descomentar a geração do
-    // código e a chamada a sendVerificationEmail, e ajustar a resposta do
-    // /api/register no final desta rota.
+    // Confirmação de e-mail DESATIVADA de novo (a pedido — ainda não tem
+    // domínio verificado no Resend pra mandar e-mail de verdade pra
+    // qualquer usuário; sem isso, todo cadastro novo ficaria travado sem
+    // conseguir confirmar). A conta já nasce com email_verified = 1, sem
+    // gerar/enviar código nem bloquear login. Toda a lógica de verificação
+    // continua no arquivo (rotas /api/verify-email,
+    // /api/resend-verification-code, mailer.js, allowlist em requireAuth) —
+    // pra reativar quando tiver o domínio configurado no Resend, é só
+    // reverter este bloco: voltar email_verified para 0 na query abaixo,
+    // descomentar a geração do código e a chamada a sendVerificationEmail,
+    // e ajustar a resposta do /api/register no final desta rota (mesmo
+    // padrão já usado nesse arquivo antes).
     // Idade estimada por câmera é opcional e calculada no navegador da
     // pessoa — aqui só sanitiza (número plausível entre 1 e 100) ou ignora
     // qualquer coisa fora disso, já que veio do cliente e pode vir zoado.
@@ -6383,6 +6396,83 @@ app.get(
       recent_slow_requests: recentSlowRequests.slice(0, 30),
       recent_errors: recentErrors.slice(0, 30),
     });
+  })
+);
+
+// ---------- DIAGNÓSTICO DE ERRO POR IA (painel admin) ----------
+// A IA (Groq, mesma já usada pra moderação) SÓ EXPLICA e SUGERE — nunca
+// aplica nada sozinha em produção. O admin lê a sugestão e decide: aplica
+// na mão, ou pede pra alguém (ex: essa mesma conversa) aplicar de verdade.
+// Isso é proposital: deixar uma IA alterar código ao vivo num site com
+// usuários reais, sem revisão humana, é arriscado demais — um diagnóstico
+// errado viraria uma mudança de código errada, sem ninguém percebendo antes
+// de ir pro ar.
+async function callGroqForErrorDiagnosis(promptText) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const textModel = process.env.GROQ_TEXT_MODEL || 'llama-3.3-70b-versatile';
+    const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+      body: JSON.stringify({
+        model: textModel,
+        max_tokens: 700,
+        messages: [{ role: 'user', content: promptText }],
+      }),
+    });
+    if (!apiRes.ok) {
+      const errText = await apiRes.text();
+      console.error('Erro na Groq (diagnóstico de erro):', apiRes.status, errText);
+      return null;
+    }
+    const data = await apiRes.json();
+    return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || null;
+  } catch (err) {
+    console.error('Erro na Groq (diagnóstico de erro):', err.message);
+    return null;
+  }
+}
+
+const ERROR_DIAGNOSIS_PROMPT_PREFIX =
+  'Você é um engenheiro sênior ajudando a diagnosticar um erro de produção de um app Node.js/Express ' +
+  '(backend) com frontend em HTML/CSS/JS puro (chat/voz pra gamers, com WebRTC, socket.io e banco SQLite/Turso). ' +
+  'Responda em português, direto ao ponto, no formato:\n' +
+  '1) CAUSA PROVÁVEL — uma explicação curta e objetiva do que provavelmente gerou isso.\n' +
+  '2) SUGESTÃO DE CORREÇÃO — se você tiver confiança de onde/como corrigir, mostre um trecho de código ' +
+  'sugerido (só o trecho relevante, não o arquivo inteiro). Se não tiver certeza do arquivo/linha exata ' +
+  'pela informação disponível, diga isso claramente e dê a direção geral em vez de inventar um local específico.\n' +
+  '3) URGÊNCIA — baixa, média ou alta, com uma frase de justificativa.\n' +
+  'Não invente nomes de arquivo/variável que não apareçam na mensagem ou no stack trace abaixo. ' +
+  'Seja conciso — isso vai ser lido rápido por alguém no meio do trabalho.\n\n';
+
+app.post(
+  '/api/admin/errors/:id/diagnose',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const error = recentErrors.find((e) => e.id === req.params.id);
+    if (!error) {
+      return res.status(404).json({ error: 'Esse erro não está mais na lista (só guardamos os mais recentes).' });
+    }
+    // Já diagnosticado antes — devolve o mesmo, sem gastar chamada de API de
+    // novo (o admin pode reabrir o painel várias vezes no mesmo erro).
+    if (error.diagnosis) {
+      return res.json({ diagnosis: error.diagnosis, cached: true });
+    }
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(400).json({ error: 'GROQ_API_KEY não configurada — a IA de diagnóstico precisa dela (mesma chave já usada pra moderação).' });
+    }
+    const prompt =
+      ERROR_DIAGNOSIS_PROMPT_PREFIX +
+      `Origem: ${error.source}\nMensagem: ${error.message}\n` +
+      (error.stack ? `Stack trace:\n${error.stack}` : '(sem stack trace disponível)');
+    const diagnosis = await callGroqForErrorDiagnosis(prompt);
+    if (!diagnosis) {
+      return res.status(502).json({ error: 'Não consegui gerar o diagnóstico agora — tenta de novo em alguns segundos.' });
+    }
+    error.diagnosis = diagnosis; // cacheia no próprio objeto em memória
+    res.json({ diagnosis, cached: false });
   })
 );
 

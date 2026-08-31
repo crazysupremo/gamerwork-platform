@@ -1,5 +1,36 @@
 [
   {
+    "version": "0.8.1",
+    "date": "2026-08-30",
+    "changes": [
+      "Amigos e Mensagens remodelado: cards mais arredondados, com sombra/destaque ao passar o mouse",
+      "Botões de ação (mensagem, ligar, aceitar, recusar) viraram círculos que reagem ao interagir",
+      "Abas de Amigos (Todos/Online/Pendentes) ganharam visual em pílula, mais claro qual está selecionada"
+    ]
+  },
+  {
+    "version": "0.8.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Painel admin: erros agora podem ser diagnosticados por IA (causa provável + sugestão de correção) — a IA só sugere, ninguém aplica nada sozinho em produção",
+      "Tela de login mostra selos de confiança (Proteção BlueX, Monitoramento de erros, Suporte com IA)"
+    ]
+  },
+  {
+    "version": "0.7.1",
+    "date": "2026-08-30",
+    "changes": [
+      "Confirmação de e-mail desligada de novo por enquanto (ainda sem domínio configurado no Resend para enviar de verdade)"
+    ]
+  },
+  {
+    "version": "0.7.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Confirmação de e-mail no cadastro reativada — conta nova recebe um código de 6 dígitos e fica bloqueada até confirmar"
+    ]
+  },
+  {
     "version": "0.6.5",
     "date": "2026-08-30",
     "changes": [

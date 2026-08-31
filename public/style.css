@@ -199,6 +199,14 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .auth-hero-cta-secondary:hover { background: rgba(255,255,255,0.08); }
 .auth-hero-cta-primary:active, .auth-hero-cta-secondary:active { transform: scale(0.98); }
 
+/* Selos de confiança/segurança logo abaixo dos botões do hero — pequenos,
+   discretos, mas visíveis antes mesmo de entrar no site. */
+.auth-trust-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+.auth-trust-badge {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #a8f0bf;
+  background: rgba(59,165,92,0.12); border: 1px solid rgba(59,165,92,0.3); padding: 5px 11px; border-radius: 20px;
+}
+.auth-trust-badge .ng-icon { width: 12px; height: 12px; }
 .auth-features { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
 .auth-feature {
   display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 12px;
@@ -2153,23 +2161,63 @@ video:fullscreen { background: #000; object-fit: contain; }
 .friend-message-btn, .friend-call-btn { color: var(--accent-3); }
 .friend-pending-tag { font-size: 11px; color: #6d7178; }
 
-/* Abas + busca do painel de Amigos */
-.friends-tabs { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid #26272e; }
+/* Abas + busca do painel de Amigos — pílulas em vez de sublinhado, mais
+   "profissional" e óbvio qual está ativa. */
+.friends-tabs {
+  display: flex; gap: 4px; margin-bottom: 16px; background: #17181c; border: 1px solid #26272e;
+  border-radius: 14px; padding: 4px; width: fit-content;
+}
 .friends-tab {
-  display: flex; align-items: center; gap: 6px; padding: 9px 4px; margin-right: 18px; background: none; border: none;
-  border-bottom: 2px solid transparent; color: #8b909a; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: none; border: none;
+  border-radius: 10px; color: #8b909a; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.friends-tab:hover { color: #dbdee1; }
-.friends-tab.active { color: #f2f3f5; border-bottom-color: var(--accent); }
+.friends-tab:hover { color: #dbdee1; background: rgba(255,255,255,0.04); }
+.friends-tab.active { color: white; background: var(--gradient-brand); box-shadow: 0 4px 12px rgba(88,101,242,0.35); }
 .friends-tab-count {
-  font-size: 10.5px; font-weight: 800; background: #26272e; color: #9aa0ab; padding: 1px 7px; border-radius: 10px;
+  font-size: 10.5px; font-weight: 800; background: rgba(255,255,255,0.1); color: #cfd2d8; padding: 1px 7px; border-radius: 10px;
 }
-.friends-tab.active .friends-tab-count { background: var(--gradient-brand); color: white; }
-.friends-search-row { margin-bottom: 14px; }
+.friends-tab.active .friends-tab-count { background: rgba(255,255,255,0.25); color: white; }
+.friends-search-row { margin-bottom: 16px; }
+.friends-search-row .input-icon-wrap { border-radius: 14px; }
 
-/* Linhas de amigo um pouco mais respiráveis */
-.friend-row { padding: 10px 12px; }
-.friend-row .member-avatar-wrap .member-avatar, .friend-row > .member-avatar { width: 38px; height: 38px; }
+/* Amigos/Mensagens mais arredondado, "premium" e interativo — pedido
+   explícito. Cards com cantos bem redondos, avatar maior com anel sutil,
+   sobe/ganha sombra/brilho ao passar o mouse, botões de ação viram círculos
+   que preenchem de cor ao interagir (feedback claro de "isso é clicável"). */
+.friend-row {
+  padding: 12px 14px; border-radius: 16px; gap: 12px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset;
+  transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.friend-row:hover {
+  background: #24252b; transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.03) inset;
+  border-color: rgba(88,101,242,0.25);
+}
+.friend-row .member-avatar-wrap .member-avatar, .friend-row > .member-avatar {
+  width: 44px; height: 44px; box-shadow: 0 0 0 2px rgba(255,255,255,0.06);
+}
+.friend-row .member-status-dot { width: 12px; height: 12px; border-width: 3px; }
+.friend-name { font-size: 13.5px; }
+.friend-status { font-weight: 600; }
+
+/* Botões de ação (mensagem, ligar, aceitar, recusar, remover) — círculos
+   maiores, com cor de fundo/brilho ao passar o mouse pra ficar óbvio que
+   são interativos, não só texto cinza. */
+.friend-actions { gap: 8px; }
+.friend-accept-btn, .friend-decline-btn, .friend-remove-btn, .friend-cancel-btn, .friend-message-btn, .friend-call-btn {
+  width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; padding: 0; transition: background 0.15s ease, transform 0.12s ease, color 0.15s ease;
+}
+.friend-accept-btn:hover, .friend-decline-btn:hover, .friend-remove-btn:hover, .friend-cancel-btn:hover,
+.friend-message-btn:hover, .friend-call-btn:hover { transform: scale(1.08); }
+.friend-message-btn:hover, .friend-call-btn:hover { background: var(--gradient-brand); color: white; }
+.friend-accept-btn:hover { background: #23a55a; color: white; }
+.friend-decline-btn:hover, .friend-remove-btn:hover, .friend-cancel-btn:hover { background: #f23f42; color: white; }
+
+.dm-friends-shortcut-btn { border-radius: 14px; transition: background 0.15s ease, transform 0.12s ease; }
+.dm-friends-shortcut-btn:hover { transform: translateY(-1px); }
 
 /* MENU DE CONTEXTO (botão direito, estilo Discord) */
 .context-menu {

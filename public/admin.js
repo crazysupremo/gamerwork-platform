@@ -159,12 +159,55 @@ async function loadMonitoring() {
   errorsBody.innerHTML = m.recent_errors.length
     ? m.recent_errors
         .map(
-          (e) =>
-            `<tr><td>${new Date(e.time).toLocaleTimeString('pt-BR')}</td><td>${escapeHtml(e.source)}</td><td>${escapeHtml(e.message)}</td></tr>`
+          (e) => `
+        <tr>
+          <td>${new Date(e.time).toLocaleTimeString('pt-BR')}</td>
+          <td>${escapeHtml(e.source)}</td>
+          <td>${escapeHtml(e.message)}</td>
+          <td><button type="button" class="action" data-action="diagnose" data-id="${e.id}">${e.diagnosis ? '🤖 Ver diagnóstico' : '🤖 Perguntar à IA'}</button></td>
+        </tr>`
         )
         .join('')
-    : '<tr><td colspan="3" style="color:#949ba4;">Nenhum erro recente. 🎉</td></tr>';
+    : '<tr><td colspan="4" style="color:#949ba4;">Nenhum erro recente. 🎉</td></tr>';
+  errorsBody.querySelectorAll('button[data-action="diagnose"]').forEach((btn) => {
+    btn.onclick = () => diagnoseError(btn.dataset.id, btn);
+  });
 }
+
+// ---------- Diagnóstico de erro por IA ----------
+// Só explica/sugere — quem aplica qualquer correção é uma pessoa (você, ou
+// pedindo pra alguém aplicar de verdade), nunca automático.
+async function diagnoseError(id, btn) {
+  const panel = document.getElementById('error-diagnosis-panel');
+  const body = document.getElementById('error-diagnosis-body');
+  panel.classList.remove('hidden');
+  body.innerHTML = '<p style="color:#949ba4;">Analisando com a IA...</p>';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Analisando...';
+  try {
+    const res = await fetch(`/api/admin/errors/${id}/diagnose`, { method: 'POST', credentials: 'include' });
+    const data = await res.json();
+    if (!res.ok) {
+      body.innerHTML = `<p style="color:#f23f42;">${escapeHtml(data.error || 'Erro ao gerar diagnóstico.')}</p>`;
+      btn.textContent = originalLabel;
+      btn.disabled = false;
+      return;
+    }
+    // Preserva quebras de linha da resposta da IA sem interpretar como HTML.
+    body.innerHTML = `<pre class="error-diagnosis-text">${escapeHtml(data.diagnosis)}</pre>`;
+    btn.textContent = '🤖 Ver diagnóstico';
+    btn.disabled = false;
+  } catch (err) {
+    body.innerHTML = '<p style="color:#f23f42;">Erro de conexão ao pedir o diagnóstico.</p>';
+    btn.textContent = originalLabel;
+    btn.disabled = false;
+  }
+}
+document.getElementById('btn-close-diagnosis').onclick = () => {
+  document.getElementById('error-diagnosis-panel').classList.add('hidden');
+};
 
 // ---------- 🔷 BLUEX — Painel de Proteção ----------
 // Junta em um lugar só: status da proteção (Groq embutido + BLUEX externo,
