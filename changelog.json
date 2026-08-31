@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.9.1",
+    "date": "2026-08-31",
+    "changes": [
+      "NEXTGAME PLUS agora mora dentro de Configurações, com banner de destaque e cards de vantagens (igual a área de assinatura do Discord)",
+      "Removido o modal separado antigo do NEXTGAME PLUS — todo mundo que clicava nele agora cai direto na aba nova"
+    ]
+  },
+  {
     "version": "0.9.0",
     "date": "2026-08-31",
     "changes": [

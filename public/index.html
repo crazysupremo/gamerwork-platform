@@ -1030,6 +1030,8 @@
       <button type="button" class="settings-sidebar-item" data-settings-tab="seguranca"><span class="ng-icon-wrap" data-icon="lock"></span> Segurança</button>
       <button type="button" class="settings-sidebar-item" data-settings-tab="privacidade"><span class="ng-icon-wrap" data-icon="shield-off"></span> Privacidade</button>
       <button type="button" class="settings-sidebar-item" data-settings-tab="notificacoes"><span class="ng-icon-wrap" data-icon="bell"></span> Notificações</button>
+      <div class="settings-sidebar-divider">ASSINATURA</div>
+      <button type="button" class="settings-sidebar-item settings-sidebar-item-plus" data-settings-tab="plus"><span class="ng-icon-wrap" data-icon="sparkles"></span> NEXTGAME PLUS</button>
     </div>
     <div class="settings-content">
 
@@ -1148,6 +1150,44 @@
 
     <div id="settings-tab-notificacoes" class="manage-tab-panel hidden">
       <div id="notification-prefs-list"></div>
+    </div>
+
+    <div id="settings-tab-plus" class="manage-tab-panel hidden">
+      <div class="plus-promo-banner">
+        <span class="plus-promo-sparkle plus-promo-sparkle-1 ng-icon-wrap" data-icon="sparkles"></span>
+        <span class="plus-promo-sparkle plus-promo-sparkle-2 ng-icon-wrap" data-icon="sparkles"></span>
+        <span class="plus-promo-sparkle plus-promo-sparkle-3 ng-icon-wrap" data-icon="sparkles"></span>
+        <h3>Desbloqueie um Mundo de<br>Vantagens com o NEXTGAME PLUS</h3>
+        <p>O FREE continua completo — chat, voz, câmera, servidores e compartilhamento de tela sem travar nada. Cancele quando quiser.</p>
+        <button type="button" id="btn-plus-promo-scroll" class="plus-promo-cta"><span class="ng-icon-wrap" data-icon="crown"></span> Assinar agora</button>
+      </div>
+
+      <div class="plus-benefits-grid">
+        <div class="plus-benefit-card">
+          <span class="ng-icon-wrap" data-icon="monitor"></span>
+          <strong>1080p/60, 1440p/60 e 4K/60</strong>
+          <span>Mesma interface do FREE, só libera qualidade maior na transmissão de tela.</span>
+        </div>
+        <div class="plus-benefit-card">
+          <span class="ng-icon-wrap" data-icon="upload"></span>
+          <strong>Arquivos até 5GB</strong>
+          <span>Contra o limite do FREE — imagens, vídeos, PDFs, documentos e mais.</span>
+        </div>
+        <div class="plus-benefit-card">
+          <span class="ng-icon-wrap" data-icon="crown"></span>
+          <strong>Badge, banner e moldura exclusivos</strong>
+          <span>Personalização cosmética no perfil — sem vantagem competitiva.</span>
+        </div>
+      </div>
+
+      <div id="plus-already-active" class="hidden plus-active-banner">
+        <span class="ng-icon-wrap" data-icon="check"></span> Você já é NEXTGAME PLUS.
+      </div>
+      <div id="plus-not-configured" class="hidden hint" style="text-align:center; padding:10px;">
+        Assinatura ainda não está disponível — o administrador precisa configurar o PayPal.
+      </div>
+      <div id="paypal-button-container"></div>
+      <p id="plus-error" class="auth-error"></p>
     </div>
     </div><!-- /.settings-content -->
     </div><!-- /.settings-layout -->
@@ -1871,42 +1911,6 @@
         <button type="submit" id="btn-send-support">Enviar</button>
       </div>
     </form>
-  </div>
-</div>
-
-<!-- MODAL: NEXTGAME PLUS (assinatura) -->
-<div id="modal-plus-upgrade" class="modal-overlay hidden">
-  <div class="modal-content" style="max-width:480px;">
-    <h2><span class="ng-icon-wrap" data-icon="sparkles"></span> NEXTGAME PLUS</h2>
-    <p class="hint" style="margin-bottom:12px;">
-      O FREE continua completo — chat, voz, câmera, servidores e compartilhamento de tela sem travar nada.
-      O Plus libera qualidade, capacidade e personalização superiores:
-    </p>
-    <div class="safety-info-list" style="margin-bottom:14px;">
-      <div class="safety-info-item">
-        <span class="ng-icon-wrap" data-icon="monitor"></span>
-        <div><strong>Transmissão em 1080p/60, 1440p/60 e 4K/60</strong><span>Mesma interface e fluxo do FREE, só libera qualidade maior.</span></div>
-      </div>
-      <div class="safety-info-item">
-        <span class="ng-icon-wrap" data-icon="upload"></span>
-        <div><strong>Arquivos até 5GB</strong><span>Contra o limite do FREE — imagens, vídeos, PDFs, documentos e mais.</span></div>
-      </div>
-      <div class="safety-info-item">
-        <span class="ng-icon-wrap" data-icon="crown"></span>
-        <div><strong>Badge, banner e moldura exclusivos</strong><span>Personalização cosmética no perfil — sem vantagem competitiva.</span></div>
-      </div>
-    </div>
-    <div id="plus-already-active" class="hidden" style="text-align:center; padding:10px; color:#23a55a; font-weight:700;">
-      <span class="ng-icon-wrap" data-icon="check"></span> Você já é NEXTGAME PLUS.
-    </div>
-    <div id="plus-not-configured" class="hidden hint" style="text-align:center; padding:10px;">
-      Assinatura ainda não está disponível — o administrador precisa configurar o PayPal.
-    </div>
-    <div id="paypal-button-container"></div>
-    <p id="plus-error" class="auth-error"></p>
-    <div class="modal-actions">
-      <button type="button" id="btn-close-plus-upgrade">Fechar</button>
-    </div>
   </div>
 </div>
 

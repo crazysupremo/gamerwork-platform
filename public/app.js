@@ -3828,8 +3828,18 @@ document.querySelectorAll('#modal-profile .settings-sidebar-item').forEach((tabB
       loadIntegrations();
     }
     if (tab === 'notificacoes') loadNotificationPrefs();
+    if (tab === 'plus') openPlusUpgradeModal();
   };
 });
+
+// Abre a tela de Configurações já direto na aba pedida — usado pelos vários
+// atalhos espalhados pelo app que levam pro NEXTGAME PLUS (menu de perfil,
+// seletor de qualidade de compartilhamento de tela, etc).
+function openSettingsTab(tabName) {
+  document.getElementById('btn-edit-profile').click();
+  const tabBtn = document.querySelector(`#modal-profile .settings-sidebar-item[data-settings-tab="${tabName}"]`);
+  if (tabBtn) tabBtn.click();
+}
 
 async function load2FAStatus() {
   const res = await fetch('/api/2fa/status', { credentials: 'include' });
@@ -4144,7 +4154,9 @@ function loadPayPalSdk(clientId) {
 }
 
 async function openPlusUpgradeModal() {
-  document.getElementById('modal-plus-upgrade').classList.remove('hidden');
+  // NEXTGAME PLUS agora mora dentro de Configurações (aba própria), não é
+  // mais um modal separado — quem chama essa função já garantiu que a aba
+  // está visível, aqui só popula o conteúdo (botão do PayPal, estado atual).
   const alreadyEl = document.getElementById('plus-already-active');
   const notConfiguredEl = document.getElementById('plus-not-configured');
   const buttonContainer = document.getElementById('paypal-button-container');
@@ -4203,12 +4215,13 @@ async function openPlusUpgradeModal() {
   }
 }
 
+document.getElementById('btn-plus-promo-scroll').onclick = () => {
+  document.getElementById('paypal-button-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
 document.getElementById('nav-plus-upgrade').onclick = () => {
   document.getElementById('footer-more-menu').classList.add('hidden');
-  openPlusUpgradeModal();
+  openSettingsTab('plus');
 };
-document.getElementById('btn-close-plus-upgrade').onclick = () =>
-  document.getElementById('modal-plus-upgrade').classList.add('hidden');
 
 // ---------- BUSCA DE MENSAGENS ----------
 
@@ -8282,7 +8295,7 @@ document.getElementById('share-picker-quality-select').onchange = (e) => {
 document.getElementById('link-open-plus-from-share-picker').onclick = (e) => {
   e.preventDefault();
   document.getElementById('modal-share-picker').classList.add('hidden');
-  openPlusUpgradeModal();
+  openSettingsTab('plus');
 };
 
 document.getElementById('btn-cancel-share-picker').onclick = () => {
