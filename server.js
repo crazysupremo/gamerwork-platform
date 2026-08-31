@@ -463,6 +463,24 @@ async function logAudit(actor, action, targetType, targetId, details) {
 // ---------- RECOMPENSAS / STREAK DE ACESSO ----------
 // Catálogo fixo (não precisa de tabela própria pra isso, só pros
 // desbloqueios de cada usuário, que ficam em user_rewards).
+// Paletas de cor exclusivas do NEXTGAME PLUS — cada uma é um gradiente
+// (from → to) testado pra ficar legível no fundo escuro do app. Escolher um
+// tema aqui muda, de uma vez só: a cor do nome no chat, a moldura do
+// avatar, a bolha das mensagens de DM, o banner do perfil e os detalhes do
+// próprio app pra quem escolheu. Lista fechada e validada no servidor —
+// ninguém consegue mandar uma cor arbitrária pelo PATCH /api/me.
+const PLUS_THEMES = [
+  { id: 'nebula', name: 'Nebulosa Roxa', from: '#9146ff', to: '#5865f2' },
+  { id: 'electric', name: 'Azul Elétrico', from: '#00b4ff', to: '#0066ff' },
+  { id: 'mint', name: 'Verde Menta', from: '#00e6a8', to: '#00b88a' },
+  { id: 'pink', name: 'Rosa Choque', from: '#ff4fa3', to: '#ff2d78' },
+  { id: 'sunset', name: 'Pôr do Sol', from: '#ff9f43', to: '#ff5e62' },
+  { id: 'fire', name: 'Vermelho Fogo', from: '#ff4757', to: '#c0392b' },
+  { id: 'gold', name: 'Dourado', from: '#ffd93d', to: '#f7b733' },
+  { id: 'ice', name: 'Gelo Ciano', from: '#7ee8ff', to: '#00c2ff' },
+  { id: 'platinum', name: 'Platina', from: '#e8e8ec', to: '#a8a8b3' },
+];
+
 const REWARDS_CATALOG = [
   {
     key: 'starter',
@@ -1066,6 +1084,8 @@ app.get(
       // da plataforma) sempre aparece como Plus — acesso total, sem precisar
       // assinar nada.
       plan: req.user.is_admin ? 'plus' : req.user.plan || 'free',
+      // Tema de cor do PLUS (id de PLUS_THEMES) — null = usa o roxo padrão.
+      plus_theme: req.user.plus_theme || null,
       // Usado pelo painel /admin.html pra saber, antes de tentar carregar
       // qualquer dado, se essa conta de admin já passou pela exigência de
       // 2FA (ver requireAdmin) — evita uma tela cheia de erros 403 e mostra
@@ -1139,6 +1159,11 @@ app.get(
 //   PAYPAL_MODE            — "sandbox" (testes) ou "live" (cobrança real)
 // Ver DEPLOY.md pra passo a passo completo.
 
+// Admin sempre conta como Plus (mesma regra usada em fileSizeLimitFor).
+function isPlusAccount(user) {
+  return !!(user && (user.plan === 'plus' || user.is_admin));
+}
+
 function isPayPalConfigured() {
   return !!(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET && process.env.PAYPAL_PLAN_ID);
 }
@@ -1175,6 +1200,11 @@ async function setUserPlan(userId, plan, opts = {}) {
     plan === 'plus' ? expiresAt : null,
     userId,
   ]);
+  // Assinatura caiu (cancelou/expirou) — o tema de cor é um perk pago, então
+  // sai junto. Se a pessoa assinar de novo, escolhe outro (ou o mesmo) tema.
+  if (plan !== 'plus') {
+    await db.run('UPDATE users SET plus_theme = NULL WHERE id = ?', [userId]);
+  }
 }
 
 // Prêmio de permanência mais alto do site (Fundador Eterno, 365 dias
@@ -1203,6 +1233,17 @@ async function checkPlanExpiry(user) {
   }
   return user;
 }
+
+// Catálogo público dos temas de cor do PLUS — front busca aqui em vez de
+// duplicar a lista, então adicionar/mudar uma cor só precisa mexer no
+// PLUS_THEMES acima.
+app.get(
+  '/api/plus-themes',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json({ themes: PLUS_THEMES });
+  })
+);
 
 app.get(
   '/api/paypal/config',
@@ -1483,6 +1524,7 @@ app.patch(
       status_message,
       avatar,
       avatar_frame,
+      plus_theme,
       region,
       language,
       bio,
@@ -1598,12 +1640,25 @@ app.patch(
       await db.run('UPDATE users SET avatar_frame = ? WHERE id = ?', [avatar_frame || null, req.user.id]);
     }
 
+    if (typeof plus_theme === 'string') {
+      if (plus_theme) {
+        if (!isPlusAccount(req.user)) {
+          return res.status(403).json({ error: 'Tema de cor é exclusivo de quem tem NEXTGAME PLUS' });
+        }
+        if (!PLUS_THEMES.some((t) => t.id === plus_theme)) {
+          return res.status(400).json({ error: 'Tema de cor inválido' });
+        }
+      }
+      await db.run('UPDATE users SET plus_theme = ? WHERE id = ?', [plus_theme || null, req.user.id]);
+    }
+
     const updated = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
     res.json({
       ok: true,
       status_message: updated.status_message,
       avatar: updated.avatar,
       avatar_frame: updated.avatar_frame,
+      plus_theme: updated.plus_theme || null,
       region: updated.region,
       language: updated.language,
       bio: updated.bio,
@@ -1798,7 +1853,7 @@ app.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const user = await db.get(
-      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified, bio, country, language,
+      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, status_message, is_admin, is_verified, bio, country, language,
         region, reputation, points, login_streak, longest_streak, created_at, favorite_games, platforms,
         preferred_rank, play_style
        FROM users WHERE id = ? AND is_banned = 0`,
@@ -1988,7 +2043,7 @@ app.get(
     const userIds = [...new Set(posts.map((p) => p.user_id))];
     const authors = userIds.length
       ? await db.all(
-          `SELECT id, username, avatar, avatar_frame, region, language FROM users WHERE id IN (${userIds
+          `SELECT id, username, avatar, avatar_frame, plus_theme, region, language FROM users WHERE id IN (${userIds
             .map(() => '?')
             .join(',')})`,
           userIds
@@ -2079,7 +2134,7 @@ app.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const rows = await db.all(
-      `SELECT u.id, u.username, u.avatar, u.avatar_frame FROM lfg_group_members m
+      `SELECT u.id, u.username, u.avatar, u.avatar_frame, u.plus_theme FROM lfg_group_members m
        JOIN users u ON u.id = m.user_id WHERE m.post_id = ?`,
       [req.params.id]
     );
@@ -2139,7 +2194,7 @@ app.get(
     const team = await db.get('SELECT * FROM teams WHERE id = ?', [req.params.id]);
     if (!team) return res.status(404).json({ error: 'Time não encontrado' });
     const members = await db.all(
-      `SELECT u.id, u.username, u.avatar, u.avatar_frame, tm.role FROM team_members tm
+      `SELECT u.id, u.username, u.avatar, u.avatar_frame, u.plus_theme, tm.role FROM team_members tm
        JOIN users u ON u.id = tm.user_id WHERE tm.team_id = ? ORDER BY tm.role`,
       [team.id]
     );
@@ -2255,7 +2310,7 @@ app.get(
     const clan = await db.get('SELECT * FROM clans WHERE id = ?', [req.params.id]);
     if (!clan) return res.status(404).json({ error: 'Clã não encontrado' });
     const members = await db.all(
-      `SELECT u.id, u.username, u.avatar, u.avatar_frame, cm.role FROM clan_members cm
+      `SELECT u.id, u.username, u.avatar, u.avatar_frame, u.plus_theme, cm.role FROM clan_members cm
        JOIN users u ON u.id = cm.user_id WHERE cm.clan_id = ? ORDER BY cm.role`,
       [clan.id]
     );
@@ -2970,7 +3025,7 @@ app.get(
 
     const server = await db.get('SELECT owner_id FROM servers WHERE category = ?', [req.params.category]);
     const members = await db.all(
-      `SELECT u.id, u.username, u.discriminator, u.username_tag, u.avatar, u.avatar_frame, u.is_admin, u.is_verified
+      `SELECT u.id, u.username, u.discriminator, u.username_tag, u.avatar, u.avatar_frame, u.plus_theme, u.is_admin, u.is_verified
        FROM server_members sm JOIN users u ON u.id = sm.user_id
        WHERE sm.category = ? ORDER BY u.username`,
       [req.params.category]
@@ -3240,7 +3295,7 @@ app.get(
     const otherIds = rows.map((r) => r.other_id);
     const placeholders = otherIds.map(() => '?').join(',');
     const users = await db.all(
-      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified FROM users WHERE id IN (${placeholders})`,
+      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, status_message, is_admin, is_verified FROM users WHERE id IN (${placeholders})`,
       otherIds
     );
     const usersMap = {};
@@ -3408,7 +3463,7 @@ app.get(
     }
 
     const target = await db.get(
-      'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, is_admin, is_verified FROM users WHERE id = ?',
+      'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, is_admin, is_verified FROM users WHERE id = ?',
       [targetId]
     );
     if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -3489,7 +3544,7 @@ app.get(
       const hiddenAt = iAmA ? row.hidden_for_a : row.hidden_for_b;
 
       const other = await db.get(
-        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, is_admin, is_verified FROM users WHERE id = ?',
+        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, is_admin, is_verified FROM users WHERE id = ?',
         [otherId]
       );
       if (!other) continue;
@@ -5901,12 +5956,12 @@ app.get(
     const parsedTag = parseUserTag(q);
     const playersQuery = parsedTag.discriminator
       ? db.all(
-          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified
+          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, status_message, is_admin, is_verified
            FROM users WHERE is_banned = 0 AND username = ? AND discriminator = ? AND id != ?`,
           [parsedTag.username, parsedTag.discriminator, req.user.id]
         )
       : db.all(
-          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified
+          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, status_message, is_admin, is_verified
            FROM users WHERE is_banned = 0 AND username LIKE ? AND id != ? ORDER BY username LIMIT ?`,
           [like, req.user.id, limit]
         );
@@ -6058,7 +6113,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified FROM users WHERE is_banned = 0 AND id != ? ORDER BY username',
+        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, status_message, is_admin, is_verified FROM users WHERE is_banned = 0 AND id != ? ORDER BY username',
         [AI_BOT_USER_ID]
       )
     );
@@ -7318,6 +7373,7 @@ io.on('connection', (socket) => {
       username: user.username,
       avatar: user.avatar,
       avatar_frame: user.avatar_frame,
+      plus_theme: user.plus_theme,
     });
 
     if (!voiceRooms.has(roomId)) voiceRooms.set(roomId, new Map());

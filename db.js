@@ -876,6 +876,11 @@ async function initDb() {
   await ensureColumn('users', 'is_verified INTEGER NOT NULL DEFAULT 0');
   await run('UPDATE users SET is_verified = 1 WHERE is_admin = 1');
   await run('UPDATE users SET is_verified = 1 WHERE id = ?', [AI_BOT_USER_ID]);
+
+  // Tema de cor exclusivo do NEXTGAME PLUS — um id de paleta (ver
+  // PLUS_THEMES no server.js), aplicado no nome no chat, moldura do avatar,
+  // bolha de DM, banner do perfil e no próprio app de quem escolheu.
+  await ensureColumn('users', 'plus_theme TEXT');
 }
 
 module.exports = { run, get, all, initDb, AI_BOT_USER_ID, AI_BOT_USERNAME, generateUniqueDiscriminator };
