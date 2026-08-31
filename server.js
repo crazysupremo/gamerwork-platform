@@ -31,7 +31,7 @@ const { scanText } = require('./moderation');
 // generateVerificationCode já existe mais abaixo (selo "auditável" tipo
 // NG-XXXXXXXXXX) — sem relação com o código de 6 dígitos de confirmação de
 // e-mail, então importa com outro nome pra não colidir.
-const { sendVerificationEmail, generateVerificationCode: generateEmailVerificationCode } = require('./mailer');
+const { sendVerificationEmail, generateVerificationCode: generateEmailVerificationCode, sendPasswordResetEmail } = require('./mailer');
 const { authenticator } = require('otplib');
 const QRCode = require('qrcode');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
@@ -940,6 +940,71 @@ app.post(
       requiresEmailVerification: !user.email_verified,
     });
     updateStreakAndRewards(user).catch((err) => console.error('Erro ao atualizar streak:', err));
+  })
+);
+
+// ---------- RECUPERAÇÃO DE SENHA ----------
+// Reaproveita a mesma infra de e-mail da confirmação de cadastro (mailer.js
+// via Resend). Sem RESEND_API_KEY configurada (ou sem domínio verificado),
+// o e-mail não sai de verdade — mas o link fica no log do servidor, então
+// dá pra destravar manualmente enquanto isso não é configurado. O endpoint
+// SEMPRE responde a mesma mensagem genérica, exista ou não esse e-mail —
+// não dá pra usar isso pra descobrir quem tem conta aqui.
+app.post(
+  '/api/forgot-password',
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { email } = req.body || {};
+    const generic = {
+      ok: true,
+      message: 'Se esse e-mail tiver uma conta aqui, enviamos um link pra trocar a senha.',
+    };
+    if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email)) {
+      return res.json(generic);
+    }
+    const user = await db.get('SELECT id, username, email FROM users WHERE email = ?', [email.trim()]);
+    if (!user) return res.json(generic);
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1h
+    await db.run('UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?', [
+      token,
+      expires,
+      user.id,
+    ]);
+    const resetUrl = `${req.protocol}://${req.get('host')}/?reset=${token}`;
+    sendPasswordResetEmail(user.email, resetUrl, user.username).catch((err) =>
+      console.error('Erro ao enviar e-mail de troca de senha:', err)
+    );
+    res.json(generic);
+  })
+);
+
+app.post(
+  '/api/reset-password',
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { token, newPassword } = req.body || {};
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'Link inválido.' });
+    }
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6 || newPassword.length > 200) {
+      return res.status(400).json({ error: 'Nova senha precisa ter 6-200 caracteres.' });
+    }
+    const user = await db.get('SELECT * FROM users WHERE reset_token = ?', [token]);
+    if (!user || !user.reset_token_expires || new Date(user.reset_token_expires) < new Date()) {
+      return res.status(400).json({ error: 'Link expirado ou inválido — peça um novo.' });
+    }
+    const newHash = bcrypt.hashSync(newPassword, 10);
+    await db.run('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?', [
+      newHash,
+      user.id,
+    ]);
+    // Troca de senha por link é sensível — encerra qualquer sessão já aberta
+    // dessa conta (inclusive uma que talvez tenha sido comprometida), pra
+    // precisar entrar de novo com a senha nova em todo lugar.
+    await db.run('UPDATE user_sessions SET revoked = 1 WHERE user_id = ?', [user.id]);
+    res.json({ ok: true, message: 'Senha trocada! Já pode entrar com a senha nova.' });
   })
 );
 

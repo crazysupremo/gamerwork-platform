@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.13.0",
+    "date": "2026-08-31",
+    "changes": [
+      "Banner do pacote de marca NEXTGAME agora é o hero da tela de Início, com os selos de confiança (BlueX, monitoramento, IA) igual a tela de login",
+      "Banners de seção adicionados: Servidores em Destaque, Amigos e o modal Jogar",
+      "NEXTGAME PLUS ganhou a arte do banner oficial no fundo do card de assinatura"
+    ]
+  },
+  {
+    "version": "0.12.0",
+    "date": "2026-08-31",
+    "changes": [
+      "Corrigido as figurinhas recortadas — estavam com fundo preto quadrado em vez de transparente, agora aparecem soltas igual figurinha de verdade",
+      "Nova recuperação de senha: 'Esqueceu a senha?' agora manda um link de troca por e-mail (usa a mesma infraestrutura de e-mail da confirmação de cadastro — sem domínio verificado configurado, o link fica registrado no servidor em vez de chegar por e-mail)"
+    ]
+  },
+  {
     "version": "0.11.1",
     "date": "2026-08-31",
     "changes": [

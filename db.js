@@ -881,6 +881,11 @@ async function initDb() {
   // PLUS_THEMES no server.js), aplicado no nome no chat, moldura do avatar,
   // bolha de DM, banner do perfil e no próprio app de quem escolheu.
   await ensureColumn('users', 'plus_theme TEXT');
+
+  // Recuperação de senha por e-mail — token de uso único com validade curta,
+  // separado do verification_code (que é só pra confirmação de cadastro).
+  await ensureColumn('users', 'reset_token TEXT');
+  await ensureColumn('users', 'reset_token_expires TEXT');
 }
 
 module.exports = { run, get, all, initDb, AI_BOT_USER_ID, AI_BOT_USERNAME, generateUniqueDiscriminator };

@@ -546,6 +546,7 @@
          a lista de conversas fixa na coluna do meio e essa área mostrando
          quem você adicionou/pediu/recebeu. -->
     <section id="friends-panel" class="home-panel hidden">
+      <img src="/assets/brand/banner-community.png" alt="" class="section-banner" />
       <h2 style="margin-top:0;"><span class="ng-icon-wrap" data-icon="users"></span> Amigos</h2>
 
       <!-- Abas com contagem real (mesmos dados de sempre, só filtram o que
@@ -619,6 +620,7 @@
 
       <div class="home-grid">
         <div class="home-col-main">
+          <img src="/assets/brand/banner-servers.png" alt="" class="section-banner" />
           <div class="home-section-title"><span class="ng-icon-wrap" data-icon="flame"></span> Servidores em Destaque</div>
           <div id="home-servers-grid" class="home-servers-grid"></div>
 
@@ -1231,6 +1233,7 @@
 <!-- MODAL: Jogar — LFG, Matchmaking, Times e Clãs -->
 <div id="modal-lfg" class="modal-overlay hidden">
   <div class="modal-card modal-card-wide">
+    <img src="/assets/brand/banner-games.png" alt="" class="section-banner" />
     <h2><span class="ng-icon-wrap" data-icon="target"></span> Jogar</h2>
     <div class="manage-tabs">
       <button type="button" class="manage-tab active" data-lfg-tab="buscar"><span class="ng-icon-wrap" data-icon="search"></span> Buscar Grupos</button>
@@ -1876,6 +1879,49 @@
     <div class="modal-actions">
       <button type="button" id="btn-close-safety-info">Fechar</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: ESQUECEU A SENHA — manda link de troca por e-mail. Funciona
+     deslogado, aberto direto da tela de login. -->
+<div id="modal-forgot-password" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2><span class="ng-icon-wrap" data-icon="lock"></span> Trocar senha</h2>
+    <p class="hint" style="margin-bottom:10px;">Digite o e-mail da sua conta — se existir, mandamos um link pra você escolher uma senha nova.</p>
+    <form id="form-forgot-password">
+      <label>E-mail</label>
+      <input type="email" id="forgot-password-email" placeholder="voce@email.com" required />
+      <p id="forgot-password-error" class="auth-error"></p>
+      <p id="forgot-password-success" class="hint hidden" style="color:#3ba55c; margin-top:6px;">
+        ✅ Se esse e-mail tiver conta aqui, o link chega em instantes (confira o spam também).
+      </p>
+      <div class="modal-actions">
+        <button type="button" id="btn-close-forgot-password">Fechar</button>
+        <button type="submit" id="btn-send-forgot-password">Enviar link</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: DEFINIR NOVA SENHA — aberto automaticamente quando a URL tem
+     ?reset=TOKEN (link que veio por e-mail). -->
+<div id="modal-reset-password" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2><span class="ng-icon-wrap" data-icon="lock"></span> Escolher nova senha</h2>
+    <form id="form-reset-password">
+      <label>Nova senha</label>
+      <input type="password" id="reset-password-new" placeholder="Nova senha" minlength="6" required />
+      <label>Confirmar nova senha</label>
+      <input type="password" id="reset-password-confirm" placeholder="Digite de novo" minlength="6" required />
+      <p id="reset-password-error" class="auth-error"></p>
+      <p id="reset-password-success" class="hint hidden" style="color:#3ba55c; margin-top:6px;">
+        ✅ Senha trocada! Já pode entrar com a senha nova.
+      </p>
+      <div class="modal-actions">
+        <button type="button" id="btn-close-reset-password">Fechar</button>
+        <button type="submit" id="btn-send-reset-password">Trocar senha</button>
+      </div>
+    </form>
   </div>
 </div>
 

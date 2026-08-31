@@ -220,12 +220,107 @@ document.getElementById('btn-toggle-login-password').onclick = () => {
   btn.title = showing ? 'Mostrar senha' : 'Esconder senha';
 };
 
-// "Esqueceu a senha?" — ainda não temos recuperação automática por e-mail,
-// então abre o mesmo formulário de suporte que já existe (funciona sem
-// login) em vez de um link morto ou uma promessa de algo que não existe.
+// "Esqueceu a senha?" — abre o link de troca por e-mail. Sem domínio
+// verificado no Resend configurado no servidor, o e-mail pode não chegar de
+// verdade (mesma limitação da confirmação de cadastro) — mas o formulário e
+// o fluxo já funcionam por completo, é só ligar o envio quando tiver domínio.
 document.getElementById('link-forgot-password').onclick = (e) => {
   e.preventDefault();
-  if (typeof openSupportModal === 'function') openSupportModal();
+  document.getElementById('forgot-password-error').textContent = '';
+  document.getElementById('forgot-password-success').classList.add('hidden');
+  document.getElementById('form-forgot-password').classList.remove('hidden');
+  document.getElementById('forgot-password-email').value = '';
+  document.getElementById('modal-forgot-password').classList.remove('hidden');
+};
+document.getElementById('btn-close-forgot-password').onclick = () =>
+  document.getElementById('modal-forgot-password').classList.add('hidden');
+
+document.getElementById('form-forgot-password').onsubmit = async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('forgot-password-email').value.trim();
+  const errEl = document.getElementById('forgot-password-error');
+  const okEl = document.getElementById('forgot-password-success');
+  const btn = document.getElementById('btn-send-forgot-password');
+  errEl.textContent = '';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Erro ao pedir troca de senha';
+      return;
+    }
+    document.getElementById('form-forgot-password').classList.add('hidden');
+    okEl.classList.remove('hidden');
+  } catch (err) {
+    errEl.textContent = 'Erro de conexão com o servidor';
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// Link de e-mail cai em "/?reset=TOKEN" — abre direto o formulário de nova
+// senha, sem precisar estar logado.
+function maybeOpenResetPasswordFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('reset');
+  if (!token) return;
+  document.getElementById('reset-password-new').value = '';
+  document.getElementById('reset-password-confirm').value = '';
+  document.getElementById('reset-password-error').textContent = '';
+  document.getElementById('reset-password-success').classList.add('hidden');
+  document.getElementById('form-reset-password').classList.remove('hidden');
+  document.getElementById('modal-reset-password').classList.remove('hidden');
+  document.getElementById('modal-reset-password').dataset.token = token;
+}
+document.getElementById('btn-close-reset-password').onclick = () => {
+  document.getElementById('modal-reset-password').classList.add('hidden');
+  // Tira o token da URL ao fechar, pra não reabrir sozinho se a pessoa der F5.
+  const params = new URLSearchParams(window.location.search);
+  params.delete('reset');
+  const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+  window.history.replaceState({}, '', cleanUrl);
+};
+
+document.getElementById('form-reset-password').onsubmit = async (e) => {
+  e.preventDefault();
+  const token = document.getElementById('modal-reset-password').dataset.token;
+  const newPassword = document.getElementById('reset-password-new').value;
+  const confirm = document.getElementById('reset-password-confirm').value;
+  const errEl = document.getElementById('reset-password-error');
+  errEl.textContent = '';
+  if (newPassword !== confirm) {
+    errEl.textContent = 'As duas senhas precisam ser iguais';
+    return;
+  }
+  const btn = document.getElementById('btn-send-reset-password');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Erro ao trocar senha';
+      return;
+    }
+    document.getElementById('form-reset-password').classList.add('hidden');
+    document.getElementById('reset-password-success').classList.remove('hidden');
+    const params = new URLSearchParams(window.location.search);
+    params.delete('reset');
+    const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+    window.history.replaceState({}, '', cleanUrl);
+  } catch (err) {
+    errEl.textContent = 'Erro de conexão com o servidor';
+  } finally {
+    btn.disabled = false;
+  }
 };
 
 formLogin.onsubmit = async (e) => {
@@ -6170,6 +6265,11 @@ async function loadHomeTournamentBanner() {
         <span class="ng-icon-wrap" data-icon="play"></span> Assistir vídeo
       </button>
     </div>
+    <div class="auth-trust-row home-hero-trust-row">
+      <span class="auth-trust-badge">${icon('shield-check')} Proteção BlueX ativa</span>
+      <span class="auth-trust-badge">${icon('badge-check')} Monitoramento de erros 24/7</span>
+      <span class="auth-trust-badge">${icon('sparkles')} Suporte com IA</span>
+    </div>
   `;
 
   if (!upcoming) {
@@ -9060,4 +9160,5 @@ tryResumeSession()
     const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
     window.history.replaceState({}, '', cleanUrl);
   }
+  maybeOpenResetPasswordFromUrl();
 });
