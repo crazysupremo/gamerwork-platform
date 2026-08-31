@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.14.1",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido chamada de voz sem áudio ao entrar numa sala que já tem gente: o microfone agora é pedido antes de qualquer outra coisa, e quem já está na sala espera seu mic ficar pronto antes de montar a conexão — antes, às vezes a primeira negociação saía sem áudio dos dois lados"
+    ]
+  },
+  {
+    "version": "0.14.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido o bug de verdade do login: um erro secundário (qualquer coisa, mesmo sem relação com sessão) que acontecesse LOGO DEPOIS de entrar reexibia a tela de login por cima do app já carregado — empilhava as duas telas (por isso precisava rolar pra baixo) e parecia ter deslogado, mesmo com a sessão ainda válida"
+    ]
+  },
+  {
     "version": "0.13.1",
     "date": "2026-08-31",
     "changes": [

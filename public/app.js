@@ -6,6 +6,11 @@ let currentChannel = null; // o que está sendo exibido no painel principal agor
 let connectedVoiceRoomId = null; // sala de voz em que você está REALMENTE conectado (independe do que está vendo)
 let localStream = null; // tela compartilhada
 let micStream = null; // áudio do microfone
+// Resolve quando o pedido de microfone EM ANDAMENTO terminar (sucesso ou
+// falha) — usado pra fazer quem está criando/respondendo uma conexão
+// WebRTC esperar o mic ficar pronto antes de montar o offer/answer, em vez
+// de mandar sem áudio e torcer pra renegociação automática consertar depois.
+let micReadyPromise = Promise.resolve();
 let micMuted = false;
 let isDeafened = false;
 // Volume geral da chamada (0 a 1) — multiplica o volume de TODAS as pessoas
@@ -7167,7 +7172,12 @@ function registerSocketHandlers() {
     document.getElementById('voice-panel')?.classList.add('hidden');
   });
 
-  socket.on('rtc:peer-joined', ({ socketId, username, avatar, avatar_frame }) => {
+  socket.on('rtc:peer-joined', async ({ socketId, username, avatar, avatar_frame }) => {
+    // Espera SEU PRÓPRIO microfone terminar de ficar pronto antes de montar
+    // a conexão — evita entrar numa call já em andamento e a primeira
+    // negociação sair sem sua track de áudio (ver comentário em
+    // startMicrophone/micReadyPromise).
+    await micReadyPromise;
     const pc = createPeerConnection(socketId, username, { username, avatar, avatar_frame });
     addLocalTracksToPeer(pc);
     logVoiceActivity(`${username} entrou na sala`);
@@ -7193,8 +7203,15 @@ function registerSocketHandlers() {
   socket.on('rtc:signal', async ({ from, username, avatar, avatar_frame, data }) => {
     let pc = peers[from];
     if (!pc) {
-      pc = createPeerConnection(from, username, { username, avatar, avatar_frame });
-      addLocalTracksToPeer(pc);
+      // Mesma espera do rtc:peer-joined — garante que a resposta (answer)
+      // já sai com sua track de áudio, em vez de depender de uma
+      // renegociação depois pra corrigir.
+      await micReadyPromise;
+      pc = peers[from];
+      if (!pc) {
+        pc = createPeerConnection(from, username, { username, avatar, avatar_frame });
+        addLocalTracksToPeer(pc);
+      }
     }
     if (data.type === 'offer') {
       await pc.setRemoteDescription(data);
@@ -7378,12 +7395,25 @@ async function connectVoice(roomId) {
 
   SFX.join();
   connectedVoiceRoomId = roomId;
+
+  // BUG CORRIGIDO ("ele não me ouve e nem eu ouço ele" ao entrar numa sala
+  // que já tem gente): antes, o mic só era pedido depois de channel:join /
+  // loadVoiceChatHistory / setupVoiceInvite — cada um desses passos
+  // adiciona um pouco de atraso. Nesse meio tempo, quem já estava na sala
+  // recebia o aviso de "peer novo" e criava a conexão pra você ANTES do
+  // seu microfone estar pronto — a primeira negociação WebRTC saía sem
+  // sua track de áudio, e o reparo automático depois (readicionar a track
+  // e renegociar) é frágil e às vezes não completa, deixando os dois sem
+  // se ouvir. Agora o mic é pedido IMEDIATAMENTE após a confirmação do
+  // servidor, antes de qualquer outro passo — a corrida ainda existe em
+  // teoria, mas a janela fica bem menor.
+  await startMicrophone();
+
   socket.emit('channel:join', roomId); // pro chat da sala funcionar (mesmo canal, uso duplo texto+voz)
   loadVoiceChatHistory(roomId);
   setupVoiceInvite(roomId);
   clearVoiceActivityLog();
   logVoiceActivity('Você entrou na sala');
-  await startMicrophone();
   updateVoiceBar();
   updateVoiceParticipantCount();
 }
@@ -8232,33 +8262,45 @@ function applyOutgoingMicTrackToPeers() {
 // ---------- MICROFONE (voz de verdade, igual chamada de voz) ----------
 
 async function startMicrophone() {
-  // Segunda camada de proteção contra o bug do "retorno": se por algum
-  // motivo já existe um microfone ativo (chamada duplicada, etc), para ele
-  // antes de pegar um novo — nunca deixa dois streams de mic vivos ao mesmo
-  // tempo mandando áudio duplicado pros peers.
-  if (micStream) {
-    micStream.getTracks().forEach((t) => t.stop());
-    micStream = null;
-    teardownNoiseGate();
-  }
-  showConnectingTile();
-  try {
-    micStream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints() });
-  } catch (err) {
-    removeConnectingTile();
-    setMicStatus('Não foi possível acessar o microfone: ' + err.message);
-    return;
-  }
-  if (noiseGateEnabled) buildNoiseGate(micStream);
-  updateMicEnabledState();
-  const outgoing = getOutgoingMicStream();
-  Object.values(peers).forEach((pc) => {
-    outgoing.getTracks().forEach((track) => pc.addTrack(track, outgoing));
+  // micReadyPromise só resolve quando ESSE pedido de mic terminar (sucesso
+  // ou falha) — quem estiver montando um offer/answer de voz nesse meio
+  // tempo espera por ele antes de seguir, pra nunca negociar sem a track de
+  // áudio (ver rtc:signal mais abaixo).
+  let resolveMicReady;
+  micReadyPromise = new Promise((resolve) => {
+    resolveMicReady = resolve;
   });
-  updateMicButton();
-  setMicStatus(micMuted ? '🎙️ Microfone mutado' : '🎙️ Microfone ativo');
-  removeConnectingTile();
-  updateLocalTile();
+  try {
+    // Segunda camada de proteção contra o bug do "retorno": se por algum
+    // motivo já existe um microfone ativo (chamada duplicada, etc), para ele
+    // antes de pegar um novo — nunca deixa dois streams de mic vivos ao mesmo
+    // tempo mandando áudio duplicado pros peers.
+    if (micStream) {
+      micStream.getTracks().forEach((t) => t.stop());
+      micStream = null;
+      teardownNoiseGate();
+    }
+    showConnectingTile();
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints() });
+    } catch (err) {
+      removeConnectingTile();
+      setMicStatus('Não foi possível acessar o microfone: ' + err.message);
+      return;
+    }
+    if (noiseGateEnabled) buildNoiseGate(micStream);
+    updateMicEnabledState();
+    const outgoing = getOutgoingMicStream();
+    Object.values(peers).forEach((pc) => {
+      outgoing.getTracks().forEach((track) => pc.addTrack(track, outgoing));
+    });
+    updateMicButton();
+    setMicStatus(micMuted ? '🎙️ Microfone mutado' : '🎙️ Microfone ativo');
+    removeConnectingTile();
+    updateLocalTile();
+  } finally {
+    resolveMicReady();
+  }
 }
 
 function stopMicrophone() {
@@ -9127,7 +9169,9 @@ document.getElementById('btn-test-output').onclick = async () => {
 // logar de novo", nunca "site travado".
 setTimeout(() => {
   const bootLoadingEl = document.getElementById('boot-loading');
-  if (bootLoadingEl && !bootLoadingEl.classList.contains('hidden')) {
+  const appEl = document.getElementById('app');
+  const appAlreadyShowing = appEl && !appEl.classList.contains('hidden');
+  if (bootLoadingEl && !bootLoadingEl.classList.contains('hidden') && !appAlreadyShowing) {
     bootLoadingEl.classList.add('hidden');
     document.getElementById('auth-screen').classList.remove('hidden');
   }
@@ -9140,10 +9184,23 @@ setTimeout(() => {
 // nome/e-mail de convidado ou não).
 tryResumeSession()
   .catch((err) => {
+    // BUG CORRIGIDO: esse catch existia pra nunca deixar a pessoa presa na
+    // tela preta se o login automático desse errado. Só que ele mostrava a
+    // tela de login de qualquer jeito, mesmo se startApp() JÁ tivesse
+    // rodado com sucesso e o app já estivesse na tela — algo secundário
+    // (fora do login em si) que desse erro DEPOIS de logar acabava
+    // reexibindo o login por cima do app já carregado. Empilhava as duas
+    // telas (por isso o scroll pra achar a Início) e parecia "deslogou",
+    // mesmo com a sessão ainda válida por baixo. Agora só reexibe o login
+    // se o app realmente não tiver aparecido ainda.
     console.error('tryResumeSession falhou:', err);
-    const bootLoadingEl = document.getElementById('boot-loading');
-    if (bootLoadingEl) bootLoadingEl.classList.add('hidden');
-    document.getElementById('auth-screen').classList.remove('hidden');
+    const appEl = document.getElementById('app');
+    const appAlreadyShowing = appEl && !appEl.classList.contains('hidden');
+    if (!appAlreadyShowing) {
+      const bootLoadingEl = document.getElementById('boot-loading');
+      if (bootLoadingEl) bootLoadingEl.classList.add('hidden');
+      document.getElementById('auth-screen').classList.remove('hidden');
+    }
   })
   .then(() => {
   const params = new URLSearchParams(window.location.search);
