@@ -7415,11 +7415,26 @@ function wireLiveKitRoomEvents(room) {
   // Conexão caiu de vez (o LiveKit já tenta reconectar sozinho várias vezes
   // antes de desistir e disparar isso) — tira a pessoa da sala local com um
   // aviso claro, em vez de deixar tudo travado numa call morta.
-  room.on(LK.RoomEvent.Disconnected, () => {
-    if (connectedVoiceRoomId) {
+  room.on(LK.RoomEvent.Disconnected, (reason) => {
+    console.warn('[voz] LiveKit desconectou. Motivo:', reason);
+    // BUG DEFENSIVO: esse evento é do objeto "room" específico dessa
+    // conexão (via closure) — se a pessoa saiu e entrou nessa sala rápido
+    // o suficiente, uma sala VELHA desconectando não pode derrubar a sala
+    // NOVA que já está no ar. Só age se essa ainda é a sala ativa agora.
+    if (lkRoom === room && connectedVoiceRoomId) {
       showCopyToast('A conexão de voz caiu.');
       disconnectVoice(true);
     }
+  });
+
+  room.on(LK.RoomEvent.Reconnecting, () => {
+    console.warn('[voz] Reconectando ao servidor de voz...');
+    setMicStatus('🔄 Reconectando...');
+  });
+
+  room.on(LK.RoomEvent.Reconnected, () => {
+    console.warn('[voz] Reconectado.');
+    setMicStatus(micMuted ? '🎙️ Microfone mutado' : '🎙️ Microfone ativo');
   });
 }
 
@@ -7436,22 +7451,35 @@ async function connectLiveKitRoom(roomId) {
     const tokenRes = await fetch('/api/livekit/token?roomId=' + encodeURIComponent(roomId), { credentials: 'include' });
     tokenData = await tokenRes.json();
     if (!tokenRes.ok) {
+      console.error('[voz] Erro ao pedir token:', tokenData);
       setMicStatus(tokenData.error || 'Erro ao entrar na chamada de voz.');
       return false;
     }
   } catch (err) {
+    console.error('[voz] Erro de rede ao pedir token:', err);
     setMicStatus('Erro de conexão ao entrar na chamada de voz.');
     return false;
   }
-  lkRoom = new LK.Room({ adaptiveStream: true, dynacast: true });
-  wireLiveKitRoomEvents(lkRoom);
-  try {
-    await lkRoom.connect(tokenData.url, tokenData.token);
-  } catch (err) {
-    setMicStatus('Não foi possível conectar no servidor de voz: ' + err.message);
+  // Se por algum motivo ainda existia uma sala LiveKit anterior presa (ex:
+  // uma tentativa que falhou antes sem limpar direito), fecha ela primeiro
+  // — nunca deixa duas conexões LiveKit da MESMA pessoa vivas ao mesmo
+  // tempo, senão o servidor derruba uma das duas por identidade duplicada.
+  if (lkRoom) {
+    try {
+      await lkRoom.disconnect();
+    } catch (_) {}
     lkRoom = null;
+  }
+  const room = new LK.Room({ adaptiveStream: true, dynacast: true });
+  wireLiveKitRoomEvents(room);
+  try {
+    await room.connect(tokenData.url, tokenData.token);
+  } catch (err) {
+    console.error('[voz] Erro ao conectar no LiveKit:', err);
+    setMicStatus('Não foi possível conectar no servidor de voz: ' + err.message);
     return false;
   }
+  lkRoom = room;
   return true;
 }
 

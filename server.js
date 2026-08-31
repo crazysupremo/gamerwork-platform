@@ -1268,7 +1268,13 @@ app.get(
         avatar_frame: req.user.avatar_frame || null,
         plus_theme: req.user.plus_theme || null,
       }),
-      ttl: '10m',
+      // BUG CORRIGIDO ("a chamada cai sozinha"): 10 minutos era curto demais
+      // — qualquer chamada mais longa, ou uma reconexão automática depois
+      // desse tempo (soluço de wifi comum), falhava porque o token já tinha
+      // vencido. 24h cobre até quem deixa a call aberta o dia inteiro; um
+      // token novo é gerado a cada vez que entra numa sala, então não tem
+      // problema de segurança em deixar mais folgado.
+      ttl: '24h',
     });
     at.addGrant({
       roomJoin: true,

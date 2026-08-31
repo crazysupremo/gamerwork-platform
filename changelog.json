@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.15.2",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido a chamada de voz conectando e caindo na hora: o token de acesso expirava em 10 minutos (curto demais), e uma conexão anterior mal-fechada podia derrubar a nova tentativa por identidade duplicada — agora limpa qualquer conexão presa antes de tentar de novo, e o token dura 24h"
+    ]
+  },
+  {
     "version": "0.15.1",
     "date": "2026-09-01",
     "changes": [
