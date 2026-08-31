@@ -4375,6 +4375,7 @@ function selectChannel(channel, options = {}) {
   // precisa também do "# " de canal de servidor, ficava "# 💬 nome".
   document.getElementById('current-channel-name').textContent =
     channel.type === 'voz' ? '🔊 ' + channel.name : isDm ? channel.name : '# ' + channel.name;
+  updateAiQuickSuggestions();
   document.getElementById('home-panel').classList.add('hidden');
   document.getElementById('friends-panel').classList.add('hidden');
   setNavActive('nav-inicio', false);
@@ -6139,6 +6140,12 @@ function messagesContainerFor(channelId) {
 // nenhum estado de "sessão de jogo" pra gerenciar, de propósito, pra não
 // duplicar o sistema de LFG/matchmaking que já existe em outro lugar do app.
 const GAME_INVITE_PREFIX = '__GAME_INVITE__::';
+// Figurinha = um emoji grande sozinho, igual WhatsApp/Telegram. Mesmo truque
+// do convite de jogo: um prefixo no próprio texto da mensagem, sem precisar
+// de nenhuma tabela/coluna nova no banco — o emoji que vem depois do
+// prefixo é renderizado bem maior em vez de texto normal.
+const STICKER_PREFIX = '__STICKER__::';
+const STICKER_PACK = ['😂', '❤️', '🔥', '👑', '🎮', '🏆', '👍', '🎉', '😭', '😡', '🤝', '💯', '😎', '👀', '🥳', '💀'];
 
 // Texto amigável pra prévias (lista de conversas, "última mensagem") —
 // esconde o formato interno do convite de jogo atrás de um resumo legível.
@@ -6149,6 +6156,7 @@ function messagePreviewText(msgOrContent) {
   const content = isObj ? msgOrContent.content : msgOrContent;
   const attachment = isObj ? msgOrContent.attachment : null;
   if (content && content.startsWith(GAME_INVITE_PREFIX)) return '🎮 Convite pra jogar';
+  if (content && content.startsWith(STICKER_PREFIX)) return `${content.slice(STICKER_PREFIX.length)} Figurinha`;
   // BUG CORRIGIDO: mensagem que era só um link (convite de servidor, por
   // exemplo) aparecia crua e enorme na prévia da lista de conversas,
   // estourando a largura da coluna. Mostra um resumo curto em vez do link.
@@ -6159,6 +6167,10 @@ function messagePreviewText(msgOrContent) {
 }
 
 function renderMessageContentHtml(msg) {
+  if (msg.content.startsWith(STICKER_PREFIX)) {
+    const emoji = msg.content.slice(STICKER_PREFIX.length);
+    return `<div class="content sticker-content">${escapeHtml(emoji)}</div>`;
+  }
   if (msg.content.startsWith(GAME_INVITE_PREFIX)) {
     let payload;
     try {
@@ -6581,6 +6593,69 @@ async function uploadAttachmentFile(file, onProgress) {
 document.getElementById('btn-attach-file').onclick = () => {
   document.getElementById('message-attachment-input').click();
 };
+
+// ---------- FIGURINHAS ----------
+// Um emoji grande sozinho na mensagem, estilo WhatsApp/Telegram — sem
+// precisar de nenhum arquivo de imagem novo (não temos como gerar/hospedar
+// arte de figurinha de verdade nesta sessão), mas com o mesmo efeito visual
+// de "isso não é uma mensagem normal, é uma reação grande".
+const stickerPicker = document.getElementById('sticker-picker');
+stickerPicker.innerHTML = STICKER_PACK.map((s) => `<button type="button" class="sticker-picker-item">${s}</button>`).join('');
+document.getElementById('btn-sticker-picker').onclick = (e) => {
+  e.stopPropagation();
+  stickerPicker.classList.toggle('hidden');
+};
+stickerPicker.querySelectorAll('.sticker-picker-item').forEach((btn) => {
+  btn.onclick = () => {
+    if (!currentChannel) return;
+    socket.emit('chat:message', { channelId: currentChannel.id, content: STICKER_PREFIX + btn.textContent });
+    stickerPicker.classList.add('hidden');
+  };
+});
+document.addEventListener('click', (e) => {
+  if (!stickerPicker.classList.contains('hidden') && !stickerPicker.contains(e.target) && e.target.id !== 'btn-sticker-picker') {
+    stickerPicker.classList.add('hidden');
+  }
+});
+
+// ---------- SUGESTÕES RÁPIDAS DA IA ----------
+// Só aparece na conversa com a NEXT GAME IA — cada botão manda uma mensagem
+// de verdade pra ela (ela tem ferramentas reais que fazem essas ações,
+// não é só um texto bonito sem função).
+const AI_QUICK_SUGGESTIONS = [
+  { icon: 'gamepad-2', label: 'Mudar meu status', prompt: 'Muda meu status pra "procurando squad"' },
+  { icon: 'gift', label: 'Minhas recompensas', prompt: 'Quais são minhas recompensas e sequência atual?' },
+  { icon: 'search', label: 'Procurar jogadores', prompt: 'Publica um post procurando jogadores pra jogar comigo agora' },
+  { icon: 'calendar', label: 'Criar evento', prompt: 'Quero criar um evento — me ajuda?' },
+];
+function updateAiQuickSuggestions() {
+  const el = document.getElementById('ai-quick-suggestions');
+  const isAiChat = currentChannel && currentChannel.type === 'texto' && currentChannel.id === dmChannelIdFor(AI_BOT_USER_ID);
+  if (!isAiChat) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  el.classList.remove('hidden');
+  el.innerHTML = AI_QUICK_SUGGESTIONS.map(
+    (s) => `<button type="button" class="ai-quick-suggestion" data-prompt="${escapeHtml(s.prompt)}"><span class="ng-icon-wrap" data-icon="${s.icon}"></span> ${escapeHtml(s.label)}</button>`
+  ).join('');
+  el.querySelectorAll('[data-icon]').forEach((elIcon) => {
+    elIcon.innerHTML = icon(elIcon.getAttribute('data-icon'));
+  });
+  el.querySelectorAll('.ai-quick-suggestion').forEach((btn) => {
+    btn.onclick = () => {
+      socket.emit('chat:message', { channelId: currentChannel.id, content: btn.dataset.prompt });
+    };
+  });
+}
+// Mesmo id determinístico que o backend usa (dmChannelId) — só pra saber se
+// o canal aberto agora é a conversa com a IA, sem precisar de outra
+// requisição só pra isso.
+function dmChannelIdFor(otherUserId) {
+  if (!me) return null;
+  return 'dm::' + [me.id, otherUserId].sort().join('::');
+}
 
 document.getElementById('message-attachment-input').onchange = async (e) => {
   const file = e.target.files[0];

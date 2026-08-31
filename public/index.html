@@ -671,9 +671,18 @@
         <span id="attachment-preview-name"></span>
         <button type="button" id="btn-remove-attachment" aria-label="Remover anexo"><span class="ng-icon-wrap" data-icon="x"></span></button>
       </div>
+      <!-- Sugestões rápidas — só aparecem numa conversa com a IA (NEXT GAME
+           IA), usam ferramentas de verdade que ela já sabe executar (não é
+           decoração, cada botão manda uma mensagem real pra ela responder). -->
+      <div id="ai-quick-suggestions" class="ai-quick-suggestions hidden"></div>
+
       <form id="form-message" class="message-form">
         <input type="file" id="message-attachment-input" class="hidden" />
         <button type="button" id="btn-attach-file" aria-label="Anexar arquivo" title="Anexar arquivo (até 5MB)"><span class="ng-icon-wrap" data-icon="upload"></span></button>
+        <div class="sticker-picker-wrap">
+          <button type="button" id="btn-sticker-picker" aria-label="Figurinhas" title="Figurinhas"><span class="ng-icon-wrap" data-icon="sparkles"></span></button>
+          <div id="sticker-picker" class="sticker-picker hidden"></div>
+        </div>
         <input type="text" id="message-input" placeholder="Escreva uma mensagem..." autocomplete="off" />
         <button type="submit" aria-label="Enviar"><span class="ng-icon-wrap" data-icon="send"></span></button>
       </form>

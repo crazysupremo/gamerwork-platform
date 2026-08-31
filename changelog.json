@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.9.0",
+    "date": "2026-08-31",
+    "changes": [
+      "Corrigido os quadrados brancos ao lado do seu nome no topo do chat (ícone de servidor que faltava)",
+      "IA do chat agora mostra \"digitando...\" enquanto pensa na resposta",
+      "Conversa com a IA ganhou sugestões rápidas (mudar status, ver recompensas, procurar jogadores, criar evento)",
+      "Novo botão de figurinhas no chat — igual WhatsApp, com pacote de emojis grandes para mandar na conversa"
+    ]
+  },
+  {
     "version": "0.8.1",
     "date": "2026-08-30",
     "changes": [

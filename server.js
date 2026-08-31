@@ -3887,6 +3887,11 @@ function describeActionForConfirmation(name, args) {
 }
 
 async function triggerAiReply(channelId, user) {
+  // Mostra "NEXT GAME IA está digitando..." enquanto ela processa — reusa o
+  // mesmo indicador de digitação que já existe pra pessoas de verdade (só
+  // que emitido pelo servidor, já que o bot não tem socket próprio de
+  // cliente). Sempre desliga no fim (finally), mesmo se der erro no meio.
+  io.to(channelId).emit('typing:update', { userId: AI_BOT_USER_ID, username: AI_BOT_USERNAME, typing: true });
   try {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
@@ -4031,6 +4036,8 @@ async function triggerAiReply(channelId, user) {
   } catch (err) {
     console.error('Erro ao chamar a IA:', err);
     await postAiMessage(channelId, 'Deu um erro aqui do meu lado. Tenta de novo?');
+  } finally {
+    io.to(channelId).emit('typing:update', { userId: AI_BOT_USER_ID, username: AI_BOT_USERNAME, typing: false });
   }
 }
 

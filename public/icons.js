@@ -68,6 +68,9 @@ const NG_ICONS = {
   // Usados no botão de mostrar/esconder senha da tela de login.
   'eye': "<path d='M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0' /> <circle cx='12' cy='12' r='3' />",
   'eye-off': "<path d='M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49' /> <path d='M14.084 14.158a3 3 0 0 1-4.242-4.242' /> <path d='M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143' /> <path d='m2 2 20 20' />",
+  // BUG CORRIGIDO: faltava esse ícone (usado no botão "Convidar para
+  // servidor") — ficava um quadrado vazio/em branco no cabeçalho do chat.
+  'server': "<rect width='20' height='8' x='2' y='2' rx='2' ry='2' /> <rect width='20' height='8' x='2' y='14' rx='2' ry='2' /> <line x1='6' x2='6.01' y1='6' y2='6' /> <line x1='6' x2='6.01' y1='18' y2='18' />",
 };
 
 // Retorna o <svg> completo, pronto pra injetar via innerHTML/template string.
