@@ -633,11 +633,22 @@ async function tryResumeSession() {
   // Agora só um 401 de verdade (sessão realmente inválida/expirada) apaga a
   // preferência; qualquer outro erro tenta de novo antes de desistir, e
   // nunca apaga o "Continuar conectado" por causa de um erro passageiro.
+  // BUG CORRIGIDO (parte 2): se o servidor aceitar a conexão mas nunca
+  // responder (trava, cai no meio, proxy do Render engasga) o fetch antigo
+  // ficava esperando pra sempre — nem "ok" nem erro, então nunca sobrava pra
+  // limpar o spinner e mostrar o login. Isso deixava a pessoa presa na tela
+  // preta com o logo girando pra sempre. Agora tem um limite de 8s: passou
+  // disso, trata como falha passageira (mesmo caminho de retry abaixo) em
+  // vez de ficar esperando sem fim.
   const tryFetchMe = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
-      return await fetch('/api/me', { credentials: 'include' });
+      return await fetch('/api/me', { credentials: 'include', signal: controller.signal });
     } catch (_) {
       return null;
+    } finally {
+      clearTimeout(timeoutId);
     }
   };
 
@@ -9013,12 +9024,33 @@ document.getElementById('btn-test-output').onclick = async () => {
   observer.observe(document.getElementById('auth-screen'), { attributes: true, attributeFilter: ['class'] });
 })();
 
+// TRAVA DE SEGURANÇA: se qualquer coisa no boot falhar de um jeito que a
+// gente não previu (erro inesperado, promise que nunca resolve por algum
+// motivo novo) a pessoa não pode ficar presa pra sempre na tela preta com o
+// logo girando. Depois de 12s, se o spinner ainda estiver visível, força a
+// tela de login a aparecer de qualquer forma — pior caso vira "preciso
+// logar de novo", nunca "site travado".
+setTimeout(() => {
+  const bootLoadingEl = document.getElementById('boot-loading');
+  if (bootLoadingEl && !bootLoadingEl.classList.contains('hidden')) {
+    bootLoadingEl.classList.add('hidden');
+    document.getElementById('auth-screen').classList.remove('hidden');
+  }
+}, 12000);
+
 // ?support=1 na URL abre direto a tela "Fale com o suporte" — usado pelo
 // site da Blue Games pra linkar direto pro suporte do NEXT GAME sem duplicar
 // o formulário em outro lugar. Espera o tryResumeSession terminar primeiro,
 // pra já saber se a pessoa está logada (decide mostrar os campos de
 // nome/e-mail de convidado ou não).
-tryResumeSession().then(() => {
+tryResumeSession()
+  .catch((err) => {
+    console.error('tryResumeSession falhou:', err);
+    const bootLoadingEl = document.getElementById('boot-loading');
+    if (bootLoadingEl) bootLoadingEl.classList.add('hidden');
+    document.getElementById('auth-screen').classList.remove('hidden');
+  })
+  .then(() => {
   const params = new URLSearchParams(window.location.search);
   if (params.get('support') === '1') {
     openSupportModal();

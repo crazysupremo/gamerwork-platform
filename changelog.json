@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.11.1",
+    "date": "2026-08-31",
+    "changes": [
+      "Trava de segurança contra tela presa no logo carregando pra sempre: requisição de sessão agora tem limite de 8s (não fica esperando sem fim se o servidor engasgar) e, no pior caso, depois de 12s o site força a tela de login a aparecer em vez de travar"
+    ]
+  },
+  {
     "version": "0.11.0",
     "date": "2026-08-31",
     "changes": [
