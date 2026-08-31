@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.16.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Revertido o sistema de voz/vídeo/tela pro modelo anterior (P2P direto entre participantes) — voltou como estava antes da tentativa com o LiveKit"
+    ]
+  },
+  {
     "version": "0.15.2",
     "date": "2026-09-01",
     "changes": [
