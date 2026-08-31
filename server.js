@@ -1174,14 +1174,19 @@ app.get(
 // na sala. Isso é bem mais comum do que parece e é a causa nº1 de "call não
 // conecta" que só acontece com ALGUMAS pessoas.
 //
-// O TURN_URL/TURN_USERNAME/TURN_CREDENTIAL abaixo podem ser trocados a
-// qualquer momento nas variáveis de ambiente do Render (sem precisar
-// reempacotar/redeploy do frontend) — assim que você criar sua própria conta
-// grátis num provedor de TURN (metered.ca/Open Relay tem 20GB grátis/mês,
-// sem cartão), só troca essas 3 variáveis. Enquanto isso não acontece, cai
-// no relay público de testes do Open Relay Project (compartilhado com o
-// mundo inteiro, então pode ficar lento/instável se muita gente usar ao
-// mesmo tempo — ok pra um grupo de amigos, não pra produção séria).
+// Três níveis de prioridade, do melhor pro pior:
+//   1. METERED_DOMAIN + METERED_API_KEY — conta própria no metered.ca, que
+//      gera um usuário/senha TURN novo a cada chamada (mais seguro que fixo,
+//      e é assim que o painel deles funciona: não tem usuário/senha fixo pra
+//      copiar, só uma chave secreta que o SERVIDOR usa pra pedir credenciais
+//      novas na hora — nunca expõe a chave pro navegador da pessoa).
+//   2. TURN_URL/TURN_USERNAME/TURN_CREDENTIAL — outro provedor TURN
+//      qualquer com usuário/senha fixos.
+//   3. Relay público de testes do Open Relay Project (compartilhado com o
+//      mundo inteiro, pode ficar lento/instável com muita gente usando ao
+//      mesmo tempo — ok pra um grupo de amigos, não pra produção séria).
+// Todas essas variáveis podem ser trocadas a qualquer momento nas variáveis
+// de ambiente do Render, sem precisar reempacotar/redeploy do frontend.
 app.get(
   '/api/ice-servers',
   requireAuth,
@@ -1190,28 +1195,49 @@ app.get(
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun.relay.metered.ca:80' },
     ];
+
+    const meteredDomain = process.env.METERED_DOMAIN;
+    const meteredApiKey = process.env.METERED_API_KEY;
+    if (meteredDomain && meteredApiKey) {
+      try {
+        const meteredRes = await fetch(
+          `https://${meteredDomain}/api/v1/turn/credentials?apiKey=${encodeURIComponent(meteredApiKey)}`
+        );
+        if (meteredRes.ok) {
+          const meteredServers = await meteredRes.json();
+          if (Array.isArray(meteredServers) && meteredServers.length > 0) {
+            return res.json({ iceServers: [...servers, ...meteredServers], usingSharedRelay: false });
+          }
+        }
+        console.error('[ice-servers] metered.ca não devolveu credenciais válidas — caindo pro próximo nível.');
+      } catch (err) {
+        console.error('[ice-servers] Erro ao buscar credenciais do metered.ca:', err.message);
+      }
+    }
+
     const turnUrl = process.env.TURN_URL;
     if (turnUrl) {
       // Suporta uma ou várias URLs separadas por vírgula (ex: udp + tcp + tls)
       turnUrl.split(',').map((u) => u.trim()).filter(Boolean).forEach((urls) => {
         servers.push({ urls, username: process.env.TURN_USERNAME, credential: process.env.TURN_CREDENTIAL });
       });
-    } else {
-      // Sem TURN próprio configurado — usa o relay público gratuito do Open
-      // Relay Project (credenciais de teste documentadas publicamente por
-      // eles mesmos, não é nenhum segredo vazado). As 3 variantes cobrem
-      // redes diferentes: UDP é o caminho mais rápido/comum; TCP porta 80 e
-      // TLS porta 443 salvam quem está atrás de firewall bem restritivo
-      // (rede de empresa/escola) que só libera as portas normais de web.
-      [
-        'turn:relay.metered.ca:80',
-        'turn:relay.metered.ca:80?transport=tcp',
-        'turns:relay.metered.ca:443?transport=tcp',
-      ].forEach((urls) => {
-        servers.push({ urls, username: 'openrelayproject', credential: 'openrelayproject' });
-      });
+      return res.json({ iceServers: servers, usingSharedRelay: false });
     }
-    res.json({ iceServers: servers, usingSharedRelay: !turnUrl });
+
+    // Sem nada configurado — usa o relay público gratuito do Open Relay
+    // Project (credenciais de teste documentadas publicamente por eles
+    // mesmos, não é nenhum segredo vazado). As 3 variantes cobrem redes
+    // diferentes: UDP é o caminho mais rápido/comum; TCP porta 80 e TLS
+    // porta 443 salvam quem está atrás de firewall bem restritivo (rede de
+    // empresa/escola) que só libera as portas normais de web.
+    [
+      'turn:relay.metered.ca:80',
+      'turn:relay.metered.ca:80?transport=tcp',
+      'turns:relay.metered.ca:443?transport=tcp',
+    ].forEach((urls) => {
+      servers.push({ urls, username: 'openrelayproject', credential: 'openrelayproject' });
+    });
+    res.json({ iceServers: servers, usingSharedRelay: true });
   })
 );
 

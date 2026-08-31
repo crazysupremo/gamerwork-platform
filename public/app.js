@@ -791,7 +791,18 @@ async function tryResumeSession() {
 // Vídeo pequeno e centralizado da logo, sobre o app enquanto ele carrega —
 // some sozinho quando o vídeo acaba (ou depois de um tempo máximo, se o
 // vídeo não existir/não carregar, pra nunca travar a pessoa numa tela preta).
+// BUG CORRIGIDO ("tela fica meio apagada, preciso relogar"): se
+// playLoginIntro() rodasse duas vezes seguidas (ex: um resume de sessão que
+// já tinha chamado startApp, seguido de qualquer outro caminho que chame de
+// novo), a segunda chamada resetava o overlay pra opacity:1 bem no meio do
+// fade-out da primeira — o resultado é o overlay ficando preso numa
+// opacidade intermediária, dando a impressão de "tudo meio apagado" por
+// cima do app, sem nunca sumir de vez. Uma trava simples (só deixa rodar
+// uma vez por sessão de app) resolve isso de raiz.
+let loginIntroAlreadyPlayed = false;
 function playLoginIntro() {
+  if (loginIntroAlreadyPlayed) return;
+  loginIntroAlreadyPlayed = true;
   const overlay = document.getElementById('login-intro-overlay');
   const video = document.getElementById('login-intro-video');
   overlay.classList.remove('hidden', 'login-intro-fading');

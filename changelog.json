@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.16.2",
+    "date": "2026-09-01",
+    "changes": [
+      "Chamada de voz agora pode usar um servidor TURN próprio de verdade (metered.ca) em vez do relay público compartilhado — configure METERED_DOMAIN e METERED_API_KEY no Render"
+    ]
+  },
+  {
+    "version": "0.16.1",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido a tela ficando meio apagada/estranha logo após conectar, precisando relogar pra normalizar — o vídeo de abertura da logo podia rodar duas vezes e travar num meio-termo de opacidade"
+    ]
+  },
+  {
     "version": "0.16.0",
     "date": "2026-09-01",
     "changes": [
