@@ -6265,11 +6265,6 @@ async function loadHomeTournamentBanner() {
         <span class="ng-icon-wrap" data-icon="play"></span> Assistir vídeo
       </button>
     </div>
-    <div class="auth-trust-row home-hero-trust-row">
-      <span class="auth-trust-badge">${icon('shield-check')} Proteção BlueX ativa</span>
-      <span class="auth-trust-badge">${icon('badge-check')} Monitoramento de erros 24/7</span>
-      <span class="auth-trust-badge">${icon('sparkles')} Suporte com IA</span>
-    </div>
   `;
 
   if (!upcoming) {

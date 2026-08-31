@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.13.1",
+    "date": "2026-08-31",
+    "changes": [
+      "Revertido os banners de seção (Início, Servidores, Amigos, Jogar, NEXTGAME PLUS) — voltou pro visual de antes"
+    ]
+  },
+  {
     "version": "0.13.0",
     "date": "2026-08-31",
     "changes": [
