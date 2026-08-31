@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.15.1",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido de vez a tela presa no logo carregando: as travas de segurança escondiam o spinner só quando iam mostrar a tela de login — se o app já tivesse carregado mas algo pequeno travasse logo depois, o spinner ficava preso tampando o app pronto por baixo. Agora o spinner sempre some, não importa o que aconteça"
+    ]
+  },
+  {
     "version": "0.15.0",
     "date": "2026-09-01",
     "changes": [

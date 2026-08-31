@@ -9098,10 +9098,16 @@ document.getElementById('btn-test-output').onclick = async () => {
 // logar de novo", nunca "site travado".
 setTimeout(() => {
   const bootLoadingEl = document.getElementById('boot-loading');
+  if (!bootLoadingEl || bootLoadingEl.classList.contains('hidden')) return;
+  // BUG CORRIGIDO: antes só escondia o spinner quando ia mostrar o login —
+  // se o app JÁ tinha aparecido (startApp rodou) mas algo secundário
+  // travou logo depois, o spinner ficava preso tampando o app por cima,
+  // mesmo com tudo funcionando por baixo. Esconder o spinner não pode
+  // depender de qual tela vai aparecer — só decide QUAL tela mostrar.
+  bootLoadingEl.classList.add('hidden');
   const appEl = document.getElementById('app');
   const appAlreadyShowing = appEl && !appEl.classList.contains('hidden');
-  if (bootLoadingEl && !bootLoadingEl.classList.contains('hidden') && !appAlreadyShowing) {
-    bootLoadingEl.classList.add('hidden');
+  if (!appAlreadyShowing) {
     document.getElementById('auth-screen').classList.remove('hidden');
   }
 }, 12000);
@@ -9123,11 +9129,15 @@ tryResumeSession()
     // mesmo com a sessão ainda válida por baixo. Agora só reexibe o login
     // se o app realmente não tiver aparecido ainda.
     console.error('tryResumeSession falhou:', err);
+    // BUG CORRIGIDO (parte 2): esconder o spinner nunca pode depender de
+    // qual tela vai aparecer depois — se não, ele fica preso tampando o
+    // app por cima em casos onde o app já carregou mas algo secundário
+    // travou logo depois.
+    const bootLoadingEl = document.getElementById('boot-loading');
+    if (bootLoadingEl) bootLoadingEl.classList.add('hidden');
     const appEl = document.getElementById('app');
     const appAlreadyShowing = appEl && !appEl.classList.contains('hidden');
     if (!appAlreadyShowing) {
-      const bootLoadingEl = document.getElementById('boot-loading');
-      if (bootLoadingEl) bootLoadingEl.classList.add('hidden');
       document.getElementById('auth-screen').classList.remove('hidden');
     }
   })

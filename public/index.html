@@ -28,11 +28,17 @@
 <script>
   setTimeout(function () {
     var boot = document.getElementById('boot-loading');
-    var auth = document.getElementById('auth-screen');
+    if (!boot || boot.className.indexOf('hidden') !== -1) return;
+    // BUG CORRIGIDO: esconder o spinner NUNCA pode depender de qual tela
+    // vai aparecer depois — antes, se o app já tivesse carregado mas algo
+    // secundário travasse logo em seguida, essa trava não escondia o
+    // spinner (só não mostrava o login de novo por cima), deixando o
+    // logo girando preso tampando o app já pronto por baixo.
+    boot.className += ' hidden';
     var app = document.getElementById('app');
     var appShowing = app && app.className.indexOf('hidden') === -1;
-    if (boot && boot.className.indexOf('hidden') === -1 && !appShowing) {
-      boot.className += ' hidden';
+    if (!appShowing) {
+      var auth = document.getElementById('auth-screen');
       if (auth) auth.className = auth.className.replace(' hidden', '').replace('hidden', '');
     }
   }, 20000);
