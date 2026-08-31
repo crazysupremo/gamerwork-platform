@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.14.2",
+    "date": "2026-09-01",
+    "changes": [
+      "Trava de segurança extra contra a tela de carregamento presa, direto no HTML — funciona mesmo que algum script trave em algum outro lugar do app",
+      "Teste de microfone agora sempre libera o dispositivo antes de entrar numa chamada de voz de verdade, mesmo se o teste tiver ficado aberto"
+    ]
+  },
+  {
     "version": "0.14.1",
     "date": "2026-09-01",
     "changes": [

@@ -8271,6 +8271,15 @@ async function startMicrophone() {
     resolveMicReady = resolve;
   });
   try {
+    // BUG CORRIGIDO ("testar áudio" deixando a call muda): se a pessoa
+    // testou o microfone (Configurações de voz) e fechou o modal de um
+    // jeito que não passou pelo botão "Fechar" (clique fora, Esc), o
+    // stream do teste podia continuar preso no dispositivo. Em alguns
+    // navegadores/SOs isso atrapalha o getUserMedia de verdade logo em
+    // seguida. Sempre para o teste antes de pegar o mic pra call, não
+    // importa como ele foi deixado.
+    stopMicTest();
+
     // Segunda camada de proteção contra o bug do "retorno": se por algum
     // motivo já existe um microfone ativo (chamada duplicada, etc), para ele
     // antes de pegar um novo — nunca deixa dois streams de mic vivos ao mesmo

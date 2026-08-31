@@ -18,6 +18,26 @@
   <div class="boot-loading-spinner"></div>
 </div>
 
+<!-- TRAVA DE SEGURANÇA INDEPENDENTE DO APP.JS: essa tag roda sozinha, sem
+     depender de app.js carregar/rodar certo — é a última linha de defesa
+     contra a tela de carregamento ficando presa pra sempre (ex: app.js
+     falhou ao carregar, algum erro de script travou tudo antes de qualquer
+     outra trava rodar, servidor do Render muito lento pra acordar). Depois
+     de 20s, se ainda tiver preso no logo girando, força a tela de login a
+     aparecer na marra — nunca deixa a pessoa numa tela preta sem saída. -->
+<script>
+  setTimeout(function () {
+    var boot = document.getElementById('boot-loading');
+    var auth = document.getElementById('auth-screen');
+    var app = document.getElementById('app');
+    var appShowing = app && app.className.indexOf('hidden') === -1;
+    if (boot && boot.className.indexOf('hidden') === -1 && !appShowing) {
+      boot.className += ' hidden';
+      if (auth) auth.className = auth.className.replace(' hidden', '').replace('hidden', '');
+    }
+  }, 20000);
+</script>
+
 <!-- Vídeo de abertura da logo — toca uma vez, centralizado, logo depois do
      login (ou de reconectar sozinho), antes do app aparecer de vez. -->
 <div id="login-intro-overlay" class="login-intro-overlay hidden">
