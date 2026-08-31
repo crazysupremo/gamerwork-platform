@@ -6,11 +6,6 @@ let currentChannel = null; // o que está sendo exibido no painel principal agor
 let connectedVoiceRoomId = null; // sala de voz em que você está REALMENTE conectado (independe do que está vendo)
 let localStream = null; // tela compartilhada
 let micStream = null; // áudio do microfone
-// Resolve quando o pedido de microfone EM ANDAMENTO terminar (sucesso ou
-// falha) — usado pra fazer quem está criando/respondendo uma conexão
-// WebRTC esperar o mic ficar pronto antes de montar o offer/answer, em vez
-// de mandar sem áudio e torcer pra renegociação automática consertar depois.
-let micReadyPromise = Promise.resolve();
 let micMuted = false;
 let isDeafened = false;
 // Volume geral da chamada (0 a 1) — multiplica o volume de TODAS as pessoas
@@ -75,24 +70,7 @@ function renderAvatarHtml(user, sizeClass) {
 // Classe CSS da moldura animada (se a pessoa tiver uma equipada) — usada
 // junto com renderAvatarHtml em todo lugar que mostra avatar.
 function avatarFrameClass(user) {
-  if (!user) return '';
-  const frame = user.avatar_frame ? 'avatar-frame-' + user.avatar_frame : '';
-  // Moldura extra pra quem tem um tema de cor do NEXTGAME PLUS ativo — anda
-  // junto com a moldura de recompensa (se tiver as duas, a animação da
-  // moldura ganhosa da precedência visual naturalmente, sem lógica extra).
-  const plus = user.plus_theme ? 'avatar-plus-' + user.plus_theme : '';
-  return [frame, plus].filter(Boolean).join(' ');
-}
-
-// Atributo(s) pra pintar o nome de alguém com o tema PLUS que ela escolheu —
-// usado no nome de quem manda mensagem no chat (visível pra todo mundo na
-// conversa). O tema "official" tem efeito animado de verdade (classe CSS
-// com keyframe); os outros são só uma cor sólida (mais simples e leve).
-function plusColorStyle(user) {
-  const t = plusThemeById(user && user.plus_theme);
-  if (!t) return '';
-  if (t.special) return ' class="plus-name-special"';
-  return ` style="color:${t.from};"`;
+  return user && user.avatar_frame ? 'avatar-frame-' + user.avatar_frame : '';
 }
 
 // Identificador estilo Discord (@Username#1234) — sistema de hashtag.
@@ -225,107 +203,12 @@ document.getElementById('btn-toggle-login-password').onclick = () => {
   btn.title = showing ? 'Mostrar senha' : 'Esconder senha';
 };
 
-// "Esqueceu a senha?" — abre o link de troca por e-mail. Sem domínio
-// verificado no Resend configurado no servidor, o e-mail pode não chegar de
-// verdade (mesma limitação da confirmação de cadastro) — mas o formulário e
-// o fluxo já funcionam por completo, é só ligar o envio quando tiver domínio.
+// "Esqueceu a senha?" — ainda não temos recuperação automática por e-mail,
+// então abre o mesmo formulário de suporte que já existe (funciona sem
+// login) em vez de um link morto ou uma promessa de algo que não existe.
 document.getElementById('link-forgot-password').onclick = (e) => {
   e.preventDefault();
-  document.getElementById('forgot-password-error').textContent = '';
-  document.getElementById('forgot-password-success').classList.add('hidden');
-  document.getElementById('form-forgot-password').classList.remove('hidden');
-  document.getElementById('forgot-password-email').value = '';
-  document.getElementById('modal-forgot-password').classList.remove('hidden');
-};
-document.getElementById('btn-close-forgot-password').onclick = () =>
-  document.getElementById('modal-forgot-password').classList.add('hidden');
-
-document.getElementById('form-forgot-password').onsubmit = async (e) => {
-  e.preventDefault();
-  const email = document.getElementById('forgot-password-email').value.trim();
-  const errEl = document.getElementById('forgot-password-error');
-  const okEl = document.getElementById('forgot-password-success');
-  const btn = document.getElementById('btn-send-forgot-password');
-  errEl.textContent = '';
-  btn.disabled = true;
-  try {
-    const res = await fetch('/api/forgot-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      errEl.textContent = data.error || 'Erro ao pedir troca de senha';
-      return;
-    }
-    document.getElementById('form-forgot-password').classList.add('hidden');
-    okEl.classList.remove('hidden');
-  } catch (err) {
-    errEl.textContent = 'Erro de conexão com o servidor';
-  } finally {
-    btn.disabled = false;
-  }
-};
-
-// Link de e-mail cai em "/?reset=TOKEN" — abre direto o formulário de nova
-// senha, sem precisar estar logado.
-function maybeOpenResetPasswordFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('reset');
-  if (!token) return;
-  document.getElementById('reset-password-new').value = '';
-  document.getElementById('reset-password-confirm').value = '';
-  document.getElementById('reset-password-error').textContent = '';
-  document.getElementById('reset-password-success').classList.add('hidden');
-  document.getElementById('form-reset-password').classList.remove('hidden');
-  document.getElementById('modal-reset-password').classList.remove('hidden');
-  document.getElementById('modal-reset-password').dataset.token = token;
-}
-document.getElementById('btn-close-reset-password').onclick = () => {
-  document.getElementById('modal-reset-password').classList.add('hidden');
-  // Tira o token da URL ao fechar, pra não reabrir sozinho se a pessoa der F5.
-  const params = new URLSearchParams(window.location.search);
-  params.delete('reset');
-  const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-  window.history.replaceState({}, '', cleanUrl);
-};
-
-document.getElementById('form-reset-password').onsubmit = async (e) => {
-  e.preventDefault();
-  const token = document.getElementById('modal-reset-password').dataset.token;
-  const newPassword = document.getElementById('reset-password-new').value;
-  const confirm = document.getElementById('reset-password-confirm').value;
-  const errEl = document.getElementById('reset-password-error');
-  errEl.textContent = '';
-  if (newPassword !== confirm) {
-    errEl.textContent = 'As duas senhas precisam ser iguais';
-    return;
-  }
-  const btn = document.getElementById('btn-send-reset-password');
-  btn.disabled = true;
-  try {
-    const res = await fetch('/api/reset-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, newPassword }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      errEl.textContent = data.error || 'Erro ao trocar senha';
-      return;
-    }
-    document.getElementById('form-reset-password').classList.add('hidden');
-    document.getElementById('reset-password-success').classList.remove('hidden');
-    const params = new URLSearchParams(window.location.search);
-    params.delete('reset');
-    const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-    window.history.replaceState({}, '', cleanUrl);
-  } catch (err) {
-    errEl.textContent = 'Erro de conexão com o servidor';
-  } finally {
-    btn.disabled = false;
-  }
+  if (typeof openSupportModal === 'function') openSupportModal();
 };
 
 formLogin.onsubmit = async (e) => {
@@ -725,65 +608,22 @@ async function tryResumeSession() {
     return;
   }
 
-  // BUG CORRIGIDO: antes, qualquer resposta que não fosse "ok" — inclusive
-  // erro passageiro tipo o servidor do Render acordando do modo economia
-  // (fica uns 30-60s lento/instável logo após ficar inativo), instabilidade
-  // de rede, ou um 500 momentâneo — já apagava "Continuar conectado" e
-  // jogava a pessoa pro login, mesmo com a sessão ainda válida no servidor.
-  // Agora só um 401 de verdade (sessão realmente inválida/expirada) apaga a
-  // preferência; qualquer outro erro tenta de novo antes de desistir, e
-  // nunca apaga o "Continuar conectado" por causa de um erro passageiro.
-  // BUG CORRIGIDO (parte 2): se o servidor aceitar a conexão mas nunca
-  // responder (trava, cai no meio, proxy do Render engasga) o fetch antigo
-  // ficava esperando pra sempre — nem "ok" nem erro, então nunca sobrava pra
-  // limpar o spinner e mostrar o login. Isso deixava a pessoa presa na tela
-  // preta com o logo girando pra sempre. Agora tem um limite de 8s: passou
-  // disso, trata como falha passageira (mesmo caminho de retry abaixo) em
-  // vez de ficar esperando sem fim.
-  const tryFetchMe = async () => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    try {
-      return await fetch('/api/me', { credentials: 'include', signal: controller.signal });
-    } catch (_) {
-      return null;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  };
-
-  let res = await tryFetchMe();
-  if (!res || !res.ok) {
-    if (res && res.status === 401) {
-      localStorage.removeItem('ng_remember_me');
+  try {
+    const res = await fetch('/api/me', { credentials: 'include' });
+    if (res.ok) {
+      me = await res.json();
+      if (me.email_verified === false) {
+        showEmailVerificationScreen();
+        return;
+      }
+      startApp();
       bootLoading.classList.add('hidden');
-      document.getElementById('auth-screen').classList.remove('hidden');
       return;
     }
-    // Erro passageiro (servidor acordando, rede instável, 500 momentâneo) —
-    // espera um instante e tenta mais uma vez antes de mostrar o login.
-    await new Promise((r) => setTimeout(r, 1800));
-    res = await tryFetchMe();
-  }
+  } catch (_) {}
 
-  if (res && res.ok) {
-    me = await res.json();
-    if (me.email_verified === false) {
-      showEmailVerificationScreen();
-      return;
-    }
-    startApp();
-    bootLoading.classList.add('hidden');
-    return;
-  }
-
-  // Só chega aqui depois de tentar 2x — se foi 401 de verdade, apaga a
-  // preferência; se continuou sendo erro de rede/servidor, mantém "Continuar
-  // conectado" salvo (a sessão pode muito bem ainda ser válida) e só mostra
-  // o login pra essa tentativa.
-  if (res && res.status === 401) {
-    localStorage.removeItem('ng_remember_me');
-  }
+  // Sessão expirou ou não é mais válida — limpa a preferência e pede login.
+  localStorage.removeItem('ng_remember_me');
   bootLoading.classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
 }
@@ -791,18 +631,7 @@ async function tryResumeSession() {
 // Vídeo pequeno e centralizado da logo, sobre o app enquanto ele carrega —
 // some sozinho quando o vídeo acaba (ou depois de um tempo máximo, se o
 // vídeo não existir/não carregar, pra nunca travar a pessoa numa tela preta).
-// BUG CORRIGIDO ("tela fica meio apagada, preciso relogar"): se
-// playLoginIntro() rodasse duas vezes seguidas (ex: um resume de sessão que
-// já tinha chamado startApp, seguido de qualquer outro caminho que chame de
-// novo), a segunda chamada resetava o overlay pra opacity:1 bem no meio do
-// fade-out da primeira — o resultado é o overlay ficando preso numa
-// opacidade intermediária, dando a impressão de "tudo meio apagado" por
-// cima do app, sem nunca sumir de vez. Uma trava simples (só deixa rodar
-// uma vez por sessão de app) resolve isso de raiz.
-let loginIntroAlreadyPlayed = false;
 function playLoginIntro() {
-  if (loginIntroAlreadyPlayed) return;
-  loginIntroAlreadyPlayed = true;
   const overlay = document.getElementById('login-intro-overlay');
   const video = document.getElementById('login-intro-video');
   overlay.classList.remove('hidden', 'login-intro-fading');
@@ -840,8 +669,6 @@ function startApp() {
   loadUploadLimits();
   enforceScreenQualityForPlan();
   updatePlusBadgeUI();
-  loadPlusThemes();
-  renderStickerPicker();
 
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
@@ -2975,8 +2802,6 @@ async function loadFriends() {
     const row = document.createElement('div');
     row.className = 'friend-row';
     const isOnline = onlineUserIds.has(f.user.id);
-    row.dataset.online = isOnline ? '1' : '0';
-    row.dataset.searchName = f.user.username.toLowerCase();
     row.innerHTML = `
       <div class="member-avatar-wrap">
         <div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
@@ -2998,47 +2823,7 @@ async function loadFriends() {
     };
     friendsList.appendChild(row);
   });
-
-  updateFriendsTabCounts(data);
-  applyFriendsFilter();
 }
-
-// ---------- ABAS E BUSCA DO PAINEL DE AMIGOS ----------
-// Só filtram/mostram o que loadFriends() já monta — nenhum dado novo, é
-// puramente visual (Todos = tudo, Online = só quem tá com bolinha verde,
-// Pendentes = recebidos + enviados).
-let friendsActiveTab = 'todos';
-
-function updateFriendsTabCounts(data) {
-  const onlineCount = data.friends.filter((f) => onlineUserIds.has(f.user.id)).length;
-  document.getElementById('friends-tab-count-todos').textContent = data.friends.length;
-  document.getElementById('friends-tab-count-online').textContent = onlineCount;
-  const pendCount = data.incoming.length + data.outgoing.length;
-  const pendBadge = document.getElementById('friends-tab-count-pendentes');
-  pendBadge.textContent = pendCount;
-  pendBadge.classList.toggle('hidden', pendCount === 0);
-}
-
-function applyFriendsFilter() {
-  const term = document.getElementById('friends-search-input').value.trim().toLowerCase();
-  document.getElementById('friends-todos-group').classList.toggle('hidden', friendsActiveTab === 'pendentes');
-  document.getElementById('friends-pendentes-group').classList.toggle('hidden', friendsActiveTab !== 'pendentes' && friendsActiveTab !== 'todos');
-  document.querySelectorAll('#friends-list .friend-row').forEach((row) => {
-    const matchesSearch = !term || (row.dataset.searchName || '').includes(term);
-    const matchesTab = friendsActiveTab !== 'online' || row.dataset.online === '1' || !row.dataset.searchName; // não filtra a linha da IA (sem searchName)
-    row.style.display = matchesSearch && matchesTab ? '' : 'none';
-  });
-}
-
-document.querySelectorAll('.friends-tab').forEach((tab) => {
-  tab.onclick = () => {
-    document.querySelectorAll('.friends-tab').forEach((t) => t.classList.remove('active'));
-    tab.classList.add('active');
-    friendsActiveTab = tab.dataset.friendsTab;
-    applyFriendsFilter();
-  };
-});
-document.getElementById('friends-search-input').oninput = applyFriendsFilter;
 
 // ---------- MENSAGENS DIRETAS (DM) ----------
 // Reaproveita selectChannel/connectVoice — a única diferença é que o
@@ -3536,17 +3321,6 @@ async function openProfilePreview(user) {
   const avatarEl = document.getElementById('profile-preview-avatar');
   avatarEl.innerHTML = renderAvatarHtml(user);
   avatarEl.className = 'profile-preview-avatar ' + avatarFrameClass(user);
-
-  // Banner do perfil — vira o gradiente do tema PLUS de quem tem um ativo,
-  // senão fica no roxo/ciano padrão de sempre.
-  const bannerEl = document.querySelector('#modal-profile-preview .profile-banner');
-  if (bannerEl) {
-    const theme = plusThemeById(user.plus_theme);
-    bannerEl.style.background = theme
-      ? `radial-gradient(circle at 15% 15%, rgba(255,255,255,0.2), transparent 45%), linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`
-      : '';
-    bannerEl.classList.toggle('profile-banner-official-shimmer', !!(theme && theme.special));
-  }
   document.getElementById('profile-preview-username').innerHTML =
     `${escapeHtml(user.username)}${user.is_admin ? ' 👑' : ''}${user.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}`;
   document.getElementById('profile-preview-status').textContent = user.status_message ? '🎮 ' + user.status_message : '';
@@ -4012,18 +3786,8 @@ document.querySelectorAll('#modal-profile .settings-sidebar-item').forEach((tabB
       loadIntegrations();
     }
     if (tab === 'notificacoes') loadNotificationPrefs();
-    if (tab === 'plus') openPlusUpgradeModal();
   };
 });
-
-// Abre a tela de Configurações já direto na aba pedida — usado pelos vários
-// atalhos espalhados pelo app que levam pro NEXTGAME PLUS (menu de perfil,
-// seletor de qualidade de compartilhamento de tela, etc).
-function openSettingsTab(tabName) {
-  document.getElementById('btn-edit-profile').click();
-  const tabBtn = document.querySelector(`#modal-profile .settings-sidebar-item[data-settings-tab="${tabName}"]`);
-  if (tabBtn) tabBtn.click();
-}
 
 async function load2FAStatus() {
   const res = await fetch('/api/2fa/status', { credentials: 'include' });
@@ -4337,99 +4101,8 @@ function loadPayPalSdk(clientId) {
   });
 }
 
-// ---------- TEMA DE COR DO NEXTGAME PLUS ----------
-// Uma paleta escolhida muda, de uma vez só: nome no chat, moldura do
-// avatar, bolha das mensagens de DM, banner do perfil e os detalhes do
-// próprio app pra quem assinou. Catálogo vem do servidor (PLUS_THEMES em
-// server.js) — só ele decide quais cores existem, o front só exibe.
-let PLUS_THEMES_CACHE = [];
-function plusThemeById(id) {
-  return id ? PLUS_THEMES_CACHE.find((t) => t.id === id) : null;
-}
-async function loadPlusThemes() {
-  try {
-    const res = await fetch('/api/plus-themes', { credentials: 'include' });
-    const data = await res.json();
-    PLUS_THEMES_CACHE = data.themes || [];
-  } catch (_) {
-    PLUS_THEMES_CACHE = [];
-  }
-  applyOwnPlusTheme();
-  renderPlusThemePicker();
-}
-
-// Reskina os detalhes roxos/azuis do PRÓPRIO app pra quem tem um tema ativo
-// — só muda a tela de quem escolheu, ninguém mais vê essa mudança.
-function applyOwnPlusTheme() {
-  const theme = plusThemeById(me && me.plus_theme);
-  const root = document.documentElement.style;
-  if (theme) {
-    root.setProperty('--accent', theme.from);
-    root.setProperty('--accent-2', theme.to);
-    root.setProperty('--gradient-brand', `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`);
-  } else {
-    root.removeProperty('--accent');
-    root.removeProperty('--accent-2');
-    root.removeProperty('--gradient-brand');
-  }
-  // O tema "official" é o mais completo — além da cor, liga um efeito de
-  // brilho animado em várias telas do próprio app (bolha das SUAS DMs,
-  // banner do SEU perfil). Uma classe no <body> resolve tudo isso de um
-  // lugar só, sem precisar repetir lógica em cada tela.
-  document.body.classList.toggle('plus-theme-official-active', !!(theme && theme.special));
-}
-
-function renderPlusThemePicker() {
-  const wrap = document.getElementById('plus-theme-swatches');
-  if (!wrap) return;
-  if (!isPlusUser()) {
-    wrap.innerHTML = '<p class="hint">Assine o NEXTGAME PLUS acima pra desbloquear os temas de cor.</p>';
-    return;
-  }
-  const swatches = PLUS_THEMES_CACHE.map(
-    (t) => `
-    <button type="button" class="plus-theme-swatch ${t.special ? 'plus-theme-swatch-special' : ''} ${me.plus_theme === t.id ? 'active' : ''}" data-theme-id="${t.id}"
-      style="background:linear-gradient(135deg, ${t.from} 0%, ${t.to} 100%)" title="${escapeHtml(t.name)}${t.special ? ' — tema completo, com efeito animado' : ''}">
-      ${me.plus_theme === t.id ? icon('check') : t.special ? icon('sparkles') : ''}
-    </button>`
-  ).join('');
-  const resetSwatch = `
-    <button type="button" class="plus-theme-swatch plus-theme-swatch-reset ${!me.plus_theme ? 'active' : ''}" data-theme-id="" title="Padrão (roxo original)">
-      ${!me.plus_theme ? icon('check') : icon('x')}
-    </button>`;
-  wrap.innerHTML = swatches + resetSwatch;
-  wrap.querySelectorAll('.plus-theme-swatch').forEach((btn) => {
-    btn.onclick = async () => {
-      const themeId = btn.dataset.themeId;
-      try {
-        const res = await fetch('/api/me', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ plus_theme: themeId }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          showCopyToast(data.error || 'Erro ao trocar tema');
-          return;
-        }
-        me.plus_theme = data.plus_theme;
-        applyOwnPlusTheme();
-        renderPlusThemePicker();
-        renderAvatarInto(document.getElementById('me-avatar'), me);
-        updateNavbarProfile();
-        showCopyToast(themeId ? '🎨 Tema aplicado!' : 'Tema removido, voltou ao padrão.');
-      } catch (_) {
-        showCopyToast('Erro de conexão ao trocar tema');
-      }
-    };
-  });
-}
-
 async function openPlusUpgradeModal() {
-  // NEXTGAME PLUS agora mora dentro de Configurações (aba própria), não é
-  // mais um modal separado — quem chama essa função já garantiu que a aba
-  // está visível, aqui só popula o conteúdo (botão do PayPal, estado atual).
+  document.getElementById('modal-plus-upgrade').classList.remove('hidden');
   const alreadyEl = document.getElementById('plus-already-active');
   const notConfiguredEl = document.getElementById('plus-not-configured');
   const buttonContainer = document.getElementById('paypal-button-container');
@@ -4437,7 +4110,6 @@ async function openPlusUpgradeModal() {
   errorEl.textContent = '';
   buttonContainer.innerHTML = '';
   alreadyEl.classList.add('hidden');
-  renderPlusThemePicker();
   notConfiguredEl.classList.add('hidden');
 
   if (isPlusUser()) {
@@ -4474,8 +4146,6 @@ async function openPlusUpgradeModal() {
             alreadyEl.classList.remove('hidden');
             buttonContainer.innerHTML = '';
             loadUploadLimits();
-            renderPlusThemePicker();
-            renderStickerPicker();
             showCopyToast('🎉 Bem-vindo ao NEXTGAME PLUS!');
           } catch (err) {
             errorEl.textContent = err.message || 'Erro ao confirmar assinatura.';
@@ -4491,13 +4161,12 @@ async function openPlusUpgradeModal() {
   }
 }
 
-document.getElementById('btn-plus-promo-scroll').onclick = () => {
-  document.getElementById('paypal-button-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
-};
 document.getElementById('nav-plus-upgrade').onclick = () => {
   document.getElementById('footer-more-menu').classList.add('hidden');
-  openSettingsTab('plus');
+  openPlusUpgradeModal();
 };
+document.getElementById('btn-close-plus-upgrade').onclick = () =>
+  document.getElementById('modal-plus-upgrade').classList.add('hidden');
 
 // ---------- BUSCA DE MENSAGENS ----------
 
@@ -4660,11 +4329,8 @@ function selectChannel(channel, options = {}) {
   }
 
   currentChannel = channel;
-  // DM já tem o prefixo 💬 no próprio nome (posto em openDmText) — não
-  // precisa também do "# " de canal de servidor, ficava "# 💬 nome".
   document.getElementById('current-channel-name').textContent =
-    channel.type === 'voz' ? '🔊 ' + channel.name : isDm ? channel.name : '# ' + channel.name;
-  updateAiQuickSuggestions();
+    (channel.type === 'voz' ? '🔊 ' : '# ') + channel.name;
   document.getElementById('home-panel').classList.add('hidden');
   document.getElementById('friends-panel').classList.add('hidden');
   setNavActive('nav-inicio', false);
@@ -4720,13 +4386,7 @@ function updateVoicePanelView(channel) {
   const isConnected = connectedVoiceRoomId === channel.id;
   document.getElementById('voice-preview').classList.toggle('hidden', isConnected);
   document.getElementById('voice-incall').classList.toggle('hidden', !isConnected);
-  if (!isConnected) {
-    renderVoicePreview(channel);
-  } else {
-    document.getElementById('voice-room-hero-name').textContent = channel.name;
-    document.getElementById('voice-room-hero-quality').innerHTML =
-      `${icon('mic')} Qualidade de voz: Alta`;
-  }
+  if (!isConnected) renderVoicePreview(channel);
 }
 
 function renderVoicePreview(channel) {
@@ -4847,18 +4507,10 @@ function clearMessagesView(channelId) {
 
 function updateNavbarProfile() {
   renderAvatarInto(document.getElementById('navbar-avatar'), me);
-  const badgeHtml = `${me.is_admin ? ' 👑' : ''}${me.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}`;
-  document.getElementById('navbar-username').innerHTML = `${escapeHtml(me.username)}${badgeHtml}`;
+  document.getElementById('navbar-username').innerHTML =
+    `${escapeHtml(me.username)}${me.is_admin ? ' 👑' : ''}${me.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}`;
   const level = Math.max(1, Math.floor((me.message_count || 0) / 10) + 1);
   document.getElementById('navbar-level').textContent = `Nível ${level}`;
-
-  // Chip de perfil no topo — mesmos dados, só um lugar a mais que mostra.
-  const chipAvatar = document.getElementById('navbar-chip-avatar');
-  if (chipAvatar) {
-    renderAvatarInto(chipAvatar, me);
-    document.getElementById('navbar-chip-username').innerHTML = `${escapeHtml(me.username)}${badgeHtml}`;
-    document.getElementById('navbar-chip-level').textContent = `Nível ${level}`;
-  }
 }
 
 document.getElementById('nav-inicio').onclick = () => goHome();
@@ -5671,7 +5323,6 @@ document.getElementById('nav-bell').onclick = () => {
   setTimeout(() => document.getElementById('home-activity').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 };
 document.getElementById('nav-profile').onclick = () => document.getElementById('btn-edit-profile').click();
-document.getElementById('nav-edit-profile-menu').onclick = () => document.getElementById('btn-edit-profile').click();
 
 // Menu "..." do rodapé (som, admin, sair) — some por padrão, só abre no
 // clique, pra não espremer o avatar numa fileira cheia de ícones.
@@ -5891,158 +5542,7 @@ async function loadHomeDashboard() {
   loadHomeRanking();
   loadHomeStreakCard();
   loadHomeConversations();
-  loadHomeEvents();
 }
-
-// "Eventos em Destaque" na coluna lateral da Início — usa o sistema de
-// Eventos que já existe (/api/events, o mesmo da aba "Eventos" do Feed),
-// não é um recurso novo nem duplica Torneios.
-async function loadHomeEvents() {
-  const el = document.getElementById('home-events');
-  if (!el) return;
-  let events;
-  try {
-    const res = await fetch('/api/events', { credentials: 'include' });
-    events = await res.json();
-  } catch (_) {
-    el.innerHTML = '<p class="empty-hint">Erro ao carregar eventos.</p>';
-    return;
-  }
-  if (!Array.isArray(events) || events.length === 0) {
-    el.innerHTML = '<p class="empty-hint">Nenhum evento em destaque agora.</p>';
-    return;
-  }
-  const todayStr = new Date().toISOString().slice(0, 10);
-  el.innerHTML = events
-    .slice(0, 3)
-    .map((e) => {
-      const isToday = e.event_date === todayStr;
-      const isFull = e.max_participants && e.participant_count >= e.max_participants;
-      const statusLabel = isToday ? 'EM ANDAMENTO' : isFull ? 'LOTADO' : 'INSCRIÇÕES ABERTAS';
-      const statusClass = isToday ? 'home-event-status-live' : isFull ? 'home-event-status-full' : 'home-event-status-open';
-      const dateText = e.event_date ? new Date(e.event_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'Data a definir';
-      return `
-      <div class="home-event-row" data-id="${e.id}">
-        <div class="home-event-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></div>
-        <div class="home-event-info">
-          <strong>${escapeHtml(e.name)}</strong>
-          <span>${escapeHtml(e.game || 'Geral')} · ${dateText}</span>
-        </div>
-        <span class="home-event-status ${statusClass}">${statusLabel}</span>
-      </div>`;
-    })
-    .join('');
-  document.querySelectorAll('#home-events [data-icon]').forEach((elIcon) => {
-    elIcon.innerHTML = icon(elIcon.getAttribute('data-icon'));
-  });
-  el.querySelectorAll('.home-event-row').forEach((row) => {
-    row.onclick = () => document.getElementById('nav-feed').click();
-  });
-}
-
-// ---------- JOGOS SALVOS ----------
-async function loadSavedGames() {
-  const res = await fetch('/api/saved-games', { credentials: 'include' });
-  const games = await res.json();
-  const listEl = document.getElementById('saved-games-list');
-  if (games.length === 0) {
-    listEl.innerHTML = '<p class="empty-hint">Nenhum jogo salvo ainda.</p>';
-  } else {
-    listEl.innerHTML = games
-      .map(
-        (g) => `
-      <div class="saved-game-row" data-id="${g.id}">
-        <span><span class="ng-icon-wrap" data-icon="gamepad-2"></span> ${escapeHtml(g.game_name)}</span>
-        <button type="button" class="saved-game-remove" data-id="${g.id}" aria-label="Remover"><span class="ng-icon-wrap" data-icon="x"></span></button>
-      </div>`
-      )
-      .join('');
-    document.querySelectorAll('#saved-games-list [data-icon]').forEach((elIcon) => {
-      elIcon.innerHTML = icon(elIcon.getAttribute('data-icon'));
-    });
-    listEl.querySelectorAll('.saved-game-remove').forEach((btn) => {
-      btn.onclick = async () => {
-        await fetch(`/api/saved-games/${btn.dataset.id}`, { method: 'DELETE', credentials: 'include' });
-        loadSavedGames();
-      };
-    });
-  }
-  const suggestions = document.getElementById('saved-game-suggestions');
-  if (suggestions && !suggestions.childElementCount && typeof WIZARD_GAMES !== 'undefined') {
-    suggestions.innerHTML = WIZARD_GAMES.map((g) => `<option value="${escapeHtml(g)}"></option>`).join('');
-  }
-}
-document.getElementById('nav-saved-games').onclick = () => {
-  document.getElementById('modal-saved-games').classList.remove('hidden');
-  loadSavedGames();
-};
-document.getElementById('btn-close-saved-games').onclick = () => document.getElementById('modal-saved-games').classList.add('hidden');
-document.getElementById('btn-saved-game-add').onclick = async () => {
-  const input = document.getElementById('saved-game-input');
-  const name = input.value.trim();
-  if (!name) return;
-  await fetch('/api/saved-games', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ game_name: name }),
-  });
-  input.value = '';
-  loadSavedGames();
-};
-
-// Atalhos novos da sidebar: Clipes e Configurações reaproveitam telas que
-// já existem (aba de Clipes do Feed, modal de perfil/configurações) — não
-// são funcionalidades novas, só ficaram mais fáceis de achar.
-document.getElementById('nav-clipes').onclick = () => {
-  document.getElementById('nav-feed').click();
-  setTimeout(() => {
-    const tab = document.querySelector('#modal-feed .manage-tab[data-feed-tab="clipes"]');
-    if (tab) tab.click();
-  }, 50);
-};
-document.getElementById('nav-configuracoes').onclick = () => document.getElementById('btn-edit-profile').click();
-
-// ---------- "+ CRIAR" (navbar) ----------
-document.getElementById('btn-navbar-create').onclick = (e) => {
-  e.stopPropagation();
-  document.getElementById('navbar-create-menu').classList.toggle('hidden');
-};
-document.addEventListener('click', (e) => {
-  const menu = document.getElementById('navbar-create-menu');
-  if (!menu.classList.contains('hidden') && !menu.contains(e.target) && e.target.id !== 'btn-navbar-create') {
-    menu.classList.add('hidden');
-  }
-});
-document.getElementById('navbar-create-server').onclick = () => {
-  document.getElementById('navbar-create-menu').classList.add('hidden');
-  document.getElementById('btn-new-server').click();
-};
-document.getElementById('navbar-create-tournament').onclick = () => {
-  document.getElementById('navbar-create-menu').classList.add('hidden');
-  document.getElementById('nav-torneios').click();
-};
-document.getElementById('navbar-create-clip').onclick = () => {
-  document.getElementById('navbar-create-menu').classList.add('hidden');
-  document.getElementById('nav-feed').click();
-  setTimeout(() => {
-    const tab = document.querySelector('#modal-feed .manage-tab[data-feed-tab="clipes"]');
-    if (tab) tab.click();
-  }, 50);
-};
-
-// Chip de perfil no topo — abre o mesmo menu de sempre (footerMoreMenu).
-// BUG CORRIGIDO: antes isso chamava btn-footer-more.click() pra "emprestar"
-// o clique do botão antigo — só que .click() dispara um evento novo que
-// borbulha até o document DENTRO do clique original. O listener de "fechar
-// ao clicar fora" (mais abaixo) então via o clique original chegando no
-// document DEPOIS do menu já ter sido aberto por esse clique emprestado, e
-// fechava ele na hora — o menu abria e fechava no mesmo clique, parecia não
-// fazer nada. Agora o chip abre o menu direto, sem passar pelo botão antigo.
-document.getElementById('navbar-profile-chip').onclick = (e) => {
-  e.stopPropagation();
-  footerMoreMenu.classList.toggle('hidden');
-};
 
 // Prévia clicável das conversas diretas mais recentes — abre direto na
 // conversa sem precisar passar pelo painel de Amigos primeiro.
@@ -6147,50 +5647,11 @@ async function loadHomeStats() {
   const res = await fetch('/api/stats', { credentials: 'include' });
   const stats = await res.json();
   const el = document.getElementById('home-stats');
-  const trend = (n, label) => (n > 0 ? `<span class="home-stat-trend">↑ +${n} ${label}</span>` : '');
   el.innerHTML = `
-    <div class="home-stat">
-      <span class="home-stat-icon"><span class="ng-icon-wrap" data-icon="users"></span></span>
-      <span class="home-stat-num">${stats.members}</span>
-      <span class="home-stat-label">Membros</span>
-      ${trend(stats.new_members_week, 'esta semana')}
-    </div>
-    <div class="home-stat">
-      <span class="home-stat-icon"><span class="ng-icon-wrap" data-icon="gamepad-2"></span></span>
-      <span class="home-stat-num">${stats.servers}</span>
-      <span class="home-stat-label">Servidores</span>
-      ${trend(stats.new_servers_week, 'novos')}
-    </div>
-    <div class="home-stat">
-      <span class="home-stat-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></span>
-      <span class="home-stat-num">${stats.tournaments}</span>
-      <span class="home-stat-label">Torneios</span>
-    </div>
-    <div class="home-stat">
-      <span class="home-stat-icon"><span class="ng-icon-wrap" data-icon="zap"></span></span>
-      <span class="home-stat-num">${onlineUserIds.size}</span>
-      <span class="home-stat-label">Online agora</span>
-    </div>
+    <div class="home-stat"><span class="home-stat-num">${stats.members}</span><span class="home-stat-label">👥 Membros</span></div>
+    <div class="home-stat"><span class="home-stat-num">${stats.servers}</span><span class="home-stat-label">🎮 Servidores</span></div>
+    <div class="home-stat"><span class="home-stat-num">${stats.tournaments}</span><span class="home-stat-label">🏆 Torneios</span></div>
   `;
-  document.querySelectorAll('#home-stats [data-icon]').forEach((elIcon) => {
-    elIcon.innerHTML = icon(elIcon.getAttribute('data-icon'));
-  });
-}
-
-// Paleta fixa (hash simples pelo nome) pra cada card de servidor ganhar uma
-// faixa de cor diferente — sem precisar de nenhuma imagem/capa de jogo.
-const SERVER_CARD_GRADIENTS = [
-  'linear-gradient(135deg, #5865f2, #9146ff)',
-  'linear-gradient(135deg, #00d9c0, #5865f2)',
-  'linear-gradient(135deg, #f23f6a, #9146ff)',
-  'linear-gradient(135deg, #faa61a, #f23f6a)',
-  'linear-gradient(135deg, #3ba55c, #00d9c0)',
-  'linear-gradient(135deg, #9146ff, #5865f2)',
-];
-function gradientForName(name) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  return SERVER_CARD_GRADIENTS[hash % SERVER_CARD_GRADIENTS.length];
 }
 
 function loadHomeServers() {
@@ -6208,9 +5669,7 @@ function loadHomeServers() {
     card.dataset.name = category.toLowerCase();
     const voiceCount = allChannels.filter((c) => c.category === category && c.type === 'voz').length;
     card.innerHTML = `
-      <div class="home-server-banner" style="background:${gradientForName(category)};">
-        <div class="home-server-icon">${serverIcons[category] ? serverIcons[category] : serverInitials(category)}</div>
-      </div>
+      <div class="home-server-icon">${serverIcons[category] ? serverIcons[category] : serverInitials(category)}</div>
       <div class="home-server-name">${escapeHtml(category)}</div>
       <div class="home-server-meta">${channelCount} sala${channelCount === 1 ? '' : 's'}${voiceCount > 0 ? ` · 🎙️ ${voiceCount} de voz` : ''}</div>
     `;
@@ -6269,34 +5728,18 @@ async function loadHomeTournamentBanner() {
   const tournaments = await res.json();
   const upcoming = tournaments.filter((t) => !t.event_date || new Date(t.event_date) >= new Date()).slice(0, 1)[0];
 
-  // Ações fixas do hero (Explorar Comunidade / Assistir vídeo) — aparecem
-  // sempre, além do que já é dinâmico (torneio em destaque ou convite pra
-  // criar o primeiro).
-  const secondaryActionsHtml = `
-    <div class="home-hero-secondary-actions">
-      <button type="button" class="home-btn-primary" id="home-hero-explore-btn">
-        <span class="ng-icon-wrap" data-icon="play"></span> Explorar Comunidade
-      </button>
-      <button type="button" class="home-btn-secondary" id="home-hero-watch-btn">
-        <span class="ng-icon-wrap" data-icon="play"></span> Assistir vídeo
-      </button>
-    </div>
-  `;
-
   if (!upcoming) {
     el.innerHTML = `
       <div class="home-tournament-banner-inner">
         <div class="home-tournament-banner-icon">🏆</div>
         <div class="home-tournament-banner-text">
-          <span class="home-tournament-banner-kicker">FAÇA PARTE DA NOVA GERAÇÃO GAMER</span>
-          <h2>Conecte-se. Jogue junto. Vença.</h2>
+          <span class="home-tournament-banner-kicker">SEM TORNEIOS NO MOMENTO</span>
+          <h2>Que tal organizar o primeiro?</h2>
         </div>
         <button class="home-btn-primary" id="home-tournament-banner-cta">Ver Torneios</button>
       </div>
-      ${secondaryActionsHtml}
     `;
     document.getElementById('home-tournament-banner-cta').onclick = () => document.getElementById('home-quick-tournaments').click();
-    wireHomeHeroSecondaryActions();
     return;
   }
 
@@ -6316,7 +5759,6 @@ async function loadHomeTournamentBanner() {
         ${upcoming.is_registered ? 'Você já está inscrito ✅' : 'PARTICIPAR'}
       </button>
     </div>
-    ${secondaryActionsHtml}
   `;
   if (!upcoming.is_registered) {
     document.getElementById('home-tournament-banner-join').onclick = async () => {
@@ -6329,22 +5771,7 @@ async function loadHomeTournamentBanner() {
       loadHomeTournamentBanner();
     };
   }
-  wireHomeHeroSecondaryActions();
 }
-
-function wireHomeHeroSecondaryActions() {
-  document.getElementById('home-hero-explore-btn').onclick = () => document.getElementById('nav-jogos').click();
-  document.getElementById('home-hero-watch-btn').onclick = () => {
-    document.getElementById('modal-watch-video').classList.remove('hidden');
-    const player = document.getElementById('watch-video-player');
-    player.currentTime = 0;
-    player.play().catch(() => {});
-  };
-}
-document.getElementById('btn-close-watch-video').onclick = () => {
-  document.getElementById('modal-watch-video').classList.add('hidden');
-  document.getElementById('watch-video-player').pause();
-};
 
 async function loadHomeRanking() {
   const el = document.getElementById('home-ranking');
@@ -6429,30 +5856,6 @@ function messagesContainerFor(channelId) {
 // nenhum estado de "sessão de jogo" pra gerenciar, de propósito, pra não
 // duplicar o sistema de LFG/matchmaking que já existe em outro lugar do app.
 const GAME_INVITE_PREFIX = '__GAME_INVITE__::';
-// Figurinha = um emoji grande sozinho, igual WhatsApp/Telegram. Mesmo truque
-// do convite de jogo: um prefixo no próprio texto da mensagem, sem precisar
-// de nenhuma tabela/coluna nova no banco — o emoji que vem depois do
-// prefixo é renderizado bem maior em vez de texto normal.
-const STICKER_PREFIX = '__STICKER__::';
-const STICKER_PACK = ['😂', '❤️', '🔥', '👑', '🎮', '🏆', '👍', '🎉', '😭', '😡', '🤝', '💯', '😎', '👀', '🥳', '💀'];
-// Pacote extra, exclusivo de quem tem NEXTGAME PLUS — mesma ideia (emoji
-// grande, sem precisar de nenhuma arte customizada), só que com um conjunto
-// diferente pra ficar reservado a quem assina.
-const STICKER_PACK_PLUS = ['💎', '🚀', '⚡', '🐐', '🫡', '🎯', '🥇', '💪'];
-// Figurinhas de verdade (PNG, recortadas do pacote de marca NEXTGAME) — pra
-// quem tem essa imagem no /public/assets/brand. Ficam junto do resto do
-// pacote, disponíveis pra todo mundo (não é exclusivo do PLUS).
-const STICKER_PACK_BRAND = [
-  '/assets/brand/sticker-gg.png',
-  '/assets/brand/sticker-nice.png',
-  '/assets/brand/sticker-fire.png',
-  '/assets/brand/sticker-letsgo.png',
-  '/assets/brand/sticker-nextgame.png',
-  '/assets/brand/sticker-heart.png',
-  '/assets/brand/sticker-thumbs.png',
-  '/assets/brand/sticker-lol.png',
-  '/assets/brand/sticker-trophy.png',
-];
 
 // Texto amigável pra prévias (lista de conversas, "última mensagem") —
 // esconde o formato interno do convite de jogo atrás de um resumo legível.
@@ -6463,10 +5866,6 @@ function messagePreviewText(msgOrContent) {
   const content = isObj ? msgOrContent.content : msgOrContent;
   const attachment = isObj ? msgOrContent.attachment : null;
   if (content && content.startsWith(GAME_INVITE_PREFIX)) return '🎮 Convite pra jogar';
-  if (content && content.startsWith(STICKER_PREFIX)) {
-    const payload = content.slice(STICKER_PREFIX.length);
-    return payload.startsWith('img:') ? '🖼️ Figurinha' : `${payload} Figurinha`;
-  }
   // BUG CORRIGIDO: mensagem que era só um link (convite de servidor, por
   // exemplo) aparecia crua e enorme na prévia da lista de conversas,
   // estourando a largura da coluna. Mostra um resumo curto em vez do link.
@@ -6477,14 +5876,6 @@ function messagePreviewText(msgOrContent) {
 }
 
 function renderMessageContentHtml(msg) {
-  if (msg.content.startsWith(STICKER_PREFIX)) {
-    const payload = msg.content.slice(STICKER_PREFIX.length);
-    if (payload.startsWith('img:')) {
-      const src = payload.slice(4);
-      return `<div class="content sticker-content sticker-content-img"><img src="${escapeHtml(src)}" alt="Figurinha NEXTGAME" /></div>`;
-    }
-    return `<div class="content sticker-content">${escapeHtml(payload)}</div>`;
-  }
   if (msg.content.startsWith(GAME_INVITE_PREFIX)) {
     let payload;
     try {
@@ -6586,17 +5977,12 @@ function renderMessage(msg) {
   if (!container) return;
   const el = document.createElement('div');
   const isBot = msg.user_id === BOT_USER_ID;
+  el.className = 'message' + (isBot ? ' bot-message' : '');
+  el.dataset.id = msg.id;
   const time = new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const author = allUsers.find((u) => u.id === msg.user_id);
   const isOwn = msg.user_id === me.id;
   const canDelete = (isOwn || me.is_admin) && !isBot;
-  // DM (conversa 1:1) vira "balãozinho" estilo iMessage/WhatsApp — mensagem
-  // própria à direita em roxo, da outra pessoa à esquerda em cinza. Canal de
-  // servidor (várias pessoas) continua no formato de lista normal (faz mais
-  // sentido pra grupo — bolha alinhada não escala bem pra N participantes).
-  const isDm = msg.channel_id.startsWith('dm::');
-  el.className =
-    'message' + (isBot ? ' bot-message' : '') + (isDm ? ' dm-message' + (isOwn ? ' dm-message-own' : ' dm-message-their') : '');
 
   const avatarHtml = isBot
     ? '<span>🤖</span>'
@@ -6608,7 +5994,7 @@ function renderMessage(msg) {
       <div class="message-avatar ${avatarFrameCls}">${avatarHtml}</div>
       <div class="message-body">
         <div class="meta">
-          <strong${plusColorStyle(author)}>${escapeHtml(msg.username)}</strong>
+          <strong>${escapeHtml(msg.username)}</strong>
           ${author && author.is_verified ? '<span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}
           ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
           · ${time}
@@ -6632,20 +6018,6 @@ function renderMessage(msg) {
       ${REACTION_EMOJIS.map((e) => `<button data-emoji="${e}">${e}</button>`).join('')}
     </div>
   `;
-
-  // Bolha de quem te mandou a mensagem usa o tema de cor PLUS dela, se
-  // tiver um ativo (a SUA própria bolha já pega seu tema sozinha, via
-  // --gradient-brand que applyOwnPlusTheme() troca pra você).
-  if (isDm && !isOwn && !isBot) {
-    const theirTheme = plusThemeById(author && author.plus_theme);
-    if (theirTheme) {
-      const contentEl = el.querySelector('.content');
-      if (contentEl) {
-        contentEl.style.background = `linear-gradient(135deg, ${theirTheme.from} 0%, ${theirTheme.to} 100%)`;
-        if (theirTheme.special) contentEl.classList.add('dm-bubble-official-shimmer');
-      }
-    }
-  }
 
   // Botões de aceitar/recusar do card de "convite pra jogar" — só existem
   // quando a mensagem é um convite recebido (não o meu próprio, que mostra
@@ -6922,98 +6294,6 @@ document.getElementById('btn-attach-file').onclick = () => {
   document.getElementById('message-attachment-input').click();
 };
 
-// ---------- FIGURINHAS ----------
-// Um emoji grande sozinho na mensagem, estilo WhatsApp/Telegram — sem
-// precisar de nenhum arquivo de imagem novo (não temos como gerar/hospedar
-// arte de figurinha de verdade nesta sessão), mas com o mesmo efeito visual
-// de "isso não é uma mensagem normal, é uma reação grande".
-const stickerPicker = document.getElementById('sticker-picker');
-// Reconstrói o pacote (chamado de novo em startApp() e assim que a pessoa
-// assina o PLUS) porque isPlusUser() só sabe responder direito depois que
-// "me" carrega — não dá pra decidir isso no carregamento do script.
-function renderStickerPicker() {
-  const plus = isPlusUser();
-  const items = plus ? STICKER_PACK.concat(STICKER_PACK_PLUS) : STICKER_PACK;
-  const emojiHtml = items.map((s) => `<button type="button" class="sticker-picker-item">${s}</button>`).join('');
-  const brandHtml = STICKER_PACK_BRAND.map(
-    (src) => `<button type="button" class="sticker-picker-item sticker-picker-item-img" data-src="${src}"><img src="${src}" alt="" loading="lazy" /></button>`
-  ).join('');
-  const hintHtml = plus
-    ? ''
-    : `<button type="button" id="btn-sticker-plus-hint" class="sticker-picker-plus-hint" title="Mais figurinhas com o NEXTGAME PLUS">${icon('sparkles')}</button>`;
-  stickerPicker.innerHTML = emojiHtml + brandHtml + hintHtml;
-  stickerPicker.querySelectorAll('.sticker-picker-item:not(.sticker-picker-item-img)').forEach((btn) => {
-    btn.onclick = () => {
-      if (!currentChannel) return;
-      socket.emit('chat:message', { channelId: currentChannel.id, content: STICKER_PREFIX + btn.textContent });
-      stickerPicker.classList.add('hidden');
-    };
-  });
-  stickerPicker.querySelectorAll('.sticker-picker-item-img').forEach((btn) => {
-    btn.onclick = () => {
-      if (!currentChannel) return;
-      socket.emit('chat:message', { channelId: currentChannel.id, content: STICKER_PREFIX + 'img:' + btn.dataset.src });
-      stickerPicker.classList.add('hidden');
-    };
-  });
-  const hintBtn = document.getElementById('btn-sticker-plus-hint');
-  if (hintBtn) {
-    hintBtn.onclick = () => {
-      stickerPicker.classList.add('hidden');
-      openSettingsTab('plus');
-    };
-  }
-}
-renderStickerPicker();
-document.getElementById('btn-sticker-picker').onclick = (e) => {
-  e.stopPropagation();
-  stickerPicker.classList.toggle('hidden');
-};
-document.addEventListener('click', (e) => {
-  if (!stickerPicker.classList.contains('hidden') && !stickerPicker.contains(e.target) && e.target.id !== 'btn-sticker-picker') {
-    stickerPicker.classList.add('hidden');
-  }
-});
-
-// ---------- SUGESTÕES RÁPIDAS DA IA ----------
-// Só aparece na conversa com a NEXT GAME IA — cada botão manda uma mensagem
-// de verdade pra ela (ela tem ferramentas reais que fazem essas ações,
-// não é só um texto bonito sem função).
-const AI_QUICK_SUGGESTIONS = [
-  { icon: 'gamepad-2', label: 'Mudar meu status', prompt: 'Muda meu status pra "procurando squad"' },
-  { icon: 'gift', label: 'Minhas recompensas', prompt: 'Quais são minhas recompensas e sequência atual?' },
-  { icon: 'search', label: 'Procurar jogadores', prompt: 'Publica um post procurando jogadores pra jogar comigo agora' },
-  { icon: 'calendar', label: 'Criar evento', prompt: 'Quero criar um evento — me ajuda?' },
-];
-function updateAiQuickSuggestions() {
-  const el = document.getElementById('ai-quick-suggestions');
-  const isAiChat = currentChannel && currentChannel.type === 'texto' && currentChannel.id === dmChannelIdFor(AI_BOT_USER_ID);
-  if (!isAiChat) {
-    el.classList.add('hidden');
-    el.innerHTML = '';
-    return;
-  }
-  el.classList.remove('hidden');
-  el.innerHTML = AI_QUICK_SUGGESTIONS.map(
-    (s) => `<button type="button" class="ai-quick-suggestion" data-prompt="${escapeHtml(s.prompt)}"><span class="ng-icon-wrap" data-icon="${s.icon}"></span> ${escapeHtml(s.label)}</button>`
-  ).join('');
-  el.querySelectorAll('[data-icon]').forEach((elIcon) => {
-    elIcon.innerHTML = icon(elIcon.getAttribute('data-icon'));
-  });
-  el.querySelectorAll('.ai-quick-suggestion').forEach((btn) => {
-    btn.onclick = () => {
-      socket.emit('chat:message', { channelId: currentChannel.id, content: btn.dataset.prompt });
-    };
-  });
-}
-// Mesmo id determinístico que o backend usa (dmChannelId) — só pra saber se
-// o canal aberto agora é a conversa com a IA, sem precisar de outra
-// requisição só pra isso.
-function dmChannelIdFor(otherUserId) {
-  if (!me) return null;
-  return 'dm::' + [me.id, otherUserId].sort().join('::');
-}
-
 document.getElementById('message-attachment-input').onchange = async (e) => {
   const file = e.target.files[0];
   e.target.value = '';
@@ -7183,12 +6463,7 @@ function registerSocketHandlers() {
     document.getElementById('voice-panel')?.classList.add('hidden');
   });
 
-  socket.on('rtc:peer-joined', async ({ socketId, username, avatar, avatar_frame }) => {
-    // Espera SEU PRÓPRIO microfone terminar de ficar pronto antes de montar
-    // a conexão — evita entrar numa call já em andamento e a primeira
-    // negociação sair sem sua track de áudio (ver comentário em
-    // startMicrophone/micReadyPromise).
-    await micReadyPromise;
+  socket.on('rtc:peer-joined', ({ socketId, username, avatar, avatar_frame }) => {
     const pc = createPeerConnection(socketId, username, { username, avatar, avatar_frame });
     addLocalTracksToPeer(pc);
     logVoiceActivity(`${username} entrou na sala`);
@@ -7214,15 +6489,8 @@ function registerSocketHandlers() {
   socket.on('rtc:signal', async ({ from, username, avatar, avatar_frame, data }) => {
     let pc = peers[from];
     if (!pc) {
-      // Mesma espera do rtc:peer-joined — garante que a resposta (answer)
-      // já sai com sua track de áudio, em vez de depender de uma
-      // renegociação depois pra corrigir.
-      await micReadyPromise;
-      pc = peers[from];
-      if (!pc) {
-        pc = createPeerConnection(from, username, { username, avatar, avatar_frame });
-        addLocalTracksToPeer(pc);
-      }
+      pc = createPeerConnection(from, username, { username, avatar, avatar_frame });
+      addLocalTracksToPeer(pc);
     }
     if (data.type === 'offer') {
       await pc.setRemoteDescription(data);
@@ -7376,6 +6644,8 @@ function registerSocketHandlers() {
   });
 }
 
+// ---------- WEBRTC (voz / compartilhamento de tela) ----------
+
 async function connectVoice(roomId) {
   // BUG DO "RETORNO" CORRIGIDO: sem essa trava, um duplo-clique em "Entrar na
   // chamada" (ou os dois caminhos que chamam connectVoice — auto-connect ao
@@ -7404,25 +6674,12 @@ async function connectVoice(roomId) {
 
   SFX.join();
   connectedVoiceRoomId = roomId;
-
-  // BUG CORRIGIDO ("ele não me ouve e nem eu ouço ele" ao entrar numa sala
-  // que já tem gente): antes, o mic só era pedido depois de channel:join /
-  // loadVoiceChatHistory / setupVoiceInvite — cada um desses passos
-  // adiciona um pouco de atraso. Nesse meio tempo, quem já estava na sala
-  // recebia o aviso de "peer novo" e criava a conexão pra você ANTES do
-  // seu microfone estar pronto — a primeira negociação WebRTC saía sem
-  // sua track de áudio, e o reparo automático depois (readicionar a track
-  // e renegociar) é frágil e às vezes não completa, deixando os dois sem
-  // se ouvir. Agora o mic é pedido IMEDIATAMENTE após a confirmação do
-  // servidor, antes de qualquer outro passo — a corrida ainda existe em
-  // teoria, mas a janela fica bem menor.
-  await startMicrophone();
-
   socket.emit('channel:join', roomId); // pro chat da sala funcionar (mesmo canal, uso duplo texto+voz)
   loadVoiceChatHistory(roomId);
   setupVoiceInvite(roomId);
   clearVoiceActivityLog();
   logVoiceActivity('Você entrou na sala');
+  await startMicrophone();
   updateVoiceBar();
   updateVoiceParticipantCount();
 }
@@ -7974,7 +7231,6 @@ function stopConnectionQualityMonitor(peerId) {
   delete qualityLastStats[peerId];
 }
 
-
 const speakingDetectors = {}; // peerId -> { ctx, rafId }
 
 function addVideoTile(peerId, username, stream, userInfo) {
@@ -8272,53 +7528,33 @@ function applyOutgoingMicTrackToPeers() {
 // ---------- MICROFONE (voz de verdade, igual chamada de voz) ----------
 
 async function startMicrophone() {
-  // micReadyPromise só resolve quando ESSE pedido de mic terminar (sucesso
-  // ou falha) — outras partes do código podem esperar por ele se precisarem
-  // saber quando o mic está de fato pronto/publicado.
-  let resolveMicReady;
-  micReadyPromise = new Promise((resolve) => {
-    resolveMicReady = resolve;
-  });
-  try {
-    // BUG CORRIGIDO ("testar áudio" deixando a call muda): se a pessoa
-    // testou o microfone (Configurações de voz) e fechou o modal de um
-    // jeito que não passou pelo botão "Fechar" (clique fora, Esc), o
-    // stream do teste podia continuar preso no dispositivo. Em alguns
-    // navegadores/SOs isso atrapalha o getUserMedia de verdade logo em
-    // seguida. Sempre para o teste antes de pegar o mic pra call, não
-    // importa como ele foi deixado.
-    stopMicTest();
-
-    // Segunda camada de proteção contra o bug do "retorno": se por algum
-    // motivo já existe um microfone ativo (chamada duplicada, etc), para ele
-    // antes de pegar um novo — nunca deixa dois streams de mic vivos ao
-    // mesmo tempo publicando áudio duplicado.
-    if (micStream) {
-      micStream.getTracks().forEach((t) => t.stop());
-      micStream = null;
-      teardownNoiseGate();
-    }
-    showConnectingTile();
-    try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints() });
-    } catch (err) {
-      removeConnectingTile();
-      setMicStatus('Não foi possível acessar o microfone: ' + err.message);
-      return;
-    }
-    if (noiseGateEnabled) buildNoiseGate(micStream);
-    updateMicEnabledState();
-    const outgoing = getOutgoingMicStream();
-    Object.values(peers).forEach((pc) => {
-      outgoing.getTracks().forEach((track) => pc.addTrack(track, outgoing));
-    });
-    updateMicButton();
-    setMicStatus(micMuted ? '🎙️ Microfone mutado' : '🎙️ Microfone ativo');
-    removeConnectingTile();
-    updateLocalTile();
-  } finally {
-    resolveMicReady();
+  // Segunda camada de proteção contra o bug do "retorno": se por algum
+  // motivo já existe um microfone ativo (chamada duplicada, etc), para ele
+  // antes de pegar um novo — nunca deixa dois streams de mic vivos ao mesmo
+  // tempo mandando áudio duplicado pros peers.
+  if (micStream) {
+    micStream.getTracks().forEach((t) => t.stop());
+    micStream = null;
+    teardownNoiseGate();
   }
+  showConnectingTile();
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints() });
+  } catch (err) {
+    removeConnectingTile();
+    setMicStatus('Não foi possível acessar o microfone: ' + err.message);
+    return;
+  }
+  if (noiseGateEnabled) buildNoiseGate(micStream);
+  updateMicEnabledState();
+  const outgoing = getOutgoingMicStream();
+  Object.values(peers).forEach((pc) => {
+    outgoing.getTracks().forEach((track) => pc.addTrack(track, outgoing));
+  });
+  updateMicButton();
+  setMicStatus(micMuted ? '🎙️ Microfone mutado' : '🎙️ Microfone ativo');
+  removeConnectingTile();
+  updateLocalTile();
 }
 
 function stopMicrophone() {
@@ -8683,7 +7919,7 @@ document.getElementById('share-picker-quality-select').onchange = (e) => {
 document.getElementById('link-open-plus-from-share-picker').onclick = (e) => {
   e.preventDefault();
   document.getElementById('modal-share-picker').classList.add('hidden');
-  openSettingsTab('plus');
+  openPlusUpgradeModal();
 };
 
 document.getElementById('btn-cancel-share-picker').onclick = () => {
@@ -9179,58 +8415,12 @@ document.getElementById('btn-test-output').onclick = async () => {
   observer.observe(document.getElementById('auth-screen'), { attributes: true, attributeFilter: ['class'] });
 })();
 
-// TRAVA DE SEGURANÇA: se qualquer coisa no boot falhar de um jeito que a
-// gente não previu (erro inesperado, promise que nunca resolve por algum
-// motivo novo) a pessoa não pode ficar presa pra sempre na tela preta com o
-// logo girando. Depois de 12s, se o spinner ainda estiver visível, força a
-// tela de login a aparecer de qualquer forma — pior caso vira "preciso
-// logar de novo", nunca "site travado".
-setTimeout(() => {
-  const bootLoadingEl = document.getElementById('boot-loading');
-  if (!bootLoadingEl || bootLoadingEl.classList.contains('hidden')) return;
-  // BUG CORRIGIDO: antes só escondia o spinner quando ia mostrar o login —
-  // se o app JÁ tinha aparecido (startApp rodou) mas algo secundário
-  // travou logo depois, o spinner ficava preso tampando o app por cima,
-  // mesmo com tudo funcionando por baixo. Esconder o spinner não pode
-  // depender de qual tela vai aparecer — só decide QUAL tela mostrar.
-  bootLoadingEl.classList.add('hidden');
-  const appEl = document.getElementById('app');
-  const appAlreadyShowing = appEl && !appEl.classList.contains('hidden');
-  if (!appAlreadyShowing) {
-    document.getElementById('auth-screen').classList.remove('hidden');
-  }
-}, 12000);
-
 // ?support=1 na URL abre direto a tela "Fale com o suporte" — usado pelo
 // site da Blue Games pra linkar direto pro suporte do NEXT GAME sem duplicar
 // o formulário em outro lugar. Espera o tryResumeSession terminar primeiro,
 // pra já saber se a pessoa está logada (decide mostrar os campos de
 // nome/e-mail de convidado ou não).
-tryResumeSession()
-  .catch((err) => {
-    // BUG CORRIGIDO: esse catch existia pra nunca deixar a pessoa presa na
-    // tela preta se o login automático desse errado. Só que ele mostrava a
-    // tela de login de qualquer jeito, mesmo se startApp() JÁ tivesse
-    // rodado com sucesso e o app já estivesse na tela — algo secundário
-    // (fora do login em si) que desse erro DEPOIS de logar acabava
-    // reexibindo o login por cima do app já carregado. Empilhava as duas
-    // telas (por isso o scroll pra achar a Início) e parecia "deslogou",
-    // mesmo com a sessão ainda válida por baixo. Agora só reexibe o login
-    // se o app realmente não tiver aparecido ainda.
-    console.error('tryResumeSession falhou:', err);
-    // BUG CORRIGIDO (parte 2): esconder o spinner nunca pode depender de
-    // qual tela vai aparecer depois — se não, ele fica preso tampando o
-    // app por cima em casos onde o app já carregou mas algo secundário
-    // travou logo depois.
-    const bootLoadingEl = document.getElementById('boot-loading');
-    if (bootLoadingEl) bootLoadingEl.classList.add('hidden');
-    const appEl = document.getElementById('app');
-    const appAlreadyShowing = appEl && !appEl.classList.contains('hidden');
-    if (!appAlreadyShowing) {
-      document.getElementById('auth-screen').classList.remove('hidden');
-    }
-  })
-  .then(() => {
+tryResumeSession().then(() => {
   const params = new URLSearchParams(window.location.search);
   if (params.get('support') === '1') {
     openSupportModal();
@@ -9240,5 +8430,4 @@ tryResumeSession()
     const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
     window.history.replaceState({}, '', cleanUrl);
   }
-  maybeOpenResetPasswordFromUrl();
 });

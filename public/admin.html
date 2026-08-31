@@ -61,17 +61,6 @@
     .admin-sidebar { width: 100%; flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid #2b2d31; }
     .admin-content { padding: 16px; }
   }
-  /* Painel de diagnóstico de erro por IA — abre embaixo da tabela de erros. */
-  .error-diagnosis-panel {
-    margin-top: 12px; background: #1e1f22; border: 1px solid #5865f2; border-radius: 10px; padding: 14px 16px;
-  }
-  .error-diagnosis-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .error-diagnosis-header strong { color: #5865f2; font-size: 13.5px; }
-  #btn-close-diagnosis { background: none; border: none; color: #949ba4; cursor: pointer; font-size: 14px; }
-  #btn-close-diagnosis:hover { color: #e6e6e6; }
-  .error-diagnosis-text {
-    white-space: pre-wrap; font-family: inherit; font-size: 13px; color: #dbdee1; line-height: 1.6; margin: 0;
-  }
 </style>
 </head>
 <body>
@@ -165,21 +154,11 @@
           <tbody></tbody>
         </table>
 
-        <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">
-          Erros recentes do servidor
-          <span style="font-weight:400; color:#6d7178; font-size:12px;">— clique em "🤖 Perguntar à IA" pra tentar entender a causa e uma sugestão de correção. A IA só sugere; ninguém aplica nada sozinha em produção.</span>
-        </h3>
+        <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Erros recentes do servidor</h3>
         <table id="monitoring-errors-table">
-          <thead><tr><th>Hora</th><th>Origem</th><th>Mensagem</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Hora</th><th>Origem</th><th>Mensagem</th></tr></thead>
           <tbody></tbody>
         </table>
-        <div id="error-diagnosis-panel" class="error-diagnosis-panel hidden">
-          <div class="error-diagnosis-header">
-            <strong>🤖 Diagnóstico da IA</strong>
-            <button type="button" id="btn-close-diagnosis" aria-label="Fechar">✕</button>
-          </div>
-          <div id="error-diagnosis-body" class="error-diagnosis-body"></div>
-        </div>
 
         <h2>📊 Analytics</h2>
         <div id="analytics-grid" class="stats-grid"></div>

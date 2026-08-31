@@ -18,32 +18,6 @@
   <div class="boot-loading-spinner"></div>
 </div>
 
-<!-- TRAVA DE SEGURANÇA INDEPENDENTE DO APP.JS: essa tag roda sozinha, sem
-     depender de app.js carregar/rodar certo — é a última linha de defesa
-     contra a tela de carregamento ficando presa pra sempre (ex: app.js
-     falhou ao carregar, algum erro de script travou tudo antes de qualquer
-     outra trava rodar, servidor do Render muito lento pra acordar). Depois
-     de 20s, se ainda tiver preso no logo girando, força a tela de login a
-     aparecer na marra — nunca deixa a pessoa numa tela preta sem saída. -->
-<script>
-  setTimeout(function () {
-    var boot = document.getElementById('boot-loading');
-    if (!boot || boot.className.indexOf('hidden') !== -1) return;
-    // BUG CORRIGIDO: esconder o spinner NUNCA pode depender de qual tela
-    // vai aparecer depois — antes, se o app já tivesse carregado mas algo
-    // secundário travasse logo em seguida, essa trava não escondia o
-    // spinner (só não mostrava o login de novo por cima), deixando o
-    // logo girando preso tampando o app já pronto por baixo.
-    boot.className += ' hidden';
-    var app = document.getElementById('app');
-    var appShowing = app && app.className.indexOf('hidden') === -1;
-    if (!appShowing) {
-      var auth = document.getElementById('auth-screen');
-      if (auth) auth.className = auth.className.replace(' hidden', '').replace('hidden', '');
-    }
-  }, 20000);
-</script>
-
 <!-- Vídeo de abertura da logo — toca uma vez, centralizado, logo depois do
      login (ou de reconectar sozinho), antes do app aparecer de vez. -->
 <div id="login-intro-overlay" class="login-intro-overlay hidden">
@@ -99,22 +73,6 @@
           <button type="button" id="btn-hero-features" class="auth-hero-cta-secondary">
             <span class="ng-icon-wrap" data-icon="zap"></span> Ver Recursos
           </button>
-        </div>
-
-        <!-- Selos de confiança — deixa visível, antes mesmo de entrar, que a
-             plataforma tem camadas reais de segurança rodando (não é só
-             discurso: BlueX e a checagem automática de erros já existem e
-             funcionam, ver painel admin). -->
-        <div class="auth-trust-row">
-          <span class="auth-trust-badge">
-            <span class="ng-icon-wrap" data-icon="shield-check"></span> Proteção BlueX ativa
-          </span>
-          <span class="auth-trust-badge">
-            <span class="ng-icon-wrap" data-icon="badge-check"></span> Monitoramento de erros 24/7
-          </span>
-          <span class="auth-trust-badge">
-            <span class="ng-icon-wrap" data-icon="sparkles"></span> Suporte com IA
-          </span>
         </div>
 
         <div class="auth-features" id="auth-features">
@@ -354,10 +312,20 @@
            "amigos, chat e servidores não podem ficar escondidos"). -->
       <button class="sidebar-nav-item sidebar-nav-item-solo" id="nav-sidebar-amigos"><span class="ng-icon-wrap" data-icon="users"></span> Amigos<span id="sidebar-friends-badge" class="navbar-badge hidden">0</span></button>
       <button class="sidebar-nav-item sidebar-nav-item-solo" id="nav-sidebar-chat"><span class="ng-icon-wrap" data-icon="message-square"></span> Chat<span id="sidebar-messages-badge" class="navbar-badge hidden">0</span></button>
+
+      <div class="app-sidebar-section-label">Explorar</div>
+      <button class="sidebar-nav-item" id="nav-jogos"><span class="ng-icon-wrap" data-icon="search"></span> Explorar</button>
+      <button class="sidebar-nav-item" id="nav-lfg"><span class="ng-icon-wrap" data-icon="target"></span> Jogar</button>
+      <button class="sidebar-nav-item" id="nav-feed"><span class="ng-icon-wrap" data-icon="newspaper"></span> Feed</button>
+      <button class="sidebar-nav-item" id="nav-comunidade"><span class="ng-icon-wrap" data-icon="message-circle"></span> Comunidade</button>
+
+      <div class="app-sidebar-section-label">Competitivo</div>
+      <button class="sidebar-nav-item" id="nav-torneios"><span class="ng-icon-wrap" data-icon="trophy"></span> Torneios</button>
+      <button class="sidebar-nav-item" id="nav-ranking-link"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span> Ranking</button>
+      <button class="sidebar-nav-item" id="nav-rewards"><span class="ng-icon-wrap" data-icon="gift"></span> Rewards<span id="navbar-streak-badge" class="navbar-badge hidden">0</span></button>
+      <button class="sidebar-nav-item" id="nav-sobre"><span class="ng-icon-wrap" data-icon="crown"></span> Sobre</button>
     </div>
 
-    <!-- Servidores logo abaixo de Chat — pedido explícito, ficava escondido
-         demais lá no fim da barra lateral. -->
     <div class="app-sidebar-servers-header">
       <button type="button" id="btn-toggle-servers" class="app-sidebar-servers-toggle">
         <span class="ng-icon-wrap" data-icon="chevron-right" id="servers-toggle-chevron"></span>
@@ -375,32 +343,7 @@
       <div id="server-rail-list" class="server-rail-list"></div>
     </div>
 
-    <div class="app-sidebar-nav">
-      <div class="app-sidebar-section-label">Explorar</div>
-      <button class="sidebar-nav-item" id="nav-jogos"><span class="ng-icon-wrap" data-icon="search"></span> Explorar</button>
-      <button class="sidebar-nav-item" id="nav-lfg"><span class="ng-icon-wrap" data-icon="target"></span> Jogar</button>
-      <button class="sidebar-nav-item" id="nav-feed"><span class="ng-icon-wrap" data-icon="newspaper"></span> Feed</button>
-      <button class="sidebar-nav-item" id="nav-comunidade"><span class="ng-icon-wrap" data-icon="message-circle"></span> Comunidade</button>
-
-      <div class="app-sidebar-section-label">Competitivo</div>
-      <button class="sidebar-nav-item" id="nav-torneios"><span class="ng-icon-wrap" data-icon="trophy"></span> Torneios</button>
-      <button class="sidebar-nav-item" id="nav-ranking-link"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span> Ranking</button>
-      <button class="sidebar-nav-item" id="nav-rewards"><span class="ng-icon-wrap" data-icon="gift"></span> Rewards<span id="navbar-streak-badge" class="navbar-badge hidden">0</span></button>
-
-      <div class="app-sidebar-section-label">Sua Biblioteca</div>
-      <button class="sidebar-nav-item" id="nav-saved-games"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> Jogos Salvos</button>
-      <button class="sidebar-nav-item" id="nav-clipes"><span class="ng-icon-wrap" data-icon="film"></span> Clipes</button>
-      <button class="sidebar-nav-item" id="nav-configuracoes"><span class="ng-icon-wrap" data-icon="settings"></span> Configurações</button>
-      <button class="sidebar-nav-item" id="nav-sobre"><span class="ng-icon-wrap" data-icon="crown"></span> Sobre</button>
-    </div>
-
-    <!-- Rodapé antigo (avatar/nome/config no canto inferior esquerdo) —
-         removido da tela a pedido (tudo isso agora fica no chip do topo,
-         ver navbar-profile-chip). Os elementos continuam aqui, só invisíveis:
-         o app.js ainda escreve neles em alguns pontos e outros botões ainda
-         "clicam" neles por id, então é mais seguro manter escondido do que
-         apagar de vez. -->
-    <div class="app-sidebar-footer app-sidebar-footer-hidden">
+    <div class="app-sidebar-footer">
       <button class="navbar-profile" id="nav-profile">
         <div id="navbar-avatar" class="member-avatar"></div>
         <div class="navbar-profile-text">
@@ -411,6 +354,27 @@
       </button>
       <button class="navbar-icon-btn" id="btn-edit-profile" title="Editar perfil"><span class="ng-icon-wrap" data-icon="settings"></span></button>
       <button class="navbar-icon-btn" id="btn-footer-more" title="Mais opções"><span class="ng-icon-wrap" data-icon="chevron-right"></span></button>
+
+      <!-- Menu que abre pra cima ao clicar no "..." — mantém o rodapé enxuto
+           em vez de espremer vários ícones numa faixa só. -->
+      <div id="footer-more-menu" class="footer-more-menu hidden">
+        <button type="button" id="nav-plus-upgrade">
+          <span class="ng-icon-wrap" data-icon="sparkles"></span> <span id="plus-menu-label">NEXTGAME PLUS</span>
+        </button>
+        <button type="button" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos">
+          <span class="ng-icon-wrap" data-icon="volume-2"></span> <span id="sfx-toggle-label">Sons e efeitos</span>
+        </button>
+        <a href="/admin.html" id="admin-link" class="hidden">
+          <span class="ng-icon-wrap" data-icon="shield-check"></span> Admin
+        </a>
+        <button type="button" id="btn-logout">
+          <span class="ng-icon-wrap" data-icon="log-out"></span> Sair
+        </button>
+      </div>
+
+      <!-- me-avatar/me-username não aparecem mais visualmente (o avatar/nome já
+           mostram em cima, no nav-profile) — ficam só escondidos porque o
+           app.js ainda escreve neles em alguns pontos. -->
       <div id="me-avatar" class="member-avatar" style="display:none"></div>
       <span id="me-username" style="display:none"></span>
     </div>
@@ -436,18 +400,6 @@
       <div id="navbar-search-dropdown" class="navbar-search-dropdown hidden"></div>
     </div>
     <div class="navbar-right">
-      <!-- Atalho pra criar rápido: servidor, torneio/evento ou clipe — sem
-           precisar procurar o botão certo em cada tela. -->
-      <div class="navbar-create-wrap">
-        <button type="button" class="navbar-create-btn" id="btn-navbar-create">
-          <span class="ng-icon-wrap" data-icon="plus"></span> Criar
-        </button>
-        <div id="navbar-create-menu" class="navbar-create-menu hidden">
-          <button type="button" id="navbar-create-server"><span class="ng-icon-wrap" data-icon="building-2"></span> Servidor</button>
-          <button type="button" id="navbar-create-tournament"><span class="ng-icon-wrap" data-icon="trophy"></span> Torneio</button>
-          <button type="button" id="navbar-create-clip"><span class="ng-icon-wrap" data-icon="film"></span> Clipe</button>
-        </div>
-      </div>
       <!-- Amigos/Mensagens não têm mais ícone aqui em cima — só ficam na
            coluna esquerda (sidebar) e no botão flutuante, pra não ter 3
            lugares diferentes pra chegar na mesma coisa. -->
@@ -456,38 +408,6 @@
            quando alguém está com a aba aberta durante um deploy). -->
       <button class="navbar-icon-btn" id="nav-update-bell" title="Novidades da atualização"><span class="ng-icon-wrap" data-icon="sparkles"></span><span id="navbar-update-badge" class="navbar-badge hidden">•</span></button>
       <button class="navbar-icon-btn" id="nav-bell" title="Atividade recente"><span class="ng-icon-wrap" data-icon="bell"></span><span id="navbar-bell-badge" class="navbar-badge hidden">0</span></button>
-      <!-- Chip de perfil no topo — ponto único agora pra tudo que é "sobre
-           minha conta": editar perfil, NEXTGAME PLUS, sons e efeitos, Admin
-           (se for admin) e Sair. O rodapé antigo da sidebar foi escondido
-           (ver .app-sidebar-footer-hidden) a pedido, isso aqui virou o único
-           lugar visível com essas funções. -->
-      <div class="navbar-profile-chip-wrap">
-        <button type="button" class="navbar-profile-chip" id="navbar-profile-chip">
-          <div id="navbar-chip-avatar" class="member-avatar"></div>
-          <div class="navbar-profile-chip-text">
-            <span id="navbar-chip-username"></span>
-            <span id="navbar-chip-level" class="navbar-chip-level"></span>
-          </div>
-          <span class="ng-icon-wrap" data-icon="chevron-right" data-icon-class="navbar-chip-chevron"></span>
-        </button>
-        <div id="footer-more-menu" class="footer-more-menu hidden">
-          <button type="button" id="nav-edit-profile-menu">
-            <span class="ng-icon-wrap" data-icon="settings"></span> Editar perfil
-          </button>
-          <button type="button" id="nav-plus-upgrade">
-            <span class="ng-icon-wrap" data-icon="sparkles"></span> <span id="plus-menu-label">NEXTGAME PLUS</span>
-          </button>
-          <button type="button" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos">
-            <span class="ng-icon-wrap" data-icon="volume-2"></span> <span id="sfx-toggle-label">Sons e efeitos</span>
-          </button>
-          <a href="/admin.html" id="admin-link" class="hidden">
-            <span class="ng-icon-wrap" data-icon="shield-check"></span> Admin
-          </a>
-          <button type="button" id="btn-logout">
-            <span class="ng-icon-wrap" data-icon="log-out"></span> Sair
-          </button>
-        </div>
-      </div>
     </div>
   </header>
 
@@ -573,22 +493,6 @@
          quem você adicionou/pediu/recebeu. -->
     <section id="friends-panel" class="home-panel hidden">
       <h2 style="margin-top:0;"><span class="ng-icon-wrap" data-icon="users"></span> Amigos</h2>
-
-      <!-- Abas com contagem real (mesmos dados de sempre, só filtram o que
-           já é mostrado embaixo — Todos mostra tudo, igual antes). -->
-      <div class="friends-tabs">
-        <button type="button" class="friends-tab active" data-friends-tab="todos">Todos <span id="friends-tab-count-todos" class="friends-tab-count"></span></button>
-        <button type="button" class="friends-tab" data-friends-tab="online">Online <span id="friends-tab-count-online" class="friends-tab-count"></span></button>
-        <button type="button" class="friends-tab" data-friends-tab="pendentes">Pendentes <span id="friends-tab-count-pendentes" class="friends-tab-count"></span></button>
-      </div>
-
-      <div class="friends-search-row">
-        <div class="input-icon-wrap" style="flex:1;">
-          <span class="input-icon"><span class="ng-icon-wrap" data-icon="search"></span></span>
-          <input type="text" id="friends-search-input" placeholder="Buscar amigos..." />
-        </div>
-      </div>
-
       <form id="form-add-friend" style="display:flex; gap:8px; margin-bottom:14px;">
         <div class="input-icon-wrap" style="flex:1;">
           <span class="input-icon"><span class="ng-icon-wrap" data-icon="user"></span></span>
@@ -598,22 +502,18 @@
       </form>
       <p id="add-friend-error" class="auth-error"></p>
 
-      <div id="friends-pendentes-group">
-        <div id="friends-incoming-section" class="hidden">
-          <div class="home-section-title"><span class="ng-icon-wrap" data-icon="inbox"></span> Pedidos recebidos</div>
-          <div id="friends-incoming-list" class="friends-list"></div>
-        </div>
-
-        <div id="friends-outgoing-section" class="hidden">
-          <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="upload"></span> Pedidos enviados</div>
-          <div id="friends-outgoing-list" class="friends-list"></div>
-        </div>
+      <div id="friends-incoming-section" class="hidden">
+        <div class="home-section-title"><span class="ng-icon-wrap" data-icon="inbox"></span> Pedidos recebidos</div>
+        <div id="friends-incoming-list" class="friends-list"></div>
       </div>
 
-      <div id="friends-todos-group">
-        <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="check"></span> Seus amigos</div>
-        <div id="friends-list" class="friends-list"></div>
+      <div id="friends-outgoing-section" class="hidden">
+        <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="upload"></span> Pedidos enviados</div>
+        <div id="friends-outgoing-list" class="friends-list"></div>
       </div>
+
+      <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="check"></span> Seus amigos</div>
+      <div id="friends-list" class="friends-list"></div>
     </section>
 
     <!-- Painel Início: dashboard com dados reais da comunidade -->
@@ -660,10 +560,6 @@
                lista de conversas que já vive em Mensagens (sidebar/flutuante). -->
           <div id="home-conversations" class="home-conversations-list hidden"></div>
           <div class="home-side-card">
-            <div class="home-section-title"><span class="ng-icon-wrap" data-icon="calendar"></span> Eventos em Destaque</div>
-            <div id="home-events" class="home-events-list"></div>
-          </div>
-          <div class="home-side-card">
             <div class="home-section-title"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span> Ranking Semanal</div>
             <div id="home-ranking" class="ranking-list"></div>
           </div>
@@ -697,18 +593,9 @@
         <span id="attachment-preview-name"></span>
         <button type="button" id="btn-remove-attachment" aria-label="Remover anexo"><span class="ng-icon-wrap" data-icon="x"></span></button>
       </div>
-      <!-- Sugestões rápidas — só aparecem numa conversa com a IA (NEXT GAME
-           IA), usam ferramentas de verdade que ela já sabe executar (não é
-           decoração, cada botão manda uma mensagem real pra ela responder). -->
-      <div id="ai-quick-suggestions" class="ai-quick-suggestions hidden"></div>
-
       <form id="form-message" class="message-form">
         <input type="file" id="message-attachment-input" class="hidden" />
         <button type="button" id="btn-attach-file" aria-label="Anexar arquivo" title="Anexar arquivo (até 5MB)"><span class="ng-icon-wrap" data-icon="upload"></span></button>
-        <div class="sticker-picker-wrap">
-          <button type="button" id="btn-sticker-picker" aria-label="Figurinhas" title="Figurinhas"><span class="ng-icon-wrap" data-icon="sparkles"></span></button>
-          <div id="sticker-picker" class="sticker-picker hidden"></div>
-        </div>
         <input type="text" id="message-input" placeholder="Escreva uma mensagem..." autocomplete="off" />
         <button type="submit" aria-label="Enviar"><span class="ng-icon-wrap" data-icon="send"></span></button>
       </form>
@@ -733,20 +620,6 @@
             <div class="voice-room-header-actions">
               <button id="btn-toggle-voice-music" class="header-icon-btn" title="Mostrar/esconder NEXT Music"><span class="ng-icon-wrap" data-icon="music"></span></button>
               <button id="btn-toggle-voice-chat" class="header-icon-btn" title="Mostrar/esconder chat da sala"><span class="ng-icon-wrap" data-icon="message-circle"></span></button>
-            </div>
-          </div>
-
-          <!-- Cartão de destaque da sala — mesma ideia visual do hero da
-               Início, só que com o nome/tags da sala de voz atual. -->
-          <div id="voice-room-hero" class="voice-room-hero">
-            <div class="voice-room-hero-icon"><span class="ng-icon-wrap" data-icon="headphones"></span></div>
-            <div class="voice-room-hero-text">
-              <h2 id="voice-room-hero-name"></h2>
-              <p>Converse com sua squad, planeje estratégias e jogue junto como nunca antes.</p>
-              <div class="voice-room-hero-tags">
-                <span id="voice-room-hero-quality" class="voice-room-hero-tag"></span>
-                <span class="voice-room-hero-tag"><span class="ng-icon-wrap" data-icon="globe"></span> Região: SA (Brasil)</span>
-              </div>
             </div>
           </div>
 
@@ -978,33 +851,6 @@
      telas/janelas/abas — nenhum site consegue substituir isso por segurança).
      Aqui a gente mostra a qualidade que vai ser usada e lembra da opção de
      áudio, igual o Discord faz antes de abrir o picker do sistema. -->
-<!-- Vídeo de apresentação do NEXT GAME, aberto pelo botão "Assistir vídeo"
-     do hero da Início — reaproveita o mesmo arquivo da introdução do login. -->
-<div id="modal-watch-video" class="modal-overlay hidden">
-  <div class="modal-card watch-video-card">
-    <button type="button" id="btn-close-watch-video" class="watch-video-close" aria-label="Fechar"><span class="ng-icon-wrap" data-icon="x"></span></button>
-    <video id="watch-video-player" src="/videos/intro-logo.mp4" controls playsinline></video>
-  </div>
-</div>
-
-<!-- Jogos Salvos: biblioteca pessoal de jogos favoritos, atalho rápido na
-     sidebar. Lista simples — salvar/remover, sem estatística nenhuma. -->
-<div id="modal-saved-games" class="modal-overlay hidden">
-  <div class="modal-card">
-    <h2><span class="ng-icon-wrap" data-icon="gamepad-2"></span> Jogos Salvos</h2>
-    <p class="hint" style="margin-top:-6px;">Sua lista pessoal de jogos favoritos — só um atalho, não afeta seu perfil público.</p>
-    <div class="saved-game-add-row">
-      <input type="text" id="saved-game-input" list="saved-game-suggestions" placeholder="Nome do jogo (ex: Valorant)" />
-      <datalist id="saved-game-suggestions"></datalist>
-      <button type="button" id="btn-saved-game-add">+ Salvar</button>
-    </div>
-    <div id="saved-games-list" class="saved-games-list"></div>
-    <div class="modal-actions">
-      <button type="button" id="btn-close-saved-games">Fechar</button>
-    </div>
-  </div>
-</div>
-
 <div id="modal-share-picker" class="modal-overlay hidden">
   <div class="modal-card">
     <h2><span class="ng-icon-wrap" data-icon="monitor"></span> O que você quer compartilhar?</h2>
@@ -1056,8 +902,6 @@
       <button type="button" class="settings-sidebar-item" data-settings-tab="seguranca"><span class="ng-icon-wrap" data-icon="lock"></span> Segurança</button>
       <button type="button" class="settings-sidebar-item" data-settings-tab="privacidade"><span class="ng-icon-wrap" data-icon="shield-off"></span> Privacidade</button>
       <button type="button" class="settings-sidebar-item" data-settings-tab="notificacoes"><span class="ng-icon-wrap" data-icon="bell"></span> Notificações</button>
-      <div class="settings-sidebar-divider">ASSINATURA</div>
-      <button type="button" class="settings-sidebar-item settings-sidebar-item-plus" data-settings-tab="plus"><span class="ng-icon-wrap" data-icon="sparkles"></span> NEXTGAME PLUS</button>
     </div>
     <div class="settings-content">
 
@@ -1176,50 +1020,6 @@
 
     <div id="settings-tab-notificacoes" class="manage-tab-panel hidden">
       <div id="notification-prefs-list"></div>
-    </div>
-
-    <div id="settings-tab-plus" class="manage-tab-panel hidden">
-      <div class="plus-promo-banner">
-        <span class="plus-promo-sparkle plus-promo-sparkle-1 ng-icon-wrap" data-icon="sparkles"></span>
-        <span class="plus-promo-sparkle plus-promo-sparkle-2 ng-icon-wrap" data-icon="sparkles"></span>
-        <span class="plus-promo-sparkle plus-promo-sparkle-3 ng-icon-wrap" data-icon="sparkles"></span>
-        <h3>Desbloqueie um Mundo de<br>Vantagens com o NEXTGAME PLUS</h3>
-        <p>O FREE continua completo — chat, voz, câmera, servidores e compartilhamento de tela sem travar nada. Cancele quando quiser.</p>
-        <button type="button" id="btn-plus-promo-scroll" class="plus-promo-cta"><span class="ng-icon-wrap" data-icon="crown"></span> Assinar agora</button>
-      </div>
-
-      <div class="plus-benefits-grid">
-        <div class="plus-benefit-card">
-          <span class="ng-icon-wrap" data-icon="monitor"></span>
-          <strong>1080p/60, 1440p/60 e 4K/60</strong>
-          <span>Mesma interface do FREE, só libera qualidade maior na transmissão de tela.</span>
-        </div>
-        <div class="plus-benefit-card">
-          <span class="ng-icon-wrap" data-icon="upload"></span>
-          <strong>Arquivos até 5GB</strong>
-          <span>Contra o limite do FREE — imagens, vídeos, PDFs, documentos e mais.</span>
-        </div>
-        <div class="plus-benefit-card">
-          <span class="ng-icon-wrap" data-icon="crown"></span>
-          <strong>Badge, banner e moldura exclusivos</strong>
-          <span>Personalização cosmética no perfil — sem vantagem competitiva.</span>
-        </div>
-      </div>
-
-      <div id="plus-already-active" class="hidden plus-active-banner">
-        <span class="ng-icon-wrap" data-icon="check"></span> Você já é NEXTGAME PLUS.
-      </div>
-      <div id="plus-not-configured" class="hidden hint" style="text-align:center; padding:10px;">
-        Assinatura ainda não está disponível — o administrador precisa configurar o PayPal.
-      </div>
-      <div id="paypal-button-container"></div>
-      <p id="plus-error" class="auth-error"></p>
-
-      <p class="hint" style="margin:18px 0 10px; border-top:1px solid #3a3c42; padding-top:14px;">
-        <span class="ng-icon-wrap" data-icon="palette"></span> Tema de cor — muda seu nome no chat, moldura do
-        avatar, bolha das suas DMs, banner do perfil e os detalhes do app pra você, tudo de uma vez.
-      </p>
-      <div id="plus-theme-swatches" class="plus-theme-swatches"></div>
     </div>
     </div><!-- /.settings-content -->
     </div><!-- /.settings-layout -->
@@ -1905,49 +1705,6 @@
   </div>
 </div>
 
-<!-- MODAL: ESQUECEU A SENHA — manda link de troca por e-mail. Funciona
-     deslogado, aberto direto da tela de login. -->
-<div id="modal-forgot-password" class="modal-overlay hidden">
-  <div class="modal-card">
-    <h2><span class="ng-icon-wrap" data-icon="lock"></span> Trocar senha</h2>
-    <p class="hint" style="margin-bottom:10px;">Digite o e-mail da sua conta — se existir, mandamos um link pra você escolher uma senha nova.</p>
-    <form id="form-forgot-password">
-      <label>E-mail</label>
-      <input type="email" id="forgot-password-email" placeholder="voce@email.com" required />
-      <p id="forgot-password-error" class="auth-error"></p>
-      <p id="forgot-password-success" class="hint hidden" style="color:#3ba55c; margin-top:6px;">
-        ✅ Se esse e-mail tiver conta aqui, o link chega em instantes (confira o spam também).
-      </p>
-      <div class="modal-actions">
-        <button type="button" id="btn-close-forgot-password">Fechar</button>
-        <button type="submit" id="btn-send-forgot-password">Enviar link</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- MODAL: DEFINIR NOVA SENHA — aberto automaticamente quando a URL tem
-     ?reset=TOKEN (link que veio por e-mail). -->
-<div id="modal-reset-password" class="modal-overlay hidden">
-  <div class="modal-card">
-    <h2><span class="ng-icon-wrap" data-icon="lock"></span> Escolher nova senha</h2>
-    <form id="form-reset-password">
-      <label>Nova senha</label>
-      <input type="password" id="reset-password-new" placeholder="Nova senha" minlength="6" required />
-      <label>Confirmar nova senha</label>
-      <input type="password" id="reset-password-confirm" placeholder="Digite de novo" minlength="6" required />
-      <p id="reset-password-error" class="auth-error"></p>
-      <p id="reset-password-success" class="hint hidden" style="color:#3ba55c; margin-top:6px;">
-        ✅ Senha trocada! Já pode entrar com a senha nova.
-      </p>
-      <div class="modal-actions">
-        <button type="button" id="btn-close-reset-password">Fechar</button>
-        <button type="submit" id="btn-send-reset-password">Trocar senha</button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <!-- MODAL: FALE COM O SUPORTE (reclamação/dúvida/denúncia) — funciona logado
      ou deslogado, inclusive pra conta banida que não consegue mais entrar. -->
 <div id="modal-support" class="modal-overlay hidden">
@@ -1986,6 +1743,42 @@
         <button type="submit" id="btn-send-support">Enviar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- MODAL: NEXTGAME PLUS (assinatura) -->
+<div id="modal-plus-upgrade" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width:480px;">
+    <h2><span class="ng-icon-wrap" data-icon="sparkles"></span> NEXTGAME PLUS</h2>
+    <p class="hint" style="margin-bottom:12px;">
+      O FREE continua completo — chat, voz, câmera, servidores e compartilhamento de tela sem travar nada.
+      O Plus libera qualidade, capacidade e personalização superiores:
+    </p>
+    <div class="safety-info-list" style="margin-bottom:14px;">
+      <div class="safety-info-item">
+        <span class="ng-icon-wrap" data-icon="monitor"></span>
+        <div><strong>Transmissão em 1080p/60, 1440p/60 e 4K/60</strong><span>Mesma interface e fluxo do FREE, só libera qualidade maior.</span></div>
+      </div>
+      <div class="safety-info-item">
+        <span class="ng-icon-wrap" data-icon="upload"></span>
+        <div><strong>Arquivos até 5GB</strong><span>Contra o limite do FREE — imagens, vídeos, PDFs, documentos e mais.</span></div>
+      </div>
+      <div class="safety-info-item">
+        <span class="ng-icon-wrap" data-icon="crown"></span>
+        <div><strong>Badge, banner e moldura exclusivos</strong><span>Personalização cosmética no perfil — sem vantagem competitiva.</span></div>
+      </div>
+    </div>
+    <div id="plus-already-active" class="hidden" style="text-align:center; padding:10px; color:#23a55a; font-weight:700;">
+      <span class="ng-icon-wrap" data-icon="check"></span> Você já é NEXTGAME PLUS.
+    </div>
+    <div id="plus-not-configured" class="hidden hint" style="text-align:center; padding:10px;">
+      Assinatura ainda não está disponível — o administrador precisa configurar o PayPal.
+    </div>
+    <div id="paypal-button-container"></div>
+    <p id="plus-error" class="auth-error"></p>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-plus-upgrade">Fechar</button>
+    </div>
   </div>
 </div>
 

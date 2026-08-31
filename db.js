@@ -853,18 +853,6 @@ async function initDb() {
     ]);
   }
 
-  // ---------- JOGOS SALVOS ("biblioteca" pessoal na barra lateral) ----------
-  await run(`
-    CREATE TABLE IF NOT EXISTS saved_games (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      game_name TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(user_id, game_name)
-    )
-  `);
-  await run('CREATE INDEX IF NOT EXISTS idx_saved_games_user ON saved_games(user_id)');
-
   // ---------- SELO VERIFICADO (conta oficial NEXT GAME) ----------
   // Separado do 👑 de admin de propósito: admin é poder de moderação, selo
   // verificado é só "essa conta é oficial/confiável" — dá pra um admin
@@ -876,16 +864,6 @@ async function initDb() {
   await ensureColumn('users', 'is_verified INTEGER NOT NULL DEFAULT 0');
   await run('UPDATE users SET is_verified = 1 WHERE is_admin = 1');
   await run('UPDATE users SET is_verified = 1 WHERE id = ?', [AI_BOT_USER_ID]);
-
-  // Tema de cor exclusivo do NEXTGAME PLUS — um id de paleta (ver
-  // PLUS_THEMES no server.js), aplicado no nome no chat, moldura do avatar,
-  // bolha de DM, banner do perfil e no próprio app de quem escolheu.
-  await ensureColumn('users', 'plus_theme TEXT');
-
-  // Recuperação de senha por e-mail — token de uso único com validade curta,
-  // separado do verification_code (que é só pra confirmação de cadastro).
-  await ensureColumn('users', 'reset_token TEXT');
-  await ensureColumn('users', 'reset_token_expires TEXT');
 }
 
 module.exports = { run, get, all, initDb, AI_BOT_USER_ID, AI_BOT_USERNAME, generateUniqueDiscriminator };
