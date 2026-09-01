@@ -360,6 +360,50 @@
           },
         }, ['+ Figurinha']));
         packCard.appendChild(addRow);
+
+        // ---- envio em massa: escolhe várias imagens de uma vez e sobe tudo,
+        // criando uma figurinha pra cada uma automaticamente. ----
+        const bulkRow = el('div', { class: 'pv2a-create-row', style: 'margin-top:10px;padding-top:10px;border-top:1px solid #24252c;' });
+        const bulkInput = el('input', { type: 'file', accept: 'image/*', multiple: 'multiple', style: 'display:none;' });
+        const bulkStatus = el('span', { style: 'font-size:11.5px;color:#9aa0ab;' }, ['']);
+        const bulkBtn = el('button', {
+          class: 'pv2a-btn pv2a-btn-small', type: 'button',
+          onclick: () => bulkInput.click(),
+        }, ['📦 Enviar várias figurinhas de uma vez']);
+        bulkInput.addEventListener('change', async () => {
+          const files = Array.from(bulkInput.files || []);
+          if (!files.length) return;
+          if (typeof adapter.uploadStickerImage !== 'function') {
+            showAdminToast('Envio em massa não disponível nesse adapter.');
+            return;
+          }
+          bulkBtn.disabled = true;
+          let done = 0;
+          let failed = 0;
+          for (const file of files) {
+            bulkStatus.textContent = `Enviando ${done + 1}/${files.length}…`;
+            try {
+              const url = await adapter.uploadStickerImage(file);
+              const stickerData = { type: 'image', content: url };
+              const r = await adapter.createSticker(pack.id, stickerData);
+              pack.stickers.push({ id: r.id, ...stickerData });
+              done++;
+            } catch (err) {
+              failed++;
+              console.error('Erro ao enviar figurinha:', file.name, err);
+            }
+          }
+          bulkStatus.textContent = '';
+          bulkBtn.disabled = false;
+          bulkInput.value = '';
+          renderPacks();
+          showAdminToast(`${done} figurinha(s) adicionada(s)` + (failed ? `, ${failed} falhou/falharam` : '') + ' ✓');
+        });
+        bulkRow.appendChild(bulkInput);
+        bulkRow.appendChild(bulkBtn);
+        bulkRow.appendChild(bulkStatus);
+        packCard.appendChild(bulkRow);
+
         packsWrap.appendChild(packCard);
       });
     }
@@ -428,6 +472,23 @@
       deleteStickerPack: (id) => req('/admin/sticker-packs/' + id, { method: 'DELETE' }),
       createSticker: (packId, d) => req('/admin/sticker-packs/' + packId + '/stickers', { method: 'POST', body: d }),
       deleteSticker: (id) => req('/admin/stickers/' + id, { method: 'DELETE' }),
+      // Reaproveita o /api/uploads/presign que o site principal já usa (mesmo
+      // fluxo do upload de banner em plus2.js) — sobe a imagem direto pro
+      // storage (R2/S3) e devolve a URL pública, sem passar o arquivo pela
+      // rota do plus2.
+      async uploadStickerImage(file) {
+        const presignRes = await fetchFn('/api/uploads/presign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
+        });
+        if (!presignRes.ok) throw new Error('Erro ao preparar upload: ' + presignRes.status);
+        const presign = await presignRes.json();
+        if (!presign.configured) throw new Error('Upload de imagem não está configurado no servidor.');
+        const putRes = await fetchFn(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+        if (!putRes.ok) throw new Error('Erro ao enviar a imagem: ' + putRes.status);
+        return presign.publicUrl;
+      },
     };
   }
   // Os campos do form usam nomes curtos (primary/secondary/...) mas a API
@@ -467,6 +528,16 @@
       async deleteSticker(id) {
         state.stickerPacks.forEach((p) => { p.stickers = p.stickers.filter((s) => s.id !== id); });
         return delay({ ok: true });
+      },
+      // Sem servidor de verdade aqui — lê o arquivo e devolve como data URL,
+      // só pra já poder ver a figurinha de verdade no preview.
+      async uploadStickerImage(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Não deu pra ler essa imagem'));
+          reader.readAsDataURL(file);
+        });
       },
     };
   }

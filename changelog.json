@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.19.3",
+    "date": "2026-09-01",
+    "changes": [
+      "Painel de admin → Personalização → Figurinhas: agora dá pra enviar várias figurinhas de uma vez só (escolhe todas as imagens no seletor de arquivo) em vez de adicionar uma por uma"
+    ]
+  },
+  {
     "version": "0.19.2",
     "date": "2026-09-01",
     "changes": [
