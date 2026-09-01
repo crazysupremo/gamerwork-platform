@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.19.8",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido divergência de cor ao trocar de tema: vários elementos (link de mensagem, cartão de convite de jogo, avatar de participante, botão de mensagem no perfil, ícones de anexo/segurança, código de recompensa) tinham cor fixa no código em vez de seguir o tema escolhido — agora todos acompanham",
+      "Corrigido um bug antigo (não relacionado à Personalização): o destaque de amigo ativo usava uma variável de cor com nome errado no CSS e nunca funcionou de verdade, sempre caía na cor fixa"
+    ]
+  },
+  {
     "version": "0.19.7",
     "date": "2026-09-01",
     "changes": [
