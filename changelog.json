@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.17.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Beta de teste: removido o sistema de tema de cor do NEXTGAME PLUS e o sistema de figurinhas, como medida pra investigar o bug de servidores/canais sumindo depois de um deploy"
+    ]
+  },
+  {
     "version": "0.16.3",
     "date": "2026-09-01",
     "changes": [

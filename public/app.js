@@ -75,24 +75,7 @@ function renderAvatarHtml(user, sizeClass) {
 // Classe CSS da moldura animada (se a pessoa tiver uma equipada) — usada
 // junto com renderAvatarHtml em todo lugar que mostra avatar.
 function avatarFrameClass(user) {
-  if (!user) return '';
-  const frame = user.avatar_frame ? 'avatar-frame-' + user.avatar_frame : '';
-  // Moldura extra pra quem tem um tema de cor do NEXTGAME PLUS ativo — anda
-  // junto com a moldura de recompensa (se tiver as duas, a animação da
-  // moldura ganhosa da precedência visual naturalmente, sem lógica extra).
-  const plus = user.plus_theme ? 'avatar-plus-' + user.plus_theme : '';
-  return [frame, plus].filter(Boolean).join(' ');
-}
-
-// Atributo(s) pra pintar o nome de alguém com o tema PLUS que ela escolheu —
-// usado no nome de quem manda mensagem no chat (visível pra todo mundo na
-// conversa). O tema "official" tem efeito animado de verdade (classe CSS
-// com keyframe); os outros são só uma cor sólida (mais simples e leve).
-function plusColorStyle(user) {
-  const t = plusThemeById(user && user.plus_theme);
-  if (!t) return '';
-  if (t.special) return ' class="plus-name-special"';
-  return ` style="color:${t.from};"`;
+  return user && user.avatar_frame ? 'avatar-frame-' + user.avatar_frame : '';
 }
 
 // Identificador estilo Discord (@Username#1234) — sistema de hashtag.
@@ -840,8 +823,6 @@ function startApp() {
   loadUploadLimits();
   enforceScreenQualityForPlan();
   updatePlusBadgeUI();
-  loadPlusThemes();
-  renderStickerPicker();
 
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
@@ -3556,16 +3537,6 @@ async function openProfilePreview(user) {
   avatarEl.innerHTML = renderAvatarHtml(user);
   avatarEl.className = 'profile-preview-avatar ' + avatarFrameClass(user);
 
-  // Banner do perfil — vira o gradiente do tema PLUS de quem tem um ativo,
-  // senão fica no roxo/ciano padrão de sempre.
-  const bannerEl = document.querySelector('#modal-profile-preview .profile-banner');
-  if (bannerEl) {
-    const theme = plusThemeById(user.plus_theme);
-    bannerEl.style.background = theme
-      ? `radial-gradient(circle at 15% 15%, rgba(255,255,255,0.2), transparent 45%), linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`
-      : '';
-    bannerEl.classList.toggle('profile-banner-official-shimmer', !!(theme && theme.special));
-  }
   document.getElementById('profile-preview-username').innerHTML =
     `${escapeHtml(user.username)}${user.is_admin ? ' 👑' : ''}${user.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}`;
   document.getElementById('profile-preview-status').textContent = user.status_message ? '🎮 ' + user.status_message : '';
@@ -4356,95 +4327,6 @@ function loadPayPalSdk(clientId) {
   });
 }
 
-// ---------- TEMA DE COR DO NEXTGAME PLUS ----------
-// Uma paleta escolhida muda, de uma vez só: nome no chat, moldura do
-// avatar, bolha das mensagens de DM, banner do perfil e os detalhes do
-// próprio app pra quem assinou. Catálogo vem do servidor (PLUS_THEMES em
-// server.js) — só ele decide quais cores existem, o front só exibe.
-let PLUS_THEMES_CACHE = [];
-function plusThemeById(id) {
-  return id ? PLUS_THEMES_CACHE.find((t) => t.id === id) : null;
-}
-async function loadPlusThemes() {
-  try {
-    const res = await fetch('/api/plus-themes', { credentials: 'include' });
-    const data = await res.json();
-    PLUS_THEMES_CACHE = data.themes || [];
-  } catch (_) {
-    PLUS_THEMES_CACHE = [];
-  }
-  applyOwnPlusTheme();
-  renderPlusThemePicker();
-}
-
-// Reskina os detalhes roxos/azuis do PRÓPRIO app pra quem tem um tema ativo
-// — só muda a tela de quem escolheu, ninguém mais vê essa mudança.
-function applyOwnPlusTheme() {
-  const theme = plusThemeById(me && me.plus_theme);
-  const root = document.documentElement.style;
-  if (theme) {
-    root.setProperty('--accent', theme.from);
-    root.setProperty('--accent-2', theme.to);
-    root.setProperty('--gradient-brand', `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`);
-  } else {
-    root.removeProperty('--accent');
-    root.removeProperty('--accent-2');
-    root.removeProperty('--gradient-brand');
-  }
-  // O tema "official" é o mais completo — além da cor, liga um efeito de
-  // brilho animado em várias telas do próprio app (bolha das SUAS DMs,
-  // banner do SEU perfil). Uma classe no <body> resolve tudo isso de um
-  // lugar só, sem precisar repetir lógica em cada tela.
-  document.body.classList.toggle('plus-theme-official-active', !!(theme && theme.special));
-}
-
-function renderPlusThemePicker() {
-  const wrap = document.getElementById('plus-theme-swatches');
-  if (!wrap) return;
-  if (!isPlusUser()) {
-    wrap.innerHTML = '<p class="hint">Assine o NEXTGAME PLUS acima pra desbloquear os temas de cor.</p>';
-    return;
-  }
-  const swatches = PLUS_THEMES_CACHE.map(
-    (t) => `
-    <button type="button" class="plus-theme-swatch ${t.special ? 'plus-theme-swatch-special' : ''} ${me.plus_theme === t.id ? 'active' : ''}" data-theme-id="${t.id}"
-      style="background:linear-gradient(135deg, ${t.from} 0%, ${t.to} 100%)" title="${escapeHtml(t.name)}${t.special ? ' — tema completo, com efeito animado' : ''}">
-      ${me.plus_theme === t.id ? icon('check') : t.special ? icon('sparkles') : ''}
-    </button>`
-  ).join('');
-  const resetSwatch = `
-    <button type="button" class="plus-theme-swatch plus-theme-swatch-reset ${!me.plus_theme ? 'active' : ''}" data-theme-id="" title="Padrão (roxo original)">
-      ${!me.plus_theme ? icon('check') : icon('x')}
-    </button>`;
-  wrap.innerHTML = swatches + resetSwatch;
-  wrap.querySelectorAll('.plus-theme-swatch').forEach((btn) => {
-    btn.onclick = async () => {
-      const themeId = btn.dataset.themeId;
-      try {
-        const res = await fetch('/api/me', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ plus_theme: themeId }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          showCopyToast(data.error || 'Erro ao trocar tema');
-          return;
-        }
-        me.plus_theme = data.plus_theme;
-        applyOwnPlusTheme();
-        renderPlusThemePicker();
-        renderAvatarInto(document.getElementById('me-avatar'), me);
-        updateNavbarProfile();
-        showCopyToast(themeId ? '🎨 Tema aplicado!' : 'Tema removido, voltou ao padrão.');
-      } catch (_) {
-        showCopyToast('Erro de conexão ao trocar tema');
-      }
-    };
-  });
-}
-
 async function openPlusUpgradeModal() {
   // NEXTGAME PLUS agora mora dentro de Configurações (aba própria), não é
   // mais um modal separado — quem chama essa função já garantiu que a aba
@@ -4456,7 +4338,6 @@ async function openPlusUpgradeModal() {
   errorEl.textContent = '';
   buttonContainer.innerHTML = '';
   alreadyEl.classList.add('hidden');
-  renderPlusThemePicker();
   notConfiguredEl.classList.add('hidden');
 
   if (isPlusUser()) {
@@ -4493,8 +4374,6 @@ async function openPlusUpgradeModal() {
             alreadyEl.classList.remove('hidden');
             buttonContainer.innerHTML = '';
             loadUploadLimits();
-            renderPlusThemePicker();
-            renderStickerPicker();
             showCopyToast('🎉 Bem-vindo ao NEXTGAME PLUS!');
           } catch (err) {
             errorEl.textContent = err.message || 'Erro ao confirmar assinatura.';
@@ -6448,31 +6327,6 @@ function messagesContainerFor(channelId) {
 // nenhum estado de "sessão de jogo" pra gerenciar, de propósito, pra não
 // duplicar o sistema de LFG/matchmaking que já existe em outro lugar do app.
 const GAME_INVITE_PREFIX = '__GAME_INVITE__::';
-// Figurinha = um emoji grande sozinho, igual WhatsApp/Telegram. Mesmo truque
-// do convite de jogo: um prefixo no próprio texto da mensagem, sem precisar
-// de nenhuma tabela/coluna nova no banco — o emoji que vem depois do
-// prefixo é renderizado bem maior em vez de texto normal.
-const STICKER_PREFIX = '__STICKER__::';
-const STICKER_PACK = ['😂', '❤️', '🔥', '👑', '🎮', '🏆', '👍', '🎉', '😭', '😡', '🤝', '💯', '😎', '👀', '🥳', '💀'];
-// Pacote extra, exclusivo de quem tem NEXTGAME PLUS — mesma ideia (emoji
-// grande, sem precisar de nenhuma arte customizada), só que com um conjunto
-// diferente pra ficar reservado a quem assina.
-const STICKER_PACK_PLUS = ['💎', '🚀', '⚡', '🐐', '🫡', '🎯', '🥇', '💪'];
-// Figurinhas de verdade (PNG, recortadas do pacote de marca NEXTGAME) — pra
-// quem tem essa imagem no /public/assets/brand. Ficam junto do resto do
-// pacote, disponíveis pra todo mundo (não é exclusivo do PLUS).
-const STICKER_PACK_BRAND = [
-  '/assets/brand/sticker-gg.png',
-  '/assets/brand/sticker-nice.png',
-  '/assets/brand/sticker-fire.png',
-  '/assets/brand/sticker-letsgo.png',
-  '/assets/brand/sticker-nextgame.png',
-  '/assets/brand/sticker-heart.png',
-  '/assets/brand/sticker-thumbs.png',
-  '/assets/brand/sticker-lol.png',
-  '/assets/brand/sticker-trophy.png',
-];
-
 // Texto amigável pra prévias (lista de conversas, "última mensagem") —
 // esconde o formato interno do convite de jogo atrás de um resumo legível.
 // Aceita tanto uma string de conteúdo quanto o objeto de mensagem inteiro
@@ -6482,10 +6336,6 @@ function messagePreviewText(msgOrContent) {
   const content = isObj ? msgOrContent.content : msgOrContent;
   const attachment = isObj ? msgOrContent.attachment : null;
   if (content && content.startsWith(GAME_INVITE_PREFIX)) return '🎮 Convite pra jogar';
-  if (content && content.startsWith(STICKER_PREFIX)) {
-    const payload = content.slice(STICKER_PREFIX.length);
-    return payload.startsWith('img:') ? '🖼️ Figurinha' : `${payload} Figurinha`;
-  }
   // BUG CORRIGIDO: mensagem que era só um link (convite de servidor, por
   // exemplo) aparecia crua e enorme na prévia da lista de conversas,
   // estourando a largura da coluna. Mostra um resumo curto em vez do link.
@@ -6496,14 +6346,6 @@ function messagePreviewText(msgOrContent) {
 }
 
 function renderMessageContentHtml(msg) {
-  if (msg.content.startsWith(STICKER_PREFIX)) {
-    const payload = msg.content.slice(STICKER_PREFIX.length);
-    if (payload.startsWith('img:')) {
-      const src = payload.slice(4);
-      return `<div class="content sticker-content sticker-content-img"><img src="${escapeHtml(src)}" alt="Figurinha NEXTGAME" /></div>`;
-    }
-    return `<div class="content sticker-content">${escapeHtml(payload)}</div>`;
-  }
   if (msg.content.startsWith(GAME_INVITE_PREFIX)) {
     let payload;
     try {
@@ -6627,7 +6469,7 @@ function renderMessage(msg) {
       <div class="message-avatar ${avatarFrameCls}">${avatarHtml}</div>
       <div class="message-body">
         <div class="meta">
-          <strong${plusColorStyle(author)}>${escapeHtml(msg.username)}</strong>
+          <strong>${escapeHtml(msg.username)}</strong>
           ${author && author.is_verified ? '<span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}
           ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
           · ${time}
@@ -6651,20 +6493,6 @@ function renderMessage(msg) {
       ${REACTION_EMOJIS.map((e) => `<button data-emoji="${e}">${e}</button>`).join('')}
     </div>
   `;
-
-  // Bolha de quem te mandou a mensagem usa o tema de cor PLUS dela, se
-  // tiver um ativo (a SUA própria bolha já pega seu tema sozinha, via
-  // --gradient-brand que applyOwnPlusTheme() troca pra você).
-  if (isDm && !isOwn && !isBot) {
-    const theirTheme = plusThemeById(author && author.plus_theme);
-    if (theirTheme) {
-      const contentEl = el.querySelector('.content');
-      if (contentEl) {
-        contentEl.style.background = `linear-gradient(135deg, ${theirTheme.from} 0%, ${theirTheme.to} 100%)`;
-        if (theirTheme.special) contentEl.classList.add('dm-bubble-official-shimmer');
-      }
-    }
-  }
 
   // Botões de aceitar/recusar do card de "convite pra jogar" — só existem
   // quando a mensagem é um convite recebido (não o meu próprio, que mostra
@@ -6940,59 +6768,6 @@ async function uploadAttachmentFile(file, onProgress) {
 document.getElementById('btn-attach-file').onclick = () => {
   document.getElementById('message-attachment-input').click();
 };
-
-// ---------- FIGURINHAS ----------
-// Um emoji grande sozinho na mensagem, estilo WhatsApp/Telegram — sem
-// precisar de nenhum arquivo de imagem novo (não temos como gerar/hospedar
-// arte de figurinha de verdade nesta sessão), mas com o mesmo efeito visual
-// de "isso não é uma mensagem normal, é uma reação grande".
-const stickerPicker = document.getElementById('sticker-picker');
-// Reconstrói o pacote (chamado de novo em startApp() e assim que a pessoa
-// assina o PLUS) porque isPlusUser() só sabe responder direito depois que
-// "me" carrega — não dá pra decidir isso no carregamento do script.
-function renderStickerPicker() {
-  const plus = isPlusUser();
-  const items = plus ? STICKER_PACK.concat(STICKER_PACK_PLUS) : STICKER_PACK;
-  const emojiHtml = items.map((s) => `<button type="button" class="sticker-picker-item">${s}</button>`).join('');
-  const brandHtml = STICKER_PACK_BRAND.map(
-    (src) => `<button type="button" class="sticker-picker-item sticker-picker-item-img" data-src="${src}"><img src="${src}" alt="" loading="lazy" /></button>`
-  ).join('');
-  const hintHtml = plus
-    ? ''
-    : `<button type="button" id="btn-sticker-plus-hint" class="sticker-picker-plus-hint" title="Mais figurinhas com o NEXTGAME PLUS">${icon('sparkles')}</button>`;
-  stickerPicker.innerHTML = emojiHtml + brandHtml + hintHtml;
-  stickerPicker.querySelectorAll('.sticker-picker-item:not(.sticker-picker-item-img)').forEach((btn) => {
-    btn.onclick = () => {
-      if (!currentChannel) return;
-      socket.emit('chat:message', { channelId: currentChannel.id, content: STICKER_PREFIX + btn.textContent });
-      stickerPicker.classList.add('hidden');
-    };
-  });
-  stickerPicker.querySelectorAll('.sticker-picker-item-img').forEach((btn) => {
-    btn.onclick = () => {
-      if (!currentChannel) return;
-      socket.emit('chat:message', { channelId: currentChannel.id, content: STICKER_PREFIX + 'img:' + btn.dataset.src });
-      stickerPicker.classList.add('hidden');
-    };
-  });
-  const hintBtn = document.getElementById('btn-sticker-plus-hint');
-  if (hintBtn) {
-    hintBtn.onclick = () => {
-      stickerPicker.classList.add('hidden');
-      openSettingsTab('plus');
-    };
-  }
-}
-renderStickerPicker();
-document.getElementById('btn-sticker-picker').onclick = (e) => {
-  e.stopPropagation();
-  stickerPicker.classList.toggle('hidden');
-};
-document.addEventListener('click', (e) => {
-  if (!stickerPicker.classList.contains('hidden') && !stickerPicker.contains(e.target) && e.target.id !== 'btn-sticker-picker') {
-    stickerPicker.classList.add('hidden');
-  }
-});
 
 // ---------- SUGESTÕES RÁPIDAS DA IA ----------
 // Só aparece na conversa com a NEXT GAME IA — cada botão manda uma mensagem

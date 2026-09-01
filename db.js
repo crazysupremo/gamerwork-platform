@@ -877,11 +877,6 @@ async function initDb() {
   await run('UPDATE users SET is_verified = 1 WHERE is_admin = 1');
   await run('UPDATE users SET is_verified = 1 WHERE id = ?', [AI_BOT_USER_ID]);
 
-  // Tema de cor exclusivo do NEXTGAME PLUS — um id de paleta (ver
-  // PLUS_THEMES no server.js), aplicado no nome no chat, moldura do avatar,
-  // bolha de DM, banner do perfil e no próprio app de quem escolheu.
-  await ensureColumn('users', 'plus_theme TEXT');
-
   // Recuperação de senha por e-mail — token de uso único com validade curta,
   // separado do verification_code (que é só pra confirmação de cadastro).
   await ensureColumn('users', 'reset_token TEXT');

@@ -1209,36 +1209,6 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .message-form #btn-attach-file:hover { background: #2f3037; filter: none; }
 
-.sticker-picker-wrap { position: relative; flex-shrink: 0; }
-#btn-sticker-picker {
-  background: #26272e; border-radius: 50%; width: 40px; height: 40px; padding: 0; border: none;
-  display: flex; align-items: center; justify-content: center; cursor: pointer; color: #dbdee1;
-  transition: background 0.15s ease;
-}
-#btn-sticker-picker:hover { background: #2f3037; }
-.sticker-picker {
-  position: absolute; bottom: 50px; left: 0; background: #26272e; border-radius: 12px; padding: 8px;
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; box-shadow: 0 4px 18px rgba(0,0,0,0.45);
-  z-index: 20; border: 1px solid #35373c;
-}
-.sticker-picker.hidden { display: none; }
-.sticker-picker-item {
-  width: 42px; height: 42px; border: none; background: transparent; cursor: pointer; font-size: 24px;
-  border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: background 0.1s ease;
-}
-.sticker-picker-item:hover { background: #35373c; }
-.sticker-picker-plus-hint {
-  width: 42px; height: 42px; border: 1px dashed #6c5ce7; background: rgba(145,70,255,0.12); cursor: pointer;
-  border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #b18aff;
-  transition: background 0.1s ease;
-}
-.sticker-picker-plus-hint:hover { background: rgba(145,70,255,0.22); }
-.sticker-picker-plus-hint .ng-icon { width: 18px; height: 18px; }
-.sticker-content { font-size: 64px; line-height: 1; padding: 2px 0; }
-.sticker-picker-item-img { padding: 4px; }
-.sticker-picker-item-img img { width: 100%; height: 100%; object-fit: contain; }
-.sticker-content-img img { width: 128px; height: 128px; object-fit: contain; display: block; }
-
 .ai-quick-suggestions {
   display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 10px;
 }
@@ -2078,74 +2048,6 @@ video:fullscreen { background: #000; object-fit: contain; }
   33%  { box-shadow: 0 0 0 3px #fff6d8, 0 0 26px rgba(255,255,255,0.9); }
   66%  { box-shadow: 0 0 0 3px #ffb347, 0 0 22px rgba(255,179,71,0.8); }
   100% { box-shadow: 0 0 0 3px #ffd76b, 0 0 20px rgba(255,215,107,0.75); }
-}
-
-/* MOLDURAS DOS TEMAS DE COR DO NEXTGAME PLUS — anel estático (sem animação,
-   diferente das molduras de recompensa acima) na cor escolhida. Se a pessoa
-   tiver as duas (moldura ganha por streak + tema PLUS), a animação da
-   moldura ganha precedência visual sozinha, sem precisar de lógica extra. */
-.avatar-plus-nebula    { box-shadow: 0 0 0 3px #9146ff, 0 0 10px rgba(145,70,255,0.55); }
-.avatar-plus-electric  { box-shadow: 0 0 0 3px #00b4ff, 0 0 10px rgba(0,180,255,0.55); }
-.avatar-plus-mint      { box-shadow: 0 0 0 3px #00e6a8, 0 0 10px rgba(0,230,168,0.55); }
-.avatar-plus-pink      { box-shadow: 0 0 0 3px #ff4fa3, 0 0 10px rgba(255,79,163,0.55); }
-.avatar-plus-sunset    { box-shadow: 0 0 0 3px #ff9f43, 0 0 10px rgba(255,159,67,0.55); }
-.avatar-plus-fire      { box-shadow: 0 0 0 3px #ff4757, 0 0 10px rgba(255,71,87,0.55); }
-.avatar-plus-gold      { box-shadow: 0 0 0 3px #ffd93d, 0 0 10px rgba(255,217,61,0.55); }
-.avatar-plus-ice       { box-shadow: 0 0 0 3px #7ee8ff, 0 0 10px rgba(126,232,255,0.55); }
-.avatar-plus-platinum  { box-shadow: 0 0 0 3px #e8e8ec, 0 0 10px rgba(232,232,236,0.45); }
-
-.plus-theme-swatches { display: flex; flex-wrap: wrap; gap: 10px; }
-.plus-theme-swatch {
-  width: 40px; height: 40px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; color: white; padding: 0;
-  transition: transform 0.12s ease, border-color 0.15s ease;
-}
-.plus-theme-swatch .ng-icon { width: 16px; height: 16px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6)); }
-.plus-theme-swatch:hover { transform: scale(1.08); }
-.plus-theme-swatch.active { border-color: white; }
-.plus-theme-swatch-reset { background: #26272e; border: 1px solid #4a4d56; color: #9aa0ab; }
-.plus-theme-swatch-special { animation: plusOfficialSwatchPulse 2s ease-in-out infinite; }
-@keyframes plusOfficialSwatchPulse {
-  0%, 100% { box-shadow: 0 0 0 2px rgba(47,125,255,0.8), 0 0 10px rgba(47,125,255,0.5); }
-  50%      { box-shadow: 0 0 0 2px #ffffff, 0 0 16px rgba(255,255,255,0.85); }
-}
-
-/* ---------- TEMA "NEXTGAME OFICIAL" — o mais completo dos temas do PLUS,
-   com efeito animado de verdade (não é só cor sólida) no nome, moldura do
-   avatar, bolha de DM e banner do perfil. Mesmas cores da marca (azul/branco). */
-.plus-name-special {
-  background: linear-gradient(90deg, #2f7dff, #ffffff, #2f7dff);
-  background-size: 200% auto;
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: plusOfficialNameShine 2.5s linear infinite;
-}
-@keyframes plusOfficialNameShine {
-  0%   { background-position: 0% center; }
-  100% { background-position: 200% center; }
-}
-.avatar-plus-official { animation: plusOfficialRing 2.2s ease-in-out infinite; }
-@keyframes plusOfficialRing {
-  0%, 100% { box-shadow: 0 0 0 3px #2f7dff, 0 0 12px rgba(47,125,255,0.65); }
-  50%      { box-shadow: 0 0 0 3px #ffffff, 0 0 20px rgba(255,255,255,0.9); }
-}
-.dm-bubble-official-shimmer, .plus-theme-official-active .dm-message-own .content {
-  background-size: 250% 250% !important;
-  animation: plusOfficialBubbleShimmer 3s ease infinite;
-}
-@keyframes plusOfficialBubbleShimmer {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-.profile-banner-official-shimmer::after {
-  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
-  background-size: 200% 200%;
-  animation: plusOfficialBannerSweep 2.8s ease-in-out infinite;
-}
-@keyframes plusOfficialBannerSweep {
-  0%   { background-position: 200% 0%; }
-  100% { background-position: -50% 0%; }
 }
 
 /* SERVIDOR: CONVITE, MEMBROS, CARGOS */
