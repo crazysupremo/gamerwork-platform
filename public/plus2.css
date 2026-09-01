@@ -368,11 +368,16 @@
 /* Fundo personalizado — deixa os painéis de cor sólida um pouco translúcidos
    só quando tem um fundo diferente do padrão ativo, senão a camada de fundo
    (#plus2-bg-layer, position:fixed atrás de tudo) nunca apareceria. */
+/* SEM backdrop-filter aqui de propósito — esse filtro cria um "stacking
+   context" novo no elemento, e isso prendia o menu dropdown do chip de
+   perfil (#footer-more-menu, de onde se chega no NEXTGAME PLUS e no Admin)
+   atrás do resto da página, tornando ele invisível/impossível de clicar. Só
+   a cor translúcida já dá o efeito de "ver o fundo por trás", sem esse risco. */
 body.pv2-custom-bg-active { background: transparent !important; }
-body.pv2-custom-bg-active .app-sidebar { background: rgba(14,15,19,0.86) !important; backdrop-filter: blur(8px); }
-body.pv2-custom-bg-active .top-navbar { background: rgba(14,15,19,0.86) !important; backdrop-filter: blur(8px); }
-body.pv2-custom-bg-active .main { background: rgba(32,33,39,0.88) !important; backdrop-filter: blur(8px); }
-body.pv2-custom-bg-active .sidebar { background: rgba(26,27,32,0.88) !important; backdrop-filter: blur(8px); }
+body.pv2-custom-bg-active .app-sidebar { background: rgba(14,15,19,0.9) !important; }
+body.pv2-custom-bg-active .top-navbar { background: rgba(14,15,19,0.9) !important; }
+body.pv2-custom-bg-active .main { background: rgba(32,33,39,0.92) !important; }
+body.pv2-custom-bg-active .sidebar { background: rgba(26,27,32,0.92) !important; }
 @keyframes pv2LiveWaves { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
 /* Brilho nos botões — só nos botões principais de call-to-action. */

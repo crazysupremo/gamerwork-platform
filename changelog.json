@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.19.1",
+    "date": "2026-09-01",
+    "changes": [
+      "URGENTE: corrigido o menu do seu nome (chip de perfil no topo) ficando impossível de clicar — acontecia quando um fundo personalizado diferente do padrão estava ativo em Configurações → NEXTGAME PLUS → Fundos. Era o efeito de desfoque no fundo do menu criando um bug de sobreposição que escondia o menu atrás do resto da página."
+    ]
+  },
+  {
     "version": "0.19.0",
     "date": "2026-09-01",
     "changes": [
