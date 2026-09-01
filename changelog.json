@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.19.2",
+    "date": "2026-09-01",
+    "changes": [
+      "URGENTE: desliguei o fundo personalizado (Configurações → NEXTGAME PLUS → Fundos) aparecer no site — estava renderizando como um bloco duro cobrindo parte da tela em vez de ficar sutil atrás do conteúdo. A escolha continua salva, só não é mais desenhada até isso ser refeito com mais cuidado. Tema, efeitos (brilho/glow/gradiente na barra lateral/transições), badge, banner e personalização do chat continuam funcionando normalmente."
+    ]
+  },
+  {
     "version": "0.19.1",
     "date": "2026-09-01",
     "changes": [

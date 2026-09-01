@@ -694,6 +694,9 @@
       panelBackgrounds.appendChild(el('p', { class: 'pv2-section-hint' }, [
         'Escolha o fundo do app inteiro: cor sólida, gradiente, imagem, GIF animado ou um efeito ao vivo (partículas, ondas).',
       ]));
+      panelBackgrounds.appendChild(el('div', { class: 'pv2-locked-note' }, [
+        '🚧 Sua escolha fica salva, mas por enquanto ainda não muda o fundo do site — estamos ajustando essa parte com mais cuidado antes de ligar de novo.',
+      ]));
 
       const layout = el('div', { class: 'pv2-bg-layout' });
       const controls = el('div', { class: 'pv2-bg-controls' });

@@ -72,58 +72,20 @@
   }
 
   // ---------------- Fundo personalizado ----------------
-  // Cores/gradiente/imagem/GIF/efeito viram uma camada fixa atrás de tudo.
-  // Os painéis principais (barra lateral, topo, área de conteúdo) ficam um
-  // pouco translúcidos só quando um fundo diferente do padrão está ativo —
-  // senão o fundo nunca apareceria por trás deles (todos têm cor sólida).
+  // DESLIGADO por enquanto (v0.19.2) — a camada de fundo cheia da página
+  // causou dois bugs visuais reais seguidos em produção (menu ficando preso
+  // atrás da página, e o fundo aparecendo como um bloco duro em vez de algo
+  // sutil por trás do conteúdo) e, sem conseguir testar num navegador de
+  // verdade, o risco de continuar iterando às cegas é maior que o ganho.
+  // A escolha de fundo continua sendo salva normalmente (nada se perde), só
+  // não é mais desenhada na página até isso ser revisado com calma.
   function applyBackground(bg, prefs) {
-    prefs = prefs || { opacity: 100, blur: 0 };
-    let layer = document.getElementById('plus2-bg-layer');
-    if (!layer) {
-      layer = document.createElement('div');
-      layer.id = 'plus2-bg-layer';
-      layer.style.cssText = 'position:fixed; inset:0; z-index:-1; pointer-events:none;';
-      document.body.insertBefore(layer, document.body.firstChild);
-    }
-    stopParticles();
-    layer.innerHTML = '';
-    layer.style.background = '';
-    layer.style.backgroundImage = '';
-    layer.style.animation = '';
-
-    const isDefault = !bg || bg.key === 'bg-solid-dark';
-    let showsParticlesFromBg = false;
-
-    if (bg) {
-      if (bg.type === 'solid') {
-        layer.style.background = bg.value;
-      } else if (bg.type === 'gradient') {
-        const parts = bg.value.split(',');
-        layer.style.background = `linear-gradient(${parts[2] || 135}deg, ${parts[0]}, ${parts[1]})`;
-      } else if ((bg.type === 'image' || bg.type === 'gif') && !bg.value.startsWith('placeholder:')) {
-        layer.style.backgroundImage = `url("${bg.value}")`;
-        layer.style.backgroundSize = 'cover';
-        layer.style.backgroundPosition = 'center';
-      } else if (bg.type === 'effect') {
-        layer.style.background = '#0e0f13';
-        if (bg.value === 'waves') {
-          layer.style.background = 'linear-gradient(120deg, #12c2a9, #7d5fff, #12c2a9)';
-          layer.style.backgroundSize = '220% 220%';
-          layer.style.animation = 'pv2LiveWaves 6s ease infinite';
-        } else if (bg.value === 'particles') {
-          showsParticlesFromBg = true;
-        }
-      }
-    }
-
-    layer.style.opacity = String(Math.max(0, Math.min(100, prefs.opacity != null ? prefs.opacity : 100)) / 100);
-    layer.style.filter = prefs.blur ? `blur(${prefs.blur}px)` : '';
-
-    document.body.classList.toggle('pv2-custom-bg-active', !isDefault);
-
     state.background = bg;
-    state._bgParticlesRequested = showsParticlesFromBg;
-    refreshParticleLayer(layer);
+    document.body.classList.remove('pv2-custom-bg-active');
+    const layer = document.getElementById('plus2-bg-layer');
+    if (layer) layer.remove();
+    stopParticles();
+    state._bgParticlesRequested = false;
   }
 
   function refreshParticleLayer(layer) {
