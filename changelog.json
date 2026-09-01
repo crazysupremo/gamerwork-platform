@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.19.5",
+    "date": "2026-09-01",
+    "changes": [
+      "Figurinhas agora podem ser enviadas de verdade no chat! Antes só dava pra escolher pacotes em Configurações → NEXTGAME PLUS → Figurinhas — faltava o botão de enviar dentro da própria conversa. Adicionado um botão de figurinha ao lado do anexo de arquivo, na caixa de mensagem, com os mesmos pacotes configurados no admin."
+    ]
+  },
+  {
     "version": "0.19.4",
     "date": "2026-09-01",
     "changes": [

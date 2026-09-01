@@ -6371,6 +6371,10 @@ function messagesContainerFor(channelId) {
 // nenhum estado de "sessão de jogo" pra gerenciar, de propósito, pra não
 // duplicar o sistema de LFG/matchmaking que já existe em outro lugar do app.
 const GAME_INVITE_PREFIX = '__GAME_INVITE__::';
+// Figurinha (Personalização/Plus V2) = um emoji grande ou uma imagem sozinha
+// na mensagem, estilo WhatsApp/Telegram — mesmo truque do convite de jogo, um
+// prefixo no próprio texto, sem precisar de tabela nova no banco.
+const STICKER_PREFIX = '__STICKER__::';
 // Texto amigável pra prévias (lista de conversas, "última mensagem") —
 // esconde o formato interno do convite de jogo atrás de um resumo legível.
 // Aceita tanto uma string de conteúdo quanto o objeto de mensagem inteiro
@@ -6380,6 +6384,10 @@ function messagePreviewText(msgOrContent) {
   const content = isObj ? msgOrContent.content : msgOrContent;
   const attachment = isObj ? msgOrContent.attachment : null;
   if (content && content.startsWith(GAME_INVITE_PREFIX)) return '🎮 Convite pra jogar';
+  if (content && content.startsWith(STICKER_PREFIX)) {
+    const payload = content.slice(STICKER_PREFIX.length);
+    return payload.startsWith('img:') ? '🖼️ Figurinha' : `${payload} Figurinha`;
+  }
   // BUG CORRIGIDO: mensagem que era só um link (convite de servidor, por
   // exemplo) aparecia crua e enorme na prévia da lista de conversas,
   // estourando a largura da coluna. Mostra um resumo curto em vez do link.
@@ -6390,6 +6398,14 @@ function messagePreviewText(msgOrContent) {
 }
 
 function renderMessageContentHtml(msg) {
+  if (msg.content.startsWith(STICKER_PREFIX)) {
+    const payload = msg.content.slice(STICKER_PREFIX.length);
+    if (payload.startsWith('img:')) {
+      const src = payload.slice(4);
+      return `<div class="content pv2-sticker-msg pv2-sticker-msg-img"><img src="${escapeHtml(src)}" alt="Figurinha" /></div>`;
+    }
+    return `<div class="content pv2-sticker-msg">${escapeHtml(payload)}</div>`;
+  }
   if (msg.content.startsWith(GAME_INVITE_PREFIX)) {
     let payload;
     try {
@@ -6855,6 +6871,106 @@ async function uploadAttachmentFile(file, onProgress) {
 document.getElementById('btn-attach-file').onclick = () => {
   document.getElementById('message-attachment-input').click();
 };
+
+// ---------- FIGURINHAS NO CHAT (Personalização/Plus V2) ----------
+// O painel de Configurações → NEXTGAME PLUS → Figurinhas só deixa ESCOLHER
+// quais pacotes existem; enviar de verdade acontece aqui, no formulário de
+// mensagem, igual ao antigo sistema de figurinhas de antes.
+(function initStickerPicker() {
+  const btn = document.getElementById('btn-sticker-picker');
+  const picker = document.getElementById('pv2-sticker-picker');
+  if (!btn || !picker) return;
+
+  let stickersData = null;
+  let activePackId = null;
+
+  async function loadStickers() {
+    picker.innerHTML = '<p class="pv2-sticker-picker-loading">Carregando…</p>';
+    try {
+      const res = await fetch('/api/plus2/stickers', { credentials: 'include' });
+      if (!res.ok) throw new Error('Erro ' + res.status);
+      stickersData = await res.json();
+      renderPicker();
+    } catch (err) {
+      picker.innerHTML = '<p class="pv2-sticker-picker-loading">Não deu pra carregar as figurinhas agora.</p>';
+      console.error('Erro ao carregar figurinhas:', err);
+    }
+  }
+
+  function renderPicker() {
+    if (!stickersData || !stickersData.packs || !stickersData.packs.length) {
+      picker.innerHTML = '<p class="pv2-sticker-picker-loading">Nenhum pacote de figurinha disponível ainda.</p>';
+      return;
+    }
+    if (!activePackId || !stickersData.packs.some((p) => p.id === activePackId)) {
+      activePackId = stickersData.packs[0].id;
+    }
+    const activePack = stickersData.packs.find((p) => p.id === activePackId);
+
+    picker.innerHTML = '';
+    const tabs = document.createElement('div');
+    tabs.className = 'pv2-sticker-picker-tabs';
+    stickersData.packs.forEach((pack) => {
+      const tabBtn = document.createElement('button');
+      tabBtn.type = 'button';
+      tabBtn.className = 'pv2-sticker-picker-tab' + (pack.id === activePackId ? ' active' : '');
+      tabBtn.textContent = pack.name + (pack.locked ? ' 🔒' : '');
+      tabBtn.onclick = () => { activePackId = pack.id; renderPicker(); };
+      tabs.appendChild(tabBtn);
+    });
+    picker.appendChild(tabs);
+
+    const grid = document.createElement('div');
+    grid.className = 'pv2-sticker-picker-grid';
+    (activePack.stickers || []).forEach((s) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'pv2-sticker-picker-item' + (activePack.locked ? ' locked' : '');
+      item.title = activePack.locked ? 'Exclusivo NEXTGAME PLUS' : 'Enviar';
+      if (s.type === 'image') {
+        const img = document.createElement('img');
+        img.src = s.content;
+        img.alt = '';
+        item.appendChild(img);
+      } else {
+        item.textContent = s.content;
+      }
+      item.onclick = () => sendSticker(s, activePack);
+      grid.appendChild(item);
+    });
+    picker.appendChild(grid);
+
+    if (!stickersData.isPlusUser) {
+      const cta = document.createElement('div');
+      cta.className = 'pv2-sticker-picker-cta';
+      cta.textContent = '✨ Pacotes exclusivos com NEXTGAME PLUS';
+      picker.appendChild(cta);
+    }
+  }
+
+  function sendSticker(sticker, pack) {
+    if (pack.locked) {
+      showCopyToast('🔒 Pacote "' + pack.name + '" é exclusivo do NEXTGAME PLUS');
+      return;
+    }
+    if (!currentChannel) return;
+    const payload = sticker.type === 'image' ? 'img:' + sticker.content : sticker.content;
+    socket.emit('chat:message', { channelId: currentChannel.id, content: STICKER_PREFIX + payload });
+    picker.classList.add('hidden');
+  }
+
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const opening = picker.classList.contains('hidden');
+    picker.classList.toggle('hidden');
+    if (opening && !stickersData) loadStickers();
+  };
+  document.addEventListener('click', (e) => {
+    if (!picker.classList.contains('hidden') && !picker.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+      picker.classList.add('hidden');
+    }
+  });
+})();
 
 // ---------- SUGESTÕES RÁPIDAS DA IA ----------
 // Só aparece na conversa com a NEXT GAME IA — cada botão manda uma mensagem
