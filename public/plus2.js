@@ -517,17 +517,25 @@
       if (profileSubTab === 'banner') {
         content.appendChild(el('div', { class: 'pv2-section-title', style: 'font-size:13px;margin-bottom:4px;' }, ['Sua própria imagem']));
         const uploadRow = el('div', { class: 'pv2-upload-row' });
-        const fileInput = el('input', { type: 'file', accept: 'image/*', style: 'display:none;' });
-        const uploadBtn = el('button', {
-          class: 'pv2-upload-btn', type: 'button',
+        // O input de arquivo fica DENTRO do <label> em vez de escondido em
+        // outro lugar e "clicado" via JavaScript — clicar num <label>
+        // associado sempre abre o seletor nativo em qualquer navegador, sem
+        // depender de um .click() disparado por script.
+        const fileInput = el('input', {
+          type: 'file', accept: 'image/*',
           disabled: data.isPlusUser ? undefined : 'disabled',
-          onclick: () => fileInput.click(),
-        }, [data.isPlusUser ? '📤 Enviar minha foto' : '🔒 Enviar minha foto (PLUS)']);
+          style: 'position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;',
+        });
+        const uploadBtnLabel = el('span', {}, [data.isPlusUser ? '📤 Enviar minha foto' : '🔒 Enviar minha foto (PLUS)']);
+        const uploadBtn = el('label', {
+          class: 'pv2-upload-btn', style: `display:inline-flex; align-items:center; ${data.isPlusUser ? 'cursor:pointer;' : 'cursor:not-allowed; opacity:0.5;'}`,
+        }, [fileInput, uploadBtnLabel]);
         fileInput.addEventListener('change', async () => {
           const file = fileInput.files && fileInput.files[0];
           if (!file) return;
-          uploadBtn.disabled = true;
-          uploadBtn.textContent = 'Enviando…';
+          fileInput.disabled = true;
+          uploadBtn.style.opacity = '0.6';
+          uploadBtnLabel.textContent = 'Enviando…';
           try {
             const url = await adapter.uploadBannerImage(file);
             data.current.customBannerUrl = url;
@@ -537,11 +545,11 @@
           } catch (err) {
             if (opts.onUploadError) opts.onUploadError(err);
           } finally {
-            uploadBtn.disabled = false;
-            uploadBtn.textContent = '📤 Enviar minha foto';
+            fileInput.disabled = false;
+            uploadBtn.style.opacity = '';
+            uploadBtnLabel.textContent = '📤 Enviar minha foto';
           }
         });
-        uploadRow.appendChild(fileInput);
         uploadRow.appendChild(uploadBtn);
         if (data.current.customBannerUrl) {
           uploadRow.appendChild(el('div', { class: 'pv2-upload-preview selected', style: `background-image:url(${data.current.customBannerUrl});` }));

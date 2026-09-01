@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.19.4",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido: botão \"Enviar várias figurinhas de uma vez\" (admin) e \"Enviar minha foto\" (banner de perfil) não abriam o seletor de arquivo em alguns navegadores — trocado o jeito de abrir o seletor por um mais confiável",
+      "Se o envio de figurinhas falhar por completo, agora mostra um aviso claro explicando o motivo mais provável (upload de imagem não configurado no servidor)"
+    ]
+  },
+  {
     "version": "0.19.3",
     "date": "2026-09-01",
     "changes": [

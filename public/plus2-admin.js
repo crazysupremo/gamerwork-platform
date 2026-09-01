@@ -362,14 +362,22 @@
         packCard.appendChild(addRow);
 
         // ---- envio em massa: escolhe várias imagens de uma vez e sobe tudo,
-        // criando uma figurinha pra cada uma automaticamente. ----
+        // criando uma figurinha pra cada uma automaticamente.
+        //
+        // O input de arquivo fica DENTRO do <label> (em vez de escondido em
+        // outro lugar e "clicado" por JavaScript) — clicar num <label>
+        // associado sempre abre o seletor nativo, em qualquer navegador, sem
+        // depender de um .click() disparado por script (que em alguns casos
+        // não abre o seletor de forma confiável). ----
         const bulkRow = el('div', { class: 'pv2a-create-row', style: 'margin-top:10px;padding-top:10px;border-top:1px solid #24252c;' });
-        const bulkInput = el('input', { type: 'file', accept: 'image/*', multiple: 'multiple', style: 'display:none;' });
+        const bulkInput = el('input', {
+          type: 'file', accept: 'image/*', multiple: 'multiple',
+          style: 'position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;',
+        });
         const bulkStatus = el('span', { style: 'font-size:11.5px;color:#9aa0ab;' }, ['']);
-        const bulkBtn = el('button', {
-          class: 'pv2a-btn pv2a-btn-small', type: 'button',
-          onclick: () => bulkInput.click(),
-        }, ['📦 Enviar várias figurinhas de uma vez']);
+        const bulkBtn = el('label', {
+          class: 'pv2a-btn pv2a-btn-small', style: 'display:inline-flex; align-items:center; cursor:pointer;',
+        }, [bulkInput, '📦 Enviar várias figurinhas de uma vez']);
         bulkInput.addEventListener('change', async () => {
           const files = Array.from(bulkInput.files || []);
           if (!files.length) return;
@@ -377,11 +385,14 @@
             showAdminToast('Envio em massa não disponível nesse adapter.');
             return;
           }
-          bulkBtn.disabled = true;
+          bulkInput.disabled = true;
+          bulkBtn.style.opacity = '0.6';
+          bulkBtn.style.pointerEvents = 'none';
           let done = 0;
           let failed = 0;
+          const failedNames = [];
           for (const file of files) {
-            bulkStatus.textContent = `Enviando ${done + 1}/${files.length}…`;
+            bulkStatus.textContent = `Enviando ${done + failed + 1}/${files.length}…`;
             try {
               const url = await adapter.uploadStickerImage(file);
               const stickerData = { type: 'image', content: url };
@@ -390,12 +401,21 @@
               done++;
             } catch (err) {
               failed++;
+              failedNames.push(file.name);
               console.error('Erro ao enviar figurinha:', file.name, err);
             }
           }
           bulkStatus.textContent = '';
-          bulkBtn.disabled = false;
+          bulkInput.disabled = false;
+          bulkBtn.style.opacity = '';
+          bulkBtn.style.pointerEvents = '';
           bulkInput.value = '';
+          // Erro visível de verdade (não só um toast que passa rápido) — se
+          // TUDO falhou, o motivo mais comum é o upload de arquivo não estar
+          // configurado no servidor (variáveis de ambiente do R2/S3).
+          if (failed > 0 && done === 0) {
+            alert('Nenhuma figurinha foi enviada. Erro: upload de imagem pode não estar configurado no servidor (variáveis do R2/S3 no Render). Arquivos que falharam: ' + failedNames.join(', '));
+          }
           renderPacks();
           showAdminToast(`${done} figurinha(s) adicionada(s)` + (failed ? `, ${failed} falhou/falharam` : '') + ' ✓');
         });
