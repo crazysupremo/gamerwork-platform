@@ -863,7 +863,26 @@ function startApp() {
     const inviteCode = params.get('invite');
     if (inviteCode) await joinWithInviteCode(inviteCode);
 
-    await loadChannels();
+    // BUG CORRIGIDO ("servidores somem até relogar"): esse bloco não tinha
+    // nenhum try/catch — se loadChannels() falhasse por qualquer motivo
+    // passageiro (ex: servidor do Render ainda terminando de acordar logo
+    // depois de um deploy novo), a exceção parava TUDO que vinha depois,
+    // inclusive goHome()/renderCategories() — a sidebar de servidores
+    // ficava vazia pro resto da sessão, só resolvendo com um relogin (que
+    // roda esse bloco de novo do zero). Agora tenta de novo uma vez antes
+    // de desistir, e nunca trava o resto da inicialização por causa disso.
+    try {
+      await loadChannels();
+    } catch (err) {
+      console.error('Erro ao carregar canais/servidores, tentando de novo:', err);
+      try {
+        await new Promise((r) => setTimeout(r, 1500));
+        await loadChannels();
+      } catch (err2) {
+        console.error('Erro ao carregar canais/servidores na segunda tentativa:', err2);
+        showCopyToast('Não deu pra carregar seus servidores agora — tenta recarregar a página.');
+      }
+    }
 
     const inviteChannelId = params.get('channel');
     const target = inviteChannelId && allChannels.find((c) => c.id === inviteChannelId);

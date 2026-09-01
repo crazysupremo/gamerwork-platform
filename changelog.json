@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.16.3",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido a lista de Servidores ficando vazia logo após um deploy novo, só resolvendo com relogin — agora tenta carregar de novo automaticamente antes de desistir"
+    ]
+  },
+  {
     "version": "0.16.2",
     "date": "2026-09-01",
     "changes": [
