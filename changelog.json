@@ -1,5 +1,220 @@
 [
   {
+    "version": "0.16.2",
+    "date": "2026-09-01",
+    "changes": [
+      "Chamada de voz agora pode usar um servidor TURN próprio de verdade (metered.ca) em vez do relay público compartilhado — configure METERED_DOMAIN e METERED_API_KEY no Render"
+    ]
+  },
+  {
+    "version": "0.16.1",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido a tela ficando meio apagada/estranha logo após conectar, precisando relogar pra normalizar — o vídeo de abertura da logo podia rodar duas vezes e travar num meio-termo de opacidade"
+    ]
+  },
+  {
+    "version": "0.16.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Revertido o sistema de voz/vídeo/tela pro modelo anterior (P2P direto entre participantes) — voltou como estava antes da tentativa com o LiveKit"
+    ]
+  },
+  {
+    "version": "0.15.2",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido a chamada de voz conectando e caindo na hora: o token de acesso expirava em 10 minutos (curto demais), e uma conexão anterior mal-fechada podia derrubar a nova tentativa por identidade duplicada — agora limpa qualquer conexão presa antes de tentar de novo, e o token dura 24h"
+    ]
+  },
+  {
+    "version": "0.15.1",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido de vez a tela presa no logo carregando: as travas de segurança escondiam o spinner só quando iam mostrar a tela de login — se o app já tivesse carregado mas algo pequeno travasse logo depois, o spinner ficava preso tampando o app pronto por baixo. Agora o spinner sempre some, não importa o que aconteça"
+    ]
+  },
+  {
+    "version": "0.15.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Sistema de voz/vídeo/tela reconstruído do zero em cima do LiveKit (servidor de mídia profissional) — substitui o P2P direto antigo, que só aguentava poucas pessoas por sala. Agora aguenta até 40 pessoas na mesma sala de voz, com reconexão automática de verdade e sem o bug de \"não me ouve\" ao entrar numa call em andamento",
+      "Precisa configurar LIVEKIT_URL, LIVEKIT_API_KEY e LIVEKIT_API_SECRET nas variáveis de ambiente do Render (conta grátis em livekit.io) pra voz funcionar"
+    ]
+  },
+  {
+    "version": "0.14.2",
+    "date": "2026-09-01",
+    "changes": [
+      "Trava de segurança extra contra a tela de carregamento presa, direto no HTML — funciona mesmo que algum script trave em algum outro lugar do app",
+      "Teste de microfone agora sempre libera o dispositivo antes de entrar numa chamada de voz de verdade, mesmo se o teste tiver ficado aberto"
+    ]
+  },
+  {
+    "version": "0.14.1",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido chamada de voz sem áudio ao entrar numa sala que já tem gente: o microfone agora é pedido antes de qualquer outra coisa, e quem já está na sala espera seu mic ficar pronto antes de montar a conexão — antes, às vezes a primeira negociação saía sem áudio dos dois lados"
+    ]
+  },
+  {
+    "version": "0.14.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido o bug de verdade do login: um erro secundário (qualquer coisa, mesmo sem relação com sessão) que acontecesse LOGO DEPOIS de entrar reexibia a tela de login por cima do app já carregado — empilhava as duas telas (por isso precisava rolar pra baixo) e parecia ter deslogado, mesmo com a sessão ainda válida"
+    ]
+  },
+  {
+    "version": "0.13.1",
+    "date": "2026-08-31",
+    "changes": [
+      "Revertido os banners de seção (Início, Servidores, Amigos, Jogar, NEXTGAME PLUS) — voltou pro visual de antes"
+    ]
+  },
+  {
+    "version": "0.13.0",
+    "date": "2026-08-31",
+    "changes": [
+      "Banner do pacote de marca NEXTGAME agora é o hero da tela de Início, com os selos de confiança (BlueX, monitoramento, IA) igual a tela de login",
+      "Banners de seção adicionados: Servidores em Destaque, Amigos e o modal Jogar",
+      "NEXTGAME PLUS ganhou a arte do banner oficial no fundo do card de assinatura"
+    ]
+  },
+  {
+    "version": "0.12.0",
+    "date": "2026-08-31",
+    "changes": [
+      "Corrigido as figurinhas recortadas — estavam com fundo preto quadrado em vez de transparente, agora aparecem soltas igual figurinha de verdade",
+      "Nova recuperação de senha: 'Esqueceu a senha?' agora manda um link de troca por e-mail (usa a mesma infraestrutura de e-mail da confirmação de cadastro — sem domínio verificado configurado, o link fica registrado no servidor em vez de chegar por e-mail)"
+    ]
+  },
+  {
+    "version": "0.11.1",
+    "date": "2026-08-31",
+    "changes": [
+      "Trava de segurança contra tela presa no logo carregando pra sempre: requisição de sessão agora tem limite de 8s (não fica esperando sem fim se o servidor engasgar) e, no pior caso, depois de 12s o site força a tela de login a aparecer em vez de travar"
+    ]
+  },
+  {
+    "version": "0.11.0",
+    "date": "2026-08-31",
+    "changes": [
+      "Novo tema \"NEXTGAME Oficial\" no PLUS — o mais completo: além da cor da marca (azul/branco), tem efeito animado de brilho no nome, moldura do avatar, bolha de DM e banner do perfil",
+      "Figurinhas de verdade (PNG) adicionadas ao chat — recortadas do pacote de marca NEXTGAME (GG, Nice!, Fogo, Let's Go, coração, joinha, LOL, troféu, logo)",
+      "Corrigido bug de logout indevido: 'Continuar conectado' não apagava mais a sessão à toa quando o servidor demorava a responder (ex: acordando do modo economia do Render) — agora só desloga de verdade numa sessão realmente expirada"
+    ]
+  },
+  {
+    "version": "0.10.0",
+    "date": "2026-08-31",
+    "changes": [
+      "NEXTGAME PLUS ganhou 9 temas de cor prontos — muda de uma vez o nome no chat, a moldura do avatar, a bolha das DMs, o banner do perfil e os detalhes do próprio app",
+      "Banner do perfil agora reflete o tema escolhido pra quem é PLUS",
+      "Pacote de figurinhas extra (💎🚀⚡🐐🫡🎯🥇💪) exclusivo de quem tem PLUS"
+    ]
+  },
+  {
+    "version": "0.9.1",
+    "date": "2026-08-31",
+    "changes": [
+      "NEXTGAME PLUS agora mora dentro de Configurações, com banner de destaque e cards de vantagens (igual a área de assinatura do Discord)",
+      "Removido o modal separado antigo do NEXTGAME PLUS — todo mundo que clicava nele agora cai direto na aba nova"
+    ]
+  },
+  {
+    "version": "0.9.0",
+    "date": "2026-08-31",
+    "changes": [
+      "Corrigido os quadrados brancos ao lado do seu nome no topo do chat (ícone de servidor que faltava)",
+      "IA do chat agora mostra \"digitando...\" enquanto pensa na resposta",
+      "Conversa com a IA ganhou sugestões rápidas (mudar status, ver recompensas, procurar jogadores, criar evento)",
+      "Novo botão de figurinhas no chat — igual WhatsApp, com pacote de emojis grandes para mandar na conversa"
+    ]
+  },
+  {
+    "version": "0.8.1",
+    "date": "2026-08-30",
+    "changes": [
+      "Amigos e Mensagens remodelado: cards mais arredondados, com sombra/destaque ao passar o mouse",
+      "Botões de ação (mensagem, ligar, aceitar, recusar) viraram círculos que reagem ao interagir",
+      "Abas de Amigos (Todos/Online/Pendentes) ganharam visual em pílula, mais claro qual está selecionada"
+    ]
+  },
+  {
+    "version": "0.8.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Painel admin: erros agora podem ser diagnosticados por IA (causa provável + sugestão de correção) — a IA só sugere, ninguém aplica nada sozinho em produção",
+      "Tela de login mostra selos de confiança (Proteção BlueX, Monitoramento de erros, Suporte com IA)"
+    ]
+  },
+  {
+    "version": "0.7.1",
+    "date": "2026-08-30",
+    "changes": [
+      "Confirmação de e-mail desligada de novo por enquanto (ainda sem domínio configurado no Resend para enviar de verdade)"
+    ]
+  },
+  {
+    "version": "0.7.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Confirmação de e-mail no cadastro reativada — conta nova recebe um código de 6 dígitos e fica bloqueada até confirmar"
+    ]
+  },
+  {
+    "version": "0.6.5",
+    "date": "2026-08-30",
+    "changes": [
+      "Corrigido campos de busca (Amigos, Conversas, Adicionar amigo) que apareciam como quadrado branco padrão do navegador — agora seguem o mesmo visual escuro arredondado da busca do topo"
+    ]
+  },
+  {
+    "version": "0.6.4",
+    "date": "2026-08-30",
+    "changes": [
+      "Conversas diretas (DM) agora aparecem em balõezinho — sua mensagem à direita em roxo, da outra pessoa à esquerda em cinza",
+      "Campo de digitar e botão de enviar mais arredondados e modernos",
+      "Corrigido nome duplicado no topo da conversa (\"# 💬 nome\" virou só o nome)"
+    ]
+  },
+  {
+    "version": "0.6.3",
+    "date": "2026-08-30",
+    "changes": [
+      "Espaço da lista de Servidores na barra lateral aumentado",
+      "Amigos remodelado: abas Todos/Online/Pendentes com contagem real e busca"
+    ]
+  },
+  {
+    "version": "0.6.2",
+    "date": "2026-08-30",
+    "changes": [
+      "Corrigido o menu do chip de perfil (topo direito) — abria e fechava no mesmo clique, agora funciona"
+    ]
+  },
+  {
+    "version": "0.6.1",
+    "date": "2026-08-30",
+    "changes": [
+      "Corrigido bug que fazia Membros/Servidores/Torneios aparecerem como \"undefined\" na Início",
+      "Servidores movido pra logo abaixo do Chat na barra lateral, em vez de ficar escondido no fim",
+      "Menu de perfil (editar perfil, NEXTGAME PLUS, admin, sair) consolidado no chip do topo — removido do canto inferior esquerdo"
+    ]
+  },
+  {
+    "version": "0.6.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Início remodelada: banner principal maior com a arte do NEXT GAME, botão \"+ Criar\" na barra de topo, estatísticas com tendência real da semana",
+      "Nova seção \"Eventos em Destaque\" na Início",
+      "Novo recurso: Jogos Salvos — sua biblioteca pessoal de jogos favoritos",
+      "Cards de servidor e \"Jogando Agora\" com visual mais rico",
+      "Sala de voz ganhou um cartão de destaque no topo com o nome e as tags da sala",
+      "Chip de perfil também no topo da tela, além do rodapé da barra lateral"
+    ]
+  },
+  {
     "version": "0.5.0",
     "date": "2026-08-30",
     "changes": [

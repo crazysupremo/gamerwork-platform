@@ -72,4 +72,30 @@ function generateVerificationCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-module.exports = { sendEmail, sendVerificationEmail, generateVerificationCode };
+async function sendPasswordResetEmail(to, resetUrl, username) {
+  const safeUsername = String(username || '').slice(0, 60);
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 420px; margin: 0 auto; padding: 24px; background:#1e1f22; color:#e6e6e6; border-radius: 12px;">
+      <h2 style="color:#5865f2; margin-top:0;">NEXT GAME</h2>
+      <p>Oi${safeUsername ? ', ' + safeUsername : ''}! Pediram pra trocar a senha dessa conta. Clique no botão abaixo pra escolher uma nova:</p>
+      <p style="text-align:center; margin: 24px 0;">
+        <a href="${resetUrl}" style="background:#5865f2; color:white; text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:700; display:inline-block;">Trocar minha senha</a>
+      </p>
+      <p style="color:#949ba4; font-size: 13px;">Esse link expira em 1 hora. Se você não pediu isso, pode ignorar este e-mail — sua senha continua a mesma.</p>
+    </div>
+  `.trim();
+  const result = await sendEmail({
+    to,
+    subject: 'Trocar sua senha — NEXT GAME',
+    html,
+    text: `Pediram pra trocar a senha da sua conta NEXT GAME. Link (expira em 1 hora): ${resetUrl}`,
+  });
+  if (!result.sent) {
+    // Sem Resend configurada, o link fica só no log do servidor — dá pra
+    // você (que tem acesso ao Render) ainda destravar sua própria conta.
+    console.warn(`[mailer] Link de troca de senha para ${to}: ${resetUrl} (não enviado por e-mail)`);
+  }
+  return result;
+}
+
+module.exports = { sendEmail, sendVerificationEmail, generateVerificationCode, sendPasswordResetEmail };

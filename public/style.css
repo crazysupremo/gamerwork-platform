@@ -66,7 +66,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   position: fixed; inset: 0; z-index: 10000; background: #0b0c10; display: flex;
   align-items: center; justify-content: center; opacity: 1; transition: opacity 0.35s ease;
 }
-.login-intro-overlay.login-intro-fading { opacity: 0; }
+.login-intro-overlay.login-intro-fading { opacity: 0; pointer-events: none; }
 #login-intro-video { width: min(360px, 60vw); height: auto; display: block; }
 
 .auth-remember-row { margin: 4px 0 2px; font-size: 12.5px; color: #9aa0ab; }
@@ -199,6 +199,14 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .auth-hero-cta-secondary:hover { background: rgba(255,255,255,0.08); }
 .auth-hero-cta-primary:active, .auth-hero-cta-secondary:active { transform: scale(0.98); }
 
+/* Selos de confiança/segurança logo abaixo dos botões do hero — pequenos,
+   discretos, mas visíveis antes mesmo de entrar no site. */
+.auth-trust-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+.auth-trust-badge {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #a8f0bf;
+  background: rgba(59,165,92,0.12); border: 1px solid rgba(59,165,92,0.3); padding: 5px 11px; border-radius: 20px;
+}
+.auth-trust-badge .ng-icon { width: 12px; height: 12px; }
 .auth-features { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
 .auth-feature {
   display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 12px;
@@ -275,7 +283,23 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .auth-tab.active { background: var(--gradient-brand); color: white; box-shadow: 0 4px 12px rgba(88,101,242,0.4); }
 .auth-form { display: flex; flex-direction: column; gap: 11px; }
-.input-icon-wrap { position: relative; display: flex; align-items: center; }
+/* Campo com ícone, estilo "pill" escura — mesma linguagem visual da busca
+   grande do topo (.navbar-search), só menor. Usado em qualquer input com
+   ícone fora da tela de login (login tem o próprio visual, ver .auth-form
+   input mais abaixo, que continua valendo por causa da ordem no arquivo).
+   BUG CORRIGIDO: sem isso, esses campos (busca de amigos/conversas,
+   adicionar amigo etc) caíam no estilo padrão do navegador — quadrado
+   branco destoando de todo o resto do site escuro. */
+.input-icon-wrap {
+  position: relative; display: flex; align-items: center;
+  background: #1a1b20; border: 1px solid #26272e; border-radius: 20px; transition: border-color 0.15s ease;
+}
+.input-icon-wrap:focus-within { border-color: var(--accent); }
+.input-icon-wrap input {
+  width: 100%; padding: 8px 12px 8px 34px; border-radius: 20px; border: none; outline: none;
+  background: none; color: #e6e6e6; font-size: 13px;
+}
+.input-icon-wrap input::placeholder { color: #6d7178; }
 .input-icon {
   position: absolute; left: 12px; font-size: 14px; opacity: 0.6; pointer-events: none;
   display: flex; align-items: center;
@@ -432,6 +456,95 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .app-sidebar-logo { padding: 4px 6px 16px; display: flex; align-items: center; gap: 8px; }
 .app-sidebar-logo-img { height: 30px; width: auto; display: block; }
+/* "+ Criar" da navbar + menu suspenso */
+.navbar-create-wrap { position: relative; }
+.navbar-create-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: none;
+  background: var(--gradient-brand); color: white; font-weight: 700; font-size: 13px; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(88,101,242,0.35); transition: filter 0.15s ease;
+}
+.navbar-create-btn:hover { filter: brightness(1.1); }
+.navbar-create-btn .ng-icon { width: 15px; height: 15px; }
+.navbar-create-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; width: 180px;
+  background: #1e1f22; border: 1px solid #3a3c42; border-radius: 10px; padding: 6px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.45); display: flex; flex-direction: column; gap: 2px;
+}
+.navbar-create-menu button {
+  display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 6px; border: none;
+  background: none; color: #dbdee1; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left;
+}
+.navbar-create-menu button:hover { background: #2b2d31; }
+.navbar-create-menu .ng-icon { width: 15px; height: 15px; color: var(--accent-3); }
+
+/* Chip de perfil no topo — agora é o ÚNICO lugar visível com essas funções
+   (editar perfil, Plus, sons, Admin, Sair); o rodapé antigo da sidebar
+   ficou só escondido no DOM (.app-sidebar-footer-hidden), sem sumir de vez
+   pra não arriscar quebrar nada que ainda referencia os ids dele. */
+.navbar-profile-chip-wrap { position: relative; }
+.navbar-profile-chip {
+  display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 24px; border: none;
+  background: #1a1b20; border: 1px solid #26272e; cursor: pointer; transition: background 0.15s ease;
+}
+.navbar-profile-chip:hover { background: #202127; }
+.navbar-profile-chip .member-avatar { width: 30px; height: 30px; }
+.navbar-profile-chip-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+#navbar-chip-username { font-size: 12.5px; font-weight: 700; color: #f2f3f5; }
+.navbar-chip-level { font-size: 10px; color: var(--accent-3); font-weight: 700; }
+.navbar-chip-chevron { width: 13px; height: 13px; color: #6d7178; transform: rotate(90deg); margin-left: 2px; }
+@media (max-width: 900px) { .navbar-profile-chip-text { display: none; } }
+/* Rodapé antigo — continua existindo no DOM (compatibilidade com o app.js),
+   só não aparece mais na tela. */
+.app-sidebar-footer-hidden { display: none !important; }
+
+/* Eventos em Destaque (coluna lateral da Início) */
+.home-events-list { display: flex; flex-direction: column; gap: 6px; }
+.home-event-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px; border-radius: 9px; cursor: pointer;
+  background: #1a1b20; border: 1px solid #26272e; transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.home-event-row:hover { transform: translateX(2px); border-color: var(--accent); }
+.home-event-icon {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 8px; background: rgba(250,166,26,0.16); color: #ffd76b;
+  display: flex; align-items: center; justify-content: center;
+}
+.home-event-icon .ng-icon { width: 14px; height: 14px; }
+.home-event-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.home-event-info strong { font-size: 12.5px; color: #f2f3f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-event-info span { font-size: 10.5px; color: #9aa0ab; }
+.home-event-status { flex-shrink: 0; font-size: 8.5px; font-weight: 800; padding: 3px 7px; border-radius: 10px; text-align: center; }
+.home-event-status-open { background: rgba(59,165,92,0.16); color: #7de3a0; }
+.home-event-status-live { background: rgba(250,166,26,0.16); color: #ffd76b; }
+.home-event-status-full { background: rgba(242,63,66,0.16); color: #ff9296; }
+
+/* Jogos Salvos (modal) */
+.saved-game-add-row { display: flex; gap: 8px; margin: 4px 0 12px; }
+.saved-game-add-row input {
+  flex: 1; padding: 9px 12px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.08);
+  background: #101116; color: #e6e6e6; font-size: 13px;
+}
+.saved-game-add-row button {
+  padding: 9px 14px; border-radius: 7px; border: none; background: var(--gradient-brand); color: white;
+  font-weight: 700; font-size: 12.5px; cursor: pointer; white-space: nowrap;
+}
+.saved-games-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.saved-game-row {
+  display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border-radius: 8px;
+  background: #1a1b20; border: 1px solid #26272e; font-size: 13px; color: #dbdee1;
+}
+.saved-game-row .ng-icon { width: 14px; height: 14px; color: var(--accent-3); margin-right: 6px; vertical-align: -2px; }
+.saved-game-remove { background: none; border: none; color: #6d7178; cursor: pointer; padding: 3px; display: flex; }
+.saved-game-remove:hover { color: #f23f42; }
+
+/* Modal do vídeo de apresentação */
+.watch-video-card { padding: 0; background: black; border-radius: 14px; overflow: hidden; position: relative; max-width: 720px; }
+.watch-video-card video { width: 100%; display: block; max-height: 70vh; }
+.watch-video-close {
+  position: absolute; top: 10px; right: 10px; z-index: 2; width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(0,0,0,0.55); border: none; color: white; display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+
 .beta-tag {
   background: rgba(88,101,242,0.18); color: #a7b0ff; border: 1px solid rgba(88,101,242,0.4);
   font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 5px;
@@ -470,7 +583,9 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .app-sidebar-icon-btn:hover { background: #26272e; color: #e6e6e6; }
-.app-sidebar-servers { flex: 1; min-height: 60px; overflow-y: auto; padding: 2px 0 8px; }
+/* Espaço da lista de servidores (some/aparece ao clicar em "Servidores") —
+   pedido explícito: estava baixo demais, cortando a lista rápido demais. */
+.app-sidebar-servers { flex: 1; min-height: 220px; max-height: 340px; overflow-y: auto; padding: 2px 0 8px; }
 .server-rail-list { display: flex; flex-direction: column; gap: 2px; width: 100%; }
 .server-row {
   display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none;
@@ -503,9 +618,11 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .app-sidebar-footer .navbar-profile { flex: 1; min-width: 0; }
 .app-sidebar-footer .navbar-icon-btn { width: 30px; height: 30px; font-size: 13px; flex-shrink: 0; }
 
-/* Menu "..." do rodapé — abre pra CIMA (o rodapé é a última coisa da tela) */
+/* Menu do chip de perfil (topo) — abre pra BAIXO, ancorado no chip. Já foi
+   o menu "..." do rodapé antigo (abria pra cima); mudou de lugar junto com
+   o chip pro topo da tela. */
 .footer-more-menu {
-  position: absolute; bottom: calc(100% + 8px); right: 0; width: 190px; background: #1a1b20;
+  position: absolute; top: calc(100% + 8px); right: 0; width: 200px; background: #1a1b20;
   border: 1px solid #26272e; border-radius: 10px; padding: 6px; box-shadow: 0 12px 30px rgba(0,0,0,0.45);
   display: flex; flex-direction: column; gap: 2px; z-index: 40;
 }
@@ -722,30 +839,42 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .home-btn-secondary { background: rgba(255,255,255,0.06); color: #e6e6e6; border: 1px solid rgba(255,255,255,0.1); }
 .home-btn-primary:hover, .home-btn-secondary:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
-/* Banner de torneio em destaque — o cartão principal da tela de Início */
-.home-tournament-banner-inner {
-  border-radius: 14px; padding: 18px 22px; display: flex; align-items: center; gap: 16px;
-  position: relative; overflow: hidden;
-  background:
-    radial-gradient(circle at 15% 30%, rgba(88,101,242,0.4), transparent 55%),
-    radial-gradient(circle at 90% 70%, rgba(145,70,255,0.3), transparent 50%),
-    linear-gradient(135deg, #1a1b20, #101116);
-  border: 1px solid rgba(255,255,255,0.06);
+/* Banner em destaque — o cartão principal da tela de Início. Agora um hero
+   grande com a imagem de fundo do NEXT GAME (mesma arte do login), em vez
+   de uma faixa fina — dá o "cara de plataforma premium" pedido, sem
+   precisar de nenhuma imagem nova. */
+.home-tournament-banner {
+  position: relative; border-radius: 16px; overflow: hidden; min-height: 220px;
+  background-image:
+    linear-gradient(100deg, rgba(8,8,14,0.94) 0%, rgba(8,8,14,0.75) 40%, rgba(8,8,14,0.25) 75%, rgba(8,8,14,0.1) 100%),
+    url('/assets/auth-hero.png');
+  background-size: cover; background-position: 75% 30%;
+  border: 1px solid rgba(255,255,255,0.08);
+  display: flex; flex-direction: column; justify-content: center; padding: 26px 30px;
 }
+.home-tournament-banner-inner { display: flex; align-items: center; gap: 16px; position: relative; z-index: 1; }
 .home-tournament-banner-icon {
   flex-shrink: 0; width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center;
-  justify-content: center; font-size: 24px; background: rgba(255,255,255,0.06);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+  justify-content: center; font-size: 24px; background: rgba(255,255,255,0.08);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
 }
 .home-tournament-banner-text { flex: 1; min-width: 0; }
 .home-tournament-banner-kicker {
-  font-size: 10px; font-weight: 800; letter-spacing: 0.08em; color: var(--accent-3);
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; color: var(--accent-3);
 }
-.home-tournament-banner-text h2 { font-size: 17px; font-weight: 900; margin: 2px 0 4px; }
-.home-tournament-banner-prize { font-size: 12px; color: #dbdee1; margin: 0 0 2px; }
+.home-tournament-banner-text h2 { font-size: 26px; font-weight: 900; margin: 4px 0 6px; line-height: 1.1; }
+.home-tournament-banner-prize { font-size: 13px; color: #dbdee1; margin: 0 0 3px; }
 .home-tournament-banner-prize strong { color: #ffd76b; }
-.home-tournament-banner-slots { font-size: 11px; color: #9aa0ab; }
-.home-tournament-banner-inner .home-btn-primary { flex-shrink: 0; padding: 10px 20px; font-size: 12.5px; letter-spacing: 0.03em; }
+.home-tournament-banner-slots { font-size: 12px; color: #9aa0ab; }
+.home-tournament-banner-inner .home-btn-primary { flex-shrink: 0; padding: 11px 22px; font-size: 13px; letter-spacing: 0.03em; }
+/* Ações secundárias fixas do hero (Explorar Comunidade / Assistir vídeo) —
+   aparecem sempre, junto do que já era dinâmico (torneio ou convite pra
+   criar um), igual ao mockup. */
+.home-hero-secondary-actions { display: flex; gap: 10px; margin-top: 18px; position: relative; z-index: 1; }
+.home-hero-secondary-actions .home-btn-primary, .home-hero-secondary-actions .home-btn-secondary {
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.home-hero-secondary-actions .home-btn-secondary { background: rgba(255,255,255,0.05); backdrop-filter: blur(4px); }
 
 /* EXPLORAR SERVIDORES */
 .explore-grid { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; }
@@ -782,14 +911,20 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .home-quick-action-text strong { font-size: 12.5px; color: #f2f3f5; }
 .home-quick-action-text span { font-size: 10.5px; color: #9aa0ab; }
 
-.home-stats { display: flex; gap: 10px; margin-bottom: 16px; }
+.home-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
 .home-stat {
-  flex: 1; background: #1a1b20; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column;
+  background: #1a1b20; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column;
   gap: 2px; border: 1px solid #26272e; transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 .home-stat:hover { transform: translateY(-2px); border-color: var(--accent-3); box-shadow: 0 8px 18px rgba(0,217,192,0.14); }
-.home-stat-num { font-size: 19px; font-weight: 900; color: white; }
+.home-stat-icon {
+  width: 28px; height: 28px; border-radius: 8px; background: rgba(88,101,242,0.16); color: var(--accent-3);
+  display: flex; align-items: center; justify-content: center; margin-bottom: 4px;
+}
+.home-stat-icon .ng-icon { width: 14px; height: 14px; }
+.home-stat-num { font-size: 20px; font-weight: 900; color: white; }
 .home-stat-label { font-size: 11px; color: #9aa0ab; }
+.home-stat-trend { font-size: 10px; color: #3ba55c; font-weight: 700; margin-top: 2px; }
 
 .home-section-title {
   font-size: 12.5px; font-weight: 800; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
@@ -799,25 +934,33 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .home-grid { display: grid; grid-template-columns: 1fr 280px; gap: 16px; align-items: start; }
 .home-servers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
 .home-server-card {
-  background: #1a1b20; border: 1px solid #26272e; border-radius: 10px; padding: 10px 8px; text-align: center;
-  cursor: pointer; transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  background: #1a1b20; border: 1px solid #26272e; border-radius: 12px; overflow: hidden; text-align: center;
+  cursor: pointer; transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease; padding-bottom: 8px;
 }
 .home-server-card:hover {
   transform: translateY(-3px) scale(1.02); border-color: var(--accent);
   box-shadow: 0 10px 20px rgba(88,101,242,0.22);
 }
 .home-server-card:active { transform: translateY(-1px) scale(0.99); }
-.home-server-icon {
-  width: 34px; height: 34px; margin: 0 auto 6px; border-radius: 10px; background: var(--gradient-brand);
-  display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 15px;
+/* Faixa colorida no topo do card (gradientForName no JS) — substitui a
+   "capa" de jogo que não temos como gerar; dá o mesmo efeito visual de
+   card mais rico, sem imagem nenhuma. */
+.home-server-banner {
+  height: 52px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px;
 }
-.home-server-name { font-size: 12px; font-weight: 700; color: #e6e6e6; margin-bottom: 2px; }
-.home-server-meta { font-size: 10px; color: #8b909a; }
+.home-server-icon {
+  width: 34px; height: 34px; border-radius: 10px; background: rgba(0,0,0,0.25);
+  display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 15px;
+  backdrop-filter: blur(2px);
+}
+.home-server-name { font-size: 12px; font-weight: 700; color: #e6e6e6; margin-bottom: 2px; padding: 0 6px; }
+.home-server-meta { font-size: 10px; color: #8b909a; padding: 0 6px; }
 
-.home-playing-now { display: flex; flex-wrap: wrap; gap: 6px; }
+.home-playing-now { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .playing-now-card {
-  display: flex; align-items: center; gap: 7px; background: #1a1b20; border: 1px solid #26272e;
-  border-radius: 8px; padding: 6px 10px; transition: transform 0.15s ease, border-color 0.15s ease;
+  display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #1a1b20, #202127);
+  border: 1px solid #26272e; border-radius: 10px; padding: 9px 11px;
+  transition: transform 0.15s ease, border-color 0.15s ease;
 }
 .playing-now-card:hover { transform: translateY(-2px); border-color: var(--accent-2); }
 
@@ -977,6 +1120,37 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .message-actions button:hover { background: #35373c; }
 
+/* ---------- BALÕES DE DM (conversa 1:1) ---------- */
+/* Só ativa quando .dm-message está presente (canal começa com "dm::") — em
+   canal de servidor a mensagem continua no formato de lista normal. */
+.message.dm-message { padding: 3px 4px; }
+.dm-message .message-row { align-items: flex-end; gap: 8px; }
+.dm-message-own .message-row { flex-direction: row-reverse; }
+.dm-message .message-avatar { width: 28px; height: 28px; margin: 0; }
+.dm-message-own .message-avatar { display: none; } /* seu avatar não precisa repetir do seu lado */
+.dm-message .message-body { flex: 0 1 auto; max-width: 72%; min-width: 0; }
+.dm-message-own .message-body { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; }
+.dm-message-their .message-body { display: flex; flex-direction: column; align-items: flex-start; }
+.dm-message .meta {
+  font-size: 10.5px; color: #6d7178; margin-bottom: 3px; gap: 4px;
+}
+.dm-message-own .meta strong { display: none; } /* seu próprio nome não precisa aparecer */
+.dm-message .content {
+  display: inline-block; padding: 9px 14px; border-radius: 16px; font-size: 13.5px; line-height: 1.4;
+  max-width: 100%; overflow-wrap: break-word;
+}
+.dm-message-their .content { background: #2b2d31; color: #e6e6e6; border-bottom-left-radius: 4px; }
+.dm-message-own .content { background: var(--gradient-brand); color: white; border-bottom-right-radius: 4px; }
+.dm-message .message-reactions { justify-content: flex-start; }
+.dm-message-own .message-reactions { justify-content: flex-end; }
+.dm-message-own .message-actions { right: auto; left: 6px; }
+/* Read receipt (✓✓) simples — mostra que a mensagem foi enviada. Não temos
+   confirmação de "lido" ainda (exigiria rastrear leitura por mensagem, não
+   só por canal), então é só um "enviado", igual um único check. */
+.dm-message-own .content::after {
+  content: '✓'; display: inline-block; margin-left: 6px; font-size: 10px; opacity: 0.7; vertical-align: middle;
+}
+
 .reaction-picker {
   position: absolute; top: -46px; right: 6px; background: #26272e; border-radius: 8px;
   padding: 4px; display: none; gap: 2px; box-shadow: 0 2px 10px rgba(0,0,0,0.4); z-index: 5;
@@ -1017,18 +1191,65 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .dm-request-decline { background: #404249; color: #dbdee1; }
 .dm-request-decline:hover { background: #4a4d55; }
 
-.message-form { display: flex; padding: 12px 16px; gap: 8px; border-top: 1px solid #2c2e36; }
+.message-form { display: flex; align-items: center; padding: 12px 16px; gap: 8px; border-top: 1px solid #2c2e36; }
 .message-form input {
-  flex: 1; padding: 10px; border-radius: 6px; border: 1px solid transparent; background: #26272e; color: #e6e6e6;
-  transition: border-color 0.15s ease;
+  flex: 1; padding: 11px 16px; border-radius: 22px; border: 1px solid transparent; background: #26272e; color: #e6e6e6;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
-.message-form input:focus { outline: none; border-color: var(--accent); }
+.message-form input:focus { outline: none; border-color: var(--accent); background: #2b2d33; }
 .message-form button {
-  padding: 10px 18px; border-radius: 6px; border: none; background: var(--gradient-brand); color: white;
+  padding: 10px 18px; border-radius: 22px; border: none; background: var(--gradient-brand); color: white;
   font-weight: 700; cursor: pointer; transition: filter 0.15s ease, transform 0.1s ease;
+  display: flex; align-items: center; justify-content: center;
 }
 .message-form button:hover { filter: brightness(1.1); }
 .message-form button:active { transform: scale(0.97); }
+.message-form #btn-attach-file {
+  background: #26272e; border-radius: 50%; width: 40px; height: 40px; padding: 0; flex-shrink: 0;
+}
+.message-form #btn-attach-file:hover { background: #2f3037; filter: none; }
+
+.sticker-picker-wrap { position: relative; flex-shrink: 0; }
+#btn-sticker-picker {
+  background: #26272e; border-radius: 50%; width: 40px; height: 40px; padding: 0; border: none;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; color: #dbdee1;
+  transition: background 0.15s ease;
+}
+#btn-sticker-picker:hover { background: #2f3037; }
+.sticker-picker {
+  position: absolute; bottom: 50px; left: 0; background: #26272e; border-radius: 12px; padding: 8px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+  z-index: 20; border: 1px solid #35373c;
+}
+.sticker-picker.hidden { display: none; }
+.sticker-picker-item {
+  width: 42px; height: 42px; border: none; background: transparent; cursor: pointer; font-size: 24px;
+  border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: background 0.1s ease;
+}
+.sticker-picker-item:hover { background: #35373c; }
+.sticker-picker-plus-hint {
+  width: 42px; height: 42px; border: 1px dashed #6c5ce7; background: rgba(145,70,255,0.12); cursor: pointer;
+  border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #b18aff;
+  transition: background 0.1s ease;
+}
+.sticker-picker-plus-hint:hover { background: rgba(145,70,255,0.22); }
+.sticker-picker-plus-hint .ng-icon { width: 18px; height: 18px; }
+.sticker-content { font-size: 64px; line-height: 1; padding: 2px 0; }
+.sticker-picker-item-img { padding: 4px; }
+.sticker-picker-item-img img { width: 100%; height: 100%; object-fit: contain; }
+.sticker-content-img img { width: 128px; height: 128px; object-fit: contain; display: block; }
+
+.ai-quick-suggestions {
+  display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 10px;
+}
+.ai-quick-suggestions.hidden { display: none; }
+.ai-quick-suggestion {
+  display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 18px; border: 1px solid #35373c;
+  background: #26272e; color: #dbdee1; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.ai-quick-suggestion:hover { background: #2f3037; border-color: var(--accent); transform: translateY(-1px); }
+.ai-quick-suggestion .ng-icon-wrap { width: 15px; height: 15px; display: flex; }
 
 .voice-panel {
   flex: 1; display: flex; flex-direction: column; min-height: 0;
@@ -1075,6 +1296,31 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   border-top: 1px solid #26272e; background: #16171b;
 }
 .voice-room-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+/* Cartão de destaque no topo da sala de voz conectada — mesma linguagem
+   visual do hero da Início, só que menor e com o nome da sala. */
+.voice-room-hero {
+  display: flex; align-items: center; gap: 16px; padding: 22px 24px; border-radius: 14px; margin-bottom: 16px;
+  position: relative; overflow: hidden;
+  background:
+    linear-gradient(100deg, rgba(8,8,14,0.9) 0%, rgba(8,8,14,0.55) 55%, rgba(8,8,14,0.2) 100%),
+    radial-gradient(circle at 85% 30%, rgba(88,101,242,0.35), transparent 55%),
+    linear-gradient(135deg, #1a1b20, #101116);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.voice-room-hero-icon {
+  flex-shrink: 0; width: 56px; height: 56px; border-radius: 16px; background: rgba(88,101,242,0.18);
+  border: 1px solid rgba(88,101,242,0.4); color: var(--accent-3); display: flex; align-items: center; justify-content: center;
+}
+.voice-room-hero-icon .ng-icon { width: 26px; height: 26px; }
+.voice-room-hero-text { min-width: 0; }
+.voice-room-hero-text h2 { font-size: 20px; font-weight: 900; margin: 0 0 4px; color: #f5f6f8; }
+.voice-room-hero-text p { margin: 0 0 10px; font-size: 12.5px; color: #b9bec7; max-width: 480px; }
+.voice-room-hero-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.voice-room-hero-tag {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: #dbdee1;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 20px;
+}
+.voice-room-hero-tag .ng-icon { width: 12px; height: 12px; color: var(--accent-3); }
 .voice-participant-badge {
   background: #1a1b20; color: #9aa0ab; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 14px;
 }
@@ -1834,6 +2080,74 @@ video:fullscreen { background: #000; object-fit: contain; }
   100% { box-shadow: 0 0 0 3px #ffd76b, 0 0 20px rgba(255,215,107,0.75); }
 }
 
+/* MOLDURAS DOS TEMAS DE COR DO NEXTGAME PLUS — anel estático (sem animação,
+   diferente das molduras de recompensa acima) na cor escolhida. Se a pessoa
+   tiver as duas (moldura ganha por streak + tema PLUS), a animação da
+   moldura ganha precedência visual sozinha, sem precisar de lógica extra. */
+.avatar-plus-nebula    { box-shadow: 0 0 0 3px #9146ff, 0 0 10px rgba(145,70,255,0.55); }
+.avatar-plus-electric  { box-shadow: 0 0 0 3px #00b4ff, 0 0 10px rgba(0,180,255,0.55); }
+.avatar-plus-mint      { box-shadow: 0 0 0 3px #00e6a8, 0 0 10px rgba(0,230,168,0.55); }
+.avatar-plus-pink      { box-shadow: 0 0 0 3px #ff4fa3, 0 0 10px rgba(255,79,163,0.55); }
+.avatar-plus-sunset    { box-shadow: 0 0 0 3px #ff9f43, 0 0 10px rgba(255,159,67,0.55); }
+.avatar-plus-fire      { box-shadow: 0 0 0 3px #ff4757, 0 0 10px rgba(255,71,87,0.55); }
+.avatar-plus-gold      { box-shadow: 0 0 0 3px #ffd93d, 0 0 10px rgba(255,217,61,0.55); }
+.avatar-plus-ice       { box-shadow: 0 0 0 3px #7ee8ff, 0 0 10px rgba(126,232,255,0.55); }
+.avatar-plus-platinum  { box-shadow: 0 0 0 3px #e8e8ec, 0 0 10px rgba(232,232,236,0.45); }
+
+.plus-theme-swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.plus-theme-swatch {
+  width: 40px; height: 40px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: white; padding: 0;
+  transition: transform 0.12s ease, border-color 0.15s ease;
+}
+.plus-theme-swatch .ng-icon { width: 16px; height: 16px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6)); }
+.plus-theme-swatch:hover { transform: scale(1.08); }
+.plus-theme-swatch.active { border-color: white; }
+.plus-theme-swatch-reset { background: #26272e; border: 1px solid #4a4d56; color: #9aa0ab; }
+.plus-theme-swatch-special { animation: plusOfficialSwatchPulse 2s ease-in-out infinite; }
+@keyframes plusOfficialSwatchPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(47,125,255,0.8), 0 0 10px rgba(47,125,255,0.5); }
+  50%      { box-shadow: 0 0 0 2px #ffffff, 0 0 16px rgba(255,255,255,0.85); }
+}
+
+/* ---------- TEMA "NEXTGAME OFICIAL" — o mais completo dos temas do PLUS,
+   com efeito animado de verdade (não é só cor sólida) no nome, moldura do
+   avatar, bolha de DM e banner do perfil. Mesmas cores da marca (azul/branco). */
+.plus-name-special {
+  background: linear-gradient(90deg, #2f7dff, #ffffff, #2f7dff);
+  background-size: 200% auto;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: plusOfficialNameShine 2.5s linear infinite;
+}
+@keyframes plusOfficialNameShine {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+.avatar-plus-official { animation: plusOfficialRing 2.2s ease-in-out infinite; }
+@keyframes plusOfficialRing {
+  0%, 100% { box-shadow: 0 0 0 3px #2f7dff, 0 0 12px rgba(47,125,255,0.65); }
+  50%      { box-shadow: 0 0 0 3px #ffffff, 0 0 20px rgba(255,255,255,0.9); }
+}
+.dm-bubble-official-shimmer, .plus-theme-official-active .dm-message-own .content {
+  background-size: 250% 250% !important;
+  animation: plusOfficialBubbleShimmer 3s ease infinite;
+}
+@keyframes plusOfficialBubbleShimmer {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.profile-banner-official-shimmer::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+  background-size: 200% 200%;
+  animation: plusOfficialBannerSweep 2.8s ease-in-out infinite;
+}
+@keyframes plusOfficialBannerSweep {
+  0%   { background-position: 200% 0%; }
+  100% { background-position: -50% 0%; }
+}
+
 /* SERVIDOR: CONVITE, MEMBROS, CARGOS */
 .server-icon-add + .server-icon-add { margin-top: 6px; }
 .manage-tabs { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid #26272e; }
@@ -1871,6 +2185,47 @@ video:fullscreen { background: #000; object-fit: contain; }
   .settings-modal-card { height: 94vh; max-height: 94vh; }
   .settings-layout { flex-direction: column; }
   .settings-sidebar { flex-direction: row; width: 100%; overflow-x: auto; border-right: none; border-bottom: 1px solid #26272e; padding-right: 0; padding-bottom: 8px; }
+}
+
+.settings-sidebar-divider {
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; color: #6c7078; text-transform: uppercase;
+  padding: 14px 10px 4px;
+}
+@media (max-width: 640px) {
+  .settings-sidebar-divider { padding: 0 8px; display: flex; align-items: center; }
+}
+.settings-sidebar-item-plus.active { background: linear-gradient(135deg, #9146ff 0%, #ff7ac6 100%); }
+
+.plus-promo-banner {
+  position: relative; overflow: hidden; border-radius: 14px; padding: 30px 24px; text-align: center;
+  background: var(--gradient-brand); margin-bottom: 18px;
+}
+.plus-promo-banner h3 { font-size: 21px; font-weight: 800; margin: 0 0 8px; color: white; line-height: 1.3; }
+.plus-promo-banner p { font-size: 13.5px; color: rgba(255,255,255,0.9); max-width: 420px; margin: 0 auto 16px; line-height: 1.5; }
+.plus-promo-cta {
+  border: none; background: white; color: #4a3aa8; font-weight: 800; font-size: 13.5px; padding: 11px 22px;
+  border-radius: 22px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  transition: transform 0.1s ease, filter 0.15s ease;
+}
+.plus-promo-cta:hover { filter: brightness(0.96); transform: translateY(-1px); }
+.plus-promo-sparkle { position: absolute; color: rgba(255,255,255,0.35); opacity: 0.8; }
+.plus-promo-sparkle-1 { top: 14px; left: 26px; width: 22px; height: 22px; }
+.plus-promo-sparkle-2 { bottom: 18px; right: 40px; width: 16px; height: 16px; }
+.plus-promo-sparkle-3 { top: 22px; right: 20%; width: 14px; height: 14px; }
+
+.plus-benefits-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+@media (max-width: 640px) { .plus-benefits-grid { grid-template-columns: 1fr; } }
+.plus-benefit-card {
+  background: #26272e; border: 1px solid #35373c; border-radius: 12px; padding: 16px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.plus-benefit-card .ng-icon-wrap { width: 20px; height: 20px; color: var(--accent-2); margin-bottom: 4px; }
+.plus-benefit-card strong { font-size: 13px; color: #e6e6e6; }
+.plus-benefit-card span { font-size: 12px; color: #9aa0ab; line-height: 1.45; }
+
+.plus-active-banner {
+  text-align: center; padding: 12px; border-radius: 10px; background: rgba(35,165,90,0.12);
+  color: #3ba55c; font-weight: 700; margin-bottom: 12px;
 }
 
 .tournament-filter-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
@@ -1956,6 +2311,64 @@ video:fullscreen { background: #000; object-fit: contain; }
 .friend-message-btn:hover, .friend-call-btn:hover { background: #33353d; }
 .friend-message-btn, .friend-call-btn { color: var(--accent-3); }
 .friend-pending-tag { font-size: 11px; color: #6d7178; }
+
+/* Abas + busca do painel de Amigos — pílulas em vez de sublinhado, mais
+   "profissional" e óbvio qual está ativa. */
+.friends-tabs {
+  display: flex; gap: 4px; margin-bottom: 16px; background: #17181c; border: 1px solid #26272e;
+  border-radius: 14px; padding: 4px; width: fit-content;
+}
+.friends-tab {
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: none; border: none;
+  border-radius: 10px; color: #8b909a; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.friends-tab:hover { color: #dbdee1; background: rgba(255,255,255,0.04); }
+.friends-tab.active { color: white; background: var(--gradient-brand); box-shadow: 0 4px 12px rgba(88,101,242,0.35); }
+.friends-tab-count {
+  font-size: 10.5px; font-weight: 800; background: rgba(255,255,255,0.1); color: #cfd2d8; padding: 1px 7px; border-radius: 10px;
+}
+.friends-tab.active .friends-tab-count { background: rgba(255,255,255,0.25); color: white; }
+.friends-search-row { margin-bottom: 16px; }
+.friends-search-row .input-icon-wrap { border-radius: 14px; }
+
+/* Amigos/Mensagens mais arredondado, "premium" e interativo — pedido
+   explícito. Cards com cantos bem redondos, avatar maior com anel sutil,
+   sobe/ganha sombra/brilho ao passar o mouse, botões de ação viram círculos
+   que preenchem de cor ao interagir (feedback claro de "isso é clicável"). */
+.friend-row {
+  padding: 12px 14px; border-radius: 16px; gap: 12px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset;
+  transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.friend-row:hover {
+  background: #24252b; transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.03) inset;
+  border-color: rgba(88,101,242,0.25);
+}
+.friend-row .member-avatar-wrap .member-avatar, .friend-row > .member-avatar {
+  width: 44px; height: 44px; box-shadow: 0 0 0 2px rgba(255,255,255,0.06);
+}
+.friend-row .member-status-dot { width: 12px; height: 12px; border-width: 3px; }
+.friend-name { font-size: 13.5px; }
+.friend-status { font-weight: 600; }
+
+/* Botões de ação (mensagem, ligar, aceitar, recusar, remover) — círculos
+   maiores, com cor de fundo/brilho ao passar o mouse pra ficar óbvio que
+   são interativos, não só texto cinza. */
+.friend-actions { gap: 8px; }
+.friend-accept-btn, .friend-decline-btn, .friend-remove-btn, .friend-cancel-btn, .friend-message-btn, .friend-call-btn {
+  width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; padding: 0; transition: background 0.15s ease, transform 0.12s ease, color 0.15s ease;
+}
+.friend-accept-btn:hover, .friend-decline-btn:hover, .friend-remove-btn:hover, .friend-cancel-btn:hover,
+.friend-message-btn:hover, .friend-call-btn:hover { transform: scale(1.08); }
+.friend-message-btn:hover, .friend-call-btn:hover { background: var(--gradient-brand); color: white; }
+.friend-accept-btn:hover { background: #23a55a; color: white; }
+.friend-decline-btn:hover, .friend-remove-btn:hover, .friend-cancel-btn:hover { background: #f23f42; color: white; }
+
+.dm-friends-shortcut-btn { border-radius: 14px; transition: background 0.15s ease, transform 0.12s ease; }
+.dm-friends-shortcut-btn:hover { transform: translateY(-1px); }
 
 /* MENU DE CONTEXTO (botão direito, estilo Discord) */
 .context-menu {

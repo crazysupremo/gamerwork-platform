@@ -31,7 +31,7 @@ const { scanText } = require('./moderation');
 // generateVerificationCode já existe mais abaixo (selo "auditável" tipo
 // NG-XXXXXXXXXX) — sem relação com o código de 6 dígitos de confirmação de
 // e-mail, então importa com outro nome pra não colidir.
-const { sendVerificationEmail, generateVerificationCode: generateEmailVerificationCode } = require('./mailer');
+const { sendVerificationEmail, generateVerificationCode: generateEmailVerificationCode, sendPasswordResetEmail } = require('./mailer');
 const { authenticator } = require('otplib');
 const QRCode = require('qrcode');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
@@ -108,13 +108,22 @@ const recentSlowRequests = [];
 const requestTimestamps = []; // usado só pra calcular requisições/minuto
 const REQUEST_TIMESTAMPS_WINDOW_MS = 5 * 60 * 1000;
 
+// Guarda também o stack trace agora (não só a mensagem) e um id próprio —
+// é o que a IA usa pra tentar diagnosticar o erro depois, sob pedido do
+// admin (ver /api/admin/errors/:id/diagnose). Continua tudo em memória, não
+// no banco — mesmo motivo de sempre (é diagnóstico ao vivo, não histórico).
 function logError(source, err) {
-  recentErrors.unshift({
+  const entry = {
+    id: uuidv4(),
     time: new Date().toISOString(),
     source,
     message: err && err.message ? err.message : String(err),
-  });
+    stack: err && err.stack ? String(err.stack).slice(0, 4000) : null,
+    diagnosis: null, // preenchido sob demanda pela IA, guardado aqui pra não gastar API de novo
+  };
+  recentErrors.unshift(entry);
   if (recentErrors.length > MAX_LOG_ENTRIES) recentErrors.length = MAX_LOG_ENTRIES;
+  return entry;
 }
 
 function logSlowRequest(entry) {
@@ -454,6 +463,30 @@ async function logAudit(actor, action, targetType, targetId, details) {
 // ---------- RECOMPENSAS / STREAK DE ACESSO ----------
 // Catálogo fixo (não precisa de tabela própria pra isso, só pros
 // desbloqueios de cada usuário, que ficam em user_rewards).
+// Paletas de cor exclusivas do NEXTGAME PLUS — cada uma é um gradiente
+// (from → to) testado pra ficar legível no fundo escuro do app. Escolher um
+// tema aqui muda, de uma vez só: a cor do nome no chat, a moldura do
+// avatar, a bolha das mensagens de DM, o banner do perfil e os detalhes do
+// próprio app pra quem escolheu. Lista fechada e validada no servidor —
+// ninguém consegue mandar uma cor arbitrária pelo PATCH /api/me.
+const PLUS_THEMES = [
+  { id: 'nebula', name: 'Nebulosa Roxa', from: '#9146ff', to: '#5865f2' },
+  { id: 'electric', name: 'Azul Elétrico', from: '#00b4ff', to: '#0066ff' },
+  { id: 'mint', name: 'Verde Menta', from: '#00e6a8', to: '#00b88a' },
+  { id: 'pink', name: 'Rosa Choque', from: '#ff4fa3', to: '#ff2d78' },
+  { id: 'sunset', name: 'Pôr do Sol', from: '#ff9f43', to: '#ff5e62' },
+  { id: 'fire', name: 'Vermelho Fogo', from: '#ff4757', to: '#c0392b' },
+  { id: 'gold', name: 'Dourado', from: '#ffd93d', to: '#f7b733' },
+  { id: 'ice', name: 'Gelo Ciano', from: '#7ee8ff', to: '#00c2ff' },
+  { id: 'platinum', name: 'Platina', from: '#e8e8ec', to: '#a8a8b3' },
+  // Tema oficial da marca NEXTGAME (azul/branco, igual ao pacote de banners
+  // e logo) — o mais completo dos temas: além da cor, tem efeito animado
+  // (brilho pulsante) no nome, moldura do avatar, bolha de DM e banner do
+  // perfil. Continua liberado pra qualquer assinante do PLUS, só é "especial"
+  // pelo efeito, não por ter vaga limitada.
+  { id: 'official', name: 'NEXTGAME Oficial ⚡', from: '#2f7dff', to: '#e8f1ff', special: true },
+];
+
 const REWARDS_CATALOG = [
   {
     key: 'starter',
@@ -788,14 +821,18 @@ app.post(
     // backend. Ver nota completa na resposta final sobre essa decisão.
     const discriminator = await db.generateUniqueDiscriminator(username);
     const usernameTag = `${username}#${discriminator}`;
-    // Confirmação de e-mail DESATIVADA por enquanto (a pedido): a conta já
-    // nasce com email_verified = 1, sem gerar/enviar código nem bloquear
-    // login. Toda a lógica de verificação continua no arquivo (rotas
-    // /api/verify-email, /api/resend-verification-code, mailer.js, allowlist
-    // em requireAuth) — pra reativar, basta reverter este bloco: voltar
-    // email_verified para 0 na query abaixo, descomentar a geração do
-    // código e a chamada a sendVerificationEmail, e ajustar a resposta do
-    // /api/register no final desta rota.
+    // Confirmação de e-mail DESATIVADA de novo (a pedido — ainda não tem
+    // domínio verificado no Resend pra mandar e-mail de verdade pra
+    // qualquer usuário; sem isso, todo cadastro novo ficaria travado sem
+    // conseguir confirmar). A conta já nasce com email_verified = 1, sem
+    // gerar/enviar código nem bloquear login. Toda a lógica de verificação
+    // continua no arquivo (rotas /api/verify-email,
+    // /api/resend-verification-code, mailer.js, allowlist em requireAuth) —
+    // pra reativar quando tiver o domínio configurado no Resend, é só
+    // reverter este bloco: voltar email_verified para 0 na query abaixo,
+    // descomentar a geração do código e a chamada a sendVerificationEmail,
+    // e ajustar a resposta do /api/register no final desta rota (mesmo
+    // padrão já usado nesse arquivo antes).
     // Idade estimada por câmera é opcional e calculada no navegador da
     // pessoa — aqui só sanitiza (número plausível entre 1 e 100) ou ignora
     // qualquer coisa fora disso, já que veio do cliente e pode vir zoado.
@@ -903,6 +940,71 @@ app.post(
       requiresEmailVerification: !user.email_verified,
     });
     updateStreakAndRewards(user).catch((err) => console.error('Erro ao atualizar streak:', err));
+  })
+);
+
+// ---------- RECUPERAÇÃO DE SENHA ----------
+// Reaproveita a mesma infra de e-mail da confirmação de cadastro (mailer.js
+// via Resend). Sem RESEND_API_KEY configurada (ou sem domínio verificado),
+// o e-mail não sai de verdade — mas o link fica no log do servidor, então
+// dá pra destravar manualmente enquanto isso não é configurado. O endpoint
+// SEMPRE responde a mesma mensagem genérica, exista ou não esse e-mail —
+// não dá pra usar isso pra descobrir quem tem conta aqui.
+app.post(
+  '/api/forgot-password',
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { email } = req.body || {};
+    const generic = {
+      ok: true,
+      message: 'Se esse e-mail tiver uma conta aqui, enviamos um link pra trocar a senha.',
+    };
+    if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email)) {
+      return res.json(generic);
+    }
+    const user = await db.get('SELECT id, username, email FROM users WHERE email = ?', [email.trim()]);
+    if (!user) return res.json(generic);
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1h
+    await db.run('UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?', [
+      token,
+      expires,
+      user.id,
+    ]);
+    const resetUrl = `${req.protocol}://${req.get('host')}/?reset=${token}`;
+    sendPasswordResetEmail(user.email, resetUrl, user.username).catch((err) =>
+      console.error('Erro ao enviar e-mail de troca de senha:', err)
+    );
+    res.json(generic);
+  })
+);
+
+app.post(
+  '/api/reset-password',
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { token, newPassword } = req.body || {};
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'Link inválido.' });
+    }
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6 || newPassword.length > 200) {
+      return res.status(400).json({ error: 'Nova senha precisa ter 6-200 caracteres.' });
+    }
+    const user = await db.get('SELECT * FROM users WHERE reset_token = ?', [token]);
+    if (!user || !user.reset_token_expires || new Date(user.reset_token_expires) < new Date()) {
+      return res.status(400).json({ error: 'Link expirado ou inválido — peça um novo.' });
+    }
+    const newHash = bcrypt.hashSync(newPassword, 10);
+    await db.run('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?', [
+      newHash,
+      user.id,
+    ]);
+    // Troca de senha por link é sensível — encerra qualquer sessão já aberta
+    // dessa conta (inclusive uma que talvez tenha sido comprometida), pra
+    // precisar entrar de novo com a senha nova em todo lugar.
+    await db.run('UPDATE user_sessions SET revoked = 1 WHERE user_id = ?', [user.id]);
+    res.json({ ok: true, message: 'Senha trocada! Já pode entrar com a senha nova.' });
   })
 );
 
@@ -1053,6 +1155,8 @@ app.get(
       // da plataforma) sempre aparece como Plus — acesso total, sem precisar
       // assinar nada.
       plan: req.user.is_admin ? 'plus' : req.user.plan || 'free',
+      // Tema de cor do PLUS (id de PLUS_THEMES) — null = usa o roxo padrão.
+      plus_theme: req.user.plus_theme || null,
       // Usado pelo painel /admin.html pra saber, antes de tentar carregar
       // qualquer dado, se essa conta de admin já passou pela exigência de
       // 2FA (ver requireAdmin) — evita uma tela cheia de erros 403 e mostra
@@ -1070,14 +1174,19 @@ app.get(
 // na sala. Isso é bem mais comum do que parece e é a causa nº1 de "call não
 // conecta" que só acontece com ALGUMAS pessoas.
 //
-// O TURN_URL/TURN_USERNAME/TURN_CREDENTIAL abaixo podem ser trocados a
-// qualquer momento nas variáveis de ambiente do Render (sem precisar
-// reempacotar/redeploy do frontend) — assim que você criar sua própria conta
-// grátis num provedor de TURN (metered.ca/Open Relay tem 20GB grátis/mês,
-// sem cartão), só troca essas 3 variáveis. Enquanto isso não acontece, cai
-// no relay público de testes do Open Relay Project (compartilhado com o
-// mundo inteiro, então pode ficar lento/instável se muita gente usar ao
-// mesmo tempo — ok pra um grupo de amigos, não pra produção séria).
+// Três níveis de prioridade, do melhor pro pior:
+//   1. METERED_DOMAIN + METERED_API_KEY — conta própria no metered.ca, que
+//      gera um usuário/senha TURN novo a cada chamada (mais seguro que fixo,
+//      e é assim que o painel deles funciona: não tem usuário/senha fixo pra
+//      copiar, só uma chave secreta que o SERVIDOR usa pra pedir credenciais
+//      novas na hora — nunca expõe a chave pro navegador da pessoa).
+//   2. TURN_URL/TURN_USERNAME/TURN_CREDENTIAL — outro provedor TURN
+//      qualquer com usuário/senha fixos.
+//   3. Relay público de testes do Open Relay Project (compartilhado com o
+//      mundo inteiro, pode ficar lento/instável com muita gente usando ao
+//      mesmo tempo — ok pra um grupo de amigos, não pra produção séria).
+// Todas essas variáveis podem ser trocadas a qualquer momento nas variáveis
+// de ambiente do Render, sem precisar reempacotar/redeploy do frontend.
 app.get(
   '/api/ice-servers',
   requireAuth,
@@ -1086,28 +1195,49 @@ app.get(
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun.relay.metered.ca:80' },
     ];
+
+    const meteredDomain = process.env.METERED_DOMAIN;
+    const meteredApiKey = process.env.METERED_API_KEY;
+    if (meteredDomain && meteredApiKey) {
+      try {
+        const meteredRes = await fetch(
+          `https://${meteredDomain}/api/v1/turn/credentials?apiKey=${encodeURIComponent(meteredApiKey)}`
+        );
+        if (meteredRes.ok) {
+          const meteredServers = await meteredRes.json();
+          if (Array.isArray(meteredServers) && meteredServers.length > 0) {
+            return res.json({ iceServers: [...servers, ...meteredServers], usingSharedRelay: false });
+          }
+        }
+        console.error('[ice-servers] metered.ca não devolveu credenciais válidas — caindo pro próximo nível.');
+      } catch (err) {
+        console.error('[ice-servers] Erro ao buscar credenciais do metered.ca:', err.message);
+      }
+    }
+
     const turnUrl = process.env.TURN_URL;
     if (turnUrl) {
       // Suporta uma ou várias URLs separadas por vírgula (ex: udp + tcp + tls)
       turnUrl.split(',').map((u) => u.trim()).filter(Boolean).forEach((urls) => {
         servers.push({ urls, username: process.env.TURN_USERNAME, credential: process.env.TURN_CREDENTIAL });
       });
-    } else {
-      // Sem TURN próprio configurado — usa o relay público gratuito do Open
-      // Relay Project (credenciais de teste documentadas publicamente por
-      // eles mesmos, não é nenhum segredo vazado). As 3 variantes cobrem
-      // redes diferentes: UDP é o caminho mais rápido/comum; TCP porta 80 e
-      // TLS porta 443 salvam quem está atrás de firewall bem restritivo
-      // (rede de empresa/escola) que só libera as portas normais de web.
-      [
-        'turn:relay.metered.ca:80',
-        'turn:relay.metered.ca:80?transport=tcp',
-        'turns:relay.metered.ca:443?transport=tcp',
-      ].forEach((urls) => {
-        servers.push({ urls, username: 'openrelayproject', credential: 'openrelayproject' });
-      });
+      return res.json({ iceServers: servers, usingSharedRelay: false });
     }
-    res.json({ iceServers: servers, usingSharedRelay: !turnUrl });
+
+    // Sem nada configurado — usa o relay público gratuito do Open Relay
+    // Project (credenciais de teste documentadas publicamente por eles
+    // mesmos, não é nenhum segredo vazado). As 3 variantes cobrem redes
+    // diferentes: UDP é o caminho mais rápido/comum; TCP porta 80 e TLS
+    // porta 443 salvam quem está atrás de firewall bem restritivo (rede de
+    // empresa/escola) que só libera as portas normais de web.
+    [
+      'turn:relay.metered.ca:80',
+      'turn:relay.metered.ca:80?transport=tcp',
+      'turns:relay.metered.ca:443?transport=tcp',
+    ].forEach((urls) => {
+      servers.push({ urls, username: 'openrelayproject', credential: 'openrelayproject' });
+    });
+    res.json({ iceServers: servers, usingSharedRelay: true });
   })
 );
 
@@ -1125,6 +1255,11 @@ app.get(
 //                            a URL https://SEU-SITE/api/paypal/webhook
 //   PAYPAL_MODE            — "sandbox" (testes) ou "live" (cobrança real)
 // Ver DEPLOY.md pra passo a passo completo.
+
+// Admin sempre conta como Plus (mesma regra usada em fileSizeLimitFor).
+function isPlusAccount(user) {
+  return !!(user && (user.plan === 'plus' || user.is_admin));
+}
 
 function isPayPalConfigured() {
   return !!(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET && process.env.PAYPAL_PLAN_ID);
@@ -1162,6 +1297,11 @@ async function setUserPlan(userId, plan, opts = {}) {
     plan === 'plus' ? expiresAt : null,
     userId,
   ]);
+  // Assinatura caiu (cancelou/expirou) — o tema de cor é um perk pago, então
+  // sai junto. Se a pessoa assinar de novo, escolhe outro (ou o mesmo) tema.
+  if (plan !== 'plus') {
+    await db.run('UPDATE users SET plus_theme = NULL WHERE id = ?', [userId]);
+  }
 }
 
 // Prêmio de permanência mais alto do site (Fundador Eterno, 365 dias
@@ -1190,6 +1330,17 @@ async function checkPlanExpiry(user) {
   }
   return user;
 }
+
+// Catálogo público dos temas de cor do PLUS — front busca aqui em vez de
+// duplicar a lista, então adicionar/mudar uma cor só precisa mexer no
+// PLUS_THEMES acima.
+app.get(
+  '/api/plus-themes',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json({ themes: PLUS_THEMES });
+  })
+);
 
 app.get(
   '/api/paypal/config',
@@ -1470,6 +1621,7 @@ app.patch(
       status_message,
       avatar,
       avatar_frame,
+      plus_theme,
       region,
       language,
       bio,
@@ -1585,12 +1737,25 @@ app.patch(
       await db.run('UPDATE users SET avatar_frame = ? WHERE id = ?', [avatar_frame || null, req.user.id]);
     }
 
+    if (typeof plus_theme === 'string') {
+      if (plus_theme) {
+        if (!isPlusAccount(req.user)) {
+          return res.status(403).json({ error: 'Tema de cor é exclusivo de quem tem NEXTGAME PLUS' });
+        }
+        if (!PLUS_THEMES.some((t) => t.id === plus_theme)) {
+          return res.status(400).json({ error: 'Tema de cor inválido' });
+        }
+      }
+      await db.run('UPDATE users SET plus_theme = ? WHERE id = ?', [plus_theme || null, req.user.id]);
+    }
+
     const updated = await db.get('SELECT * FROM users WHERE id = ?', [req.user.id]);
     res.json({
       ok: true,
       status_message: updated.status_message,
       avatar: updated.avatar,
       avatar_frame: updated.avatar_frame,
+      plus_theme: updated.plus_theme || null,
       region: updated.region,
       language: updated.language,
       bio: updated.bio,
@@ -1785,7 +1950,7 @@ app.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const user = await db.get(
-      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified, bio, country, language,
+      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, status_message, is_admin, is_verified, bio, country, language,
         region, reputation, points, login_streak, longest_streak, created_at, favorite_games, platforms,
         preferred_rank, play_style
        FROM users WHERE id = ? AND is_banned = 0`,
@@ -1809,6 +1974,43 @@ app.get(
       tournament_wins: Number(tournamentWins.c),
       level: Math.max(1, Math.floor(Number(messageCount.c) / 10) + 1),
     });
+  })
+);
+
+// ---------- JOGOS SALVOS (biblioteca pessoal) ----------
+app.get(
+  '/api/saved-games',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json(await db.all('SELECT id, game_name FROM saved_games WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]));
+  })
+);
+
+app.post(
+  '/api/saved-games',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const gameName = String((req.body || {}).game_name || '').trim().slice(0, 60);
+    if (!gameName) return res.status(400).json({ error: 'Nome do jogo é obrigatório.' });
+    try {
+      await db.run('INSERT INTO saved_games (id, user_id, game_name) VALUES (?, ?, ?)', [
+        uuidv4(),
+        req.user.id,
+        gameName,
+      ]);
+    } catch (err) {
+      // UNIQUE(user_id, game_name) — já tinha salvo esse jogo, não é erro de verdade.
+    }
+    res.json(await db.all('SELECT id, game_name FROM saved_games WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]));
+  })
+);
+
+app.delete(
+  '/api/saved-games/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM saved_games WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    res.json({ ok: true });
   })
 );
 
@@ -1938,7 +2140,7 @@ app.get(
     const userIds = [...new Set(posts.map((p) => p.user_id))];
     const authors = userIds.length
       ? await db.all(
-          `SELECT id, username, avatar, avatar_frame, region, language FROM users WHERE id IN (${userIds
+          `SELECT id, username, avatar, avatar_frame, plus_theme, region, language FROM users WHERE id IN (${userIds
             .map(() => '?')
             .join(',')})`,
           userIds
@@ -2029,7 +2231,7 @@ app.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const rows = await db.all(
-      `SELECT u.id, u.username, u.avatar, u.avatar_frame FROM lfg_group_members m
+      `SELECT u.id, u.username, u.avatar, u.avatar_frame, u.plus_theme FROM lfg_group_members m
        JOIN users u ON u.id = m.user_id WHERE m.post_id = ?`,
       [req.params.id]
     );
@@ -2089,7 +2291,7 @@ app.get(
     const team = await db.get('SELECT * FROM teams WHERE id = ?', [req.params.id]);
     if (!team) return res.status(404).json({ error: 'Time não encontrado' });
     const members = await db.all(
-      `SELECT u.id, u.username, u.avatar, u.avatar_frame, tm.role FROM team_members tm
+      `SELECT u.id, u.username, u.avatar, u.avatar_frame, u.plus_theme, tm.role FROM team_members tm
        JOIN users u ON u.id = tm.user_id WHERE tm.team_id = ? ORDER BY tm.role`,
       [team.id]
     );
@@ -2205,7 +2407,7 @@ app.get(
     const clan = await db.get('SELECT * FROM clans WHERE id = ?', [req.params.id]);
     if (!clan) return res.status(404).json({ error: 'Clã não encontrado' });
     const members = await db.all(
-      `SELECT u.id, u.username, u.avatar, u.avatar_frame, cm.role FROM clan_members cm
+      `SELECT u.id, u.username, u.avatar, u.avatar_frame, u.plus_theme, cm.role FROM clan_members cm
        JOIN users u ON u.id = cm.user_id WHERE cm.clan_id = ? ORDER BY cm.role`,
       [clan.id]
     );
@@ -2920,7 +3122,7 @@ app.get(
 
     const server = await db.get('SELECT owner_id FROM servers WHERE category = ?', [req.params.category]);
     const members = await db.all(
-      `SELECT u.id, u.username, u.discriminator, u.username_tag, u.avatar, u.avatar_frame, u.is_admin, u.is_verified
+      `SELECT u.id, u.username, u.discriminator, u.username_tag, u.avatar, u.avatar_frame, u.plus_theme, u.is_admin, u.is_verified
        FROM server_members sm JOIN users u ON u.id = sm.user_id
        WHERE sm.category = ? ORDER BY u.username`,
       [req.params.category]
@@ -3190,7 +3392,7 @@ app.get(
     const otherIds = rows.map((r) => r.other_id);
     const placeholders = otherIds.map(() => '?').join(',');
     const users = await db.all(
-      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified FROM users WHERE id IN (${placeholders})`,
+      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, status_message, is_admin, is_verified FROM users WHERE id IN (${placeholders})`,
       otherIds
     );
     const usersMap = {};
@@ -3358,7 +3560,7 @@ app.get(
     }
 
     const target = await db.get(
-      'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, is_admin, is_verified FROM users WHERE id = ?',
+      'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, is_admin, is_verified FROM users WHERE id = ?',
       [targetId]
     );
     if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -3439,7 +3641,7 @@ app.get(
       const hiddenAt = iAmA ? row.hidden_for_a : row.hidden_for_b;
 
       const other = await db.get(
-        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, is_admin, is_verified FROM users WHERE id = ?',
+        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, is_admin, is_verified FROM users WHERE id = ?',
         [otherId]
       );
       if (!other) continue;
@@ -3837,6 +4039,11 @@ function describeActionForConfirmation(name, args) {
 }
 
 async function triggerAiReply(channelId, user) {
+  // Mostra "NEXT GAME IA está digitando..." enquanto ela processa — reusa o
+  // mesmo indicador de digitação que já existe pra pessoas de verdade (só
+  // que emitido pelo servidor, já que o bot não tem socket próprio de
+  // cliente). Sempre desliga no fim (finally), mesmo se der erro no meio.
+  io.to(channelId).emit('typing:update', { userId: AI_BOT_USER_ID, username: AI_BOT_USERNAME, typing: true });
   try {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
@@ -3981,6 +4188,8 @@ async function triggerAiReply(channelId, user) {
   } catch (err) {
     console.error('Erro ao chamar a IA:', err);
     await postAiMessage(channelId, 'Deu um erro aqui do meu lado. Tenta de novo?');
+  } finally {
+    io.to(channelId).emit('typing:update', { userId: AI_BOT_USER_ID, username: AI_BOT_USERNAME, typing: false });
   }
 }
 
@@ -5646,21 +5855,46 @@ app.get('/api/version', (req, res) => {
   });
 });
 
-// Estatísticas gerais da plataforma pra tela de início.
+// Estatísticas gerais da plataforma pra tela de início. Os deltas
+// ("novos esta semana") são contagens reais (usuários/servidores criados
+// nos últimos 7 dias) — nada inventado, diferente de um "+12" decorativo.
 app.get(
   '/api/stats',
   // Sem requireAuth de propósito: são só contagens (nada pessoal), usadas
   // também na landing pública antes do login.
   asyncHandler(async (req, res) => {
-    const [users, servers, tournaments] = await Promise.all([
+    // BUG CORRIGIDO: a query de "servidores novos" usava a tabela `servers`
+    // (que só tem linha pra quem configurou descrição/regras/ícone — nem
+    // todo servidor tem) e um WHERE created_at que essa tabela nem possui
+    // (só tem updated_at) — dava erro toda vez e derrubava a rota INTEIRA
+    // com 500, fazendo até members/servers/tournaments (que sempre
+    // funcionaram) virarem "undefined" na tela. "Servidor" aqui sempre foi
+    // "categoria distinta em channels" (é assim que o resto do app conta),
+    // então o "novo esta semana" agora usa a mesma fonte: categoria cujo
+    // canal mais antigo foi criado nos últimos 7 dias.
+    const [users, servers, tournaments, newUsers, newServers, playingNow] = await Promise.all([
       db.get('SELECT COUNT(*) as c FROM users WHERE is_banned = 0'),
       db.get('SELECT COUNT(DISTINCT category) as c FROM channels'),
       db.get('SELECT COUNT(*) as c FROM tournaments'),
+      db.get("SELECT COUNT(*) as c FROM users WHERE is_banned = 0 AND created_at >= datetime('now', '-7 days')"),
+      db.get(
+        `SELECT COUNT(*) as c FROM (
+           SELECT category, MIN(created_at) as first_created FROM channels GROUP BY category
+         ) t WHERE first_created >= datetime('now', '-7 days')`
+      ),
+      db.get("SELECT COUNT(*) as c FROM users WHERE is_banned = 0 AND status_message IS NOT NULL AND status_message != ''"),
     ]);
     res.json({
       members: Number(users.c),
       servers: Number(servers.c),
       tournaments: Number(tournaments.c),
+      new_members_week: Number(newUsers.c),
+      new_servers_week: Number(newServers.c),
+      // "Jogando agora" real exigiria saber quem tá online neste exato
+      // instante (isso só o servidor com sockets ativos sabe) — aqui é uma
+      // aproximação server-side (quantos têm status de jogo definido), o
+      // número exato de quem tá online agora já vem por socket no cliente.
+      playing_now_approx: Number(playingNow.c),
     });
   })
 );
@@ -5819,12 +6053,12 @@ app.get(
     const parsedTag = parseUserTag(q);
     const playersQuery = parsedTag.discriminator
       ? db.all(
-          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified
+          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, status_message, is_admin, is_verified
            FROM users WHERE is_banned = 0 AND username = ? AND discriminator = ? AND id != ?`,
           [parsedTag.username, parsedTag.discriminator, req.user.id]
         )
       : db.all(
-          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified
+          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, status_message, is_admin, is_verified
            FROM users WHERE is_banned = 0 AND username LIKE ? AND id != ? ORDER BY username LIMIT ?`,
           [like, req.user.id, limit]
         );
@@ -5976,7 +6210,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified FROM users WHERE is_banned = 0 AND id != ? ORDER BY username',
+        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, plus_theme, status_message, is_admin, is_verified FROM users WHERE is_banned = 0 AND id != ? ORDER BY username',
         [AI_BOT_USER_ID]
       )
     );
@@ -6321,6 +6555,83 @@ app.get(
       recent_slow_requests: recentSlowRequests.slice(0, 30),
       recent_errors: recentErrors.slice(0, 30),
     });
+  })
+);
+
+// ---------- DIAGNÓSTICO DE ERRO POR IA (painel admin) ----------
+// A IA (Groq, mesma já usada pra moderação) SÓ EXPLICA e SUGERE — nunca
+// aplica nada sozinha em produção. O admin lê a sugestão e decide: aplica
+// na mão, ou pede pra alguém (ex: essa mesma conversa) aplicar de verdade.
+// Isso é proposital: deixar uma IA alterar código ao vivo num site com
+// usuários reais, sem revisão humana, é arriscado demais — um diagnóstico
+// errado viraria uma mudança de código errada, sem ninguém percebendo antes
+// de ir pro ar.
+async function callGroqForErrorDiagnosis(promptText) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const textModel = process.env.GROQ_TEXT_MODEL || 'llama-3.3-70b-versatile';
+    const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+      body: JSON.stringify({
+        model: textModel,
+        max_tokens: 700,
+        messages: [{ role: 'user', content: promptText }],
+      }),
+    });
+    if (!apiRes.ok) {
+      const errText = await apiRes.text();
+      console.error('Erro na Groq (diagnóstico de erro):', apiRes.status, errText);
+      return null;
+    }
+    const data = await apiRes.json();
+    return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || null;
+  } catch (err) {
+    console.error('Erro na Groq (diagnóstico de erro):', err.message);
+    return null;
+  }
+}
+
+const ERROR_DIAGNOSIS_PROMPT_PREFIX =
+  'Você é um engenheiro sênior ajudando a diagnosticar um erro de produção de um app Node.js/Express ' +
+  '(backend) com frontend em HTML/CSS/JS puro (chat/voz pra gamers, com WebRTC, socket.io e banco SQLite/Turso). ' +
+  'Responda em português, direto ao ponto, no formato:\n' +
+  '1) CAUSA PROVÁVEL — uma explicação curta e objetiva do que provavelmente gerou isso.\n' +
+  '2) SUGESTÃO DE CORREÇÃO — se você tiver confiança de onde/como corrigir, mostre um trecho de código ' +
+  'sugerido (só o trecho relevante, não o arquivo inteiro). Se não tiver certeza do arquivo/linha exata ' +
+  'pela informação disponível, diga isso claramente e dê a direção geral em vez de inventar um local específico.\n' +
+  '3) URGÊNCIA — baixa, média ou alta, com uma frase de justificativa.\n' +
+  'Não invente nomes de arquivo/variável que não apareçam na mensagem ou no stack trace abaixo. ' +
+  'Seja conciso — isso vai ser lido rápido por alguém no meio do trabalho.\n\n';
+
+app.post(
+  '/api/admin/errors/:id/diagnose',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const error = recentErrors.find((e) => e.id === req.params.id);
+    if (!error) {
+      return res.status(404).json({ error: 'Esse erro não está mais na lista (só guardamos os mais recentes).' });
+    }
+    // Já diagnosticado antes — devolve o mesmo, sem gastar chamada de API de
+    // novo (o admin pode reabrir o painel várias vezes no mesmo erro).
+    if (error.diagnosis) {
+      return res.json({ diagnosis: error.diagnosis, cached: true });
+    }
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(400).json({ error: 'GROQ_API_KEY não configurada — a IA de diagnóstico precisa dela (mesma chave já usada pra moderação).' });
+    }
+    const prompt =
+      ERROR_DIAGNOSIS_PROMPT_PREFIX +
+      `Origem: ${error.source}\nMensagem: ${error.message}\n` +
+      (error.stack ? `Stack trace:\n${error.stack}` : '(sem stack trace disponível)');
+    const diagnosis = await callGroqForErrorDiagnosis(prompt);
+    if (!diagnosis) {
+      return res.status(502).json({ error: 'Não consegui gerar o diagnóstico agora — tenta de novo em alguns segundos.' });
+    }
+    error.diagnosis = diagnosis; // cacheia no próprio objeto em memória
+    res.json({ diagnosis, cached: false });
   })
 );
 
@@ -7159,6 +7470,7 @@ io.on('connection', (socket) => {
       username: user.username,
       avatar: user.avatar,
       avatar_frame: user.avatar_frame,
+      plus_theme: user.plus_theme,
     });
 
     if (!voiceRooms.has(roomId)) voiceRooms.set(roomId, new Map());
