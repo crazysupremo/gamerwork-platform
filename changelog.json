@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.19.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido: a personalização (tema, fundo, efeitos, chat, badge, banner) agora realmente aparece no site — antes só ficava salva, sem afetar a página de verdade",
+      "Tema escolhido muda as cores reais do site (botões, destaques, badges)",
+      "Fundo personalizado (cor/gradiente/partículas/ondas) aparece atrás do app de verdade, com opacidade e desfoque",
+      "Efeitos (brilho nos botões, glow no avatar, gradiente animado na barra lateral, animação ao receber mensagem, aro ao entrar na call, transições) agora funcionam nas telas reais",
+      "Personalização do chat (formato da bolha, avatares, cor por usuário/neutra, tamanho da fonte, espaçamento, horário, efeito de menção) aplicada nas mensagens de verdade",
+      "Seu badge e banner escolhidos aparecem no seu perfil e (o badge) do lado do seu nome no chat"
+    ]
+  },
+  {
     "version": "0.18.0",
     "date": "2026-09-01",
     "changes": [

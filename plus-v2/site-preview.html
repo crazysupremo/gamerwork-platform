@@ -253,6 +253,7 @@
 
   <script src="../public/icons.js"></script>
   <script src="../public/plus2.js"></script>
+  <script src="../public/plus2-live.js"></script>
   <script>
     // Mesmo catálogo de teste usado nos outros previews — só reaproveitado
     // aqui pra não precisar de servidor. Na versão de verdade quem preenche
@@ -346,6 +347,14 @@
     let adapter = PlusV2.createMockAdapter(buildSeed());
     let plusHandle = null;
     let plusMounted = false;
+    // Igual ao app.js de verdade: toda vez que algo muda no painel, reaplica
+    // tema/fundo/efeitos/badge/banner na "página" ao redor (aqui é o app-shell
+    // fake construído em volta do modal — dá pra ver o efeito de verdade).
+    async function refreshLive() {
+      const data = await adapter.getCatalog();
+      PlusV2Live.applyAll(data);
+    }
+
     async function mountPlus() {
       const root = document.getElementById('plus2-root');
       root.innerHTML = '';
@@ -354,10 +363,12 @@
         onLockedClick: (kind, item) => showToast('🔒 "' + item.name + '" é exclusivo do NEXTGAME PLUS'),
         onStickerSent: () => showToast('Figurinha enviada ✓'),
         onUploadError: (err) => showToast('Erro no upload: ' + err.message),
+        onChange: () => refreshLive(),
       });
       plusMounted = true;
       document.getElementById('plus-already-active').classList.toggle('hidden', !seedIsPlusUser);
       document.getElementById('sp-chip-plus-label').textContent = seedIsPlusUser ? 'PLUS ✨' : '';
+      await refreshLive();
     }
 
     // ---------------- Navegação real: abrir/fechar o modal de Configurações ----------------

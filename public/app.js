@@ -823,6 +823,10 @@ function startApp() {
   loadUploadLimits();
   enforceScreenQualityForPlan();
   updatePlusBadgeUI();
+  // Aplica tema/fundo/efeitos/badge/banner escolhidos na Personalização —
+  // sem isso, tudo que a pessoa configura em Configurações → NEXTGAME PLUS
+  // fica só salvo no banco, sem realmente aparecer no site.
+  if (typeof PlusV2Live !== 'undefined') PlusV2Live.refresh(window.fetch.bind(window));
 
   socket = io({ auth: { userId: me.id } });
   registerSocketHandlers();
@@ -3537,8 +3541,22 @@ async function openProfilePreview(user) {
   avatarEl.innerHTML = renderAvatarHtml(user);
   avatarEl.className = 'profile-preview-avatar ' + avatarFrameClass(user);
 
+  // Banner e badge da Personalização (Plus V2) — só dá pra mostrar o SEU
+  // próprio banner/badge por enquanto (a API ainda não expõe a escolha de
+  // outras pessoas publicamente), então isso só aparece no seu próprio perfil.
+  const pv2 = (typeof PlusV2Live !== 'undefined' && PlusV2Live.state.loaded) ? PlusV2Live.state : null;
+  const isMyProfile = user.id === me.id;
+  const bannerEl = document.querySelector('#modal-profile-preview .profile-banner');
+  if (bannerEl) {
+    if (isMyProfile && pv2 && pv2.bannerCss) bannerEl.setAttribute('style', pv2.bannerCss);
+    else bannerEl.removeAttribute('style');
+  }
+  const pv2BadgeInline = (isMyProfile && pv2 && pv2.badge)
+    ? ` <span class="pv2-live-badge" title="${escapeHtml(pv2.badge.name)}">${pv2.badge.icon}</span>`
+    : '';
+
   document.getElementById('profile-preview-username').innerHTML =
-    `${escapeHtml(user.username)}${user.is_admin ? ' 👑' : ''}${user.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}`;
+    `${escapeHtml(user.username)}${user.is_admin ? ' 👑' : ''}${user.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}${pv2BadgeInline}`;
   document.getElementById('profile-preview-status').textContent = user.status_message ? '🎮 ' + user.status_message : '';
 
   // Identificador estilo Discord (@Username#1234) — sistema de hashtag.
@@ -4406,6 +4424,9 @@ async function mountPlusV2Personalization() {
       onThemeApplied: (t) => showCopyToast('Tema "' + t.name + '" aplicado ✓'),
       onLockedClick: (kind, item) => showCopyToast('🔒 "' + item.name + '" é exclusivo do NEXTGAME PLUS'),
       onUploadError: (err) => showCopyToast('Erro no upload: ' + err.message),
+      // Cada mudança salva (tema, fundo, efeito, chat, badge, banner) chama
+      // isso — reaplica tudo na hora, sem precisar recarregar a página.
+      onChange: () => { if (typeof PlusV2Live !== 'undefined') PlusV2Live.refresh(window.fetch.bind(window)); },
     });
   } catch (err) {
     console.error('Erro ao carregar personalização:', err);
@@ -6479,13 +6500,36 @@ function renderMessage(msg) {
   // servidor (várias pessoas) continua no formato de lista normal (faz mais
   // sentido pra grupo — bolha alinhada não escala bem pra N participantes).
   const isDm = msg.channel_id.startsWith('dm::');
+
+  // Personalização (Plus V2) aplicada de verdade na mensagem — ver
+  // plus2-live.js. `pv2` fica null com segurança se o módulo não carregou
+  // ainda (ex: erro de rede), nesse caso a mensagem renderiza normal.
+  const pv2 = (typeof PlusV2Live !== 'undefined' && PlusV2Live.state.loaded) ? PlusV2Live.state : null;
+  const pv2Chat = pv2 ? pv2.chat : null;
+  const pv2Classes = [];
+  if (pv2Chat) {
+    if (pv2Chat.bubbleStyle === 'square') pv2Classes.push('pv2-bubble-square');
+    else if (pv2Chat.bubbleStyle === 'minimal') pv2Classes.push('pv2-bubble-minimal');
+    if (pv2Chat.showAvatars === false) pv2Classes.push('pv2-hide-avatar');
+    if (pv2Chat.fontSize === 'small') pv2Classes.push('pv2-font-small');
+    else if (pv2Chat.fontSize === 'large') pv2Classes.push('pv2-font-large');
+    if (pv2Chat.showTimestamps === false) pv2Classes.push('pv2-hide-timestamp');
+  }
+  // Efeito de "mensagem chegando" só em mensagem de outra pessoa (a sua
+  // própria já aparece na hora que você manda, não precisa animar de novo).
+  if (!isOwn && pv2 && !pv2.performanceMode && pv2.effects.messageReceive) pv2Classes.push('pv2-live-msg-in');
+
   el.className =
-    'message' + (isBot ? ' bot-message' : '') + (isDm ? ' dm-message' + (isOwn ? ' dm-message-own' : ' dm-message-their') : '');
+    'message' + (isBot ? ' bot-message' : '') + (isDm ? ' dm-message' + (isOwn ? ' dm-message-own' : ' dm-message-their') : '') +
+    (pv2Classes.length ? ' ' + pv2Classes.join(' ') : '');
 
   const avatarHtml = isBot
     ? '<span>🤖</span>'
     : renderAvatarHtml(author || { username: msg.username });
   const avatarFrameCls = isBot ? '' : avatarFrameClass(author || {});
+  const pv2BadgeHtml = (isOwn && pv2 && pv2.badge)
+    ? `<span class="pv2-live-badge" title="${escapeHtml(pv2.badge.name)}">${pv2.badge.icon}</span>`
+    : '';
 
   el.innerHTML = `
     <div class="message-row">
@@ -6493,9 +6537,10 @@ function renderMessage(msg) {
       <div class="message-body">
         <div class="meta">
           <strong>${escapeHtml(msg.username)}</strong>
+          ${pv2BadgeHtml}
           ${author && author.is_verified ? '<span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}
           ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
-          · ${time}
+          · <span class="pv2-live-time">${time}</span>
           ${msg.edited ? '<span class="edited-tag">(editado)</span>' : ''}
           ${msg.pinned ? '<span class="pinned-tag">📌 fixada</span>' : ''}
         </div>
@@ -6516,6 +6561,25 @@ function renderMessage(msg) {
       ${REACTION_EMOJIS.map((e) => `<button data-emoji="${e}">${e}</button>`).join('')}
     </div>
   `;
+
+  // Efeito de menção (Personalização) — reaproveita a mesma marcação que
+  // highlightMentionsHtml() já usa (.mention-me) pra saber se essa mensagem
+  // te menciona, em vez de detectar tudo de novo aqui.
+  if (pv2Chat && pv2Chat.mentionEffect && pv2Chat.mentionEffect !== 'none' && el.querySelector('.mention-me')) {
+    el.classList.add('pv2-mention-' + pv2Chat.mentionEffect);
+  }
+  // Cor da bolha por remetente/neutra (só faz sentido em DM, que já tem
+  // bolha colorida — canal de servidor usa formato de lista sem bolha).
+  if (pv2Chat && isDm && !isBot) {
+    const contentEl = el.querySelector('.content');
+    if (contentEl) {
+      if (pv2Chat.colorMode === 'mono') {
+        contentEl.style.background = '#2b2d31';
+      } else if (pv2Chat.colorMode === 'per_user' && !isOwn && typeof PlusV2LiveColorForUser === 'function') {
+        contentEl.style.background = PlusV2LiveColorForUser(msg.user_id);
+      }
+    }
+  }
 
   // Botões de aceitar/recusar do card de "convite pra jogar" — só existem
   // quando a mensagem é um convite recebido (não o meu próprio, que mostra
@@ -7821,6 +7885,17 @@ function addVideoTile(peerId, username, stream, userInfo) {
     document.getElementById('video-grid').appendChild(tile);
     // remove a classe de animação depois que ela roda, pra não repetir em updates futuros
     setTimeout(() => tile.classList.remove('tile-enter'), 260);
+
+    // Efeito "ao entrar na call" (Personalização) — aro pulsante em volta do
+    // avatar de quem acabou de entrar, só pra participantes remotos (você
+    // "entrando na sua própria call" não precisa desse aviso visual).
+    if (isRemote && typeof PlusV2Live !== 'undefined' && PlusV2Live.state.loaded && !PlusV2Live.state.performanceMode && PlusV2Live.state.effects.callJoin) {
+      const avatarTileEl = tile.querySelector('.tile-avatar');
+      if (avatarTileEl) {
+        avatarTileEl.classList.add('pv2-live-join-ring');
+        setTimeout(() => avatarTileEl.classList.remove('pv2-live-join-ring'), 1500);
+      }
+    }
 
     // Tamanho manual da tile: alterna Padrão → Grande → Pequeno → Padrão.
     // Útil principalmente pra sua própria câmera, que abre no tamanho

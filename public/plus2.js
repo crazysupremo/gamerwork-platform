@@ -223,6 +223,17 @@
 
     let data = await adapter.getCatalog();
 
+    // Toda mudança salva (tema, fundo, efeito, chat, badge, banner) dispara
+    // opts.onChange — é assim que o site de verdade sabe a hora de reaplicar
+    // tudo na página real (ver mountPlusV2Personalization()/applyPlusV2Live()
+    // em app.js e plus2-live.js). No preview isolado, sem esse callback, não
+    // muda nada — só afeta quem realmente passar onChange.
+    async function saveMe(payload) {
+      const result = await adapter.saveMe(payload);
+      if (opts.onChange) opts.onChange(payload);
+      return result;
+    }
+
     const tabs = [
       { key: 'themes', label: 'Temas prontos' },
       { key: 'creator', label: 'Criar tema' },
@@ -335,7 +346,7 @@
       }
       data.current.themeId = theme.id;
       renderThemesPanel();
-      await adapter.saveMe({ themeId: theme.id });
+      await saveMe({ themeId: theme.id });
       if (opts.onThemeApplied) opts.onThemeApplied(theme);
     }
 
@@ -521,7 +532,7 @@
             const url = await adapter.uploadBannerImage(file);
             data.current.customBannerUrl = url;
             data.current.bannerId = null;
-            await adapter.saveMe({ customBannerUrl: url });
+            await saveMe({ customBannerUrl: url });
             renderProfilePanel();
           } catch (err) {
             if (opts.onUploadError) opts.onUploadError(err);
@@ -536,7 +547,7 @@
           uploadRow.appendChild(el('div', { class: 'pv2-upload-preview selected', style: `background-image:url(${data.current.customBannerUrl});` }));
           uploadRow.appendChild(el('button', {
             class: 'pv2-upload-btn', type: 'button',
-            onclick: async () => { data.current.customBannerUrl = null; renderProfilePanel(); await adapter.saveMe({ customBannerUrl: null }); },
+            onclick: async () => { data.current.customBannerUrl = null; renderProfilePanel(); await saveMe({ customBannerUrl: null }); },
           }, ['Remover']));
         }
         content.appendChild(uploadRow);
@@ -606,13 +617,13 @@
       data.current.bannerId = banner.id;
       data.current.customBannerUrl = null;
       renderProfilePanel();
-      await adapter.saveMe({ bannerId: banner.id });
+      await saveMe({ bannerId: banner.id });
     }
     async function selectBadge(badge) {
       if (badge && badge.locked) { if (opts.onLockedClick) opts.onLockedClick('badge', badge); return; }
       data.current.badgeId = badge ? badge.id : null;
       renderProfilePanel();
-      await adapter.saveMe({ badgeId: badge ? badge.id : null });
+      await saveMe({ badgeId: badge ? badge.id : null });
     }
 
     // ---------------- ABA: fundos personalizados ----------------
@@ -717,7 +728,7 @@
       });
       opacityInput.addEventListener('change', async () => {
         prefs.opacity = Number(opacityInput.value);
-        await adapter.saveMe({ visualPrefs: { background: { opacity: prefs.opacity } } });
+        await saveMe({ visualPrefs: { background: { opacity: prefs.opacity } } });
       });
       opacityRow.appendChild(opacityHead);
       opacityRow.appendChild(opacityInput);
@@ -731,7 +742,7 @@
       });
       blurInput.addEventListener('change', async () => {
         prefs.blur = Number(blurInput.value);
-        await adapter.saveMe({ visualPrefs: { background: { blur: prefs.blur } } });
+        await saveMe({ visualPrefs: { background: { blur: prefs.blur } } });
       });
       blurRow.appendChild(blurHead);
       blurRow.appendChild(blurInput);
@@ -781,7 +792,7 @@
       if (bg.locked) { if (opts.onLockedClick) opts.onLockedClick('background', bg); return; }
       data.current.backgroundId = bg.id;
       renderBackgroundsPanel();
-      await adapter.saveMe({ backgroundId: bg.id });
+      await saveMe({ backgroundId: bg.id });
     }
 
     // ---------------- ABA: efeitos e animações ----------------
@@ -825,7 +836,7 @@
       perfCheckbox.checked = perf;
       perfCheckbox.addEventListener('change', async () => {
         data.visualPrefs.performanceMode = perfCheckbox.checked;
-        await adapter.saveMe({ visualPrefs: { performanceMode: perfCheckbox.checked } });
+        await saveMe({ visualPrefs: { performanceMode: perfCheckbox.checked } });
         renderEffectsPanel();
       });
       perfRow.appendChild(perfSwitch);
@@ -849,7 +860,7 @@
         cb.addEventListener('change', async () => {
           if (locked) { cb.checked = false; if (opts.onLockedClick) opts.onLockedClick('effect', def); return; }
           data.visualPrefs.effects[def.key] = cb.checked;
-          await adapter.saveMe({ visualPrefs: { effects: { [def.key]: cb.checked } } });
+          await saveMe({ visualPrefs: { effects: { [def.key]: cb.checked } } });
           renderPreviewEffects();
         });
         if (locked) {
@@ -925,7 +936,7 @@
       }
       async function patchChat(partial) {
         Object.assign(chat, partial);
-        await adapter.saveMe({ visualPrefs: { chat: partial } });
+        await saveMe({ visualPrefs: { chat: partial } });
         renderChatPanel();
       }
 
