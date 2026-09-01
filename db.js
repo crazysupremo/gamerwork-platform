@@ -17,6 +17,10 @@ const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { createClient } = require('@libsql/client');
+// Sistema novo de personalização (temas, fundos, efeitos, chat, figurinhas,
+// perfil) que substitui o antigo NEXTGAME PLUS simples — desenvolvido à
+// parte em plus-v2/ e agora ligado aqui no init do banco.
+const { ensurePlusV2Schema, seedPlusV2Defaults } = require('./plus-v2/db-plus2');
 
 // ID fixo do usuário-bot assistente de IA — usado pelo server.js pra saber
 // quando uma DM é uma conversa com a IA (em vez de com outra pessoa).
@@ -881,6 +885,12 @@ async function initDb() {
   // separado do verification_code (que é só pra confirmação de cadastro).
   await ensureColumn('users', 'reset_token TEXT');
   await ensureColumn('users', 'reset_token_expires TEXT');
+
+  // ---------- PERSONALIZAÇÃO (Plus V2): temas, fundos, efeitos, chat,
+  // figurinhas e perfil — substitui o antigo sistema simples de tema de cor
+  // do NEXTGAME PLUS. Ver plus-v2/db-plus2.js pro catálogo padrão completo.
+  await ensurePlusV2Schema({ run, get, all, ensureColumn });
+  await seedPlusV2Defaults({ run, get, all, ensureColumn });
 }
 
 module.exports = { run, get, all, initDb, AI_BOT_USER_ID, AI_BOT_USERNAME, generateUniqueDiscriminator };

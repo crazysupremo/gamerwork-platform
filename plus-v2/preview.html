@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NEXT GAME — Preview: Personalização (Plus V2)</title>
+<link rel="stylesheet" href="public/plus2.css" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0e0f13; color: #e6e6e6; min-height: 100vh;
+  }
+  .pv2-preview-shell { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
+  .pv2-preview-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 8px; flex-wrap: wrap;
+  }
+  .pv2-preview-brand { display: flex; align-items: center; gap: 10px; }
+  .pv2-preview-brand-badge {
+    width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, #5865f2, #9146ff);
+    display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px; color: #fff;
+  }
+  .pv2-preview-title { font-size: 15px; font-weight: 800; color: #fff; }
+  .pv2-preview-subtitle { font-size: 11.5px; color: #9aa0ab; }
+  .pv2-plus-toggle-wrap {
+    display: flex; align-items: center; gap: 10px; background: #1a1b20; border: 1px solid #2a2b32;
+    border-radius: 30px; padding: 6px 14px 6px 6px;
+  }
+  .pv2-plus-toggle-avatar {
+    width: 26px; height: 26px; border-radius: 50%; background: #35373c; display: flex; align-items: center;
+    justify-content: center; font-size: 13px;
+  }
+  .pv2-switch { position: relative; width: 40px; height: 22px; }
+  .pv2-switch input { opacity: 0; width: 0; height: 0; }
+  .pv2-switch-track {
+    position: absolute; inset: 0; background: #35373c; border-radius: 30px; cursor: pointer; transition: background 0.15s ease;
+  }
+  .pv2-switch-track::after {
+    content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%; background: #fff; top: 3px; left: 3px;
+    transition: transform 0.15s ease;
+  }
+  .pv2-switch input:checked + .pv2-switch-track { background: linear-gradient(90deg, #5865f2, #9146ff); }
+  .pv2-switch input:checked + .pv2-switch-track::after { transform: translateX(18px); }
+  .pv2-banner-note {
+    background: rgba(0,217,192,0.08); border: 1px solid rgba(0,217,192,0.3); border-radius: 10px;
+    padding: 10px 14px; font-size: 12px; color: #a6f5e8; margin: 16px 0 22px; line-height: 1.5;
+  }
+  .pv2-content-card { background: #17181d; border: 1px solid #24252c; border-radius: 16px; padding: 22px; }
+  .pv2-toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0;
+    background: #202127; border: 1px solid #35373c; color: #e6e6e6; padding: 10px 18px; border-radius: 30px;
+    font-size: 12.5px; font-weight: 600; transition: all 0.2s ease; pointer-events: none; z-index: 50;
+  }
+  .pv2-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="pv2-preview-shell">
+    <div class="pv2-preview-header">
+      <div class="pv2-preview-brand">
+        <div class="pv2-preview-brand-badge">NG</div>
+        <div>
+          <div class="pv2-preview-title">NEXT GAME — Personalização (Plus V2)</div>
+          <div class="pv2-preview-subtitle">Preview isolado, com dados de teste — nada aqui está conectado ao site de verdade ainda</div>
+        </div>
+      </div>
+      <div class="pv2-plus-toggle-wrap" onclick="document.getElementById('plus-toggle').click()">
+        <div class="pv2-plus-toggle-avatar">🎮</div>
+        <span style="font-size:12px;font-weight:700;">Sou NEXTGAME PLUS</span>
+        <span class="pv2-switch">
+          <input type="checkbox" id="plus-toggle" checked />
+          <span class="pv2-switch-track"></span>
+        </span>
+      </div>
+    </div>
+
+    <div class="pv2-banner-note">
+      🧪 Isso é um protótipo de teste — dados fictícios, nada conectado ao site de verdade ainda. Já dá pra testar: temas prontos, criador de tema, fundos personalizados, efeitos e animações, personalização do chat, figurinhas (vários pacotes) e personalização de perfil — incluindo banner com imagem própria (upload real, funciona já no preview) além dos presets. Use o interruptor acima pra ver como fica pra quem não é Plus.
+    </div>
+
+    <div class="pv2-content-card">
+      <div id="plus2-root"></div>
+    </div>
+  </div>
+
+  <div class="pv2-toast" id="toast"></div>
+
+  <script src="public/plus2.js"></script>
+  <script>
+    // Mesmo catálogo padrão de db-plus2.js (DEFAULT_THEMES/DEFAULT_BADGES/DEFAULT_BANNERS),
+    // já no formato que a API real (routes-plus2.js) devolveria em GET /api/plus2/catalog.
+    // locked é sempre calculado a partir do plano atual (isPlusUser) — nunca
+    // travado direto no seed, senão o toggle "Sou PLUS" não bate com o
+    // catálogo assim que a página carrega.
+    function theme(id, key, name, primary, secondary, highlight, text, button, premium, effect) {
+      return { id, key, name, colors: { primary, secondary, highlight, text, button }, darkMode: true, effect, premium, preset: true, custom: false, locked: premium && !seedIsPlusUser };
+    }
+    function badge(id, key, name, icon, premium) {
+      return { id, key, name, icon, premium, locked: premium && !seedIsPlusUser };
+    }
+    function banner(id, key, name, style, value, premium) {
+      return { id, key, name, style, value, premium, locked: premium && !seedIsPlusUser };
+    }
+    function background(id, key, name, type, value, premium) {
+      return { id, key, name, type, value, premium, locked: premium && !seedIsPlusUser };
+    }
+    const seedIsPlusUser = true;
+
+    // SVG geradas na hora, só pro preview — representam o pacote "Marca
+    // NEXTGAME" (que na integração real aponta pros PNGs em
+    // /assets/brand/sticker-*.png, já existentes no site principal).
+    function brandStickerSvg(label, bg) {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="30" fill="${bg}"/><text x="32" y="38" font-family="Arial, sans-serif" font-size="15" font-weight="800" fill="#fff" text-anchor="middle">${label}</text></svg>`;
+      // btoa só aceita Latin1 — alguns rótulos aqui embaixo têm emoji (❤, 👍),
+      // que quebrariam com "InvalidCharacterError". Esse truque clássico
+      // (encodeURIComponent + unescape) resolve isso pra qualquer texto Unicode.
+      return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+    }
+
+    const seed = {
+      isPlusUser: true,
+      themes: [
+        theme('t1', 'blue', 'Blue', '#5865f2', '#9147ff', '#00d4ff', '#e6e6e6', '#1e1e2f', false, 'none'),
+        theme('t2', 'midnight', 'Midnight', '#3a3d52', '#5c6082', '#8f9bff', '#e6e6e6', '#1a1b26', false, 'none'),
+        theme('t3', 'nebula', 'Nebula', '#9146ff', '#c04fff', '#ff6ec7', '#e6e6e6', '#241a33', false, 'none'),
+        theme('t4', 'crimson', 'Crimson', '#e0344c', '#ff5c72', '#ff9f43', '#e6e6e6', '#2b1418', false, 'none'),
+        theme('t5', 'cyber-green', 'Cyber Green', '#00c896', '#00e6a8', '#7dffcb', '#e6e6e6', '#0f2a22', false, 'none'),
+        theme('t6', 'gold', 'Gold', '#c9982f', '#ffd93d', '#fff2b8', '#e6e6e6', '#2b2410', false, 'none'),
+        theme('t7', 'galaxy', 'Galaxy', '#4b3fa0', '#7c5cff', '#00e5ff', '#f0f0ff', '#1a1433', true, 'shine'),
+        theme('t8', 'cyberpunk', 'Cyberpunk', '#ff2e88', '#00e5ff', '#f6ff3d', '#f5f5ff', '#160a24', true, 'glow'),
+        theme('t9', 'aurora', 'Aurora', '#12c2a9', '#7d5fff', '#c2f9ff', '#eafff9', '#0d1f2e', true, 'shine'),
+        theme('t10', 'inferno', 'Inferno', '#ff4b2b', '#ff9f1c', '#ffe66d', '#fff2e6', '#2b0f0a', true, 'pulse'),
+        theme('t11', 'neon-dreams', 'Neon Dreams', '#ff00e5', '#00fff0', '#fefe00', '#f7f7ff', '#100a1f', true, 'glow'),
+        theme('t12', 'winter-night', 'Winter Night', '#3b6fa0', '#8fd6ff', '#ffffff', '#eaf6ff', '#0e1b26', true, 'shine'),
+      ],
+      myCustomThemes: [],
+      badges: [
+        badge('b1', 'founder', 'Fundador', '👑', false),
+        badge('b2', 'plus-member', 'Membro Plus', '⭐', true),
+        badge('b3', 'diamond', 'Diamante', '💎', true),
+        badge('b4', 'veteran', 'Veterano', '🔥', true),
+        badge('b5', 'beta-tester', 'Beta Tester', '🎖️', false),
+        badge('b6', 'moderator', 'Moderador', '🛡️', false),
+      ],
+      banners: [
+        banner('bn1', 'solid-blue', 'Azul sólido', 'solid', '#5865f2', false),
+        banner('bn2', 'solid-dark', 'Escuro sólido', 'solid', '#1a1b20', false),
+        banner('bn3', 'grad-blue-purple', 'Azul → Roxo', 'gradient', '#5865f2,#9146ff', false),
+        banner('bn4', 'grad-fire', 'Fogo', 'gradient', '#ff4b2b,#ffd93d', true),
+        banner('bn5', 'grad-aurora', 'Aurora', 'gradient', '#12c2a9,#7d5fff', true),
+        banner('bn6', 'grad-neon', 'Neon', 'gradient', '#ff00e5,#00fff0', true),
+      ],
+      backgrounds: [
+        background('g1', 'bg-solid-dark', 'Escuro padrão', 'solid', '#14151a', false),
+        background('g2', 'bg-solid-midnight', 'Meia-noite', 'solid', '#0e0f13', false),
+        background('g3', 'bg-grad-soft-blue', 'Azul suave', 'gradient', '#1a1b2e,#2a2d4a,135', false),
+        background('g4', 'bg-grad-fire', 'Fogo', 'gradient', '#2b0f0a,#5c1f12,135', true),
+        background('g5', 'bg-grad-aurora', 'Aurora', 'gradient', '#0d1f2e,#123a33,135', true),
+        background('g6', 'bg-image-city', 'Skyline (exemplo)', 'image', 'placeholder:city', true),
+        background('g7', 'bg-image-space', 'Espaço (exemplo)', 'image', 'placeholder:space', true),
+        background('g8', 'bg-gif-glow', 'Glow animado (exemplo)', 'gif', 'placeholder:glow', true),
+        background('g9', 'bg-effect-particles', 'Partículas', 'effect', 'particles', true),
+        background('g10', 'bg-effect-waves', 'Ondas', 'effect', 'waves', true),
+      ],
+      stickerPacks: [
+        {
+          id: 'sp1', key: 'classics', name: 'Clássicos', premium: false, locked: false,
+          stickers: ['😂', '❤️', '🔥', '👑', '🎮', '🏆', '👍', '🎉', '😭', '😡', '🤝', '💯', '😎', '👀', '🥳', '💀'].map((e, i) => ({ id: 'sp1-' + i, type: 'emoji', content: e })),
+        },
+        {
+          id: 'sp2', key: 'gamer-reactions', name: 'Reações Gamer', premium: false, locked: false,
+          stickers: ['🎯', '🕹️', '🏅', '⚔️', '🛡️', '💥', '🚀', '🐉'].map((e, i) => ({ id: 'sp2-' + i, type: 'emoji', content: e })),
+        },
+        {
+          id: 'sp3', key: 'memes', name: 'Memes', premium: false, locked: false,
+          stickers: ['💀', '🫠', '😳', '🗿', '🤡', '🥸', '🙃', '😵‍💫'].map((e, i) => ({ id: 'sp3-' + i, type: 'emoji', content: e })),
+        },
+        {
+          id: 'sp4', key: 'rage-tilt', name: 'Rage / Tilt', premium: false, locked: false,
+          stickers: ['😤', '🤬', '💢', '😩', '🫡', '🚩'].map((e, i) => ({ id: 'sp4-' + i, type: 'emoji', content: e })),
+        },
+        {
+          id: 'sp5', key: 'brand', name: 'Marca NEXTGAME', premium: false, locked: false,
+          stickers: [
+            ['GG', '#5865f2'], ['NICE', '#00c896'], ['FIRE', '#ff4b2b'], ["LET'S GO", '#9146ff'],
+            ['NEXT\nGAME', '#00b4ff'], ['❤', '#ff4fa3'], ['👍', '#ffd93d'], ['LOL', '#ff9f43'], ['CUP', '#c9982f'],
+          ].map(([label, bg], i) => ({ id: 'sp5-' + i, type: 'image', content: brandStickerSvg(label, bg) })),
+        },
+        {
+          id: 'sp6', key: 'plus-gold', name: 'PLUS Dourado', premium: true, locked: !seedIsPlusUser,
+          stickers: ['💎', '🚀', '⚡', '🐐', '🫡', '🎯', '🥇', '💪'].map((e, i) => ({ id: 'sp6-' + i, type: 'emoji', content: e })),
+        },
+        {
+          id: 'sp7', key: 'plus-neon', name: 'PLUS Neon', premium: true, locked: !seedIsPlusUser,
+          stickers: ['🌈', '🔮', '🛸', '🦄', '🎆', '🪩', '🧿', '✨'].map((e, i) => ({ id: 'sp7-' + i, type: 'emoji', content: e })),
+        },
+      ],
+      current: { themeId: 't1', bannerId: 'bn1', badgeId: 'b1', backgroundId: 'g1', customBannerUrl: null },
+      visualPrefs: {
+        background: { opacity: 100, blur: 0 },
+        effects: { particles: false, buttonGlow: true, animatedGradients: false, messageReceive: true, callJoin: true, avatarGlow: false, transitions: true },
+        performanceMode: false,
+        chat: { bubbleStyle: 'rounded', showAvatars: true, colorMode: 'per_user', fontSize: 'medium', spacing: 16, showTimestamps: true, showReactions: true, mentionEffect: 'highlight' },
+      },
+    };
+
+    const adapter = PlusV2.createMockAdapter(seed);
+    const root = document.getElementById('plus2-root');
+    const toast = document.getElementById('toast');
+    let toastTimer;
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    let handle;
+    PlusV2.mount(root, adapter, {
+      onThemeApplied: (t) => showToast('Tema "' + t.name + '" aplicado ✓'),
+      onLockedClick: (kind, item) => showToast('🔒 "' + item.name + '" é exclusivo do NEXTGAME PLUS'),
+      onStickerSent: () => showToast('Figurinha enviada ✓'),
+      onUploadError: (err) => showToast('Erro no upload: ' + err.message),
+    }).then((h) => { handle = h; });
+
+    document.getElementById('plus-toggle').addEventListener('change', async (e) => {
+      adapter._setPlusUser(e.target.checked);
+      if (handle) await handle.refresh();
+      showToast(e.target.checked ? 'Modo: sou NEXTGAME PLUS' : 'Modo: usuário gratuito');
+    });
+  </script>
+</body>
+</html>

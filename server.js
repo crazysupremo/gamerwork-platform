@@ -28,6 +28,12 @@ const CHANGELOG = require('./changelog.json');
 const db = require('./db');
 const { AI_BOT_USER_ID, AI_BOT_USERNAME } = require('./db');
 const { scanText } = require('./moderation');
+// Personalização (Plus V2) — temas, fundos, efeitos, chat, figurinhas e
+// perfil, substituindo o sistema simples de tema de cor do NEXTGAME PLUS.
+// Router montado mais abaixo, depois que requireAuth/requireAdmin/
+// asyncHandler/isPlusAccount já existem (são declarações de função, então
+// já estão disponíveis por hoisting mesmo antes de aparecerem no arquivo).
+const buildPlusV2Router = require('./plus-v2/routes-plus2');
 // generateVerificationCode já existe mais abaixo (selo "auditável" tipo
 // NG-XXXXXXXXXX) — sem relação com o código de 6 dígitos de confirmação de
 // e-mail, então importa com outro nome pra não colidir.
@@ -1299,6 +1305,11 @@ async function checkPlanExpiry(user) {
   }
   return user;
 }
+
+// Personalização (Plus V2) — todas as rotas de /api/plus2/*, definidas em
+// plus-v2/routes-plus2.js (temas, fundos, efeitos, chat, figurinhas, perfil
+// e o CRUD de admin de tudo isso).
+app.use('/api/plus2', buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlusAccount }));
 
 app.get(
   '/api/paypal/config',

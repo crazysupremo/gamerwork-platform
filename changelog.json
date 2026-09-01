@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.18.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Novo sistema de personalização do NEXTGAME PLUS (substitui o antigo tema de cor simples): temas prontos, criador de tema com cores próprias, fundos personalizados (cor/gradiente/imagem/GIF/efeito), efeitos e animações, personalização do chat, figurinhas (vários pacotes) e personalização de perfil com banner (incluindo upload de imagem própria) e badge",
+      "Novo painel de administração em /admin.html (aba \"Personalização\") pra gerenciar temas, fundos, banners, badges e pacotes de figurinha sem precisar mexer em código"
+    ]
+  },
+  {
     "version": "0.17.0",
     "date": "2026-09-01",
     "changes": [

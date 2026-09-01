@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NEXT GAME — Preview integrado: app inteiro + Configurações → NEXTGAME PLUS</title>
+<!-- CSS de verdade do site, igual ao index.html real -->
+<link rel="stylesheet" href="../public/style.css" />
+<link rel="stylesheet" href="../public/plus2.css" />
+<style>
+  /* Só o necessário pra essa tela de teste — nada disso existe no site real. */
+  .sp-note {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 300; background: #0f5f52; color: #d9fff6;
+    font-size: 12.5px; padding: 8px 16px; text-align: center; font-weight: 600;
+  }
+  .sp-note b { text-decoration: underline; cursor: pointer; }
+  body { padding-top: 34px; }
+  #modal-profile.settings-modal-card { width: 980px; }
+  .sp-toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0;
+    background: #202127; border: 1px solid #35373c; color: #e6e6e6; padding: 10px 18px; border-radius: 30px;
+    font-size: 12.5px; font-weight: 600; transition: all 0.2s ease; pointer-events: none; z-index: 999;
+  }
+  .sp-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .sp-placeholder-note { color: #8b909a; font-size: 12px; padding: 14px; text-align: center; border: 1px dashed #2a2b32; border-radius: 10px; margin-top: 10px; }
+  /* O style.css real referencia /assets/auth-hero.png com caminho absoluto —
+     funciona no site (servido a partir da raiz do domínio), mas quebra aqui
+     aberto via file://. Corrige só o caminho, mantendo o resto igual. */
+  .home-tournament-banner {
+    background-image:
+      linear-gradient(100deg, rgba(8,8,14,0.94) 0%, rgba(8,8,14,0.75) 40%, rgba(8,8,14,0.25) 75%, rgba(8,8,14,0.1) 100%),
+      url('../public/assets/auth-hero.png');
+  }
+</style>
+</head>
+<body>
+  <div class="sp-note">
+    🧪 Preview integrado — HTML/CSS de verdade do site (barra lateral, topo, tela inicial e Configurações), com dados de teste no lugar do servidor.
+    <b id="sp-plus-toggle-link">Alternar Free/PLUS</b> ·
+    <b id="sp-open-settings-link">Abrir Configurações → NEXTGAME PLUS</b>
+  </div>
+
+  <!-- ======================================================================
+       Isso daqui pra baixo, até o comentário "FIM DO APP PRINCIPAL", é o
+       MESMO HTML de public/index.html (#app) — barra lateral, topo e tela
+       inicial reais, copiados tal e qual. Conteúdo dinâmico que dependeria
+       do servidor (lista de servidores, torneios, etc.) fica vazio/estático
+       de propósito, igual ficaria no site real antes do app.js carregar os
+       dados.
+  ======================================================================= -->
+  <div id="app" class="app">
+    <div id="mobile-drawer-backdrop" class="mobile-drawer-backdrop hidden"></div>
+
+    <nav id="app-sidebar" class="app-sidebar">
+      <div class="app-sidebar-logo">
+        <img src="../public/assets/logo.png" alt="NEXT GAME" class="app-sidebar-logo-img" onerror="this.style.display='none'" />
+        <span class="beta-tag" title="O site ainda está em fase de testes.">BETA</span>
+      </div>
+
+      <div class="app-sidebar-nav">
+        <button class="sidebar-nav-item sidebar-nav-item-solo active" id="nav-inicio"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> Início</button>
+        <button class="sidebar-nav-item sidebar-nav-item-solo" id="nav-sidebar-amigos"><span class="ng-icon-wrap" data-icon="users"></span> Amigos</button>
+        <button class="sidebar-nav-item sidebar-nav-item-solo" id="nav-sidebar-chat"><span class="ng-icon-wrap" data-icon="message-square"></span> Chat</button>
+      </div>
+
+      <div class="app-sidebar-servers-header">
+        <button type="button" id="btn-toggle-servers" class="app-sidebar-servers-toggle">
+          <span class="ng-icon-wrap" data-icon="chevron-right"></span>
+          <span class="app-sidebar-section-label">Servidores</span>
+        </button>
+        <div class="app-sidebar-servers-actions">
+          <button class="app-sidebar-icon-btn" title="Criar servidor"><span class="ng-icon-wrap" data-icon="plus"></span></button>
+          <button class="app-sidebar-icon-btn" title="Entrar com convite"><span class="ng-icon-wrap" data-icon="link"></span></button>
+        </div>
+      </div>
+      <div class="app-sidebar-servers hidden"><div class="server-rail-list"></div></div>
+
+      <div class="app-sidebar-nav">
+        <div class="app-sidebar-section-label">Explorar</div>
+        <button class="sidebar-nav-item" id="nav-jogos"><span class="ng-icon-wrap" data-icon="search"></span> Explorar</button>
+        <button class="sidebar-nav-item" id="nav-lfg"><span class="ng-icon-wrap" data-icon="target"></span> Jogar</button>
+        <button class="sidebar-nav-item" id="nav-feed"><span class="ng-icon-wrap" data-icon="newspaper"></span> Feed</button>
+        <button class="sidebar-nav-item" id="nav-comunidade"><span class="ng-icon-wrap" data-icon="message-circle"></span> Comunidade</button>
+
+        <div class="app-sidebar-section-label">Competitivo</div>
+        <button class="sidebar-nav-item" id="nav-torneios"><span class="ng-icon-wrap" data-icon="trophy"></span> Torneios</button>
+        <button class="sidebar-nav-item" id="nav-ranking-link"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span> Ranking</button>
+        <button class="sidebar-nav-item" id="nav-rewards"><span class="ng-icon-wrap" data-icon="gift"></span> Rewards</button>
+
+        <div class="app-sidebar-section-label">Sua Biblioteca</div>
+        <button class="sidebar-nav-item" id="nav-saved-games"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> Jogos Salvos</button>
+        <button class="sidebar-nav-item" id="nav-clipes"><span class="ng-icon-wrap" data-icon="film"></span> Clipes</button>
+        <button class="sidebar-nav-item" id="nav-configuracoes"><span class="ng-icon-wrap" data-icon="settings"></span> Configurações</button>
+        <button class="sidebar-nav-item" id="nav-sobre"><span class="ng-icon-wrap" data-icon="crown"></span> Sobre</button>
+      </div>
+    </nav>
+
+    <div class="app-main">
+      <header id="top-navbar" class="top-navbar">
+        <button class="navbar-icon-btn mobile-only" title="Menu"><span class="ng-icon-wrap" data-icon="menu"></span></button>
+        <div class="navbar-search">
+          <span><span class="ng-icon-wrap" data-icon="search"></span></span>
+          <input type="text" placeholder="Buscar jogadores, servidores, torneios, clipes..." autocomplete="off" />
+        </div>
+        <div class="navbar-right">
+          <div class="navbar-create-wrap">
+            <button type="button" class="navbar-create-btn"><span class="ng-icon-wrap" data-icon="plus"></span> Criar</button>
+          </div>
+          <button class="navbar-icon-btn" title="Novidades"><span class="ng-icon-wrap" data-icon="sparkles"></span></button>
+          <button class="navbar-icon-btn" title="Atividade recente"><span class="ng-icon-wrap" data-icon="bell"></span></button>
+          <div class="navbar-profile-chip-wrap">
+            <button type="button" class="navbar-profile-chip" id="navbar-profile-chip">
+              <div class="member-avatar">🎮</div>
+              <div class="navbar-profile-chip-text">
+                <span>Renato</span>
+                <span class="navbar-chip-level" id="sp-chip-plus-label"></span>
+              </div>
+              <span class="ng-icon-wrap" data-icon="chevron-right"></span>
+            </button>
+            <div id="footer-more-menu" class="footer-more-menu hidden">
+              <button type="button" id="nav-edit-profile-menu"><span class="ng-icon-wrap" data-icon="settings"></span> Editar perfil</button>
+              <button type="button" id="nav-plus-upgrade"><span class="ng-icon-wrap" data-icon="sparkles"></span> NEXTGAME PLUS</button>
+              <button type="button"><span class="ng-icon-wrap" data-icon="volume-2"></span> Sons e efeitos</button>
+              <button type="button"><span class="ng-icon-wrap" data-icon="log-out"></span> Sair</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="app-body">
+        <section id="home-panel" class="home-panel">
+          <!-- Mesmo conteúdo que loadHomeTournamentBanner() no app.js real mostra
+               quando não tem nenhum torneio marcado (estado padrão/mais comum). -->
+          <div class="home-tournament-banner">
+            <div class="home-tournament-banner-inner">
+              <div class="home-tournament-banner-icon">🏆</div>
+              <div class="home-tournament-banner-text">
+                <span class="home-tournament-banner-kicker">FAÇA PARTE DA NOVA GERAÇÃO GAMER</span>
+                <h2>Conecte-se. Jogue junto. Vença.</h2>
+              </div>
+              <button class="home-btn-primary">Ver Torneios</button>
+            </div>
+            <div class="home-hero-secondary-actions">
+              <button type="button" class="home-btn-primary"><span class="ng-icon-wrap" data-icon="play"></span> Explorar Comunidade</button>
+              <button type="button" class="home-btn-secondary"><span class="ng-icon-wrap" data-icon="play"></span> Assistir vídeo</button>
+            </div>
+          </div>
+
+          <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="zap"></span> Atividades rápidas</div>
+          <div class="home-quick-actions">
+            <button type="button" class="home-quick-action">
+              <span class="home-quick-action-icon"><span class="ng-icon-wrap" data-icon="search"></span></span>
+              <span class="home-quick-action-text"><strong>Procurar Jogadores</strong><span>Encontre gente pro seu nível</span></span>
+            </button>
+            <button type="button" class="home-quick-action">
+              <span class="home-quick-action-icon"><span class="ng-icon-wrap" data-icon="link"></span></span>
+              <span class="home-quick-action-text"><strong>Entrar em Servidor</strong><span>Participe de uma comunidade</span></span>
+            </button>
+            <button type="button" class="home-quick-action">
+              <span class="home-quick-action-icon"><span class="ng-icon-wrap" data-icon="shield"></span></span>
+              <span class="home-quick-action-text"><strong>Criar Time</strong><span>Monte seu esquad</span></span>
+            </button>
+            <button type="button" class="home-quick-action">
+              <span class="home-quick-action-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></span>
+              <span class="home-quick-action-text"><strong>Ver Torneios</strong><span>Confira torneios abertos</span></span>
+            </button>
+          </div>
+
+          <div class="sp-placeholder-note">
+            (O resto da tela inicial — servidores em destaque, jogando agora, estatísticas — depende de dados reais do servidor, por isso fica vazio aqui. Isso não afeta a personalização, que é o foco deste preview.)
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+  <!-- FIM DO APP PRINCIPAL -->
+
+  <!-- Reprodução fiel do modal real de Configurações (#modal-profile) do index.html. -->
+  <div id="modal-profile" class="modal-overlay hidden">
+    <div class="modal-card modal-card-wide settings-modal-card">
+      <h2><span class="ng-icon-wrap" data-icon="settings"></span> Configurações</h2>
+
+      <div class="settings-layout">
+        <div class="settings-sidebar">
+          <button type="button" class="settings-sidebar-item" data-settings-tab="conta"><span class="ng-icon-wrap" data-icon="user"></span> Conta</button>
+          <button type="button" class="settings-sidebar-item" data-settings-tab="seguranca"><span class="ng-icon-wrap" data-icon="lock"></span> Segurança</button>
+          <button type="button" class="settings-sidebar-item" data-settings-tab="privacidade"><span class="ng-icon-wrap" data-icon="shield-off"></span> Privacidade</button>
+          <button type="button" class="settings-sidebar-item" data-settings-tab="notificacoes"><span class="ng-icon-wrap" data-icon="bell"></span> Notificações</button>
+          <div class="settings-sidebar-divider">ASSINATURA</div>
+          <button type="button" class="settings-sidebar-item settings-sidebar-item-plus" data-settings-tab="plus"><span class="ng-icon-wrap" data-icon="sparkles"></span> NEXTGAME PLUS</button>
+        </div>
+
+        <div class="settings-content">
+          <div id="settings-tab-conta" class="manage-tab-panel hidden">
+            <p class="hint" style="padding:20px;text-align:center;">(Aba omitida neste preview — o foco aqui é a personalização.)</p>
+          </div>
+          <div id="settings-tab-seguranca" class="manage-tab-panel hidden">
+            <p class="hint" style="padding:20px;text-align:center;">(Aba omitida neste preview.)</p>
+          </div>
+          <div id="settings-tab-privacidade" class="manage-tab-panel hidden">
+            <p class="hint" style="padding:20px;text-align:center;">(Aba omitida neste preview.)</p>
+          </div>
+          <div id="settings-tab-notificacoes" class="manage-tab-panel hidden">
+            <p class="hint" style="padding:20px;text-align:center;">(Aba omitida neste preview.)</p>
+          </div>
+
+          <!-- Esse bloco é EXATAMENTE o mesmo HTML de public/index.html (#settings-tab-plus) -->
+          <div id="settings-tab-plus" class="manage-tab-panel hidden">
+            <div class="plus-promo-banner">
+              <span class="plus-promo-sparkle plus-promo-sparkle-1 ng-icon-wrap" data-icon="sparkles"></span>
+              <span class="plus-promo-sparkle plus-promo-sparkle-2 ng-icon-wrap" data-icon="sparkles"></span>
+              <span class="plus-promo-sparkle plus-promo-sparkle-3 ng-icon-wrap" data-icon="sparkles"></span>
+              <h3>Desbloqueie um Mundo de<br>Vantagens com o NEXTGAME PLUS</h3>
+              <p>O FREE continua completo — chat, voz, câmera, servidores e compartilhamento de tela sem travar nada. Cancele quando quiser.</p>
+              <button type="button" id="btn-plus-promo-scroll" class="plus-promo-cta"><span class="ng-icon-wrap" data-icon="crown"></span> Assinar agora</button>
+            </div>
+
+            <div class="plus-benefits-grid">
+              <div class="plus-benefit-card">
+                <span class="ng-icon-wrap" data-icon="monitor"></span>
+                <strong>1080p/60, 1440p/60 e 4K/60</strong>
+                <span>Mesma interface do FREE, só libera qualidade maior na transmissão de tela.</span>
+              </div>
+              <div class="plus-benefit-card">
+                <span class="ng-icon-wrap" data-icon="upload"></span>
+                <strong>Arquivos até 5GB</strong>
+                <span>Contra o limite do FREE — imagens, vídeos, PDFs, documentos e mais.</span>
+              </div>
+              <div class="plus-benefit-card">
+                <span class="ng-icon-wrap" data-icon="crown"></span>
+                <strong>Badge, banner e moldura exclusivos</strong>
+                <span>Personalização cosmética no perfil — sem vantagem competitiva.</span>
+              </div>
+            </div>
+
+            <div id="plus-already-active" class="hidden plus-active-banner">
+              <span class="ng-icon-wrap" data-icon="check"></span> Você já é NEXTGAME PLUS.
+            </div>
+            <div id="plus-not-configured" class="hidden hint" style="text-align:center; padding:10px;">
+              Assinatura ainda não está disponível — o administrador precisa configurar o PayPal.
+            </div>
+            <div id="paypal-button-container"></div>
+            <p id="plus-error" class="auth-error"></p>
+
+            <div id="plus2-root" style="margin-top:28px; border-top:1px solid #2a2b32; padding-top:20px;"></div>
+          </div>
+        </div><!-- /.settings-content -->
+      </div><!-- /.settings-layout -->
+    </div>
+  </div>
+
+  <div class="sp-toast" id="sp-toast"></div>
+
+  <script src="../public/icons.js"></script>
+  <script src="../public/plus2.js"></script>
+  <script>
+    // Mesmo catálogo de teste usado nos outros previews — só reaproveitado
+    // aqui pra não precisar de servidor. Na versão de verdade quem preenche
+    // isso é PlusV2.createHttpAdapter() batendo em /api/plus2/*.
+    let seedIsPlusUser = true;
+    function theme(id, key, name, primary, secondary, highlight, text, button, premium, effect) {
+      return { id, key, name, colors: { primary, secondary, highlight, text, button }, darkMode: true, effect, premium, preset: true, custom: false, locked: premium && !seedIsPlusUser };
+    }
+    function badge(id, key, name, icon, premium) { return { id, key, name, icon, premium, locked: premium && !seedIsPlusUser }; }
+    function banner(id, key, name, style, value, premium) { return { id, key, name, style, value, premium, locked: premium && !seedIsPlusUser }; }
+    function background(id, key, name, type, value, premium) { return { id, key, name, type, value, premium, locked: premium && !seedIsPlusUser }; }
+    function brandStickerSvg(label, bg) {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="30" fill="${bg}"/><text x="32" y="38" font-family="Arial, sans-serif" font-size="15" font-weight="800" fill="#fff" text-anchor="middle">${label}</text></svg>`;
+      return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+    }
+
+    function buildSeed() {
+      return {
+        isPlusUser: seedIsPlusUser,
+        themes: [
+          theme('t1', 'blue', 'Blue', '#5865f2', '#9147ff', '#00d4ff', '#e6e6e6', '#1e1e2f', false, 'none'),
+          theme('t2', 'midnight', 'Midnight', '#3a3d52', '#5c6082', '#8f9bff', '#e6e6e6', '#1a1b26', false, 'none'),
+          theme('t3', 'nebula', 'Nebula', '#9146ff', '#c04fff', '#ff6ec7', '#e6e6e6', '#241a33', false, 'none'),
+          theme('t4', 'crimson', 'Crimson', '#e0344c', '#ff5c72', '#ff9f43', '#e6e6e6', '#2b1418', false, 'none'),
+          theme('t5', 'cyber-green', 'Cyber Green', '#00c896', '#00e6a8', '#7dffcb', '#e6e6e6', '#0f2a22', false, 'none'),
+          theme('t6', 'gold', 'Gold', '#c9982f', '#ffd93d', '#fff2b8', '#e6e6e6', '#2b2410', false, 'none'),
+          theme('t7', 'galaxy', 'Galaxy', '#4b3fa0', '#7c5cff', '#00e5ff', '#f0f0ff', '#1a1433', true, 'shine'),
+          theme('t8', 'cyberpunk', 'Cyberpunk', '#ff2e88', '#00e5ff', '#f6ff3d', '#f5f5ff', '#160a24', true, 'glow'),
+          theme('t9', 'aurora', 'Aurora', '#12c2a9', '#7d5fff', '#c2f9ff', '#eafff9', '#0d1f2e', true, 'shine'),
+          theme('t10', 'inferno', 'Inferno', '#ff4b2b', '#ff9f1c', '#ffe66d', '#fff2e6', '#2b0f0a', true, 'pulse'),
+          theme('t11', 'neon-dreams', 'Neon Dreams', '#ff00e5', '#00fff0', '#fefe00', '#f7f7ff', '#100a1f', true, 'glow'),
+          theme('t12', 'winter-night', 'Winter Night', '#3b6fa0', '#8fd6ff', '#ffffff', '#eaf6ff', '#0e1b26', true, 'shine'),
+        ],
+        myCustomThemes: [],
+        badges: [
+          badge('b1', 'founder', 'Fundador', '👑', false),
+          badge('b2', 'plus-member', 'Membro Plus', '⭐', true),
+          badge('b3', 'diamond', 'Diamante', '💎', true),
+          badge('b4', 'veteran', 'Veterano', '🔥', true),
+          badge('b5', 'beta-tester', 'Beta Tester', '🎖️', false),
+          badge('b6', 'moderator', 'Moderador', '🛡️', false),
+        ],
+        banners: [
+          banner('bn1', 'solid-blue', 'Azul sólido', 'solid', '#5865f2', false),
+          banner('bn2', 'solid-dark', 'Escuro sólido', 'solid', '#1a1b20', false),
+          banner('bn3', 'grad-blue-purple', 'Azul → Roxo', 'gradient', '#5865f2,#9146ff', false),
+          banner('bn4', 'grad-fire', 'Fogo', 'gradient', '#ff4b2b,#ffd93d', true),
+          banner('bn5', 'grad-aurora', 'Aurora', 'gradient', '#12c2a9,#7d5fff', true),
+          banner('bn6', 'grad-neon', 'Neon', 'gradient', '#ff00e5,#00fff0', true),
+        ],
+        backgrounds: [
+          background('g1', 'bg-solid-dark', 'Escuro padrão', 'solid', '#14151a', false),
+          background('g2', 'bg-solid-midnight', 'Meia-noite', 'solid', '#0e0f13', false),
+          background('g3', 'bg-grad-soft-blue', 'Azul suave', 'gradient', '#1a1b2e,#2a2d4a,135', false),
+          background('g4', 'bg-grad-fire', 'Fogo', 'gradient', '#2b0f0a,#5c1f12,135', true),
+          background('g5', 'bg-grad-aurora', 'Aurora', 'gradient', '#0d1f2e,#123a33,135', true),
+          background('g6', 'bg-image-city', 'Skyline (exemplo)', 'image', 'placeholder:city', true),
+          background('g7', 'bg-image-space', 'Espaço (exemplo)', 'image', 'placeholder:space', true),
+          background('g8', 'bg-gif-glow', 'Glow animado (exemplo)', 'gif', 'placeholder:glow', true),
+          background('g9', 'bg-effect-particles', 'Partículas', 'effect', 'particles', true),
+          background('g10', 'bg-effect-waves', 'Ondas', 'effect', 'waves', true),
+        ],
+        stickerPacks: [
+          { id: 'sp1', key: 'classics', name: 'Clássicos', premium: false, locked: false, stickers: ['😂', '❤️', '🔥', '👑', '🎮', '🏆', '👍', '🎉', '😭', '😡', '🤝', '💯', '😎', '👀', '🥳', '💀'].map((e, i) => ({ id: 'sp1-' + i, type: 'emoji', content: e })) },
+          { id: 'sp2', key: 'gamer-reactions', name: 'Reações Gamer', premium: false, locked: false, stickers: ['🎯', '🕹️', '🏅', '⚔️', '🛡️', '💥', '🚀', '🐉'].map((e, i) => ({ id: 'sp2-' + i, type: 'emoji', content: e })) },
+          { id: 'sp3', key: 'memes', name: 'Memes', premium: false, locked: false, stickers: ['💀', '🫠', '😳', '🗿', '🤡', '🥸', '🙃', '😵‍💫'].map((e, i) => ({ id: 'sp3-' + i, type: 'emoji', content: e })) },
+          { id: 'sp4', key: 'rage-tilt', name: 'Rage / Tilt', premium: false, locked: false, stickers: ['😤', '🤬', '💢', '😩', '🫡', '🚩'].map((e, i) => ({ id: 'sp4-' + i, type: 'emoji', content: e })) },
+          { id: 'sp5', key: 'brand', name: 'Marca NEXTGAME', premium: false, locked: false, stickers: [['GG', '#5865f2'], ['NICE', '#00c896'], ['FIRE', '#ff4b2b'], ["LET'S GO", '#9146ff'], ['NEXT\nGAME', '#00b4ff'], ['❤', '#ff4fa3'], ['👍', '#ffd93d'], ['LOL', '#ff9f43'], ['CUP', '#c9982f']].map(([label, bg], i) => ({ id: 'sp5-' + i, type: 'image', content: brandStickerSvg(label, bg) })) },
+          { id: 'sp6', key: 'plus-gold', name: 'PLUS Dourado', premium: true, locked: !seedIsPlusUser, stickers: ['💎', '🚀', '⚡', '🐐', '🫡', '🎯', '🥇', '💪'].map((e, i) => ({ id: 'sp6-' + i, type: 'emoji', content: e })) },
+          { id: 'sp7', key: 'plus-neon', name: 'PLUS Neon', premium: true, locked: !seedIsPlusUser, stickers: ['🌈', '🔮', '🛸', '🦄', '🎆', '🪩', '🧿', '✨'].map((e, i) => ({ id: 'sp7-' + i, type: 'emoji', content: e })) },
+        ],
+        current: { themeId: 't1', bannerId: 'bn1', badgeId: 'b1', backgroundId: 'g1', customBannerUrl: null },
+        visualPrefs: {
+          background: { opacity: 100, blur: 0 },
+          effects: { particles: false, buttonGlow: true, animatedGradients: false, messageReceive: true, callJoin: true, avatarGlow: false, transitions: true },
+          performanceMode: false,
+          chat: { bubbleStyle: 'rounded', showAvatars: true, colorMode: 'per_user', fontSize: 'medium', spacing: 16, showTimestamps: true, showReactions: true, mentionEffect: 'highlight' },
+        },
+      };
+    }
+
+    const toast = document.getElementById('sp-toast');
+    let toastTimer;
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    let adapter = PlusV2.createMockAdapter(buildSeed());
+    let plusHandle = null;
+    let plusMounted = false;
+    async function mountPlus() {
+      const root = document.getElementById('plus2-root');
+      root.innerHTML = '';
+      plusHandle = await PlusV2.mount(root, adapter, {
+        onThemeApplied: (t) => showToast('Tema "' + t.name + '" aplicado ✓'),
+        onLockedClick: (kind, item) => showToast('🔒 "' + item.name + '" é exclusivo do NEXTGAME PLUS'),
+        onStickerSent: () => showToast('Figurinha enviada ✓'),
+        onUploadError: (err) => showToast('Erro no upload: ' + err.message),
+      });
+      plusMounted = true;
+      document.getElementById('plus-already-active').classList.toggle('hidden', !seedIsPlusUser);
+      document.getElementById('sp-chip-plus-label').textContent = seedIsPlusUser ? 'PLUS ✨' : '';
+    }
+
+    // ---------------- Navegação real: abrir/fechar o modal de Configurações ----------------
+    const modal = document.getElementById('modal-profile');
+    function openSettingsTab(tabName) {
+      modal.classList.remove('hidden');
+      document.querySelectorAll('#modal-profile .settings-sidebar-item').forEach((t) => t.classList.toggle('active', t.dataset.settingsTab === tabName));
+      document.querySelectorAll('#modal-profile .manage-tab-panel').forEach((p) => p.classList.add('hidden'));
+      document.getElementById('settings-tab-' + tabName).classList.remove('hidden');
+      if (tabName === 'plus' && !plusMounted) mountPlus();
+    }
+    function closeSettings() { modal.classList.add('hidden'); }
+
+    document.querySelectorAll('#modal-profile .settings-sidebar-item').forEach((tabBtn) => {
+      tabBtn.onclick = () => openSettingsTab(tabBtn.dataset.settingsTab);
+    });
+    // Clicar no fundo escuro (fora do card) fecha, igual todo modal do site.
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeSettings(); });
+
+    document.getElementById('btn-plus-promo-scroll').onclick = () => {
+      document.getElementById('paypal-button-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    // Navegação real do app: "Configurações" na barra lateral e o menu do
+    // chip de perfil no topo, igual ao site de verdade.
+    document.getElementById('nav-configuracoes').onclick = () => openSettingsTab('conta');
+    document.getElementById('nav-plus-upgrade').onclick = () => openSettingsTab('plus');
+    document.getElementById('nav-edit-profile-menu').onclick = () => openSettingsTab('conta');
+    document.getElementById('navbar-profile-chip').onclick = () => {
+      document.getElementById('footer-more-menu').classList.toggle('hidden');
+    };
+
+    document.getElementById('sp-plus-toggle-link').onclick = async () => {
+      seedIsPlusUser = !seedIsPlusUser;
+      adapter = PlusV2.createMockAdapter(buildSeed());
+      if (plusMounted) await mountPlus();
+      showToast(seedIsPlusUser ? 'Modo: sou NEXTGAME PLUS' : 'Modo: usuário gratuito');
+    };
+    document.getElementById('sp-open-settings-link').onclick = () => openSettingsTab('plus');
+
+    // Já abre direto na aba Plus pra facilitar — mas agora dá pra fechar e
+    // navegar pelo app de verdade também.
+    openSettingsTab('plus');
+  </script>
+</body>
+</html>

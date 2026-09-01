@@ -6,6 +6,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
 <link rel="apple-touch-icon" href="/assets/favicon-180.png" />
 <link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="/plus2-admin.css" />
 <style>
   html, body { height: 100%; margin: 0; }
   .admin-topbar {
@@ -104,6 +105,7 @@
       <button type="button" class="admin-nav-btn" data-tab="moderacao">🛡️ Moderação</button>
       <button type="button" class="admin-nav-btn" data-tab="usuarios">👥 Usuários</button>
       <button type="button" class="admin-nav-btn" data-tab="conteudo">🎬 Conteúdo / Loja</button>
+      <button type="button" class="admin-nav-btn" data-tab="personalizacao">🎨 Personalização</button>
       <button type="button" class="admin-nav-btn" data-tab="suporte">📨 Suporte</button>
       <button type="button" class="admin-nav-btn" data-tab="audit">📜 Audit Log</button>
     </nav>
@@ -282,6 +284,12 @@
         </div>
       </div>
 
+      <!-- ---------- PERSONALIZAÇÃO (Plus V2) ---------- -->
+      <div id="admin-tab-personalizacao" class="admin-tab-panel hidden">
+        <h2>🎨 Personalização — temas, fundos, banners, badges e figurinhas</h2>
+        <div id="plus2-admin-root"></div>
+      </div>
+
       <!-- ---------- SUPORTE ---------- -->
       <div id="admin-tab-suporte" class="admin-tab-panel hidden">
         <h2>📨 Fale com o suporte (reclamações/dúvidas da Blue)</h2>
@@ -313,6 +321,7 @@
     </div>
   </div>
 
+<script src="/plus2-admin.js"></script>
 <script src="/admin.js"></script>
 </body>
 </html>

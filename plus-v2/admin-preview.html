@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NEXT GAME — Preview: Admin de Personalização (Plus V2)</title>
+<link rel="stylesheet" href="public/plus2-admin.css" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0e0f13; color: #e6e6e6; min-height: 100vh; }
+  .shell { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
+  .header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .badge { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, #5865f2, #9146ff); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px; color: #fff; }
+  .title { font-size: 15px; font-weight: 800; color: #fff; }
+  .subtitle { font-size: 11.5px; color: #9aa0ab; }
+  .note { background: rgba(0,217,192,0.08); border: 1px solid rgba(0,217,192,0.3); border-radius: 10px; padding: 10px 14px; font-size: 12px; color: #a6f5e8; margin: 16px 0 22px; line-height: 1.5; }
+  .card { background: #17181d; border: 1px solid #24252c; border-radius: 16px; padding: 22px; }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="header">
+      <div class="badge">NG</div>
+      <div>
+        <div class="title">NEXT GAME — Admin de Personalização (Plus V2)</div>
+        <div class="subtitle">Preview isolado, dados de teste — nada conectado ao site de verdade ainda</div>
+      </div>
+    </div>
+    <div class="note">
+      🧪 Aqui é a visão de administrador: criar/editar/remover temas, fundos, banners, badges e pacotes de figurinha. Isso vira uma aba nova dentro do /admin.html de verdade na hora de integrar.
+    </div>
+    <div class="card">
+      <div id="admin-root"></div>
+    </div>
+  </div>
+
+  <script src="public/plus2-admin.js"></script>
+  <script>
+    const seed = {
+      themes: [
+        { id: 't1', key: 'blue', name: 'Blue', primary: '#5865f2', secondary: '#9147ff', highlight: '#00d4ff', text: '#e6e6e6', button: '#1e1e2f', darkMode: true, effect: 'none', premium: false, sortOrder: 0 },
+        { id: 't7', key: 'galaxy', name: 'Galaxy', primary: '#4b3fa0', secondary: '#7c5cff', highlight: '#00e5ff', text: '#f0f0ff', button: '#1a1433', darkMode: true, effect: 'shine', premium: true, sortOrder: 6 },
+      ],
+      backgrounds: [
+        { id: 'g1', key: 'bg-solid-dark', name: 'Escuro padrão', type: 'solid', value: '#14151a', premium: false, sortOrder: 0 },
+        { id: 'g9', key: 'bg-effect-particles', name: 'Partículas', type: 'effect', value: 'particles', premium: true, sortOrder: 8 },
+      ],
+      banners: [
+        { id: 'bn1', key: 'solid-blue', name: 'Azul sólido', style: 'solid', value: '#5865f2', premium: false, sortOrder: 0 },
+        { id: 'bn4', key: 'grad-fire', name: 'Fogo', style: 'gradient', value: '#ff4b2b,#ffd93d', premium: true, sortOrder: 3 },
+      ],
+      badges: [
+        { id: 'b1', key: 'founder', name: 'Fundador', icon: '👑', premium: false, sortOrder: 0 },
+        { id: 'b3', key: 'diamond', name: 'Diamante', icon: '💎', premium: true, sortOrder: 2 },
+      ],
+      stickerPacks: [
+        {
+          id: 'sp1', key: 'classics', name: 'Clássicos', premium: false, sortOrder: 0,
+          stickers: ['😂', '❤️', '🔥', '👑'].map((e, i) => ({ id: 'sp1-' + i, type: 'emoji', content: e })),
+        },
+        {
+          id: 'sp6', key: 'plus-gold', name: 'PLUS Dourado', premium: true, sortOrder: 5,
+          stickers: ['💎', '🚀', '⚡'].map((e, i) => ({ id: 'sp6-' + i, type: 'emoji', content: e })),
+        },
+      ],
+    };
+
+    const adapter = PlusV2Admin.createMockAdapter(seed);
+    PlusV2Admin.mount(document.getElementById('admin-root'), adapter);
+  </script>
+</body>
+</html>

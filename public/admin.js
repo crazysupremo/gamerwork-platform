@@ -53,7 +53,23 @@ function initAdminTabs() {
       document.querySelectorAll('.admin-tab-panel').forEach((p) => p.classList.add('hidden'));
       btn.classList.add('active');
       document.getElementById('admin-tab-' + btn.dataset.tab).classList.remove('hidden');
+      if (btn.dataset.tab === 'personalizacao') mountPlusV2AdminPanel();
     });
+  });
+}
+
+// Carrega só quando a aba abre (evita puxar temas/fundos/figurinhas à toa
+// pra quem nunca clica nela) e só uma vez — reabrir a aba não recarrega.
+let plusV2AdminMounted = false;
+function mountPlusV2AdminPanel() {
+  if (plusV2AdminMounted) return;
+  const root = document.getElementById('plus2-admin-root');
+  if (!root || typeof PlusV2Admin === 'undefined') return;
+  plusV2AdminMounted = true;
+  const adapter = PlusV2Admin.createHttpAdapter({ fetch: window.fetch.bind(window) });
+  PlusV2Admin.mount(root, adapter).catch((err) => {
+    console.error('Erro ao carregar painel de personalização:', err);
+    plusV2AdminMounted = false;
   });
 }
 

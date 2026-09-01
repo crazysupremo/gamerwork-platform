@@ -4342,50 +4342,73 @@ async function openPlusUpgradeModal() {
 
   if (isPlusUser()) {
     alreadyEl.classList.remove('hidden');
-    return;
+  } else {
+    try {
+      const res = await fetch('/api/paypal/config', { credentials: 'include' });
+      const config = await res.json();
+      if (!config.configured) {
+        notConfiguredEl.classList.remove('hidden');
+      } else {
+        await loadPayPalSdk(config.clientId);
+        window.paypal
+          .Buttons({
+            style: { shape: 'pill', color: 'gold', layout: 'vertical', label: 'subscribe' },
+            createSubscription: (data, actions) => actions.subscription.create({ plan_id: config.planId }),
+            onApprove: async (data) => {
+              errorEl.textContent = 'Confirmando assinatura...';
+              try {
+                const confirmRes = await fetch('/api/paypal/confirm-subscription', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ subscriptionId: data.subscriptionID }),
+                });
+                const result = await confirmRes.json();
+                if (!confirmRes.ok) throw new Error(result.error || 'Erro ao confirmar assinatura.');
+                me.plan = 'plus';
+                updatePlusBadgeUI();
+                errorEl.textContent = '';
+                alreadyEl.classList.remove('hidden');
+                buttonContainer.innerHTML = '';
+                loadUploadLimits();
+                showCopyToast('🎉 Bem-vindo ao NEXTGAME PLUS!');
+                mountPlusV2Personalization();
+              } catch (err) {
+                errorEl.textContent = err.message || 'Erro ao confirmar assinatura.';
+              }
+            },
+            onError: () => {
+              errorEl.textContent = 'Erro ao processar pagamento pelo PayPal.';
+            },
+          })
+          .render('#paypal-button-container');
+      }
+    } catch (err) {
+      errorEl.textContent = err.message || 'Erro ao carregar o PayPal.';
+    }
   }
 
+  // Personalização (Plus V2) — temas, fundos, efeitos, chat, figurinhas e
+  // perfil. Fica visível pra todo mundo (com os itens Plus trancados 🔒 pra
+  // quem é free, funcionando como upsell natural), não só pra assinante.
+  mountPlusV2Personalization();
+}
+
+// Só remonta o módulo de personalização a cada vez que a aba abre (o custo
+// de recarregar o catálogo é pequeno, e assim sempre reflete qualquer
+// mudança de plano que tenha acabado de acontecer).
+async function mountPlusV2Personalization() {
+  const root = document.getElementById('plus2-root');
+  if (!root || typeof PlusV2 === 'undefined') return;
   try {
-    const res = await fetch('/api/paypal/config', { credentials: 'include' });
-    const config = await res.json();
-    if (!config.configured) {
-      notConfiguredEl.classList.remove('hidden');
-      return;
-    }
-    await loadPayPalSdk(config.clientId);
-    window.paypal
-      .Buttons({
-        style: { shape: 'pill', color: 'gold', layout: 'vertical', label: 'subscribe' },
-        createSubscription: (data, actions) => actions.subscription.create({ plan_id: config.planId }),
-        onApprove: async (data) => {
-          errorEl.textContent = 'Confirmando assinatura...';
-          try {
-            const confirmRes = await fetch('/api/paypal/confirm-subscription', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({ subscriptionId: data.subscriptionID }),
-            });
-            const result = await confirmRes.json();
-            if (!confirmRes.ok) throw new Error(result.error || 'Erro ao confirmar assinatura.');
-            me.plan = 'plus';
-            updatePlusBadgeUI();
-            errorEl.textContent = '';
-            alreadyEl.classList.remove('hidden');
-            buttonContainer.innerHTML = '';
-            loadUploadLimits();
-            showCopyToast('🎉 Bem-vindo ao NEXTGAME PLUS!');
-          } catch (err) {
-            errorEl.textContent = err.message || 'Erro ao confirmar assinatura.';
-          }
-        },
-        onError: () => {
-          errorEl.textContent = 'Erro ao processar pagamento pelo PayPal.';
-        },
-      })
-      .render('#paypal-button-container');
+    const adapter = PlusV2.createHttpAdapter({ fetch: window.fetch.bind(window) });
+    await PlusV2.mount(root, adapter, {
+      onThemeApplied: (t) => showCopyToast('Tema "' + t.name + '" aplicado ✓'),
+      onLockedClick: (kind, item) => showCopyToast('🔒 "' + item.name + '" é exclusivo do NEXTGAME PLUS'),
+      onUploadError: (err) => showCopyToast('Erro no upload: ' + err.message),
+    });
   } catch (err) {
-    errorEl.textContent = err.message || 'Erro ao carregar o PayPal.';
+    console.error('Erro ao carregar personalização:', err);
   }
 }
 
