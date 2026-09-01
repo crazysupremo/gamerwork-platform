@@ -18,6 +18,7 @@
 // ============================================================================
 
 const crypto = require('crypto');
+const { NEXTGAME_OFICIAL_STICKERS } = require('./sticker-assets');
 
 function newId() {
   return crypto.randomUUID();
@@ -224,12 +225,18 @@ const DEFAULT_STICKER_PACKS = [
     stickers: ['😤', '🤬', '💢', '😩', '🫡', '🚩'].map((e) => ({ type: 'emoji', content: e })),
   },
   {
-    key: 'brand', name: 'Marca NEXTGAME', premium: false,
-    stickers: [
-      '/assets/brand/sticker-gg.png', '/assets/brand/sticker-nice.png', '/assets/brand/sticker-fire.png',
-      '/assets/brand/sticker-letsgo.png', '/assets/brand/sticker-nextgame.png', '/assets/brand/sticker-heart.png',
-      '/assets/brand/sticker-thumbs.png', '/assets/brand/sticker-lol.png', '/assets/brand/sticker-trophy.png',
-    ].map((src) => ({ type: 'image', content: src })),
+    // Pacote oficial de verdade (99 figurinhas desenhadas pra marca NEXTGAME).
+    // As imagens ficam embutidas em sticker-assets.js como data URIs, em vez
+    // de 99 arquivos PNG separados — o GitHub recusa subir mais de 100
+    // arquivos de uma vez pela tela do site, e 99 arquivos de figurinha somados
+    // aos outros arquivos que mudam numa atualização normal estourava esse
+    // limite. Assim, essa mudança inteira é só ESTE arquivo + sticker-assets.js.
+    // Key nova de propósito ('oficial') pra não colidir com o pacote antigo
+    // 'brand', que apontava pra arquivos que nunca existiram de verdade —
+    // esse antigo pode ser removido no painel de admin (Personalização →
+    // Figurinhas → Remover pacote) já que ficou vazio/quebrado.
+    key: 'oficial', name: 'NEXTGAME Oficial', premium: false,
+    stickers: NEXTGAME_OFICIAL_STICKERS.map((dataUri) => ({ type: 'image', content: dataUri })),
   },
   {
     key: 'plus-gold', name: 'PLUS Dourado', premium: true,

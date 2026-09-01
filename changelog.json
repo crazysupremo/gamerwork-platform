@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.19.7",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido: o pacote \"NEXTGAME Oficial\" tinha 99 arquivos de imagem separados, e o GitHub recusa subir mais de 100 arquivos de uma vez pela tela do site. Agora as 99 figurinhas ficam embutidas dentro de um único arquivo de código (plus-v2/sticker-assets.js) — resolve o limite sem precisar mudar o jeito de subir pro GitHub."
+    ]
+  },
+  {
+    "version": "0.19.6",
+    "date": "2026-09-01",
+    "changes": [
+      "Novo pacote de figurinhas \"NEXTGAME Oficial\" com 99 figurinhas de verdade, já incluídas direto no site (não depende de upload/R2 configurado no servidor) — pode remover o pacote antigo \"Marca NEXTGAME\" (ficou vazio) no admin, em Personalização → Figurinhas → Remover pacote"
+    ]
+  },
+  {
     "version": "0.19.5",
     "date": "2026-09-01",
     "changes": [
