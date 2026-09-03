@@ -1097,7 +1097,7 @@ async function renderMembers() {
           <span class="member-status-dot member-status-${presence}"></span>
         </div>
         <div class="member-info">
-          <div class="member-name">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${u.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}</div>
+          <div class="member-name">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${u.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">' + icon('badge-check') + '</span>' : ''}</div>
           ${u.status_message ? `<div class="member-game">🎮 ${escapeHtml(u.status_message)}</div>` : ''}
         </div>
       `;
@@ -2060,7 +2060,7 @@ async function loadManageMembers() {
     row.innerHTML = `
       <div class="member-avatar ${avatarFrameClass(m)}">${renderAvatarHtml(m)}</div>
       <div class="server-member-info">
-        <div class="server-member-name">${escapeHtml(m.username)}<span class="user-tag-inline">${escapeHtml(userTag(m))}</span>${m.is_owner ? ' 👑' : ''}${m.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}</div>
+        <div class="server-member-name">${escapeHtml(m.username)}<span class="user-tag-inline">${escapeHtml(userTag(m))}</span>${m.is_owner ? ' 👑' : ''}${m.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">' + icon('badge-check') + '</span>' : ''}</div>
         <div class="server-member-roles">${rolesHtml}</div>
       </div>
       <div class="server-member-actions">
@@ -2961,6 +2961,7 @@ function exitChatMode() {
 
 function showFriendsPanel() {
   document.getElementById('home-panel').classList.add('hidden');
+  document.getElementById('home-header-stats').classList.add('hidden');
   document.getElementById('text-panel').classList.add('hidden');
   document.getElementById('voice-panel').classList.add('hidden');
   document.getElementById('friends-panel').classList.remove('hidden');
@@ -3759,7 +3760,7 @@ async function openProfilePreview(user) {
     : '';
 
   document.getElementById('profile-preview-username').innerHTML =
-    `${escapeHtml(user.username)}${user.is_admin ? ' 👑' : ''}${user.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}${pv2BadgeInline}`;
+    `${escapeHtml(user.username)}${user.is_admin ? ' 👑' : ''}${user.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">' + icon('badge-check') + '</span>' : ''}${pv2BadgeInline}`;
   document.getElementById('profile-preview-status').textContent = user.status_message ? '🎮 ' + user.status_message : '';
 
   // Identificador estilo Discord (@Username#1234) — sistema de hashtag.
@@ -4919,6 +4920,7 @@ function selectChannel(channel, options = {}) {
     channel.type === 'voz' ? '🔊 ' + channel.name : isDm ? channel.name : '# ' + channel.name;
   updateAiQuickSuggestions();
   document.getElementById('home-panel').classList.add('hidden');
+  document.getElementById('home-header-stats').classList.add('hidden');
   document.getElementById('friends-panel').classList.add('hidden');
   setNavActive('nav-inicio', false);
   stopHomeAutoRefresh();
@@ -5027,6 +5029,7 @@ function goHome() {
   document.getElementById('voice-panel').classList.add('hidden');
   document.getElementById('friends-panel').classList.add('hidden');
   document.getElementById('home-panel').classList.remove('hidden');
+  document.getElementById('home-header-stats').classList.remove('hidden');
   // BUG CORRIGIDO: nem exitChatMode() nem esta função fechavam de fato a
   // coluna do meio (channel-sidebar) — só trocavam o CONTEÚDO dela (lista de
   // conversas → lista de canais). Como na Início não tem servidor ativo,
@@ -5100,7 +5103,7 @@ function clearMessagesView(channelId) {
 
 function updateNavbarProfile() {
   renderAvatarInto(document.getElementById('navbar-avatar'), me);
-  const badgeHtml = `${me.is_admin ? ' 👑' : ''}${me.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}`;
+  const badgeHtml = `${me.is_admin ? ' 👑' : ''}${me.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">' + icon('badge-check') + '</span>' : ''}`;
   document.getElementById('navbar-username').innerHTML = `${escapeHtml(me.username)}${badgeHtml}`;
   const level = Math.max(1, Math.floor((me.message_count || 0) / 10) + 1);
   document.getElementById('navbar-level').textContent = `Nível ${level}`;
@@ -5148,7 +5151,7 @@ async function loadExplore() {
     card.innerHTML = `
       <div class="explore-card-icon">${s.icon || serverInitials(s.category)}</div>
       <div class="explore-card-info">
-        <strong>${escapeHtml(s.category)}</strong>
+        <strong>${escapeHtml(s.category)}${s.is_official ? ' <span class="verified-badge" title="Servidor oficial NEXT GAME">' + icon('badge-check') + '</span>' : ''}</strong>
         <p>${s.description ? escapeHtml(s.description) : 'Sem descrição ainda.'}</p>
         <span class="explore-card-meta"># ${s.text_channels} texto · 🔊 ${s.voice_channels} voz · 👥 ${s.member_count} membros</span>
       </div>
@@ -6046,7 +6049,7 @@ async function runGlobalSearch(term) {
       .map(
         (u) => `<div class="search-result-item" data-kind="player" data-id="${u.id}">
           <div class="search-result-icon round">${renderAvatarHtml(u)}</div>
-          <div class="search-result-text"><span class="search-result-title">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${u.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}</span><span class="search-result-meta">${escapeHtml(userTag(u))}${u.status_message ? ' · 🎮 ' + escapeHtml(u.status_message) : ''}</span></div>
+          <div class="search-result-text"><span class="search-result-title">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${u.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">' + icon('badge-check') + '</span>' : ''}</span><span class="search-result-meta">${escapeHtml(userTag(u))}${u.status_message ? ' · 🎮 ' + escapeHtml(u.status_message) : ''}</span></div>
         </div>`
       )
       .join('')}</div>`;
@@ -6391,38 +6394,28 @@ async function loadHomeStreakCard() {
   document.getElementById('home-open-rewards').onclick = () => document.getElementById('nav-rewards').click();
 }
 
+// REPAGINADO (a pedido): antes eram 4 cards grandes no meio da tela de
+// Início — agora é uma fileira pequena e minimalista no cabeçalho de cima,
+// centralizada ao lado de "Início" (ver #home-header-stats, mostrada/escondida
+// em goHome()/showFriendsPanel()/enterChatMode()).
 async function loadHomeStats() {
   const res = await fetch('/api/stats', { credentials: 'include' });
   const stats = await res.json();
-  const el = document.getElementById('home-stats');
-  const trend = (n, label) => (n > 0 ? `<span class="home-stat-trend">↑ +${n} ${label}</span>` : '');
-  el.innerHTML = `
-    <div class="home-stat">
-      <span class="home-stat-icon"><span class="ng-icon-wrap" data-icon="users"></span></span>
-      <span class="home-stat-num">${stats.members}</span>
-      <span class="home-stat-label">Membros</span>
-      ${trend(stats.new_members_week, 'esta semana')}
-    </div>
-    <div class="home-stat">
-      <span class="home-stat-icon"><span class="ng-icon-wrap" data-icon="gamepad-2"></span></span>
-      <span class="home-stat-num">${stats.servers}</span>
-      <span class="home-stat-label">Servidores</span>
-      ${trend(stats.new_servers_week, 'novos')}
-    </div>
-    <div class="home-stat">
-      <span class="home-stat-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></span>
-      <span class="home-stat-num">${stats.tournaments}</span>
-      <span class="home-stat-label">Torneios</span>
-    </div>
-    <div class="home-stat">
-      <span class="home-stat-icon"><span class="ng-icon-wrap" data-icon="zap"></span></span>
-      <span class="home-stat-num">${onlineUserIds.size}</span>
-      <span class="home-stat-label">Online agora</span>
+  const el = document.getElementById('home-header-stats');
+  const chip = (iconName, num, label) => `
+    <div class="home-header-stat" title="${label}">
+      <span class="home-header-stat-icon">${icon(iconName)}</span>
+      <span class="home-header-stat-text">
+        <span class="home-header-stat-num">${num}</span>
+        <span class="home-header-stat-label">${label}</span>
+      </span>
     </div>
   `;
-  document.querySelectorAll('#home-stats [data-icon]').forEach((elIcon) => {
-    elIcon.innerHTML = icon(elIcon.getAttribute('data-icon'));
-  });
+  el.innerHTML =
+    chip('users', stats.members, 'Membros') +
+    chip('gamepad-2', stats.servers, 'Servidores') +
+    chip('trophy', stats.tournaments, 'Torneios') +
+    chip('zap', onlineUserIds.size, 'Online agora');
 }
 
 // Paleta fixa (hash simples pelo nome) pra cada card de servidor ganhar uma
@@ -6867,7 +6860,7 @@ function renderMessage(msg) {
         <div class="meta">
           <strong>${escapeHtml(msg.username)}</strong>
           ${pv2BadgeHtml}
-          ${author && author.is_verified ? '<span class="verified-badge" title="Conta oficial verificada — NEXT GAME">✔️</span>' : ''}
+          ${author && author.is_verified ? '<span class="verified-badge" title="Conta oficial verificada — NEXT GAME">' + icon('badge-check') + '</span>' : ''}
           ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
           · <span class="pv2-live-time">${time}</span>
           ${msg.edited ? '<span class="edited-tag">(editado)</span>' : ''}

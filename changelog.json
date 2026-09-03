@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.28.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Início: estatísticas da comunidade (Membros/Servidores/Torneios/Online agora) saíram dos cards grandes no meio da página e viraram uma fileira pequena e minimalista, centralizada no cabeçalho de cima, ao lado de \"Início\" — sem alargar a coluna.",
+      "IA do NEXT GAME agora também ajuda dentro de salas de servidor/grupo (não só nas DMs) — é só chamar com \"@ia\" (ou \"@bot\"/\"@NEXT GAME IA\") em qualquer mensagem do bate-papo.",
+      "Criados 2 servidores oficiais com selo de verificado: \"NEXT GAME\" (oficial da plataforma) e \"Magic Tank\" (jogo parceiro oficial) — aparecem com o selo azul de verificado na aba Explorar."
+    ]
+  },
+  {
+    "version": "0.27.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Selo de \"conta oficial verificada\" repaginado: era um emoji ✔️ genérico, agora é um selo azul com check branco (visual estilo Instagram/TikTok), mais fácil de reconhecer. Aparece em toda parte que já mostrava o selo antes (lista de membros, busca, chat, perfil). O admin continua controlando quem tem o selo pelo painel /admin.html > Usuários."
+    ]
+  },
+  {
     "version": "0.27.1",
     "date": "2026-09-03",
     "changes": [

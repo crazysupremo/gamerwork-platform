@@ -859,7 +859,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .main { flex: 1; display: flex; flex-direction: column; background: var(--bg-panel); min-width: 0; min-height: 0; }
 .main-header {
   padding: 14px 16px; border-bottom: 1px solid #2c2e36; font-weight: 700;
-  display: flex; align-items: center; gap: 2px;
+  display: flex; align-items: center; gap: 2px; position: relative;
 }
 #current-channel-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Repaginado (a pedido — "botões do lado do nome ficaram feios"): antes
@@ -981,20 +981,25 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .home-quick-action-text strong { font-size: 12.5px; color: #f2f3f5; }
 .home-quick-action-text span { font-size: 10.5px; color: #9aa0ab; }
 
-.home-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
-.home-stat {
-  background: var(--bg-sidebar); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column;
-  gap: 2px; border: 1px solid #26272e; transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+/* REPAGINADO (a pedido): as estatísticas da comunidade eram 4 cards grandes
+   no meio da tela de Início — viraram uma fileira pequena e minimalista,
+   centralizada no cabeçalho de cima, ao lado de "Início". position:absolute
+   de propósito: fica sempre centralizada sem empurrar o resto do cabeçalho
+   nem alargar a coluna, não importa o tamanho da tela. */
+.home-header-stats {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: flex; align-items: center; gap: 20px;
 }
-.home-stat:hover { transform: translateY(-2px); border-color: var(--accent-3); box-shadow: 0 8px 18px rgba(0,217,192,0.14); }
-.home-stat-icon {
-  width: 28px; height: 28px; border-radius: 8px; background: rgba(88,101,242,0.16); color: var(--accent-3);
-  display: flex; align-items: center; justify-content: center; margin-bottom: 4px;
+.home-header-stat { display: flex; align-items: center; gap: 7px; }
+.home-header-stat-icon {
+  width: 20px; height: 20px; border-radius: 50%; background: rgba(88,101,242,0.14); color: var(--accent-3);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.home-stat-icon .ng-icon { width: 14px; height: 14px; }
-.home-stat-num { font-size: 20px; font-weight: 900; color: white; }
-.home-stat-label { font-size: 11px; color: #9aa0ab; }
-.home-stat-trend { font-size: 10px; color: #3ba55c; font-weight: 700; margin-top: 2px; }
+.home-header-stat-icon .ng-icon { width: 11px; height: 11px; }
+.home-header-stat-text { display: flex; flex-direction: column; line-height: 1.1; }
+.home-header-stat-num { font-size: 12.5px; font-weight: 800; color: #f2f3f5; }
+.home-header-stat-label { font-size: 9px; color: #7d828c; text-transform: uppercase; letter-spacing: 0.03em; }
+@media (max-width: 900px) { .home-header-stats { display: none; } }
 
 .home-section-title {
   font-size: 12.5px; font-weight: 800; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
@@ -1267,7 +1272,19 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   padding: 10px 16px; font-size: 13px; color: #dbdee1;
 }
 .dm-request-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.verified-badge { font-size: 0.85em; margin-left: 1px; }
+/* Selo de verificado (conta oficial) — trocado do emoji ✔️ genérico pro
+   mesmo ícone de "escudo com check" usado no resto do app, só que aqui em
+   azul preenchido: visual mais parecido com o selo azul do Instagram/TikTok,
+   fácil de reconhecer de longe como "conta oficial". */
+.verified-badge {
+  display: inline-flex; align-items: center; vertical-align: -2px; margin-left: 2px;
+}
+.verified-badge .ng-icon { width: 15px; height: 15px; }
+/* 1º path do ícone "badge-check" é o contorno do selo (fica azul sólido);
+   o 2º é só a linha do check (fica branca por cima) — dá o efeito clássico
+   de "disco azul com check branco" sem precisar de um SVG customizado. */
+.verified-badge .ng-icon path:first-child { fill: #3897f0; stroke: none; }
+.verified-badge .ng-icon path:last-child { fill: none; stroke: white; stroke-width: 3px; }
 .dm-pending-tag {
   display: inline-block; margin-left: 6px; background: rgba(88,101,242,0.2); color: #c7cdff;
   font-size: 9.5px; font-weight: 800; text-transform: uppercase; padding: 1px 6px; border-radius: 8px;

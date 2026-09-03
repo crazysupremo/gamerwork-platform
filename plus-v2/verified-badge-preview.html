@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NEXT GAME — Preview: selo de verificado</title>
+<link rel="stylesheet" href="../public/style.css" />
+<style>
+  .sp-note {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 300; background: #0f5f52; color: #d9fff6;
+    font-size: 12.5px; padding: 8px 16px; text-align: center; font-weight: 600;
+  }
+  body { padding-top: 34px; background: var(--bg-panel); color: #e6e6e6; font-family: -apple-system, sans-serif; padding-left:24px; }
+  .row { display:flex; align-items:center; gap:10px; padding:14px; background:#1e1f22; border-radius:10px; margin:14px 24px 14px 0; max-width:360px; }
+  .row img { width:40px; height:40px; border-radius:50%; }
+  h1 { font-size:16px; }
+</style>
+</head>
+<body>
+  <div class="sp-note">🧪 Preview estático — novo selo de verificado (conta oficial), estilo Instagram/TikTok.</div>
+
+  <h1>Como fica em vários lugares do app:</h1>
+
+  <div class="row">
+    <div class="server-icon" style="width:40px;height:40px;border-radius:50%;background:var(--gradient-brand);display:flex;align-items:center;justify-content:center;">👤</div>
+    <div class="member-name">renatomartins 👑<span class="verified-badge" title="Conta oficial verificada — NEXT GAME"></span></div>
+  </div>
+
+  <div class="row">
+    <div class="server-icon" style="width:40px;height:40px;border-radius:50%;background:#5865f2;display:flex;align-items:center;justify-content:center;">👤</div>
+    <div class="search-result-title">NEXT GAME Oficial<span class="verified-badge" title="Conta oficial verificada — NEXT GAME"></span></div>
+  </div>
+
+  <div class="row" style="flex-direction:column; align-items:flex-start; gap:4px;">
+    <span style="font-size:11px; color:#8b909a;">Numa mensagem de chat:</span>
+    <strong>Suporte NEXT GAME<span class="verified-badge" title="Conta oficial verificada — NEXT GAME"></span>:</strong>
+    <span>Oi! Como posso ajudar? 🎮</span>
+  </div>
+
+  <script src="../public/icons.js"></script>
+  <script>
+    document.querySelectorAll('.verified-badge').forEach((el) => {
+      el.innerHTML = icon('badge-check');
+    });
+  </script>
+</body>
+</html>

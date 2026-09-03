@@ -317,6 +317,11 @@ function createPending2FAToken(userId, remember) {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Chama a IA dentro de uma sala de servidor/grupo (fora de DM) quando
+// alguém escreve @ia, @bot ou @NEXT GAME IA em qualquer lugar da mensagem
+// — case-insensitive, aceita com ou sem espaço depois do @.
+const AI_MENTION_RE = /@\s*(ia|bot|next\s*game\s*ia)\b/i;
+
 // ---------- SERVIDORES: DONO, MEMBROS, CARGOS E PERMISSÕES ----------
 // Cada "servidor" (identificado pelo nome da categoria, igual sempre foi)
 // agora tem um dono e uma lista de membros — só quem foi convidado/entrou
@@ -3149,11 +3154,11 @@ app.get(
   asyncHandler(async (req, res) => {
     const { game, q } = req.query;
     const rows = await db.all(
-      `SELECT s.category, s.icon, s.description,
+      `SELECT s.category, s.icon, s.description, s.is_official,
         (SELECT COUNT(*) FROM server_members WHERE category = s.category) as member_count,
         (SELECT COUNT(*) FROM channels WHERE category = s.category AND type = 'texto') as text_channels,
         (SELECT COUNT(*) FROM channels WHERE category = s.category AND type = 'voz') as voice_channels
-       FROM servers s WHERE s.discoverable = 1 ORDER BY member_count DESC LIMIT 100`
+       FROM servers s WHERE s.discoverable = 1 ORDER BY s.is_official DESC, member_count DESC LIMIT 100`
     );
     const myMemberships = await db.all('SELECT category FROM server_members WHERE user_id = ?', [req.user.id]);
     const myCategories = new Set(myMemberships.map((m) => m.category));
@@ -7476,6 +7481,12 @@ io.on('connection', (socket) => {
         if (otherId === AI_BOT_USER_ID) {
           triggerAiReply(channelId, user).catch((err) => console.error('Erro ao gerar resposta da IA:', err));
         }
+      } else if (AI_MENTION_RE.test(content)) {
+        // Fora de DM (sala de servidor): só responde se for chamada por
+        // nome de propósito (@ia, @IA, @NEXT GAME IA, @bot) — pra não sair
+        // respondendo toda mensagem de um bate-papo em grupo sozinha, só
+        // quando alguém realmente chama ela pra ajudar com uma dúvida.
+        triggerAiReply(channelId, user).catch((err) => console.error('Erro ao gerar resposta da IA no canal:', err));
       }
     } catch (err) {
       console.error('Erro ao processar chat:message:', err);
