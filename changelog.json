@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.23.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Sidebar: as seções Explorar, Competitivo e Sua Biblioteca agora ocultam/desocultam clicando na setinha, igual Servidores já fazia — antes eram só rótulos fixos.",
+      "A tag \"BETA\" ao lado do logo virou o número da versão atual do site (ex: v0.23.0), atualizado sozinho a cada nova versão.",
+      "URGENTE: corrigido o upload de foto no banner do perfil (Configurações → NEXTGAME PLUS → Perfil) que sempre falhava com \"Upload de imagem não está configurado no servidor\" — agora, pra imagens pequenas (até ~250KB), guarda a foto direto no banco em vez de exigir um storage externo configurado."
+    ]
+  },
+  {
     "version": "0.22.0",
     "date": "2026-09-03",
     "changes": [

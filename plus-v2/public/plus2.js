@@ -205,10 +205,29 @@
         });
         if (!presignRes.ok) throw new Error('Erro ao preparar upload: ' + presignRes.status);
         const presign = await presignRes.json();
-        if (!presign.configured) throw new Error('Upload de imagem não está configurado no servidor.');
-        const putRes = await fetchFn(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
-        if (!putRes.ok) throw new Error('Erro ao enviar a imagem: ' + putRes.status);
-        return presign.publicUrl;
+        if (presign.configured) {
+          const putRes = await fetchFn(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+          if (!putRes.ok) throw new Error('Erro ao enviar a imagem: ' + putRes.status);
+          return presign.publicUrl;
+        }
+        // CORRIGIDO — antes, sem storage externo (R2) configurado no
+        // servidor, isso sempre falhava com "Upload de imagem não está
+        // configurado" e não tinha jeito de colocar uma foto no banner de
+        // jeito nenhum. Agora, se a imagem for pequena o bastante, guarda
+        // ela embutida direto no banco (mesmo esquema já usado pro avatar
+        // no cadastro) — funciona sem precisar configurar storage externo.
+        const MAX_INLINE_FILE_BYTES = 250 * 1024; // ~250KB de arquivo -> cabe no limite do banco em base64
+        if (file.size > MAX_INLINE_FILE_BYTES) {
+          throw new Error(
+            'Upload de imagem externo não está configurado no servidor, e essa imagem é grande demais pra guardar direto (máx. ~250KB). Tente uma imagem menor ou mais comprimida.'
+          );
+        }
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Não deu pra ler essa imagem'));
+          reader.readAsDataURL(file);
+        });
       },
     };
   }

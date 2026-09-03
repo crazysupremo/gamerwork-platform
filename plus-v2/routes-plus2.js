@@ -20,6 +20,12 @@ const EFFECTS = new Set(['none', 'shine', 'glow', 'pulse']);
 const BACKGROUND_TYPES = new Set(['solid', 'gradient', 'image', 'gif', 'effect']);
 const STICKER_TYPES = new Set(['emoji', 'image']);
 const HTTPS_URL_RE = /^https:\/\/\S+$/;
+// Aceita também uma imagem embutida como data URI (base64) — usada como
+// fallback quando o servidor não tem storage externo (R2) configurado pra
+// receber upload de verdade. Mesmo padrão/limite de tamanho já usado pro
+// avatar no cadastro (350.000 caracteres de texto).
+const DATA_IMAGE_URI_RE = /^data:image\/(png|jpe?g|webp|gif);base64,/;
+const MAX_INLINE_IMAGE_LENGTH = 350000;
 const BUBBLE_STYLES = new Set(['rounded', 'square', 'minimal']);
 const COLOR_MODES = new Set(['per_user', 'theme', 'mono']);
 const FONT_SIZES = new Set(['small', 'medium', 'large']);
@@ -270,8 +276,11 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
           if (!unlocked) {
             return res.status(403).json({ error: 'Banner com imagem própria é exclusivo de quem tem NEXTGAME PLUS' });
           }
-          if (typeof url !== 'string' || url.length > 2048 || !HTTPS_URL_RE.test(url)) {
-            return res.status(400).json({ error: 'URL de imagem inválida' });
+          const isHttpsUrl = typeof url === 'string' && url.length <= 2048 && HTTPS_URL_RE.test(url);
+          const isInlineImage =
+            typeof url === 'string' && url.length <= MAX_INLINE_IMAGE_LENGTH && DATA_IMAGE_URI_RE.test(url);
+          if (!isHttpsUrl && !isInlineImage) {
+            return res.status(400).json({ error: 'URL de imagem inválida ou imagem grande demais.' });
           }
           // Imagem própria desliga o banner escolhido do catálogo.
           await db.run('UPDATE users SET plus2_custom_banner_url = ?, plus2_banner_id = NULL WHERE id = ?', [url, req.user.id]);

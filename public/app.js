@@ -1126,6 +1126,28 @@ document.getElementById('btn-toggle-servers').onclick = () => {
 };
 setServersCollapsed(localStorage.getItem(SERVERS_COLLAPSED_KEY) !== '0');
 
+// Mesma ideia pras seções Explorar/Competitivo/Sua Biblioteca — antes eram
+// só rótulos fixos, sem jeito de ocultar. Ao contrário de Servidores (que
+// começa fechado pra economizar espaço), essas três começam ABERTAS por
+// padrão (é a navegação principal do site) — só ficam fechadas se a pessoa
+// escolher fechar, e isso fica lembrado.
+function setupSidebarSectionToggle(btnId, chevronId, itemsId, storageKey) {
+  const btn = document.getElementById(btnId);
+  const chevron = document.getElementById(chevronId);
+  const items = document.getElementById(itemsId);
+  if (!btn || !chevron || !items) return;
+  function apply(collapsed) {
+    items.classList.toggle('hidden', collapsed);
+    chevron.classList.toggle('open', !collapsed);
+    localStorage.setItem(storageKey, collapsed ? '1' : '0');
+  }
+  btn.onclick = () => apply(!items.classList.contains('hidden'));
+  apply(localStorage.getItem(storageKey) === '1');
+}
+setupSidebarSectionToggle('btn-toggle-explorar', 'explorar-toggle-chevron', 'explorar-section-items', 'ng_explorar_collapsed');
+setupSidebarSectionToggle('btn-toggle-competitivo', 'competitivo-toggle-chevron', 'competitivo-section-items', 'ng_competitivo_collapsed');
+setupSidebarSectionToggle('btn-toggle-biblioteca', 'biblioteca-toggle-chevron', 'biblioteca-section-items', 'ng_biblioteca_collapsed');
+
 // Busca os ícones reais escolhidos por quem criou cada servidor (um só
 // request pra todos, em vez de um por categoria).
 async function loadServerIcons() {
@@ -1395,6 +1417,11 @@ async function checkForUpdates() {
     if (!res.ok) return;
     const data = await res.json();
     ngLatestChangelogData = data;
+    // Mostra a versão atual no lugar da antiga tag fixa "BETA" (a pedido) —
+    // atualiza sempre, tanto na primeira checagem quanto quando detecta uma
+    // versão nova rodando no servidor.
+    const versionTagEl = document.getElementById('app-version-tag');
+    if (versionTagEl) versionTagEl.textContent = 'v' + data.version;
     if (!ngAppVersion) {
       // Primeira checagem desta aba: só guarda a versão atual como
       // referência, sem avisar nada (senão todo mundo que abre o site pela
@@ -6208,7 +6235,14 @@ function loadHomeServers() {
     card.onclick = () => {
       activeServerCategory = category;
       renderServerRail([...new Set(allChannels.map((c) => c.category))]);
-      const firstChannel = allChannels.find((c) => c.category === category);
+      // CORRIGIDO: preferir um canal de TEXTO como primeira tela ao clicar
+      // num servidor em destaque — antes pegava simplesmente o primeiro
+      // canal na ordem que veio da API, então se por acaso fosse um canal
+      // de voz, a pessoa caía na tela de "Entrar na chamada" (sem entrar
+      // de verdade) em vez do chat, parecendo que "não abriu nada".
+      const firstChannel =
+        allChannels.find((c) => c.category === category && c.type !== 'voz') ||
+        allChannels.find((c) => c.category === category);
       if (firstChannel) selectChannel(firstChannel);
     };
     grid.appendChild(card);

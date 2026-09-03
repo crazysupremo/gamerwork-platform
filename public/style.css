@@ -579,6 +579,12 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .app-sidebar-servers-toggle:hover .app-sidebar-section-label { color: #dbdee1; }
 #servers-toggle-chevron { color: #6d7178; transition: transform 0.15s ease; }
 #servers-toggle-chevron.open { transform: rotate(90deg); }
+/* Botões de seção (Explorar/Competitivo/Sua Biblioteca) — mesmo visual do
+   toggle de Servidores, só ocupando a largura toda (ali fica sozinho na
+   linha, sem os ícones de ação ao lado). */
+.app-sidebar-section-toggle { width: 100%; text-align: left; }
+.app-sidebar-section-toggle .ng-icon-wrap { color: #6d7178; transition: transform 0.15s ease; }
+.app-sidebar-section-toggle .ng-icon-wrap.open { transform: rotate(90deg); }
 .app-sidebar-icon-btn {
   background: var(--bg-sidebar); border: none; color: #8b909a; width: 26px; height: 26px; border-radius: 7px;
   cursor: pointer; display: flex; align-items: center; justify-content: center;

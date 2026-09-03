@@ -344,7 +344,7 @@
   <nav id="app-sidebar" class="app-sidebar">
     <div class="app-sidebar-logo">
       <img src="/assets/logo.png" alt="NEXT GAME" class="app-sidebar-logo-img" />
-      <span class="beta-tag" title="O site ainda está em fase de testes — pode ter bugs e mudar bastante nas próximas atualizações.">BETA</span>
+      <span class="beta-tag" id="app-version-tag" title="Versão atual do site">v…</span>
     </div>
 
     <div class="app-sidebar-nav">
@@ -377,22 +377,40 @@
     </div>
 
     <div class="app-sidebar-nav">
-      <div class="app-sidebar-section-label">Explorar</div>
-      <button class="sidebar-nav-item" id="nav-jogos"><span class="ng-icon-wrap" data-icon="search"></span> Explorar</button>
-      <button class="sidebar-nav-item" id="nav-lfg"><span class="ng-icon-wrap" data-icon="target"></span> Jogar</button>
-      <button class="sidebar-nav-item" id="nav-feed"><span class="ng-icon-wrap" data-icon="newspaper"></span> Feed</button>
-      <button class="sidebar-nav-item" id="nav-comunidade"><span class="ng-icon-wrap" data-icon="message-circle"></span> Comunidade</button>
+      <!-- Cada seção (Explorar/Competitivo/Sua Biblioteca) agora oculta e
+           desoculta com a setinha, igual "Servidores" já fazia — antes eram
+           só rótulos fixos sem essa possibilidade. -->
+      <button type="button" id="btn-toggle-explorar" class="app-sidebar-servers-toggle app-sidebar-section-toggle">
+        <span class="ng-icon-wrap" data-icon="chevron-right" id="explorar-toggle-chevron"></span>
+        <span class="app-sidebar-section-label">Explorar</span>
+      </button>
+      <div id="explorar-section-items">
+        <button class="sidebar-nav-item" id="nav-jogos"><span class="ng-icon-wrap" data-icon="search"></span> Explorar</button>
+        <button class="sidebar-nav-item" id="nav-lfg"><span class="ng-icon-wrap" data-icon="target"></span> Jogar</button>
+        <button class="sidebar-nav-item" id="nav-feed"><span class="ng-icon-wrap" data-icon="newspaper"></span> Feed</button>
+        <button class="sidebar-nav-item" id="nav-comunidade"><span class="ng-icon-wrap" data-icon="message-circle"></span> Comunidade</button>
+      </div>
 
-      <div class="app-sidebar-section-label">Competitivo</div>
-      <button class="sidebar-nav-item" id="nav-torneios"><span class="ng-icon-wrap" data-icon="trophy"></span> Torneios</button>
-      <button class="sidebar-nav-item" id="nav-ranking-link"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span> Ranking</button>
-      <button class="sidebar-nav-item" id="nav-rewards"><span class="ng-icon-wrap" data-icon="gift"></span> Rewards<span id="navbar-streak-badge" class="navbar-badge hidden">0</span></button>
+      <button type="button" id="btn-toggle-competitivo" class="app-sidebar-servers-toggle app-sidebar-section-toggle">
+        <span class="ng-icon-wrap" data-icon="chevron-right" id="competitivo-toggle-chevron"></span>
+        <span class="app-sidebar-section-label">Competitivo</span>
+      </button>
+      <div id="competitivo-section-items">
+        <button class="sidebar-nav-item" id="nav-torneios"><span class="ng-icon-wrap" data-icon="trophy"></span> Torneios</button>
+        <button class="sidebar-nav-item" id="nav-ranking-link"><span class="ng-icon-wrap" data-icon="bar-chart-3"></span> Ranking</button>
+        <button class="sidebar-nav-item" id="nav-rewards"><span class="ng-icon-wrap" data-icon="gift"></span> Rewards<span id="navbar-streak-badge" class="navbar-badge hidden">0</span></button>
+      </div>
 
-      <div class="app-sidebar-section-label">Sua Biblioteca</div>
-      <button class="sidebar-nav-item" id="nav-saved-games"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> Jogos Salvos</button>
-      <button class="sidebar-nav-item" id="nav-clipes"><span class="ng-icon-wrap" data-icon="film"></span> Clipes</button>
-      <button class="sidebar-nav-item" id="nav-configuracoes"><span class="ng-icon-wrap" data-icon="settings"></span> Configurações</button>
-      <button class="sidebar-nav-item" id="nav-sobre"><span class="ng-icon-wrap" data-icon="crown"></span> Sobre</button>
+      <button type="button" id="btn-toggle-biblioteca" class="app-sidebar-servers-toggle app-sidebar-section-toggle">
+        <span class="ng-icon-wrap" data-icon="chevron-right" id="biblioteca-toggle-chevron"></span>
+        <span class="app-sidebar-section-label">Sua Biblioteca</span>
+      </button>
+      <div id="biblioteca-section-items">
+        <button class="sidebar-nav-item" id="nav-saved-games"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> Jogos Salvos</button>
+        <button class="sidebar-nav-item" id="nav-clipes"><span class="ng-icon-wrap" data-icon="film"></span> Clipes</button>
+        <button class="sidebar-nav-item" id="nav-configuracoes"><span class="ng-icon-wrap" data-icon="settings"></span> Configurações</button>
+        <button class="sidebar-nav-item" id="nav-sobre"><span class="ng-icon-wrap" data-icon="crown"></span> Sobre</button>
+      </div>
     </div>
 
     <!-- Rodapé antigo (avatar/nome/config no canto inferior esquerdo) —
