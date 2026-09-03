@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.20.2",
+    "date": "2026-09-03",
+    "changes": [
+      "IMPORTANTE: agora o tema realmente colore TUDO, incluindo as colunas de fundo (barra de servidores, barra de canais, painel principal, topo e pop-ups/modais) — antes trocar de tema só mudava botões e detalhes, o fundo das colunas ficava sempre no mesmo cinza fixo pra qualquer tema.",
+      "Cada tema agora deriva automaticamente um fundo bem escuro só que tingido com a cor dele (ex: GAMEX fica preto-esverdeado, Diamond preto-azulado, Eclipse preto-arroxeado, Crimson preto-avermelhado) — funciona pra qualquer tema, incluindo os que forem criados na aba \"Criar tema\" no futuro.",
+      "Também estendido pra dezenas de cards, menus e telas espalhados pelo site (Início, chamada de voz, dropdowns, cartões de amigo/servidor etc.) que antes usavam a mesma cor cinza fixa direto no código."
+    ]
+  },
+  {
+    "version": "0.20.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Novo tema exclusivo NEXTGAME PLUS: GAMEX — paleta própria (verde elétrico + violeta + dourado), com efeito de brilho. Como todo tema, ao ser escolhido personaliza a cor de praticamente tudo no site: sidebar, topo, botões, cards, chat, avatar/badge, scrollbar e seleção de texto."
+    ]
+  },
+  {
+    "version": "0.20.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Personalização (NEXTGAME PLUS) — Fase 1 do projeto de temas: galeria de temas ganhou prévia real em miniatura (barra de servidores, topo, bolhas de chat e campo de mensagem coloridos com a paleta de cada tema) no lugar das duas linhas de cor genéricas de antes.",
+      "Catálogo de temas ampliado com os temas oficiais do novo projeto de personalização: Next Blue, Midnight, Ocean, Crimson e Sunset (prontos/gratuitos e premium simples) e os 7 temas NEXTGAME PLUS: Galaxy, Aurora, Cyberpunk, Inferno, Royal, Diamond e Eclipse — nenhum tema que já existia foi removido, só reorganizado e ampliado.",
+      "Trocar de tema agora também muda a cor da barra de rolagem e da seleção de texto (antes ficavam sempre cinza neutro, mesmo com um tema colorido ativo)."
+    ]
+  },
+  {
     "version": "0.19.8",
     "date": "2026-09-01",
     "changes": [

@@ -25,6 +25,63 @@
     bannerCss: null,
   };
 
+  // ---------------- Cor -> fundo das "colunas" (rail/sidebar/main/topo/
+  // pop-ups) ----------------
+  // Antes, trocar de tema só mudava botões/detalhes (--accent) — as colunas
+  // de fundo do app inteiro ficavam sempre no mesmo cinza fixo, tema nenhum
+  // "pegava" nelas. Aqui a gente deriva um fundo bem escuro só que TINGIDO
+  // com a matiz da cor primária do tema (ex: GAMEX = verde → fundo preto-
+  // esverdeado; Diamond = azul-gelo → fundo preto-azulado; Eclipse = roxo
+  // escuro → fundo quase preto-arroxeado), pra cada tema realmente assumir a
+  // identidade visual inteira, sem precisar de um valor de fundo cadastrado
+  // à mão pra cada tema novo — funciona automático pra qualquer tema
+  // (inclusive os que o usuário PLUS cria na hora, na aba "Criar tema").
+  function hexToRgb(hex) {
+    const clean = String(hex || '#5865f2').replace('#', '');
+    const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean;
+    const num = parseInt(full, 16) || 0;
+    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+  }
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+    const d = max - min;
+    if (d !== 0) {
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        default: h = (r - g) / d + 4; break;
+      }
+      h /= 6;
+    }
+    return { h: h * 360, s: s * 100, l: l * 100 };
+  }
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const k = (n) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    const toHex = (x) => Math.round(255 * x).toString(16).padStart(2, '0');
+    return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
+  }
+  // Satura pouco de propósito (28%) — dá pra sentir a cor do tema no fundo
+  // sem virar neon chapado atrás do conteúdo (mantém leitura confortável).
+  function deriveSurfaces(primaryHex) {
+    const rgb = hexToRgb(primaryHex);
+    const { h } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    const S = 28;
+    return {
+      app: hslToHex(h, S, 9),
+      rail: hslToHex(h, S, 6.5),
+      sidebar: hslToHex(h, S, 11),
+      panel: hslToHex(h, S, 14),
+      modal: hslToHex(h, S, 18),
+    };
+  }
+
   let particleStop = null;
   function stopParticles() {
     if (particleStop) { particleStop(); particleStop = null; }
@@ -69,6 +126,16 @@
       '--gradient-brand',
       `linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.secondary} 55%, ${theme.colors.highlight} 100%)`
     );
+    // Fundo das colunas (rail de servidores, sidebar de canais, painel
+    // principal, barra do topo e pop-ups) também acompanha o tema agora —
+    // antes só os detalhes/botões mudavam de cor, as colunas ficavam sempre
+    // no mesmo cinza. Ver deriveSurfaces() acima.
+    const surfaces = deriveSurfaces(theme.colors.primary);
+    root.style.setProperty('--bg-app', surfaces.app);
+    root.style.setProperty('--bg-rail', surfaces.rail);
+    root.style.setProperty('--bg-sidebar', surfaces.sidebar);
+    root.style.setProperty('--bg-panel', surfaces.panel);
+    root.style.setProperty('--bg-modal', surfaces.modal);
   }
 
   // ---------------- Fundo personalizado ----------------

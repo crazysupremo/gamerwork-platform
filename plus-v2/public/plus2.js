@@ -312,12 +312,26 @@
       const allThemes = [...data.themes, ...data.myCustomThemes];
       allThemes.forEach((theme) => {
         const selected = data.current.themeId === theme.id;
+        // Prévia real em miniatura (não só duas linhas coloridas): uma
+        // mini-interface de verdade — barra de servidores, topo, bolhas de
+        // chat (outra pessoa + eu) e campo de mensagem — toda pintada com a
+        // paleta do tema, pra dar uma ideia de como o app inteiro vai ficar.
         const mini = el('div', { class: 'pv2-theme-mini ' + effectClass(theme.effect) }, [
-          el('div', { class: 'pv2-theme-mini-row' }, [
-            el('div', { class: 'pv2-theme-mini-dot' }),
-            el('div', { class: 'pv2-theme-mini-bar' }),
+          el('div', { class: 'pv2-theme-mini-body' }, [
+            el('div', { class: 'pv2-theme-mini-side' }, [
+              el('div', { class: 'pv2-theme-mini-server' }),
+              el('div', { class: 'pv2-theme-mini-server active' }),
+              el('div', { class: 'pv2-theme-mini-server' }),
+            ]),
+            el('div', { class: 'pv2-theme-mini-main' }, [
+              el('div', { class: 'pv2-theme-mini-topbar' }),
+              el('div', { class: 'pv2-theme-mini-chat' }, [
+                el('div', { class: 'pv2-theme-mini-bubble other' }),
+                el('div', { class: 'pv2-theme-mini-bubble mine' }),
+              ]),
+              el('div', { class: 'pv2-theme-mini-input' }),
+            ]),
           ]),
-          el('div', { class: 'pv2-theme-mini-row' }, [el('div', { class: 'pv2-theme-mini-bar' })]),
           el('div', { class: 'pv2-theme-mini-btn' }, ['Aplicar']),
         ]);
         applyMiniVars(mini, theme);

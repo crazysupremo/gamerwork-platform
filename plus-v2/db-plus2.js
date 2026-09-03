@@ -150,21 +150,44 @@ async function ensurePlusV2Schema(db) {
 // quem é NEXTGAME PLUS), igual à referência de design, e um punhado de
 // badges/banners padrão. Roda uma vez só (INSERT OR IGNORE por key).
 // ---------------------------------------------------------------------------
+// Catálogo alinhado ao documento de referência "Projeto de Personalização
+// Completa" (NEXT GAME): galeria com os temas oficiais do projeto (Next Blue,
+// Midnight, Ocean, Crimson, Sunset + os 7 temas PLUS: Galaxy, Aurora,
+// Cyberpunk, Inferno, Royal, Diamond, Eclipse), mantendo também os temas
+// extras que já existiam (Nebula, Cyber Green, Gold, Neon Dreams, Winter
+// Night) como variedade a mais — nada do que já funcionava foi removido, só
+// ampliado, seguindo a regra do documento de reorganizar/expandir em vez de
+// tirar recursos que já funcionam.
 const DEFAULT_THEMES = [
-  // ---- Prontos, gratuitos ----
-  { key: 'blue', name: 'Blue', primary: '#5865f2', secondary: '#9147ff', highlight: '#00d4ff', text: '#e6e6e6', button: '#1e1e2f', premium: false, effect: 'none' },
+  // ---- Prontos, gratuitos (seção 3 do documento) ----
+  { key: 'blue', name: 'Next Blue', primary: '#5865f2', secondary: '#9147ff', highlight: '#00d4ff', text: '#e6e6e6', button: '#1e1e2f', premium: false, effect: 'none' },
   { key: 'midnight', name: 'Midnight', primary: '#3a3d52', secondary: '#5c6082', highlight: '#8f9bff', text: '#e6e6e6', button: '#1a1b26', premium: false, effect: 'none' },
+  { key: 'ocean', name: 'Ocean', primary: '#0e4d92', secondary: '#00b8d9', highlight: '#7fe7ff', text: '#e6f7ff', button: '#08283f', premium: false, effect: 'none' },
+  { key: 'crimson', name: 'Crimson', primary: '#c81e2c', secondary: '#e63946', highlight: '#ff4d4d', text: '#e6e6e6', button: '#120607', premium: false, effect: 'none' },
+  { key: 'sunset', name: 'Sunset', primary: '#8e44ad', secondary: '#ff7e33', highlight: '#ff6fa3', text: '#fff0f5', button: '#2b1a2e', premium: true, effect: 'shine' },
+  // ---- Extras (variedade a mais, fora do documento, mantidos) ----
   { key: 'nebula', name: 'Nebula', primary: '#9146ff', secondary: '#c04fff', highlight: '#ff6ec7', text: '#e6e6e6', button: '#241a33', premium: false, effect: 'none' },
-  { key: 'crimson', name: 'Crimson', primary: '#e0344c', secondary: '#ff5c72', highlight: '#ff9f43', text: '#e6e6e6', button: '#2b1418', premium: false, effect: 'none' },
   { key: 'cyber-green', name: 'Cyber Green', primary: '#00c896', secondary: '#00e6a8', highlight: '#7dffcb', text: '#e6e6e6', button: '#0f2a22', premium: false, effect: 'none' },
   { key: 'gold', name: 'Gold', primary: '#c9982f', secondary: '#ffd93d', highlight: '#fff2b8', text: '#e6e6e6', button: '#2b2410', premium: false, effect: 'none' },
-  // ---- Premium (NEXTGAME PLUS) ----
+  // ---- Premium — NEXTGAME PLUS (seção 3 + 12 do documento) ----
   { key: 'galaxy', name: 'Galaxy', primary: '#4b3fa0', secondary: '#7c5cff', highlight: '#00e5ff', text: '#f0f0ff', button: '#1a1433', premium: true, effect: 'shine' },
-  { key: 'cyberpunk', name: 'Cyberpunk', primary: '#ff2e88', secondary: '#00e5ff', highlight: '#f6ff3d', text: '#f5f5ff', button: '#160a24', premium: true, effect: 'glow' },
   { key: 'aurora', name: 'Aurora', primary: '#12c2a9', secondary: '#7d5fff', highlight: '#c2f9ff', text: '#eafff9', button: '#0d1f2e', premium: true, effect: 'shine' },
+  { key: 'cyberpunk', name: 'Cyberpunk', primary: '#ff2e88', secondary: '#00e5ff', highlight: '#f6ff3d', text: '#f5f5ff', button: '#160a24', premium: true, effect: 'glow' },
   { key: 'inferno', name: 'Inferno', primary: '#ff4b2b', secondary: '#ff9f1c', highlight: '#ffe66d', text: '#fff2e6', button: '#2b0f0a', premium: true, effect: 'pulse' },
+  { key: 'royal', name: 'Royal', primary: '#3d1f5c', secondary: '#c9a227', highlight: '#ffe08a', text: '#f7efe0', button: '#120a1a', premium: true, effect: 'shine' },
+  { key: 'diamond', name: 'Diamond', primary: '#5fb8e0', secondary: '#e8f7ff', highlight: '#ffffff', text: '#eaf9ff', button: '#0d2733', premium: true, effect: 'shine' },
+  { key: 'eclipse', name: 'Eclipse', primary: '#1a0f2e', secondary: '#4b2e83', highlight: '#8a5cff', text: '#e8e0ff', button: '#050208', premium: true, effect: 'glow' },
+  // ---- Extras premium (fora do documento, mantidos) ----
   { key: 'neon-dreams', name: 'Neon Dreams', primary: '#ff00e5', secondary: '#00fff0', highlight: '#fefe00', text: '#f7f7ff', button: '#100a1f', premium: true, effect: 'glow' },
   { key: 'winter-night', name: 'Winter Night', primary: '#3b6fa0', secondary: '#8fd6ff', highlight: '#ffffff', text: '#eaf6ff', button: '#0e1b26', premium: true, effect: 'shine' },
+  // ---- GAMEX — tema flagship exclusivo PLUS, criado à parte a pedido do
+  // dono do projeto. Paleta própria (verde elétrico + violeta + dourado),
+  // sem repetir nenhuma combinação já usada nos outros temas. Herda o mesmo
+  // motor de aplicação dos demais (plus2-live.js) — ao ser escolhido, toma
+  // conta de toda a identidade de cor do app: sidebar, topo, botões, cards,
+  // chat, avatar/badge, scrollbar e seleção de texto, sem precisar de
+  // nenhum código extra além de entrar no catálogo.
+  { key: 'gamex', name: 'GAMEX', primary: '#39ff6a', secondary: '#7c3aed', highlight: '#ffe14d', text: '#eafff0', button: '#0a1f12', premium: true, effect: 'glow' },
 ];
 
 const DEFAULT_BADGES = [
@@ -279,7 +302,20 @@ async function seedPlusV2Defaults(db) {
   for (let i = 0; i < DEFAULT_THEMES.length; i++) {
     const t = DEFAULT_THEMES[i];
     const exists = await get('SELECT id FROM plus_v2_themes WHERE key = ?', [t.key]);
-    if (exists) continue;
+    if (exists) {
+      // Tema já existia (site em produção já rodou o seed antes) — atualiza
+      // nome/cores/efeito pra ficar de acordo com o documento de referência
+      // mais recente, sem duplicar linha nem mexer no id (preserva a escolha
+      // de quem já tinha esse tema selecionado — só o visual dele é atualizado).
+      await run(
+        `UPDATE plus_v2_themes
+           SET name = ?, primary_color = ?, secondary_color = ?, highlight_color = ?,
+               text_color = ?, button_color = ?, effect = ?, is_premium = ?, sort_order = ?
+         WHERE key = ?`,
+        [t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, t.key]
+      );
+      continue;
+    }
     await run(
       `INSERT INTO plus_v2_themes
         (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order)
