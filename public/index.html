@@ -1166,11 +1166,6 @@
         <label>Senha atual (obrigatória pra trocar e-mail ou senha)</label>
         <input type="password" id="profile-current-password" placeholder="Senha atual" />
 
-        <div class="modal-actions">
-          <button type="button" id="btn-cancel-profile">Fechar</button>
-          <button type="submit">Salvar</button>
-        </div>
-        <p id="profile-error" class="auth-error"></p>
       </form>
     </div>
 
@@ -1318,6 +1313,19 @@
     </div>
     </div><!-- /.settings-content -->
     </div><!-- /.settings-layout -->
+
+    <!-- Barra fixa (a pedido — antes tinha que rolar até o fim de uma aba
+         comprida pra achar "Fechar"/"Salvar"). Fica sempre visível embaixo
+         do modal, não rola junto com o conteúdo. "Salvar" só aparece na aba
+         Conta (as outras abas já salvam sozinhas a cada ação — 2FA, e-mail
+         alternativo etc. — não têm um "salvar" único). O botão usa
+         form="form-profile" pra continuar submetendo o formulário de
+         verdade mesmo estando fora dele no HTML. -->
+    <div class="settings-fixed-actions">
+      <button type="button" id="btn-cancel-profile">Fechar</button>
+      <button type="submit" form="form-profile" id="btn-save-profile">Salvar</button>
+    </div>
+    <p id="profile-error" class="auth-error" style="text-align:center; padding: 0 20px 12px;"></p>
   </div>
 </div>
 

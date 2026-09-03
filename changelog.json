@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.31.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Corrigido o chat e o NEXT Music da sala de voz: o botão de anexar arquivo do chat da sala não tinha o estilo compacto certo (caía num botão \"pílula\" enorme), sobrando quase nada de espaço lateral pro campo de escrever. Toda a coluna (chat + música) repaginada com botões redondos compactos e respiro nas laterais.",
+      "Configurações: os botões \"Fechar\"/\"Salvar\" agora ficam numa barra fixa embaixo do modal inteiro, sempre visíveis — não precisa mais rolar até o fim de uma aba comprida (Conta, por exemplo) pra encontrar eles."
+    ]
+  },
+  {
     "version": "0.30.3",
     "date": "2026-09-03",
     "changes": [

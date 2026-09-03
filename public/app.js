@@ -4192,6 +4192,8 @@ document.getElementById('btn-edit-profile').onclick = () => {
   updateAvatarPreview();
   document.querySelectorAll('#modal-profile .settings-sidebar-item').forEach((t, i) => t.classList.toggle('active', i === 0));
   document.querySelectorAll('#modal-profile .manage-tab-panel').forEach((p, i) => p.classList.toggle('hidden', i !== 0));
+  document.getElementById('btn-save-profile').classList.remove('hidden'); // abre sempre na aba Conta
+  document.getElementById('profile-error').textContent = '';
   modalProfile.classList.remove('hidden');
 };
 document.getElementById('btn-cancel-profile').onclick = () => modalProfile.classList.add('hidden');
@@ -4280,6 +4282,10 @@ document.querySelectorAll('#modal-profile .settings-sidebar-item').forEach((tabB
     document.querySelectorAll('#modal-profile .manage-tab-panel').forEach((p) => p.classList.add('hidden'));
     const tab = tabBtn.dataset.settingsTab;
     document.getElementById('settings-tab-' + tab).classList.remove('hidden');
+    // "Salvar" da barra fixa só faz sentido na aba Conta — as outras já
+    // salvam sozinhas a cada ação (2FA, e-mail alternativo, bloqueios etc.).
+    document.getElementById('btn-save-profile').classList.toggle('hidden', tab !== 'conta');
+    document.getElementById('profile-error').textContent = '';
     if (tab === 'seguranca') {
       load2FAStatus();
       loadSessions();

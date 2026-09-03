@@ -1381,6 +1381,21 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .message-form #btn-attach-file:hover { background: #2f3037; filter: none; }
 
+/* CORRIGIDO ("chat e música bugados, sem espaço na lateral"): o botão de
+   anexar da coluna de voz tem outro id (#btn-attach-file-voice) que não
+   pegava o estilo circular compacto acima — caía no botão "pílula" padrão
+   (padding 18px + texto), enorme pra uma coluna de só 300px de largura,
+   sobrando quase nada pro campo de escrever e fazendo tudo colar na borda.
+   Coluna de voz inteira (chat + NEXT Music) repaginada: botões de ícone
+   sempre circulares e compactos, com respiro decente nas laterais. */
+.voice-chat-col .message-form { padding: 12px 14px; gap: 8px; }
+.voice-chat-col .message-form input { padding: 10px 14px; font-size: 13px; }
+.voice-chat-col .message-form button {
+  width: 38px; height: 38px; padding: 0; border-radius: 50%; flex-shrink: 0;
+}
+.voice-chat-col .message-form #btn-attach-file-voice { background: #26272e; }
+.voice-chat-col .message-form #btn-attach-file-voice:hover { background: #2f3037; filter: none; }
+
 .ai-quick-suggestions {
   display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 10px;
 }
@@ -2275,6 +2290,14 @@ video:fullscreen { background: #000; object-fit: contain; }
 }
 .settings-modal-card h2 { flex-shrink: 0; }
 .settings-layout { display: flex; gap: 22px; align-items: stretch; flex: 1; min-height: 0; }
+/* Barra de "Fechar"/"Salvar" fixa embaixo do modal inteiro — fora da área
+   que rola, então continua visível não importa quão comprida seja a aba
+   aberta ou até onde a pessoa rolou. */
+.settings-fixed-actions {
+  flex-shrink: 0; display: flex; justify-content: flex-end; gap: 10px;
+  padding-top: 16px; margin-top: 12px; border-top: 1px solid #26272e;
+}
+#btn-save-profile.hidden { display: none; }
 .settings-sidebar {
   display: flex; flex-direction: column; gap: 2px; width: 190px; flex-shrink: 0;
   border-right: 1px solid #26272e; padding-right: 14px; overflow-y: auto;
