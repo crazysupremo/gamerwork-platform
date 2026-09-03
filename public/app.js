@@ -952,7 +952,11 @@ function startApp() {
   playLoginIntro();
   document.getElementById('me-username').textContent = me.username;
   renderAvatarInto(document.getElementById('me-avatar'), me);
-  if (me.is_admin) document.getElementById('admin-link').classList.remove('hidden');
+  // Link "Admin" também aparece pra conta de moderador (acesso parcial —
+  // ver requireModerator no server.js), não só pra admin de verdade. Sem
+  // isso, quem tinha só acesso de moderador (ex: selo dourado de parceiro)
+  // não tinha como achar o painel, mesmo com permissão de entrar nele.
+  if (me.is_admin || me.is_moderator) document.getElementById('admin-link').classList.remove('hidden');
 
   updateNavbarProfile();
   refreshStreakBadge();

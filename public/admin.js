@@ -811,7 +811,7 @@ async function loadUsers() {
       <td>${escapeHtml(u.username)}</td>
       <td>${escapeHtml(u.email || '—')}</td>
       <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
-      <td>${u.is_admin ? 'Sim' : 'Não'}</td>
+      <td>${u.is_admin ? 'Sim' : u.is_moderator ? '<span style="color:#faa61a;" title="Acesso parcial: só Segurança/BLUEX e Moderação">🛡️ Moderador</span>' : 'Não'}</td>
       <td>${u.verified_gold ? '🥇 Verificado (dourado)' : u.is_verified ? '✔️ Verificado' : '—'}</td>
       <td>${planLabelHtml(u)}</td>
       <td>${

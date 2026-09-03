@@ -2297,6 +2297,21 @@ video:fullscreen { background: #000; object-fit: contain; }
   flex-shrink: 0; display: flex; justify-content: flex-end; gap: 10px;
   padding-top: 16px; margin-top: 12px; border-top: 1px solid #26272e;
 }
+/* Repaginado ("deixa mais bonito e minimalista") — "Fechar" vira um botão
+   fantasma discreto (sem fundo, só contorno leve) e "Salvar" é o único
+   destaque de verdade, em pílula com o degradê da marca — só uma ação
+   chamando atenção por vez, igual o resto do app já faz. */
+.settings-fixed-actions button {
+  border-radius: 20px; padding: 10px 22px; font-size: 13.5px; font-weight: 700;
+  cursor: pointer; border: none; transition: filter 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.settings-fixed-actions button:active { transform: scale(0.97); }
+#btn-cancel-profile {
+  background: transparent; color: #9aa0ab; border: 1px solid rgba(255,255,255,0.12) !important;
+}
+#btn-cancel-profile:hover { background: rgba(255,255,255,0.06); color: #dbdee1; }
+#btn-save-profile { background: var(--gradient-brand); color: white; box-shadow: 0 4px 14px rgba(88,101,242,0.35); }
+#btn-save-profile:hover { filter: brightness(1.08); }
 #btn-save-profile.hidden { display: none; }
 .settings-sidebar {
   display: flex; flex-direction: column; gap: 2px; width: 190px; flex-shrink: 0;

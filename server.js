@@ -6752,7 +6752,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, email, is_admin, is_verified, verified_gold, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, plan_source, plan_expires_at, created_at FROM users ORDER BY created_at DESC'
+        'SELECT id, username, email, is_admin, is_moderator, is_verified, verified_gold, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, plan_source, plan_expires_at, created_at FROM users ORDER BY created_at DESC'
       )
     );
   })
@@ -6790,9 +6790,17 @@ app.post(
     if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
     const newValue = target.verified_gold ? 0 : 1;
     if (newValue) {
-      await db.run('UPDATE users SET verified_gold = 1, is_verified = 1 WHERE id = ?', [req.params.id]);
+      // Selo dourado (conta de parceiro, ex: dono do Magic Tank) também dá
+      // acesso de MODERADOR ao painel /admin.html — igual a conta
+      // @moderador_bluex: só Segurança/BLUEX e Moderação, nada de
+      // Usuários/Loja/Personalização/Suporte/Audit Log (ver requireModerator
+      // vs requireAdmin). A pedido — parceiro verificado ganha esse acesso
+      // limitado automaticamente junto com o selo.
+      await db.run('UPDATE users SET verified_gold = 1, is_verified = 1, is_moderator = 1 WHERE id = ?', [
+        req.params.id,
+      ]);
     } else {
-      await db.run('UPDATE users SET verified_gold = 0 WHERE id = ?', [req.params.id]);
+      await db.run('UPDATE users SET verified_gold = 0, is_moderator = 0 WHERE id = ?', [req.params.id]);
     }
     logAudit(req.user, newValue ? 'verify_gold_user' : 'unverify_gold_user', 'user', req.params.id, {});
     res.json({ ok: true, verified_gold: !!newValue });

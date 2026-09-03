@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.32.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Corrigido: dar o selo dourado (parceiro, ex: dono do Magic Tank) pra uma conta agora também dá acesso de MODERADOR ao painel /admin.html automaticamente (só Segurança/BLUEX e Moderação — igual a conta @moderador_bluex). Antes o selo era só cosmético.",
+      "Corrigido: o link \"Admin\" no menu do perfil só aparecia pra admin de verdade — quem tinha só acesso de moderador (incluindo parceiro com selo dourado) não tinha como achar o painel. Agora aparece pros dois.",
+      "Painel de admin > Usuários: coluna \"Admin\" agora mostra \"🛡️ Moderador\" pra quem tem acesso parcial, além de Sim/Não."
+    ]
+  },
+  {
+    "version": "0.31.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Botões \"Fechar\"/\"Salvar\" das Configurações repaginados: \"Fechar\" virou um botão discreto (só contorno, sem fundo), \"Salvar\" fica em destaque numa pílula com o degradê da marca — visual mais minimalista, só uma ação chamando atenção por vez."
+    ]
+  },
+  {
     "version": "0.31.0",
     "date": "2026-09-03",
     "changes": [
