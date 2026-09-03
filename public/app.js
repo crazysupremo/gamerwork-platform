@@ -1292,13 +1292,24 @@ document.getElementById('btn-close-channel-sidebar').onclick = () => setChannelS
   btn.onclick = (e) => {
     e.stopPropagation();
     menu.classList.toggle('hidden');
+    // CORRIGIDO: sem isso, o navegador desenhava o anel azul padrão de foco
+    // em volta do botão redondo, que ficava "cortado" bem em cima do menu
+    // que abre logo abaixo. Agora o próprio botão fica destacado (mesmo
+    // estilo do "+" de criar sala) enquanto o menu está aberto, e some
+    // sozinho ao fechar — sem anel nenhum brigando com o menu.
+    btn.classList.toggle('active-state', !menu.classList.contains('hidden'));
+    btn.blur();
   };
   menu.querySelectorAll('button').forEach((item) => {
-    item.addEventListener('click', () => menu.classList.add('hidden'));
+    item.addEventListener('click', () => {
+      menu.classList.add('hidden');
+      btn.classList.remove('active-state');
+    });
   });
   document.addEventListener('click', (e) => {
     if (!menu.classList.contains('hidden') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
       menu.classList.add('hidden');
+      btn.classList.remove('active-state');
     }
   });
 })();

@@ -768,6 +768,15 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   transition: background 0.15s ease, color 0.15s ease;
 }
 .sidebar-header button:hover { background: rgba(255,255,255,0.06); color: #dbdee1; }
+/* CORRIGIDO: o anel azul padrão do navegador ao clicar/focar um botão
+   redondo ficava "cortado" bem em cima do menu que abre logo abaixo (caso
+   do "⋯"). Troca por um anel suave que respeita o formato circular do
+   botão, só aparece navegando por teclado (não some feedback de acessibilidade). */
+.sidebar-header button:focus { outline: none; }
+.sidebar-header button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* "⋯" fica destacado enquanto o menu dele está aberto — mesma cor do resto
+   dos estados "ativo" do app, só que sem o anel de foco brigando com o menu. */
+.sidebar-header button.active-state { background: rgba(88,101,242,0.16); color: var(--accent-3); }
 
 /* "Criar sala" ainda se destaca (é a ação mais usada), mas com uma cor
    suave em vez do degradê chapado — mais elegante, menos "gritando". */

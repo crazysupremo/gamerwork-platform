@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.27.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Corrigido o anel azul que ficava \"cortado\" em cima do menu \"⋯\" da coluna de canais ao abrir — agora o botão só fica destacado (mesmo estilo do resto do app) enquanto o menu está aberto.",
+      "Trocado o ícone da opção \"Membros, cargos e convite\" (agora um ícone de pessoas, mais legível em tamanho pequeno)."
+    ]
+  },
+  {
     "version": "0.27.0",
     "date": "2026-09-03",
     "changes": [
