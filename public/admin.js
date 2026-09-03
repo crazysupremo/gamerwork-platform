@@ -33,6 +33,7 @@ async function init() {
   loadShopAdmin();
   loadReports();
   loadSupportTickets();
+  setInterval(loadSupportTickets, 20000);
   loadBlocked();
   loadFlaggedFrames();
   loadFlagged();
@@ -71,6 +72,23 @@ function mountPlusV2AdminPanel() {
     console.error('Erro ao carregar painel de personalização:', err);
     plusV2AdminMounted = false;
   });
+}
+
+// Toast simples no canto da tela — usado pra avisar de ticket de suporte
+// novo sem precisar recarregar nem ficar de olho na aba o tempo todo.
+function showAdminToast(text) {
+  let el = document.getElementById('admin-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'admin-toast';
+    el.className = 'admin-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.classList.remove('hidden');
+  el.classList.add('show');
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => el.classList.remove('show'), 6000);
 }
 
 // Mostra um número em destaque no botão da sidebar (ex: quantas contas
@@ -475,9 +493,32 @@ const SUPPORT_CATEGORY_LABELS = {
   outro: 'Outro',
 };
 
+// Pra saber se apareceu ticket NOVO desde a última checagem (não só reabrir
+// a mesma lista) e poder avisar com um toast, sem precisar de socket.io —
+// polling a cada 20s já é rápido o bastante pra um painel de admin.
+let lastSeenSupportTicketIds = null;
+
 async function loadSupportTickets() {
   const res = await fetch('/api/admin/support/tickets', { credentials: 'include' });
   const tickets = await res.json();
+
+  // Badge de "quantos tickets em aberto" no botão "📨 Suporte" da sidebar —
+  // dá pra ver de longe que chegou coisa nova sem precisar clicar na aba.
+  const openCount = tickets.filter((t) => t.status === 'aberto').length;
+  setNavBadge('suporte', openCount);
+
+  if (lastSeenSupportTicketIds) {
+    const newOnes = tickets.filter((t) => !lastSeenSupportTicketIds.has(t.id));
+    if (newOnes.length > 0) {
+      showAdminToast(
+        newOnes.length === 1
+          ? `📨 Novo ticket de suporte: "${newOnes[0].subject}"`
+          : `📨 ${newOnes.length} novos tickets de suporte`
+      );
+    }
+  }
+  lastSeenSupportTicketIds = new Set(tickets.map((t) => t.id));
+
   const tbody = document.querySelector('#support-tickets-table tbody');
   if (!tbody) return;
   tbody.innerHTML = '';

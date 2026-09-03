@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NEXT GAME — Preview do cabeçalho da conversa repaginado</title>
+<link rel="stylesheet" href="../public/style.css" />
+<style>
+  .sp-note {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 300; background: #0f5f52; color: #d9fff6;
+    font-size: 12.5px; padding: 8px 16px; text-align: center; font-weight: 600;
+  }
+  body { padding-top: 34px; background: var(--bg-panel); }
+</style>
+</head>
+<body>
+  <div class="sp-note">🧪 Preview estático — só o cabeçalho de cima da conversa repaginado (item pedido), com dados de teste.</div>
+
+  <header class="main-header">
+    <button id="btn-toggle-channel-sidebar" title="Mostrar/esconder canais do servidor" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="menu"></span></button>
+    <span id="current-channel-name">crazysupremo</span>
+    <button id="btn-search-messages" title="Buscar mensagens" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="search"></span></button>
+    <button id="btn-pinned-messages" title="Mensagens fixadas" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="pin"></span></button>
+    <button id="btn-toggle-members" title="Membros" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="users"></span></button>
+  </header>
+
+  <div style="padding:24px; color:#6d7178; font-size:13px;">↑ antes: quadrados cinza sólidos com o ícone de "balão de chat" no início. agora: círculos transparentes que só ganham fundo ao passar o mouse, e o ícone inicial virou um menu simples (☰) em vez do balão.</div>
+
+  <script src="../public/icons.js"></script>
+</body>
+</html>

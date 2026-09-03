@@ -31,6 +31,15 @@
     border-radius: 10px; padding: 1px 6px; min-width: 16px; text-align: center;
   }
   .admin-nav-btn .badge.hidden { display: none; }
+  /* Toast de aviso (ex: ticket de suporte novo) — canto inferior direito,
+     some sozinho depois de alguns segundos. */
+  .admin-toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 500; max-width: 320px;
+    background: #1e1f22; border: 1px solid #5865f2; border-radius: 10px; padding: 12px 16px;
+    color: #e6e6e6; font-size: 13px; font-weight: 600; box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    opacity: 0; transform: translateY(12px); pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .admin-toast.show { opacity: 1; transform: translateY(0); }
   .admin-content { flex: 1; padding: 22px 26px; max-width: 980px; }
   .admin-tab-panel h2 { margin-top: 0; border-bottom: 1px solid #3a3c42; padding-bottom: 6px; }
   .admin-tab-panel h2:not(:first-child) { margin-top: 32px; }

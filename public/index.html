@@ -516,14 +516,27 @@
        aparece como um popup ao escolher um servidor ou clicar no botão de
        canais no topo, e fecha no X ou clicando fora. -->
   <aside class="sidebar hidden" id="channel-sidebar">
+    <!-- Repaginado: cabeçalho antes tinha 6 botões pequenos espremidos numa
+         linha só (ficava tumultuado). Agora só o essencial fica visível
+         (Criar sala + Fechar), e o resto (loja, info, gerenciar, sala
+         rápida) entra num menu "⋯" — mesmos botões/ids de sempre, só
+         reorganizados, então nenhuma função muda. -->
     <div class="sidebar-header">
-      <span id="active-server-name">NEXT GAME</span>
+      <div class="sidebar-header-identity">
+        <span id="active-server-icon" class="sidebar-header-icon">🎮</span>
+        <span id="active-server-name">NEXT GAME</span>
+      </div>
       <div class="sidebar-header-actions">
         <button id="btn-new-room" class="sidebar-header-btn-primary" title="Criar sala neste servidor"><span class="ng-icon-wrap" data-icon="plus"></span></button>
-        <button id="btn-shop-coins" title="Loja NEXT Coins"><span class="ng-icon-wrap" data-icon="coins"></span></button>
-        <button id="btn-server-info" title="Informações e regras do servidor">ℹ️</button>
-        <button id="btn-server-manage" title="Membros, cargos e convite"><span class="ng-icon-wrap" data-icon="settings"></span></button>
-        <button id="btn-quick-room" title="Sala Rápida — cria uma sala de voz temporária, some quando todos saem"><span class="ng-icon-wrap" data-icon="zap"></span></button>
+        <div class="sidebar-more-wrap">
+          <button type="button" id="btn-sidebar-more" title="Mais opções"><span class="ng-icon-wrap" data-icon="more-horizontal"></span></button>
+          <div id="sidebar-more-menu" class="sidebar-more-menu hidden">
+            <button id="btn-shop-coins"><span class="ng-icon-wrap" data-icon="coins"></span> Loja NEXT Coins</button>
+            <button id="btn-server-info"><span class="ng-icon-wrap" data-icon="info"></span> Informações e regras</button>
+            <button id="btn-server-manage"><span class="ng-icon-wrap" data-icon="settings"></span> Membros, cargos e convite</button>
+            <button id="btn-quick-room"><span class="ng-icon-wrap" data-icon="zap"></span> Sala Rápida</button>
+          </div>
+        </div>
         <button id="btn-close-channel-sidebar" title="Fechar"><span class="ng-icon-wrap" data-icon="x"></span></button>
         <!-- "Torneios" e "Ranking" já têm entrada própria na sidebar principal
              (nav-torneios/nav-ranking-link) — esses dois ficam só como alvo de
@@ -577,7 +590,7 @@
 
   <main class="main">
     <header class="main-header">
-      <button id="btn-toggle-channel-sidebar" title="Mostrar/esconder canais do servidor" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="message-square"></span></button>
+      <button id="btn-toggle-channel-sidebar" title="Mostrar/esconder canais do servidor" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="menu"></span></button>
       <span id="current-channel-name">Início</span>
       <button id="btn-invite-to-play" title="Convidar para jogar" class="header-icon-btn hidden"><span class="ng-icon-wrap" data-icon="gamepad-2"></span></button>
       <button id="btn-invite-to-server" title="Convidar para servidor" class="header-icon-btn hidden"><span class="ng-icon-wrap" data-icon="server"></span></button>
@@ -639,26 +652,6 @@
     <section id="home-panel" class="home-panel">
       <!-- Banner de torneio em destaque, no topo — o cartão principal da tela -->
       <div id="home-tournament-banner" class="home-tournament-banner"></div>
-
-      <div class="home-section-title" style="margin-top:14px;"><span class="ng-icon-wrap" data-icon="zap"></span> Atividades rápidas</div>
-      <div class="home-quick-actions">
-        <button type="button" class="home-quick-action" id="home-quick-lfg">
-          <span class="home-quick-action-icon"><span class="ng-icon-wrap" data-icon="search"></span></span>
-          <span class="home-quick-action-text"><strong>Procurar Jogadores</strong><span>Encontre gente pro seu nível</span></span>
-        </button>
-        <button type="button" class="home-quick-action" id="home-quick-join">
-          <span class="home-quick-action-icon"><span class="ng-icon-wrap" data-icon="link"></span></span>
-          <span class="home-quick-action-text"><strong>Entrar em Servidor</strong><span>Participe de uma comunidade</span></span>
-        </button>
-        <button type="button" class="home-quick-action" id="home-quick-team">
-          <span class="home-quick-action-icon"><span class="ng-icon-wrap" data-icon="shield"></span></span>
-          <span class="home-quick-action-text"><strong>Criar Time</strong><span>Monte seu esquad</span></span>
-        </button>
-        <button type="button" class="home-quick-action" id="home-quick-tournaments">
-          <span class="home-quick-action-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></span>
-          <span class="home-quick-action-text"><strong>Ver Torneios</strong><span>Confira torneios abertos</span></span>
-        </button>
-      </div>
 
       <div class="home-stats" id="home-stats"></div>
 
@@ -1171,6 +1164,17 @@
     </div>
 
     <div id="settings-tab-seguranca" class="manage-tab-panel hidden">
+      <!-- Recomendação de 2FA — só aparece se ainda não está ativado. Não
+           bloqueia nada, é só um empurrãozinho; dá pra dispensar (localStorage). -->
+      <div id="twofa-recommend-banner" class="twofa-recommend-banner hidden">
+        <span class="ng-icon-wrap" data-icon="shield-check"></span>
+        <div class="twofa-recommend-text">
+          <strong>Recomendamos ativar a verificação em duas etapas</strong>
+          <span>Deixa sua conta bem mais protegida contra invasão, mesmo se alguém descobrir sua senha. Leva 1 minuto.</span>
+        </div>
+        <button type="button" id="btn-twofa-recommend-dismiss" title="Dispensar"><span class="ng-icon-wrap" data-icon="x"></span></button>
+      </div>
+
       <p class="hint" style="margin-bottom:10px;">Autenticação em duas etapas (2FA) com app autenticador (Google Authenticator, Authy etc).</p>
       <div id="twofa-off-view">
         <button type="button" id="btn-2fa-start"><span class="ng-icon-wrap" data-icon="shield-check"></span> Ativar 2FA</button>
@@ -1196,6 +1200,34 @@
       <div id="sessions-list"></div>
       <div class="modal-actions" style="justify-content:flex-start; margin-top:8px;">
         <button type="button" id="btn-revoke-other-sessions">Encerrar todas as outras sessões</button>
+      </div>
+
+      <!-- E-mail alternativo (recuperação): pra usar caso um dia a pessoa
+           perca acesso ao e-mail principal (não tem mais como fazer login
+           nele) e por isso o "Esqueci minha senha" comum não adianta. -->
+      <p class="hint" style="margin:18px 0 10px; border-top:1px solid #3a3c42; padding-top:14px;">
+        E-mail alternativo — usado só se um dia você perder acesso ao seu e-mail principal, pra recuperar a conta.
+      </p>
+      <div id="backup-email-none-view">
+        <input type="email" id="backup-email-input" placeholder="seu-email-alternativo@exemplo.com" />
+        <div class="modal-actions" style="justify-content:flex-start; margin-top:8px;">
+          <button type="button" id="btn-backup-email-send-code">Enviar código de confirmação</button>
+        </div>
+        <p id="backup-email-error" class="auth-error"></p>
+      </div>
+      <div id="backup-email-pending-view" class="hidden">
+        <p class="hint">Mandamos um código de 6 dígitos pra <strong id="backup-email-pending-address"></strong>. Confirma abaixo:</p>
+        <input type="text" id="backup-email-confirm-code" placeholder="000000" maxlength="6" style="text-align:center; letter-spacing:4px; font-size:18px;" />
+        <div class="modal-actions" style="justify-content:flex-start; margin-top:8px;">
+          <button type="button" id="btn-backup-email-confirm">Confirmar</button>
+        </div>
+        <p id="backup-email-confirm-error" class="auth-error"></p>
+      </div>
+      <div id="backup-email-set-view" class="hidden">
+        <p class="hint"><span class="ng-icon-wrap" data-icon="check"></span> E-mail alternativo confirmado: <strong id="backup-email-current"></strong></p>
+        <div class="modal-actions" style="justify-content:flex-start; margin-top:8px;">
+          <button type="button" id="btn-backup-email-remove" class="danger-action">Remover</button>
+        </div>
       </div>
     </div>
 
@@ -1972,6 +2004,42 @@
       <div class="modal-actions">
         <button type="button" id="btn-close-forgot-password">Fechar</button>
         <button type="submit" id="btn-send-forgot-password">Continuar</button>
+      </div>
+      <p style="text-align:center; margin-top:14px;">
+        <a href="#" id="link-account-recovery" class="auth-forgot-link">Perdeu acesso a esse e-mail também? Recuperar por e-mail alternativo</a>
+      </p>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: RECUPERAR CONTA POR E-MAIL ALTERNATIVO — pra quando a pessoa
+     perdeu acesso ao e-mail principal (não adianta o "Trocar senha" comum,
+     que manda o link pra esse mesmo e-mail que ela não acessa mais). Só
+     funciona se ela configurou um e-mail alternativo confirmado antes, nas
+     Configurações > Segurança. 3 passos: usuário -> código -> novo e-mail/senha. -->
+<div id="modal-account-recovery" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2><span class="ng-icon-wrap" data-icon="shield-check"></span> Recuperar conta</h2>
+    <p class="hint" style="margin-bottom:10px;">Se você configurou um e-mail alternativo antes, usamos ele pra confirmar que é você.</p>
+    <form id="form-account-recovery">
+      <div id="account-recovery-step1">
+        <label>Usuário</label>
+        <input type="text" id="account-recovery-username" placeholder="seu_usuario" autocomplete="username" />
+      </div>
+      <div id="account-recovery-step2" class="hidden">
+        <p class="hint">Se essa conta tiver um e-mail alternativo confirmado, mandamos um código de 6 dígitos pra ele.</p>
+        <label>Código recebido</label>
+        <input type="text" id="account-recovery-code" placeholder="000000" maxlength="6" style="text-align:center; letter-spacing:4px; font-size:18px;" />
+        <label style="margin-top:10px;">Novo e-mail principal</label>
+        <input type="email" id="account-recovery-new-email" placeholder="seu-novo-email@exemplo.com" />
+        <label style="margin-top:10px;">Nova senha (opcional — deixe em branco pra manter a atual)</label>
+        <input type="password" id="account-recovery-new-password" placeholder="Nova senha" />
+      </div>
+      <p id="account-recovery-error" class="auth-error"></p>
+      <p id="account-recovery-success" class="hint hidden" style="color:#3ba55c; margin-top:6px;"></p>
+      <div class="modal-actions">
+        <button type="button" id="btn-close-account-recovery">Fechar</button>
+        <button type="submit" id="btn-account-recovery-continue">Continuar</button>
       </div>
     </form>
   </div>

@@ -739,52 +739,90 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 
 .sidebar {
-  width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; padding: 12px 8px;
+  width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; padding: 0;
   min-height: 0; overflow-y: auto;
 }
+/* Repaginado (a pedido — "coluna do meio ficou tumultuada"): cabeçalho antes
+   tinha 6 botõezinhos de 22px espremidos numa linha só, sem respiro nenhum.
+   Agora só sobra o essencial visível (Criar sala + Fechar); o resto vira um
+   menu "⋯" (ver .sidebar-more-*). Mesmos ids/onclick de sempre — só mudou o
+   agrupamento visual, nenhuma função foi tirada. */
 .sidebar-header {
-  font-weight: 800; padding: 8px; color: #e6e6e6; display: flex;
-  align-items: center; justify-content: space-between; letter-spacing: 0.01em;
+  font-weight: 700; padding: 20px 16px 8px; color: #f2f3f5; display: flex;
+  align-items: center; justify-content: space-between; letter-spacing: 0.01em; gap: 8px;
 }
-.sidebar-header-actions { display: flex; gap: 6px; }
+.sidebar-header-identity { display: flex; align-items: center; gap: 9px; min-width: 0; }
+/* Bolinha discreta em vez do quadrado com degradê forte — combina mais com
+   um visual minimalista, sem competir com o resto da tela. */
+.sidebar-header-icon {
+  width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07);
+  display: flex; align-items: center; justify-content: center; font-size: 13px;
+}
+#active-server-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; font-weight: 700; }
+.sidebar-header-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .sidebar-header button {
-  background: #26272e; color: #e6e6e6; border: none; border-radius: 6px;
-  width: 22px; height: 22px; cursor: pointer; font-size: 14px; line-height: 1;
-  transition: background 0.15s ease, transform 0.1s ease;
+  background: transparent; color: #6d7178; border: none; border-radius: 50%;
+  width: 26px; height: 26px; cursor: pointer; font-size: 14px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.sidebar-header button:hover { background: var(--accent); transform: scale(1.06); }
+.sidebar-header button:hover { background: rgba(255,255,255,0.06); color: #dbdee1; }
 
-/* "Criar sala" precisa se destacar de verdade dos outros ícones cinzas —
-   é a ação mais usada desse cabeçalho, não pode ficar perdida no meio. */
+/* "Criar sala" ainda se destaca (é a ação mais usada), mas com uma cor
+   suave em vez do degradê chapado — mais elegante, menos "gritando". */
 .sidebar-header-btn-primary {
-  background: var(--gradient-brand) !important; width: 26px !important; height: 26px !important;
-  box-shadow: 0 2px 8px rgba(88,101,242,0.5);
+  background: rgba(88,101,242,0.16) !important; color: var(--accent-3) !important;
 }
-.sidebar-header-btn-primary:hover { transform: scale(1.12) !important; filter: brightness(1.15); }
-#categories-container { flex: 1; overflow-y: auto; min-height: 0; }
-.category { margin-top: 12px; }
+.sidebar-header-btn-primary:hover { background: var(--accent) !important; color: white !important; }
+
+/* Menu "⋯" — reúne loja/informações/gerenciar/sala rápida, que antes
+   ficavam soltos no cabeçalho poluindo a linha inteira. */
+.sidebar-more-wrap { position: relative; }
+.sidebar-more-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; width: 248px; z-index: 60;
+  background: var(--bg-modal); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px;
+  box-shadow: 0 20px 44px rgba(0,0,0,0.5); padding: 6px; display: flex; flex-direction: column; gap: 1px;
+}
+/* CORRIGIDO: texto quebrando em 2 linhas deixava o menu com altura
+   desigual entre itens e parecendo bagunçado — agora nunca quebra linha
+   (menu já nasce largo o bastante pro item mais comprido). */
+.sidebar-more-menu button {
+  width: 100%; background: none; border: none; color: #cfd2d8; font-size: 13px; font-weight: 600;
+  text-align: left; padding: 10px 12px; border-radius: 10px; cursor: pointer; white-space: nowrap;
+  display: flex; align-items: center; gap: 11px; transition: background 0.12s ease, color 0.12s ease;
+}
+.sidebar-more-menu button:hover { background: rgba(255,255,255,0.05); color: white; }
+.sidebar-more-menu .ng-icon-wrap { width: 15px; height: 15px; color: #6d7178; flex-shrink: 0; }
+.sidebar-more-menu button:hover .ng-icon-wrap { color: var(--accent-3); }
+
+#categories-container { flex: 1; overflow-y: auto; min-height: 0; padding: 6px 10px 16px; }
+.category { margin-top: 14px; }
 .category-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: #949ba4; padding: 4px 8px; }
 
-/* Cabeçalho de grupo recolhível ("CANAIS DE TEXTO"/"CANAIS DE VOZ"), igual Discord. */
+/* Cabeçalho de grupo recolhível ("CANAIS DE TEXTO"/"CANAIS DE VOZ") —
+   discreto de propósito, quase invisível até você prestar atenção. */
 .channel-category-header {
-  display: flex; align-items: center; gap: 4px; padding: 14px 4px 4px; margin: 0;
-  font-size: 11px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
-  color: #949ba4; cursor: pointer; user-select: none; transition: color 0.12s ease;
+  display: flex; align-items: center; gap: 5px; padding: 16px 4px 8px; margin: 0;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #5c6068; cursor: pointer; user-select: none; transition: color 0.12s ease;
 }
-.channel-category-header:hover { color: #dbdee1; }
+.channel-category-header:hover { color: #9aa0ab; }
 .channel-category-chevron {
-  display: inline-block; font-size: 10px; transition: transform 0.15s ease; transform: rotate(0deg);
+  display: inline-block; font-size: 9px; transition: transform 0.15s ease; transform: rotate(0deg);
 }
 .channel-category-chevron.collapsed { transform: rotate(-90deg); }
 
 .channel-list { display: flex; flex-direction: column; gap: 1px; }
+/* Item de canal como uma "pílula" flat — sem barrinha lateral, sem sombra
+   de destaque; só uma cor de fundo suave marca o que está ativo. */
 .channel-item {
-  padding: 6px 8px; border-radius: 6px; color: #949ba4; cursor: pointer; font-size: 14px;
-  transition: background 0.12s ease, color 0.12s ease, padding-left 0.12s ease;
+  padding: 9px 12px; border-radius: 10px; color: #8b909a; cursor: pointer; font-size: 13.5px; font-weight: 600;
+  transition: background 0.15s ease, color 0.15s ease;
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
 }
-.channel-item:hover { background: #26272e; color: #dbdee1; padding-left: 12px; }
-.channel-item.active { background: #2c2e36; color: white; box-shadow: inset 2px 0 0 var(--accent); }
+.channel-item:hover { background: rgba(255,255,255,0.045); color: #dbdee1; }
+.channel-item.active { background: rgba(88,101,242,0.15); color: #c7cdff; }
 .channel-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Ícones de ação que só aparecem passando o mouse por cima do canal — igual Discord. */
@@ -794,11 +832,11 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .channel-item:hover .channel-item-actions { opacity: 1; transform: translateX(0); }
 .channel-action-icon {
-  width: 22px; height: 22px; border: none; border-radius: 4px; background: transparent;
-  color: #949ba4; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border: none; border-radius: 6px; background: transparent;
+  color: #9aa0ab; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;
   transition: background 0.12s ease, color 0.12s ease;
 }
-.channel-action-icon:hover { background: #33353d; color: #f2f3f5; }
+.channel-action-icon:hover { background: rgba(255,255,255,0.08); color: #f2f3f5; }
 .sidebar-footer {
   flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 8px;
   border-top: 1px solid #2c2e36; font-size: 13px;
@@ -812,14 +850,20 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .main { flex: 1; display: flex; flex-direction: column; background: var(--bg-panel); min-width: 0; min-height: 0; }
 .main-header {
   padding: 14px 16px; border-bottom: 1px solid #2c2e36; font-weight: 700;
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; gap: 2px;
 }
+#current-channel-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Repaginado (a pedido — "botões do lado do nome ficaram feios"): antes
+   eram quadrados cinza sólidos de 30px, meio pesados visualmente. Agora
+   ficam transparentes até passar o mouse, em círculo — mesmo espírito
+   minimalista já usado na coluna de canais. */
 .header-icon-btn {
-  background: #26272e; border: none; color: #dbdee1; width: 30px; height: 30px;
-  border-radius: 6px; cursor: pointer; font-size: 14px; transition: background 0.15s ease;
+  background: transparent; border: none; color: #7d828c; width: 30px; height: 30px;
+  border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.header-icon-btn:hover { background: var(--accent); }
-.header-icon-btn.active-state { background: var(--gradient-brand); }
+.header-icon-btn:hover { background: rgba(255,255,255,0.07); color: #f2f3f5; }
+.header-icon-btn.active-state { background: rgba(88,101,242,0.16); color: var(--accent-3); }
 
 .text-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
 /* Arrastar e soltar arquivo pra anexar — cobre a conversa inteira enquanto
@@ -1871,6 +1915,22 @@ video:fullscreen { background: #000; object-fit: contain; }
 }
 .modal-actions button.danger-action { background: #f23f42; color: white; }
 .modal-actions button.danger-action:hover { background: #d3373a; }
+
+/* Banner de recomendação de 2FA — não bloqueia nada, só sugere. */
+.twofa-recommend-banner {
+  display: flex; align-items: flex-start; gap: 12px; background: rgba(88,101,242,0.1);
+  border: 1px solid rgba(88,101,242,0.25); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
+}
+.twofa-recommend-banner > .ng-icon-wrap { width: 20px; height: 20px; color: var(--accent-3); flex-shrink: 0; margin-top: 1px; }
+.twofa-recommend-text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.twofa-recommend-text strong { font-size: 13.5px; color: #f2f3f5; }
+.twofa-recommend-text span { font-size: 12.5px; color: #9aa0ab; line-height: 1.4; }
+.twofa-recommend-banner button {
+  background: transparent; border: none; color: #7d828c; width: 24px; height: 24px; border-radius: 50%;
+  cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.twofa-recommend-banner button:hover { background: rgba(255,255,255,0.08); color: #f2f3f5; }
 
 /* Configurações: sessões, bloqueados, notificações */
 .settings-row {

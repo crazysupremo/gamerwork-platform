@@ -37,7 +37,13 @@ const buildPlusV2Router = require('./plus-v2/routes-plus2');
 // generateVerificationCode já existe mais abaixo (selo "auditável" tipo
 // NG-XXXXXXXXXX) — sem relação com o código de 6 dígitos de confirmação de
 // e-mail, então importa com outro nome pra não colidir.
-const { sendVerificationEmail, generateVerificationCode: generateEmailVerificationCode, sendPasswordResetEmail } = require('./mailer');
+const {
+  sendVerificationEmail,
+  generateVerificationCode: generateEmailVerificationCode,
+  sendPasswordResetEmail,
+  sendBackupEmailCode,
+  sendAccountRecoveryCode,
+} = require('./mailer');
 const { authenticator } = require('otplib');
 const QRCode = require('qrcode');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
@@ -1170,6 +1176,11 @@ app.get(
       // 2FA (ver requireAdmin) — evita uma tela cheia de erros 403 e mostra
       // direto a orientação certa (ativar 2FA nas configurações da conta).
       totp_enabled: !!req.user.totp_enabled,
+      // E-mail alternativo (recuperação) — nunca manda o backup_email_code
+      // pro frontend, só se já tem um alternativo confirmado e qual é (pra
+      // mostrar mascarado nas configurações).
+      backup_email: req.user.backup_email_verified ? req.user.backup_email : null,
+      backup_email_pending: !!(req.user.backup_email && !req.user.backup_email_verified),
     });
   })
 );
@@ -1802,6 +1813,153 @@ app.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     res.json({ enabled: !!req.user.totp_enabled });
+  })
+);
+
+// ---------- E-MAIL ALTERNATIVO (recuperação) ----------
+// A pessoa cadastra um segundo e-mail (precisa confirmar que é dela, igual
+// o e-mail principal) pra usar caso um dia perca acesso ao e-mail principal
+// — ver fluxo público /api/account-recovery/* logo abaixo.
+
+app.post(
+  '/api/me/backup-email/request',
+  requireAuth,
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { email } = req.body || {};
+    if (!email || !EMAIL_REGEX.test(email) || email.length > 200) {
+      return res.status(400).json({ error: 'E-mail inválido' });
+    }
+    if (email === req.user.email) {
+      return res.status(400).json({ error: 'O e-mail alternativo precisa ser diferente do e-mail principal' });
+    }
+    const code = generateEmailVerificationCode();
+    const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    // Guarda o e-mail já (ainda não verificado) junto com o código — só marca
+    // backup_email_verified=1 depois de confirmar em /verify. Trocar de e-mail
+    // alternativo antes de confirmar o anterior simplesmente substitui.
+    await db.run(
+      'UPDATE users SET backup_email = ?, backup_email_verified = 0, backup_email_code = ?, backup_email_code_expires = ? WHERE id = ?',
+      [email, code, expires, req.user.id]
+    );
+    sendBackupEmailCode(email, code, req.user.username).catch((err) =>
+      console.error('[backup-email] erro ao enviar código:', err.message)
+    );
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  '/api/me/backup-email/verify',
+  requireAuth,
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { code } = req.body || {};
+    if (!req.user.backup_email || !req.user.backup_email_code) {
+      return res.status(400).json({ error: 'Peça o código primeiro em "Definir e-mail alternativo"' });
+    }
+    if (!req.user.backup_email_code_expires || new Date(req.user.backup_email_code_expires) < new Date()) {
+      return res.status(400).json({ error: 'Código expirado — peça um novo' });
+    }
+    if (!code || String(code).trim() !== req.user.backup_email_code) {
+      return res.status(400).json({ error: 'Código incorreto' });
+    }
+    await db.run(
+      'UPDATE users SET backup_email_verified = 1, backup_email_code = NULL, backup_email_code_expires = NULL WHERE id = ?',
+      [req.user.id]
+    );
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/me/backup-email',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run(
+      'UPDATE users SET backup_email = NULL, backup_email_verified = 0, backup_email_code = NULL, backup_email_code_expires = NULL WHERE id = ?',
+      [req.user.id]
+    );
+    res.json({ ok: true });
+  })
+);
+
+// ---------- RECUPERAÇÃO DE CONTA VIA E-MAIL ALTERNATIVO ----------
+// Pra quando a pessoa perde acesso ao e-mail principal (e por isso o "Esqueci
+// minha senha" comum não adianta, porque ele manda o link pro e-mail
+// principal). Só funciona se ela já tiver configurado e confirmado um e-mail
+// alternativo antes — não dá pra "inventar" um agora, senão qualquer um
+// sequestrava a conta de qualquer um só sabendo o @usuário.
+app.post(
+  '/api/account-recovery/request',
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { username } = req.body || {};
+    const generic = {
+      ok: true,
+      message: 'Se essa conta tiver um e-mail alternativo confirmado, mandamos um código pra ele agora.',
+    };
+    if (!username || typeof username !== 'string') return res.json(generic);
+    const user = await db.get('SELECT * FROM users WHERE username = ?', [username.trim().toLowerCase()]);
+    // Resposta sempre igual, exista ou não a conta / tenha ou não e-mail
+    // alternativo — assim ninguém consegue usar essa rota pra descobrir
+    // quais usuários existem ou quais já configuraram recuperação.
+    if (!user || !user.backup_email || !user.backup_email_verified) return res.json(generic);
+
+    const code = generateEmailVerificationCode();
+    const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    await db.run('UPDATE users SET recovery_code = ?, recovery_code_expires = ? WHERE id = ?', [
+      code,
+      expires,
+      user.id,
+    ]);
+    sendAccountRecoveryCode(user.backup_email, code, user.username).catch((err) =>
+      console.error('[account-recovery] erro ao enviar código:', err.message)
+    );
+    res.json(generic);
+  })
+);
+
+app.post(
+  '/api/account-recovery/verify',
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { username, code, newEmail, newPassword } = req.body || {};
+    if (!username || !code) return res.status(400).json({ error: 'Informe o usuário e o código' });
+    const user = await db.get('SELECT * FROM users WHERE username = ?', [String(username).trim().toLowerCase()]);
+    if (!user || !user.recovery_code || !user.recovery_code_expires) {
+      return res.status(400).json({ error: 'Código inválido' });
+    }
+    if (new Date(user.recovery_code_expires) < new Date()) {
+      return res.status(400).json({ error: 'Código expirado — peça um novo' });
+    }
+    if (String(code).trim() !== user.recovery_code) {
+      return res.status(400).json({ error: 'Código incorreto' });
+    }
+    if (!newEmail || !EMAIL_REGEX.test(newEmail) || newEmail.length > 200) {
+      return res.status(400).json({ error: 'Informe um novo e-mail principal válido' });
+    }
+    const existingEmail = await db.get('SELECT id FROM users WHERE email = ? AND id != ?', [newEmail, user.id]);
+    if (existingEmail) return res.status(409).json({ error: 'Já existe uma conta com esse e-mail' });
+
+    if (newPassword) {
+      if (typeof newPassword !== 'string' || newPassword.length < 6 || newPassword.length > 200) {
+        return res.status(400).json({ error: 'Nova senha precisa ter 6-200 caracteres' });
+      }
+      const newHash = bcrypt.hashSync(newPassword, 10);
+      await db.run(
+        `UPDATE users SET email = ?, email_verified = 1, password_hash = ?,
+         recovery_code = NULL, recovery_code_expires = NULL WHERE id = ?`,
+        [newEmail, newHash, user.id]
+      );
+    } else {
+      await db.run(
+        `UPDATE users SET email = ?, email_verified = 1,
+         recovery_code = NULL, recovery_code_expires = NULL WHERE id = ?`,
+        [newEmail, user.id]
+      );
+    }
+    res.json({ ok: true, message: 'Pronto — seu e-mail principal foi atualizado. Já pode entrar normalmente.' });
   })
 );
 

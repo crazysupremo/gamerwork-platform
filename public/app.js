@@ -296,6 +296,96 @@ document.getElementById('form-forgot-password').onsubmit = async (e) => {
   }
 };
 
+// "Perdeu acesso a esse e-mail também?" — recuperação via e-mail alternativo,
+// pra quando a pessoa nem consegue mais receber o link do "Esqueci minha
+// senha" comum (que vai pro e-mail principal, o mesmo que ela perdeu). Só
+// funciona se ela configurou e confirmou um e-mail alternativo antes, nas
+// Configurações > Segurança. 2 passos: usuário -> código + novo e-mail/senha.
+let accountRecoveryStep = 'username'; // 'username' | 'code'
+let accountRecoveryUsername = '';
+
+function resetAccountRecoveryModal() {
+  accountRecoveryStep = 'username';
+  accountRecoveryUsername = '';
+  document.getElementById('account-recovery-error').textContent = '';
+  document.getElementById('account-recovery-success').classList.add('hidden');
+  document.getElementById('account-recovery-step1').classList.remove('hidden');
+  document.getElementById('account-recovery-step2').classList.add('hidden');
+  document.getElementById('btn-account-recovery-continue').classList.remove('hidden');
+  document.getElementById('btn-account-recovery-continue').textContent = 'Continuar';
+  document.getElementById('account-recovery-username').value = '';
+  document.getElementById('account-recovery-code').value = '';
+  document.getElementById('account-recovery-new-email').value = '';
+  document.getElementById('account-recovery-new-password').value = '';
+}
+
+document.getElementById('link-account-recovery').onclick = (e) => {
+  e.preventDefault();
+  document.getElementById('modal-forgot-password').classList.add('hidden');
+  resetAccountRecoveryModal();
+  document.getElementById('modal-account-recovery').classList.remove('hidden');
+};
+document.getElementById('btn-close-account-recovery').onclick = () =>
+  document.getElementById('modal-account-recovery').classList.add('hidden');
+
+document.getElementById('form-account-recovery').onsubmit = async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('account-recovery-error');
+  const btn = document.getElementById('btn-account-recovery-continue');
+  errEl.textContent = '';
+  btn.disabled = true;
+  try {
+    if (accountRecoveryStep === 'username') {
+      const username = document.getElementById('account-recovery-username').value.trim();
+      if (!username) {
+        errEl.textContent = 'Digite seu usuário';
+        return;
+      }
+      // Resposta do servidor é sempre a mesma genérica (existindo ou não a
+      // conta / tendo ou não e-mail alternativo confirmado) — de propósito,
+      // pra não vazar quais contas existem. Por isso sempre avança pro passo
+      // 2, mesmo sem confirmação de que um e-mail foi realmente enviado.
+      await fetch('/api/account-recovery/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      });
+      accountRecoveryUsername = username;
+      document.getElementById('account-recovery-step1').classList.add('hidden');
+      document.getElementById('account-recovery-step2').classList.remove('hidden');
+      btn.textContent = 'Confirmar';
+      accountRecoveryStep = 'code';
+    } else if (accountRecoveryStep === 'code') {
+      const code = document.getElementById('account-recovery-code').value.trim();
+      const newEmail = document.getElementById('account-recovery-new-email').value.trim();
+      const newPassword = document.getElementById('account-recovery-new-password').value;
+      if (!code || !newEmail) {
+        errEl.textContent = 'Preencha o código e o novo e-mail';
+        return;
+      }
+      const res = await fetch('/api/account-recovery/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: accountRecoveryUsername, code, newEmail, newPassword: newPassword || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Erro ao recuperar a conta';
+        return;
+      }
+      document.getElementById('account-recovery-step2').classList.add('hidden');
+      btn.classList.add('hidden');
+      const successEl = document.getElementById('account-recovery-success');
+      successEl.textContent = '✅ ' + (data.message || 'Conta recuperada! Já pode entrar normalmente.');
+      successEl.classList.remove('hidden');
+    }
+  } catch (err) {
+    errEl.textContent = 'Erro de conexão com o servidor';
+  } finally {
+    btn.disabled = false;
+  }
+};
+
 // Link de e-mail cai em "/?reset=TOKEN" — abre direto o formulário de nova
 // senha, sem precisar estar logado.
 function maybeOpenResetPasswordFromUrl() {
@@ -1192,6 +1282,27 @@ document.getElementById('btn-toggle-channel-sidebar').onclick = () => {
 };
 document.getElementById('btn-close-channel-sidebar').onclick = () => setChannelSidebarOpen(false);
 
+// Menu "⋯" do cabeçalho da coluna de canais (repaginação — antes esses 4
+// botões ficavam soltos, agora moram aqui dentro). Abre/fecha ao clicar,
+// fecha sozinho ao clicar fora — mesmo padrão do picker de figurinhas.
+(function setupSidebarMoreMenu() {
+  const btn = document.getElementById('btn-sidebar-more');
+  const menu = document.getElementById('sidebar-more-menu');
+  if (!btn || !menu) return;
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    menu.classList.toggle('hidden');
+  };
+  menu.querySelectorAll('button').forEach((item) => {
+    item.addEventListener('click', () => menu.classList.add('hidden'));
+  });
+  document.addEventListener('click', (e) => {
+    if (!menu.classList.contains('hidden') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+      menu.classList.add('hidden');
+    }
+  });
+})();
+
 // ---------- MENU MOBILE (gaveta de navegação no celular) ----------
 // Só existe visualmente abaixo de 768px (o botão ☰ fica escondido em tela
 // grande via CSS) — mas o JS funciona sempre, sem custo nenhum se não for usado.
@@ -1292,10 +1403,13 @@ function renderCategories(channels) {
   const container = document.getElementById('categories-container');
   container.innerHTML = '';
 
+  // Repaginação: o emoji/ícone do servidor agora vive na bolinha própria
+  // (#active-server-icon), não mais colado no texto do nome — fica mais
+  // limpo e alinhado, igual um "avatar" de verdade.
   const nameEl = document.getElementById('active-server-name');
-  nameEl.textContent = activeServerCategory
-    ? categoryIcon(activeServerCategory) + ' ' + activeServerCategory
-    : 'NEXT GAME';
+  const iconEl = document.getElementById('active-server-icon');
+  nameEl.textContent = activeServerCategory || 'NEXT GAME';
+  if (iconEl) iconEl.innerHTML = activeServerCategory ? categoryIcon(activeServerCategory) : '🎮';
 
   const channelsInServer = channels.filter((ch) => ch.category === activeServerCategory);
   const groups = [
@@ -2781,12 +2895,14 @@ function enterChatMode(landOn) {
 
   // Coluna do meio: troca "canais do servidor" por "lista de conversas".
   document.getElementById('active-server-name').textContent = 'MENSAGENS';
+  const dmIconEl = document.getElementById('active-server-icon');
+  if (dmIconEl) dmIconEl.innerHTML = '💬';
   document.getElementById('categories-container').classList.add('hidden');
   document.getElementById('dm-sidebar-list').classList.remove('hidden');
   // BUG CORRIGIDO: o "X" de fechar a coluna e os ícones de servidor
   // (sala rápida, config etc) continuavam aparecendo em cima da lista de
   // conversas — não fazem sentido fora do contexto de um servidor.
-  ['btn-new-room', 'btn-shop-coins', 'btn-server-info', 'btn-server-manage', 'btn-quick-room', 'btn-close-channel-sidebar'].forEach((id) => {
+  ['btn-new-room', 'btn-sidebar-more', 'btn-close-channel-sidebar'].forEach((id) => {
     document.getElementById(id).classList.add('hidden');
   });
   // Mesma lógica pro cabeçalho da área principal — só faz sentido mostrar
@@ -2819,7 +2935,7 @@ function exitChatMode() {
   document.getElementById('dm-sidebar-list').classList.add('hidden');
   document.getElementById('categories-container').classList.remove('hidden');
   document.getElementById('friends-panel').classList.add('hidden');
-  ['btn-new-room', 'btn-shop-coins', 'btn-server-info', 'btn-server-manage', 'btn-quick-room', 'btn-close-channel-sidebar'].forEach((id) => {
+  ['btn-new-room', 'btn-sidebar-more', 'btn-close-channel-sidebar'].forEach((id) => {
     document.getElementById(id).classList.remove('hidden');
   });
   // BUG CORRIGIDO: esses 3 ícones do cabeçalho (busca, fixados, membros)
@@ -4090,6 +4206,8 @@ document.querySelectorAll('#modal-profile .settings-sidebar-item').forEach((tabB
     if (tab === 'seguranca') {
       load2FAStatus();
       loadSessions();
+      updateTwofaRecommendBanner();
+      renderBackupEmailStatus();
     }
     if (tab === 'privacidade') {
       loadBlockedUsers();
@@ -4144,6 +4262,8 @@ document.getElementById('btn-2fa-confirm').onclick = async () => {
     return;
   }
   SFX.reward && SFX.reward();
+  me.totp_enabled = true;
+  updateTwofaRecommendBanner();
   load2FAStatus();
 };
 
@@ -4160,6 +4280,8 @@ document.getElementById('btn-2fa-disable').onclick = async () => {
   const data = await res.json();
   if (!res.ok) return alert(data.error || 'Erro ao desativar');
   document.getElementById('twofa-disable-password').value = '';
+  me.totp_enabled = false;
+  updateTwofaRecommendBanner();
   load2FAStatus();
 };
 
@@ -4195,6 +4317,108 @@ document.getElementById('btn-revoke-other-sessions').onclick = async () => {
   if (!confirm('Isso desconecta sua conta de todos os outros dispositivos. Continuar?')) return;
   await fetch('/api/sessions/revoke-others', { method: 'POST', credentials: 'include' });
   loadSessions();
+};
+
+// ---------- Recomendação de 2FA (não obrigatória, só um empurrãozinho) ----------
+// Some sozinha assim que a pessoa ativa o 2FA (totp_enabled vira true) ou se
+// ela mesma dispensar — nesse caso guarda em localStorage pra não insistir
+// de novo nessa mesma sessão do navegador.
+function updateTwofaRecommendBanner() {
+  const banner = document.getElementById('twofa-recommend-banner');
+  const dismissed = localStorage.getItem('ng_twofa_recommend_dismissed') === '1';
+  banner.classList.toggle('hidden', !!me.totp_enabled || dismissed);
+}
+document.getElementById('btn-twofa-recommend-dismiss').onclick = () => {
+  localStorage.setItem('ng_twofa_recommend_dismissed', '1');
+  document.getElementById('twofa-recommend-banner').classList.add('hidden');
+};
+
+// ---------- E-mail alternativo (recuperação) ----------
+// 3 estados possíveis: nenhum configurado (mostra campo pra digitar), código
+// já enviado mas ainda não confirmado (mostra campo de código), e confirmado
+// (mostra o e-mail atual + botão de remover).
+function renderBackupEmailStatus() {
+  const noneView = document.getElementById('backup-email-none-view');
+  const pendingView = document.getElementById('backup-email-pending-view');
+  const setView = document.getElementById('backup-email-set-view');
+  document.getElementById('backup-email-error').textContent = '';
+  document.getElementById('backup-email-confirm-error').textContent = '';
+  if (me.backup_email) {
+    noneView.classList.add('hidden');
+    pendingView.classList.add('hidden');
+    setView.classList.remove('hidden');
+    document.getElementById('backup-email-current').textContent = me.backup_email;
+  } else if (me.backup_email_pending) {
+    noneView.classList.add('hidden');
+    pendingView.classList.remove('hidden');
+    setView.classList.add('hidden');
+    document.getElementById('backup-email-confirm-code').value = '';
+  } else {
+    noneView.classList.remove('hidden');
+    pendingView.classList.add('hidden');
+    setView.classList.add('hidden');
+    document.getElementById('backup-email-input').value = '';
+  }
+}
+
+document.getElementById('btn-backup-email-send-code').onclick = async () => {
+  const email = document.getElementById('backup-email-input').value.trim();
+  const errorEl = document.getElementById('backup-email-error');
+  errorEl.textContent = '';
+  if (!email) {
+    errorEl.textContent = 'Digite um e-mail';
+    return;
+  }
+  const res = await fetch('/api/me/backup-email/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Erro ao enviar código';
+    return;
+  }
+  me.backup_email_pending = true;
+  me.backup_email = null;
+  document.getElementById('backup-email-pending-address').textContent = email;
+  renderBackupEmailStatus();
+};
+
+document.getElementById('btn-backup-email-confirm').onclick = async () => {
+  const code = document.getElementById('backup-email-confirm-code').value.trim();
+  const errorEl = document.getElementById('backup-email-confirm-error');
+  errorEl.textContent = '';
+  if (!code) {
+    errorEl.textContent = 'Digite o código';
+    return;
+  }
+  const res = await fetch('/api/me/backup-email/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ code }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Código incorreto';
+    return;
+  }
+  // O e-mail confirmado é o que estava na tela de "código enviado pra" —
+  // pega direto do texto já mostrado ao usuário, sem precisar buscar de novo.
+  me.backup_email = document.getElementById('backup-email-pending-address').textContent;
+  me.backup_email_pending = false;
+  renderBackupEmailStatus();
+  SFX.reward && SFX.reward();
+};
+
+document.getElementById('btn-backup-email-remove').onclick = async () => {
+  if (!confirm('Remover o e-mail alternativo? Você não vai conseguir recuperar a conta por ele até configurar outro.')) return;
+  await fetch('/api/me/backup-email', { method: 'DELETE', credentials: 'include' });
+  me.backup_email = null;
+  me.backup_email_pending = false;
+  renderBackupEmailStatus();
 };
 
 async function loadBlockedUsers() {
@@ -5884,21 +6108,16 @@ async function runGlobalSearch(term) {
 
 // ---------- PAINEL DE INÍCIO (dashboard com dados reais) ----------
 
-// Atividades rápidas: cada botão já leva pra uma ação de verdade do app,
-// reaproveitando modais/painéis que já existem — nada de link decorativo.
-document.getElementById('home-quick-lfg').onclick = () => document.getElementById('nav-lfg').click();
-document.getElementById('home-quick-join').onclick = () => document.getElementById('btn-join-invite').click();
-document.getElementById('home-quick-team').onclick = () => {
-  document.getElementById('nav-lfg').click();
-  setTimeout(() => document.querySelector('#modal-lfg .manage-tab[data-lfg-tab="times"]')?.click(), 50);
-};
-document.getElementById('home-quick-tournaments').onclick = () => {
+// REMOVIDO (a pedido): seção "Atividades rápidas" da tela de Início. A ação
+// de ver torneios continua existindo pelo banner de torneio em destaque, que
+// chama essa função direto em vez de simular clique num botão que não existe mais.
+function goToTournamentsFromHome() {
   if (!activeServerCategory) {
     alert('Crie ou entre num servidor primeiro pra ver os torneios dele.');
     return;
   }
   document.getElementById('btn-tournaments').click();
-};
+}
 
 async function loadHomeDashboard() {
   loadHomeStats();
@@ -6320,7 +6539,7 @@ async function loadHomeTournamentBanner() {
       </div>
       ${secondaryActionsHtml}
     `;
-    document.getElementById('home-tournament-banner-cta').onclick = () => document.getElementById('home-quick-tournaments').click();
+    document.getElementById('home-tournament-banner-cta').onclick = goToTournamentsFromHome;
     wireHomeHeroSecondaryActions();
     return;
   }

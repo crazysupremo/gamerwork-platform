@@ -98,4 +98,55 @@ async function sendPasswordResetEmail(to, resetUrl, username) {
   return result;
 }
 
-module.exports = { sendEmail, sendVerificationEmail, generateVerificationCode, sendPasswordResetEmail };
+async function sendBackupEmailCode(to, code, username) {
+  const safeUsername = String(username || '').slice(0, 60);
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 420px; margin: 0 auto; padding: 24px; background:#1e1f22; color:#e6e6e6; border-radius: 12px;">
+      <h2 style="color:#5865f2; margin-top:0;">NEXT GAME</h2>
+      <p>Oi${safeUsername ? ', ' + safeUsername : ''}! Pediram pra usar esse endereço como e-mail alternativo (de recuperação) da conta NEXT GAME @${safeUsername || ''}. Confirme com o código abaixo:</p>
+      <p style="font-size: 32px; font-weight: 800; letter-spacing: 6px; text-align: center; background:#2b2d31; padding: 16px; border-radius: 8px; margin: 20px 0;">${code}</p>
+      <p style="color:#949ba4; font-size: 13px;">Esse código expira em 15 minutos. Se você não pediu isso, pode ignorar este e-mail — nada muda na conta.</p>
+    </div>
+  `.trim();
+  const result = await sendEmail({
+    to,
+    subject: `${code} é o seu código de confirmação de e-mail alternativo — NEXT GAME`,
+    html,
+    text: `Código pra confirmar seu e-mail alternativo no NEXT GAME: ${code} (expira em 15 minutos)`,
+  });
+  if (!result.sent) {
+    console.warn(`[mailer] Código de e-mail alternativo para ${to}: ${code} (não enviado por e-mail)`);
+  }
+  return result;
+}
+
+async function sendAccountRecoveryCode(to, code, username) {
+  const safeUsername = String(username || '').slice(0, 60);
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 420px; margin: 0 auto; padding: 24px; background:#1e1f22; color:#e6e6e6; border-radius: 12px;">
+      <h2 style="color:#5865f2; margin-top:0;">NEXT GAME</h2>
+      <p>Oi${safeUsername ? ', ' + safeUsername : ''}! Pediram pra recuperar o acesso à conta NEXT GAME @${safeUsername || ''} usando este e-mail alternativo. Use o código abaixo pra continuar:</p>
+      <p style="font-size: 32px; font-weight: 800; letter-spacing: 6px; text-align: center; background:#2b2d31; padding: 16px; border-radius: 8px; margin: 20px 0;">${code}</p>
+      <p style="color:#949ba4; font-size: 13px;">Esse código expira em 15 minutos. Se você não pediu isso, ignore este e-mail e considere avisar o suporte — sua conta continua segura, ninguém consegue entrar só com este código sozinho sem acesso a este e-mail.</p>
+    </div>
+  `.trim();
+  const result = await sendEmail({
+    to,
+    subject: `${code} é o seu código de recuperação de conta — NEXT GAME`,
+    html,
+    text: `Código de recuperação de conta do NEXT GAME: ${code} (expira em 15 minutos)`,
+  });
+  if (!result.sent) {
+    console.warn(`[mailer] Código de recuperação de conta para ${to}: ${code} (não enviado por e-mail)`);
+  }
+  return result;
+}
+
+module.exports = {
+  sendEmail,
+  sendVerificationEmail,
+  generateVerificationCode,
+  sendPasswordResetEmail,
+  sendBackupEmailCode,
+  sendAccountRecoveryCode,
+};

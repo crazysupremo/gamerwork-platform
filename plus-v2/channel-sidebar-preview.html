@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NEXT GAME — Preview da coluna de canais repaginada</title>
+<!-- CSS de verdade do site, igual ao index.html real. -->
+<link rel="stylesheet" href="../public/style.css" />
+<style>
+  .sp-note {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 300; background: #0f5f52; color: #d9fff6;
+    font-size: 12.5px; padding: 8px 16px; text-align: center; font-weight: 600;
+  }
+  body { padding-top: 34px; display: flex; height: calc(100vh - 34px); }
+</style>
+</head>
+<body>
+  <div class="sp-note">🧪 Preview estático — só a coluna de canais repaginada (item pedido), com dados de teste.</div>
+
+  <!-- Rail de servidores (esquerda), só pra dar contexto visual -->
+  <div class="app-sidebar-servers" style="width:72px; flex-shrink:0; background:var(--bg-rail); padding:12px 8px; display:flex; flex-direction:column; gap:10px; align-items:center;">
+    <div class="server-icon" style="width:48px;height:48px;border-radius:16px;background:var(--gradient-brand);display:flex;align-items:center;justify-content:center;font-size:20px;">🎮</div>
+    <div class="server-icon" style="width:48px;height:48px;border-radius:16px;background:#26272e;display:flex;align-items:center;justify-content:center;font-size:20px;">💼</div>
+  </div>
+
+  <!-- A COLUNA REPAGINADA — HTML idêntico ao que está agora em index.html -->
+  <aside class="sidebar" id="channel-sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-header-identity">
+        <span id="active-server-icon" class="sidebar-header-icon">🎮</span>
+        <span id="active-server-name">gamers</span>
+      </div>
+      <div class="sidebar-header-actions">
+        <button id="btn-new-room" class="sidebar-header-btn-primary" title="Criar sala neste servidor"><span class="ng-icon-wrap" data-icon="plus"></span></button>
+        <div class="sidebar-more-wrap">
+          <button type="button" id="btn-sidebar-more" title="Mais opções"><span class="ng-icon-wrap" data-icon="more-horizontal"></span></button>
+          <div id="sidebar-more-menu" class="sidebar-more-menu hidden">
+            <button><span class="ng-icon-wrap" data-icon="coins"></span> Loja NEXT Coins</button>
+            <button><span class="ng-icon-wrap" data-icon="info"></span> Informações e regras</button>
+            <button><span class="ng-icon-wrap" data-icon="settings"></span> Membros, cargos e convite</button>
+            <button><span class="ng-icon-wrap" data-icon="zap"></span> Sala Rápida</button>
+          </div>
+        </div>
+        <button id="btn-close-channel-sidebar" title="Fechar"><span class="ng-icon-wrap" data-icon="x"></span></button>
+      </div>
+    </div>
+
+    <div id="categories-container">
+      <div class="category">
+        <div class="channel-category-header"><span class="channel-category-chevron">▾</span><span>CANAIS DE TEXTO</span></div>
+        <div class="channel-list">
+          <div class="channel-item active"><span class="channel-item-label"># geral</span></div>
+          <div class="channel-item"><span class="channel-item-label"># procurando-grupo</span></div>
+          <div class="channel-item"><span class="channel-item-label"># memes</span></div>
+        </div>
+      </div>
+      <div class="category">
+        <div class="channel-category-header"><span class="channel-category-chevron">▾</span><span>CANAIS DE VOZ</span></div>
+        <div class="channel-list">
+          <div class="channel-item"><span class="channel-item-label">🔊 Sala de Voz 1</span></div>
+          <div class="channel-item"><span class="channel-item-label">🔊 Sala de Voz 2</span></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div style="flex:1; background:var(--bg-panel);"></div>
+
+  <script src="../public/icons.js"></script>
+  <script>
+    // Só o suficiente pra o menu "⋯" abrir/fechar neste preview isolado
+    // (mesmo comportamento do app.js de verdade).
+    document.getElementById('btn-sidebar-more').onclick = (e) => {
+      e.stopPropagation();
+      document.getElementById('sidebar-more-menu').classList.toggle('hidden');
+    };
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('sidebar-more-menu');
+      const btn = document.getElementById('btn-sidebar-more');
+      if (!menu.classList.contains('hidden') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -886,6 +886,23 @@ async function initDb() {
   await ensureColumn('users', 'reset_token TEXT');
   await ensureColumn('users', 'reset_token_expires TEXT');
 
+  // E-mail alternativo (recuperação) — a pessoa cadastra um segundo e-mail
+  // (precisa confirmar que é dono dele, igual o e-mail principal) pra usar
+  // caso um dia perca acesso ao e-mail principal. backup_email_verified só
+  // vira 1 depois de confirmar o código enviado pra esse endereço; enquanto
+  // não confirma, não serve pra recuperação nenhuma (evita alguém colocar um
+  // e-mail que não é dela e sequestrar a conta de outra pessoa depois).
+  await ensureColumn('users', 'backup_email TEXT');
+  await ensureColumn('users', 'backup_email_verified INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'backup_email_code TEXT');
+  await ensureColumn('users', 'backup_email_code_expires TEXT');
+
+  // Recuperação de conta via e-mail alternativo — código separado do
+  // reset_token de senha, usado no fluxo "Perdi acesso ao e-mail" (login ->
+  // troca o e-mail principal e, se quiser, a senha também).
+  await ensureColumn('users', 'recovery_code TEXT');
+  await ensureColumn('users', 'recovery_code_expires TEXT');
+
   // ---------- PERSONALIZAÇÃO (Plus V2): temas, fundos, efeitos, chat,
   // figurinhas e perfil — substitui o antigo sistema simples de tema de cor
   // do NEXTGAME PLUS. Ver plus-v2/db-plus2.js pro catálogo padrão completo.

@@ -1,5 +1,45 @@
 [
   {
+    "version": "0.27.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Início: removida a seção \"Atividades rápidas\" (a pedido).",
+      "Suporte: agora dá pra ver os tickets direto no painel de admin com aviso — contador de tickets abertos na barra lateral (📨 Suporte) e um aviso na tela quando chega ticket novo, sem precisar ficar recarregando a página.",
+      "Nova: e-mail alternativo (recuperação) — em Configurações > Segurança, dá pra cadastrar um segundo e-mail (com confirmação por código) pra usar caso um dia perca acesso ao e-mail principal.",
+      "Nova: recuperação de conta via e-mail alternativo — link \"Perdeu acesso a esse e-mail também?\" na tela de troca de senha, pra quando a pessoa não consegue mais nem receber o link de troca de senha comum.",
+      "Nova: banner (dispensável, não obrigatório) recomendando ativar a verificação em duas etapas (2FA) pra quem ainda não ativou."
+    ]
+  },
+  {
+    "version": "0.26.3",
+    "date": "2026-09-03",
+    "changes": [
+      "Cabeçalho de cima da conversa (busca, fixados, membros etc.) repaginado: botões viraram círculos discretos (transparentes até passar o mouse) em vez de quadrados cinza cheios.",
+      "Trocado o ícone de balão de chat ao lado do nome da conversa por um ícone de menu, mais neutro/minimalista."
+    ]
+  },
+  {
+    "version": "0.26.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Corrigido o menu \"⋯\" da coluna de canais ficando bagunçado (texto quebrando em 2 linhas nos itens mais compridos) — menu ficou um pouco mais largo e o texto não quebra mais linha."
+    ]
+  },
+  {
+    "version": "0.26.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Refinado o visual da coluna de canais (mais minimalista): bolinha do servidor mais discreta, sem linha divisória dura no topo, itens de canal viraram \"pílulas\" flat sem barrinha lateral, e rótulos das categorias (CANAIS DE TEXTO/VOZ) mais sutis."
+    ]
+  },
+  {
+    "version": "0.26.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Repaginada a coluna de canais do servidor (a do meio, onde fica o nome do servidor e a lista de canais/salas de voz) — estava tumultuada, com 6 botõezinhos espremidos numa linha só. Agora só os mais usados (Criar sala, Fechar) ficam visíveis; o resto (loja, informações, gerenciar, sala rápida) entra num menu \"⋯\" discreto. Nome do servidor ganhou um ícone em bolinha ao lado, e a lista de canais ficou com mais espaço/respiro entre os itens."
+    ]
+  },
+  {
     "version": "0.25.0",
     "date": "2026-09-03",
     "changes": [
