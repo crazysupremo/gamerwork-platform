@@ -916,53 +916,65 @@ async function initDb() {
 
 // Servidor "NEXT GAME" (oficial da plataforma) e "Magic Tank" (jogo
 // parceiro oficial) — a pedido, aparecem com selo de verificado (mesmo selo
-// azul de conta oficial, ver .verified-badge) igual conta oficial verificada.
-// Dono é o bot assistente (AI_BOT_USER_ID), que já é verificado por padrão
-// (ver "UPDATE users SET is_verified = 1 WHERE id = ?, [AI_BOT_USER_ID]"
-// logo abaixo) — assim o selo aparece tanto no card do servidor quanto em
-// qualquer mensagem que o bot mandar dentro dele. Roda sempre no início
-// (idempotente): se o servidor já existe, não mexe em nada; só cria os que
-// ainda não existem, pra não sobrescrever customização feita depois pelo admin.
+// azul de conta oficial, ver .verified-badge) e com a logo de verdade (não
+// emoji) como ícone. Dono é o bot assistente (AI_BOT_USER_ID), que já é
+// verificado por padrão — assim o selo aparece tanto no card do servidor
+// quanto em qualquer mensagem que o bot mandar dentro dele.
+// Roda sempre no início (idempotente): cria os canais só na primeira vez,
+// mas ícone/descrição/selo destes DOIS nomes reservados ficam sempre em
+// sincronia com este catálogo (são servidores geridos pela plataforma, não
+// customizáveis por usuário comum — diferente de um servidor normal, que
+// nunca é tocado aqui). Todo admin entra automaticamente como membro, pra
+// aparecer na barra lateral dele sem precisar procurar em Explorar.
 async function seedOfficialServers({ run, get, all }) {
   const OFFICIAL_SERVERS = [
     {
       category: 'NEXT GAME',
-      icon: '🎮',
+      icon: '/assets/logo.png',
       description: 'Servidor oficial do NEXT GAME — novidades, avisos, dúvidas e bate-papo com a comunidade.',
     },
     {
       category: 'Magic Tank',
-      icon: '🛞',
+      icon: '/assets/partner-magic-tank.png',
       description: 'Servidor oficial do jogo parceiro Magic Tank — bate-papo, dúvidas e novidades do jogo.',
     },
   ];
+  const admins = await all('SELECT id FROM users WHERE is_admin = 1');
   for (const srv of OFFICIAL_SERVERS) {
     const existing = await get('SELECT category FROM servers WHERE category = ?', [srv.category]);
     if (existing) {
-      // Já existe (seja porque rodou antes, seja porque por acaso já tinha um
-      // servidor com esse nome) — só garante o selo, sem sobrescrever ícone/
-      // descrição que o admin já possa ter customizado.
-      await run('UPDATE servers SET is_official = 1 WHERE category = ?', [srv.category]);
-      continue;
+      await run('UPDATE servers SET icon = ?, description = ?, is_official = 1, discoverable = 1 WHERE category = ?', [
+        srv.icon,
+        srv.description,
+        srv.category,
+      ]);
+    } else {
+      const inviteCode = crypto.randomBytes(5).toString('hex');
+      await run(
+        `INSERT INTO servers (category, icon, description, owner_id, invite_code, discoverable, is_official, updated_by, updated_at)
+         VALUES (?, ?, ?, ?, ?, 1, 1, ?, datetime('now'))`,
+        [srv.category, srv.icon, srv.description, AI_BOT_USER_ID, inviteCode, AI_BOT_USER_ID]
+      );
+      await run('INSERT INTO channels (id, name, category, type, created_by) VALUES (?, ?, ?, ?, ?)', [
+        crypto.randomUUID(),
+        'geral',
+        srv.category,
+        'texto',
+        AI_BOT_USER_ID,
+      ]);
     }
-    const inviteCode = crypto.randomBytes(5).toString('hex');
-    await run(
-      `INSERT INTO servers (category, icon, description, owner_id, invite_code, discoverable, is_official, updated_by, updated_at)
-       VALUES (?, ?, ?, ?, ?, 1, 1, ?, datetime('now'))`,
-      [srv.category, srv.icon, srv.description, AI_BOT_USER_ID, inviteCode, AI_BOT_USER_ID]
-    );
-    await run('INSERT INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+    await run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
       crypto.randomUUID(),
       srv.category,
       AI_BOT_USER_ID,
     ]);
-    await run('INSERT INTO channels (id, name, category, type, created_by) VALUES (?, ?, ?, ?, ?)', [
-      crypto.randomUUID(),
-      'geral',
-      srv.category,
-      'texto',
-      AI_BOT_USER_ID,
-    ]);
+    for (const admin of admins) {
+      await run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+        crypto.randomUUID(),
+        srv.category,
+        admin.id,
+      ]);
+    }
   }
 }
 

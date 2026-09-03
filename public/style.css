@@ -577,6 +577,14 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   display: flex; align-items: center; gap: 2px; background: none; border: none; cursor: pointer; padding: 0;
 }
 .app-sidebar-servers-toggle:hover .app-sidebar-section-label { color: #dbdee1; }
+/* CORRIGIDO: mesmo anel azul padrão do navegador que já tinha sido tirado
+   do "⋯" da coluna de canais — aqui aparecia em volta de "SERVIDORES" (e das
+   outras seções colapsáveis) ao clicar, criando um retângulo grande e feio
+   sobrando espaço estranho. Troca por um contorno mais discreto, só via teclado. */
+.app-sidebar-servers-toggle:focus,
+.app-sidebar-icon-btn:focus { outline: none; }
+.app-sidebar-servers-toggle:focus-visible,
+.app-sidebar-icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #servers-toggle-chevron { color: #6d7178; transition: transform 0.15s ease; }
 #servers-toggle-chevron.open { transform: rotate(90deg); }
 /* Botões de seção (Explorar/Competitivo/Sua Biblioteca) — mesmo visual do
@@ -606,6 +614,10 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; overflow: hidden;
 }
+/* Servidores oficiais usam a logo de verdade em vez de emoji/inicial — a
+   imagem preenche o quadradinho do ícone (trilho lateral, card de destaque
+   e Explorar), object-fit:cover corta sobra sem distorcer. */
+.server-icon-logo-img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 .server-row-name {
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 13px; font-weight: 600;

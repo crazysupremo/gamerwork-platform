@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.28.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Servidores oficiais (NEXT GAME e Magic Tank) agora usam a logo de verdade como ícone (em vez de emoji) e mostram o selo de verificado ao lado do nome em todo lugar que aparecem: trilho lateral, \"Servidores em Destaque\" na Início, e Explorar. Todo admin entra automaticamente como membro dos dois.",
+      "Corrigido o anel azul do navegador que ficava \"cortado\"/esquisito em volta de \"SERVIDORES\" e das outras seções colapsáveis da barra lateral (Explorar/Competitivo/Sua Biblioteca) ao clicar — mesma correção já feita no menu \"⋯\" da coluna de canais."
+    ]
+  },
+  {
+    "version": "0.28.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Corrigida a nitidez da transmissão de tela: até agora a resolução escolhida (720p/1080p/1440p/4K) era só um pedido de captura — o WebRTC aplicava um teto de bitrate baixo por padrão, então mesmo em 1080p/1440p/4K a imagem saía borrada. Agora cada opção de qualidade também define um bitrate-alvo de verdade (2.5Mbps a 15Mbps), e a tela é marcada como conteúdo \"de detalhe\" (texto/UI) pro navegador priorizar nitidez em vez de fluidez. Se a rede de quem está assistindo não aguentar, ainda reduz sozinho — isso só tira o teto baixo demais do padrão."
+    ]
+  },
+  {
     "version": "0.28.0",
     "date": "2026-09-03",
     "changes": [

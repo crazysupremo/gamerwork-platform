@@ -23,7 +23,8 @@ const remotePeerInfo = {}; // socketId -> { username, avatar, avatar_frame } —
 let voiceParticipants = {}; // channelId -> [{socketId, userId, username}]
 let cameraStream = null; // vídeo da webcam (separado da tela compartilhada)
 let allUsers = []; // cache de /api/users pro painel de membros
-let serverIcons = {}; // category -> emoji real escolhido por quem criou o servidor
+let serverIcons = {}; // category -> emoji (ou caminho de imagem, pros oficiais) escolhido por quem criou o servidor
+let officialServers = new Set(); // categorias marcadas como oficiais (selo de verificado)
 let onlineUserIds = new Set();
 let presenceStatusMap = {}; // userId -> 'online' | 'ausente' | 'ocupado' (quem tá invisível não entra aqui)
 let typingUsers = {}; // channelId -> { userId: username }
@@ -1245,10 +1246,34 @@ async function loadServerIcons() {
     const res = await fetch('/api/servers', { credentials: 'include' });
     const rows = await res.json();
     serverIcons = {};
+    officialServers = new Set();
     rows.forEach((r) => {
       if (r.icon) serverIcons[r.category] = r.icon;
+      if (r.is_official) officialServers.add(r.category);
     });
   } catch (_) {}
+}
+
+// Ícone de servidor: alguns (os oficiais, ver seedOfficialServers em db.js)
+// usam a logo de verdade em vez de emoji — reconhece pelo caminho começar
+// com "/" e troca o texto por uma <img>. Reaproveitado em todo canto que
+// mostra ícone de servidor (trilho lateral, card de destaque na Início,
+// Explorar). serverVerifiedBadgeHtml() é o selo em si, pra colocar do lado
+// do NOME (não do ícone, que já fica ocupado com a logo/emoji).
+function renderServerIconOnly(category) {
+  const raw = serverIcons[category];
+  if (raw && raw.startsWith('/')) {
+    return `<img src="${escapeHtml(raw)}" alt="" class="server-icon-logo-img" />`;
+  }
+  return escapeHtml(raw || serverInitials(category));
+}
+function serverVerifiedBadgeHtml(category) {
+  return officialServers.has(category)
+    ? ' <span class="verified-badge" title="Servidor oficial NEXT GAME">' + icon('badge-check') + '</span>'
+    : '';
+}
+function renderServerIconHtml(category) {
+  return renderServerIconOnly(category) + serverVerifiedBadgeHtml(category);
 }
 
 // ---------- NÃO LIDAS: badge vermelho no ícone do servidor, igual Discord ----------
@@ -1349,8 +1374,8 @@ function renderServerRail(categories) {
     if (isActive) btn.classList.add('active');
     btn.title = category;
     btn.innerHTML = `
-      <span class="server-row-icon">${escapeHtml(serverIcons[category] || serverInitials(category))}</span>
-      <span class="server-row-name">${escapeHtml(category)}</span>
+      <span class="server-row-icon">${renderServerIconOnly(category)}</span>
+      <span class="server-row-name">${escapeHtml(category)}${serverVerifiedBadgeHtml(category)}</span>
       <span class="server-row-dot ${isActive ? 'server-row-dot-on' : ''}"></span>
     `;
 
@@ -5149,7 +5174,7 @@ async function loadExplore() {
     const card = document.createElement('div');
     card.className = 'explore-card';
     card.innerHTML = `
-      <div class="explore-card-icon">${s.icon || serverInitials(s.category)}</div>
+      <div class="explore-card-icon">${s.icon && s.icon.startsWith('/') ? `<img src="${escapeHtml(s.icon)}" alt="" class="server-icon-logo-img" />` : escapeHtml(s.icon || serverInitials(s.category))}</div>
       <div class="explore-card-info">
         <strong>${escapeHtml(s.category)}${s.is_official ? ' <span class="verified-badge" title="Servidor oficial NEXT GAME">' + icon('badge-check') + '</span>' : ''}</strong>
         <p>${s.description ? escapeHtml(s.description) : 'Sem descrição ainda.'}</p>
@@ -6450,9 +6475,9 @@ function loadHomeServers() {
     const voiceCount = allChannels.filter((c) => c.category === category && c.type === 'voz').length;
     card.innerHTML = `
       <div class="home-server-banner" style="background:${gradientForName(category)};">
-        <div class="home-server-icon">${serverIcons[category] ? serverIcons[category] : serverInitials(category)}</div>
+        <div class="home-server-icon">${renderServerIconOnly(category)}</div>
       </div>
-      <div class="home-server-name">${escapeHtml(category)}</div>
+      <div class="home-server-name">${escapeHtml(category)}${serverVerifiedBadgeHtml(category)}</div>
       <div class="home-server-meta">${channelCount} sala${channelCount === 1 ? '' : 's'}${voiceCount > 0 ? ` · 🎙️ ${voiceCount} de voz` : ''}</div>
     `;
     card.onclick = () => {
@@ -8165,7 +8190,13 @@ function addLocalTracksToPeer(pc) {
     outgoing.getTracks().forEach((track) => pc.addTrack(track, outgoing));
   }
   if (localStream) {
-    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+    localStream.getTracks().forEach((track) => {
+      pc.addTrack(track, localStream);
+      // Peer que entra na sala DEPOIS que você já estava compartilhando a
+      // tela também precisa do bitrate-alvo aplicado no sender dele — senão
+      // só quem já estava na call antes recebia a qualidade certa.
+      if (track.kind === 'video') applyScreenShareBitrate(pc, track);
+    });
   }
   if (cameraStream) {
     cameraStream.getTracks().forEach((track) => pc.addTrack(track, cameraStream));
@@ -8996,13 +9027,36 @@ document.getElementById('bar-btn-disconnect').onclick = () => {
 // Quem já tinha escolhido outra qualidade antes continua com a preferência salva.
 let screenShareQuality = localStorage.getItem('ng_screen_quality') || '720p30';
 
+// CORRIGIDO (qualidade de transmissão): antes só pedia a RESOLUÇÃO de
+// captura pro navegador (width/height/frameRate) mas nunca dizia pro WebRTC
+// qual bitrate de vídeo usar — sem isso, o encoder aplica um teto padrão bem
+// conservador (na prática, ~2Mbps mesmo em 1080p/1440p/4K), então a imagem
+// saía borrada mesmo compartilhando em resolução alta. Cada preset agora
+// também define um bitrate-alvo generoso (aplicado via
+// RTCRtpSender.setParameters em cada conexão — ver applyScreenShareBitrate).
+// O controle de congestionamento do WebRTC ainda reduz sozinho se a rede de
+// quem assiste não aguentar; isso só tira o teto baixo demais do padrão.
 const SCREEN_QUALITY_PRESETS = {
-  '720p30': { width: 1280, height: 720, frameRate: 30 },
-  '1080p30': { width: 1920, height: 1080, frameRate: 30 },
-  '1080p60': { width: 1920, height: 1080, frameRate: 60 },
-  '1440p60': { width: 2560, height: 1440, frameRate: 60 },
-  '2160p60': { width: 3840, height: 2160, frameRate: 60 },
+  '720p30': { width: 1280, height: 720, frameRate: 30, maxBitrate: 2_500_000 },
+  '1080p30': { width: 1920, height: 1080, frameRate: 30, maxBitrate: 4_500_000 },
+  '1080p60': { width: 1920, height: 1080, frameRate: 60, maxBitrate: 6_000_000 },
+  '1440p60': { width: 2560, height: 1440, frameRate: 60, maxBitrate: 9_000_000 },
+  '2160p60': { width: 3840, height: 2160, frameRate: 60, maxBitrate: 15_000_000 },
 };
+
+// Aplica o bitrate-alvo do preset escolhido no sender de vídeo da tela
+// compartilhada de uma conexão específica. Chamado tanto ao começar a
+// compartilhar (pros peers já conectados) quanto quando alguém novo entra na
+// sala de voz enquanto você já está compartilhando (addLocalTracksToPeer).
+function applyScreenShareBitrate(pc, videoTrack) {
+  const sender = pc.getSenders().find((s) => s.track === videoTrack);
+  if (!sender) return;
+  const preset = SCREEN_QUALITY_PRESETS[screenShareQuality] || SCREEN_QUALITY_PRESETS['1080p30'];
+  const params = sender.getParameters();
+  if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+  params.encodings[0].maxBitrate = preset.maxBitrate;
+  sender.setParameters(params).catch((err) => console.warn('Não deu pra ajustar o bitrate da tela:', err.message));
+}
 
 // NEXTGAME PLUS: qualquer coisa acima de 720p/30 é exclusiva do Plus (regra
 // do plano de atualização). Se a conta era Plus e perdeu o plano (ou nunca
@@ -9115,9 +9169,19 @@ document.getElementById('btn-confirm-share-picker').onclick = async () => {
     return;
   }
   document.getElementById('modal-share-picker').classList.add('hidden');
+  // CORRIGIDO (qualidade de transmissão): contentHint = 'detail' avisa o
+  // codificador do navegador que essa track é conteúdo estático/de detalhe
+  // (texto, UI, código) em vez de vídeo de movimento — sem isso o navegador
+  // prioriza fluidez sobre nitidez por padrão, que é o oposto do que se quer
+  // ao compartilhar tela. Some sozinho na origem sem afetar quem assiste.
+  const screenVideoTrack = localStream.getVideoTracks()[0];
+  if (screenVideoTrack) screenVideoTrack.contentHint = 'detail';
   updateLocalTile();
   Object.values(peers).forEach((pc) => {
-    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+    localStream.getTracks().forEach((track) => {
+      pc.addTrack(track, localStream);
+      if (track.kind === 'video') applyScreenShareBitrate(pc, track);
+    });
   });
   document.getElementById('btn-share-screen').classList.add('hidden');
   document.getElementById('btn-stop-share').classList.remove('hidden');

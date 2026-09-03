@@ -2927,7 +2927,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        `SELECT s.category, s.icon FROM servers s
+        `SELECT s.category, s.icon, s.is_official FROM servers s
          JOIN server_members sm ON sm.category = s.category
          WHERE sm.user_id = ?`,
         [req.user.id]
