@@ -6880,6 +6880,14 @@ async function loadUploadLimits() {
     const res = await fetch('/api/uploads/limits', { credentials: 'include' });
     if (res.ok) uploadLimits = await res.json();
   } catch (_) {}
+  // CORRIGIDO: o botão de anexar tinha "(até 5MB)" fixo no título, sempre —
+  // mesmo pra quem tem NEXTGAME PLUS com limite bem maior. Atualiza com o
+  // limite de verdade da conta (varia por plano e se o storage externo tá
+  // configurado no servidor).
+  const attachBtn = document.getElementById('btn-attach-file');
+  if (attachBtn) attachBtn.title = `Anexar arquivo (até ${formatFileSize(uploadLimits.limitBytes)})`;
+  const attachBtnVoice = document.getElementById('btn-attach-file-voice');
+  if (attachBtnVoice) attachBtnVoice.title = `Anexar arquivo (até ${formatFileSize(uploadLimits.limitBytes)})`;
 }
 
 let pendingAttachment = null;
@@ -7094,25 +7102,75 @@ function dmChannelIdFor(otherUserId) {
   return 'dm::' + [me.id, otherUserId].sort().join('::');
 }
 
-document.getElementById('message-attachment-input').onchange = async (e) => {
-  const file = e.target.files[0];
-  e.target.value = '';
+// Compartilhada entre "clicar pra anexar" e "arrastar e soltar" — os dois
+// caminhos terminam pegando um File e mostrando o mesmo preview de upload.
+async function attachFileWithPreview(file, previewEl, nameEl, setPending) {
   if (!file) return;
-  const previewEl = document.getElementById('attachment-preview');
-  const nameEl = document.getElementById('attachment-preview-name');
   previewEl.classList.remove('hidden');
   nameEl.textContent = `Enviando ${file.name}... 0%`;
   try {
-    pendingAttachment = await uploadAttachmentFile(file, (pct) => {
+    const result = await uploadAttachmentFile(file, (pct) => {
       nameEl.textContent = `Enviando ${file.name}... ${pct}%`;
     });
+    setPending(result);
     nameEl.textContent = `${file.name} (${formatFileSize(file.size)})`;
   } catch (err) {
     alert(err.message || 'Erro ao anexar arquivo.');
-    pendingAttachment = null;
+    setPending(null);
     previewEl.classList.add('hidden');
   }
+}
+
+// Arrastar e soltar um arquivo em cima da conversa pra anexar, sem precisar
+// clicar no clipe — mostra um overlay claro de "solte aqui" enquanto
+// arrasta. dragCounter evita o overlay piscar/sumir quando o arraste passa
+// por cima de elementos filhos (dragenter/dragleave disparam pra cada um).
+function setupChatDropzone(dropTargetEl, overlayEl, onFile) {
+  if (!dropTargetEl || !overlayEl) return;
+  let dragCounter = 0;
+  const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+  dropTargetEl.addEventListener('dragenter', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragCounter++;
+    overlayEl.classList.remove('hidden');
+  });
+  dropTargetEl.addEventListener('dragover', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+  });
+  dropTargetEl.addEventListener('dragleave', () => {
+    dragCounter = Math.max(0, dragCounter - 1);
+    if (dragCounter === 0) overlayEl.classList.add('hidden');
+  });
+  dropTargetEl.addEventListener('drop', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragCounter = 0;
+    overlayEl.classList.add('hidden');
+    const file = e.dataTransfer.files[0];
+    if (file) onFile(file);
+  });
+}
+
+document.getElementById('message-attachment-input').onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  await attachFileWithPreview(
+    file,
+    document.getElementById('attachment-preview'),
+    document.getElementById('attachment-preview-name'),
+    (v) => { pendingAttachment = v; }
+  );
 };
+setupChatDropzone(document.getElementById('text-panel'), document.getElementById('chat-dropzone-overlay'), (file) => {
+  attachFileWithPreview(
+    file,
+    document.getElementById('attachment-preview'),
+    document.getElementById('attachment-preview-name'),
+    (v) => { pendingAttachment = v; }
+  );
+});
 
 document.getElementById('btn-remove-attachment').onclick = () => {
   pendingAttachment = null;
@@ -7818,22 +7876,21 @@ document.getElementById('btn-attach-file-voice').onclick = () => {
 document.getElementById('voice-message-attachment-input').onchange = async (e) => {
   const file = e.target.files[0];
   e.target.value = '';
-  if (!file) return;
-  const previewEl = document.getElementById('voice-attachment-preview');
-  const nameEl = document.getElementById('voice-attachment-preview-name');
-  previewEl.classList.remove('hidden');
-  nameEl.textContent = `Enviando ${file.name}... 0%`;
-  try {
-    pendingVoiceAttachment = await uploadAttachmentFile(file, (pct) => {
-      nameEl.textContent = `Enviando ${file.name}... ${pct}%`;
-    });
-    nameEl.textContent = `${file.name} (${formatFileSize(file.size)})`;
-  } catch (err) {
-    alert(err.message || 'Erro ao anexar arquivo.');
-    pendingVoiceAttachment = null;
-    previewEl.classList.add('hidden');
-  }
+  await attachFileWithPreview(
+    file,
+    document.getElementById('voice-attachment-preview'),
+    document.getElementById('voice-attachment-preview-name'),
+    (v) => { pendingVoiceAttachment = v; }
+  );
 };
+setupChatDropzone(document.getElementById('voice-chat-col'), document.getElementById('chat-dropzone-overlay-voice'), (file) => {
+  attachFileWithPreview(
+    file,
+    document.getElementById('voice-attachment-preview'),
+    document.getElementById('voice-attachment-preview-name'),
+    (v) => { pendingVoiceAttachment = v; }
+  );
+});
 
 document.getElementById('btn-remove-voice-attachment').onclick = () => {
   pendingVoiceAttachment = null;

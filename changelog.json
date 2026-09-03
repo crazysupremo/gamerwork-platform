@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.25.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Agora dá pra arrastar e soltar um arquivo direto em cima da conversa (chat de texto e chat da sala de voz) pra anexar, sem precisar clicar no clipe.",
+      "O botão de anexar mostra o limite de tamanho de verdade da sua conta (antes tinha \"até 5MB\" fixo, mesmo pra quem tem NEXTGAME PLUS com limite maior)."
+    ]
+  },
+  {
     "version": "0.24.2",
     "date": "2026-09-03",
     "changes": [

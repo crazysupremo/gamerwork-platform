@@ -821,7 +821,17 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .header-icon-btn:hover { background: var(--accent); }
 .header-icon-btn.active-state { background: var(--gradient-brand); }
 
-.text-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.text-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+/* Arrastar e soltar arquivo pra anexar — cobre a conversa inteira enquanto
+   um arquivo está sendo arrastado por cima, com destaque visual claro de
+   "solte aqui". Não intercepta clique nenhum quando escondido. */
+.chat-dropzone-overlay {
+  position: absolute; inset: 8px; z-index: 50; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px; background: rgba(88,101,242,0.14); backdrop-filter: blur(2px);
+  border: 2px dashed var(--accent); border-radius: 14px; color: #fff; font-size: 14px; font-weight: 700;
+  pointer-events: none;
+}
+.chat-dropzone-overlay .ng-icon-wrap { width: 32px; height: 32px; color: var(--accent); }
 
 /* PAINEL DE INÍCIO (home dashboard) — compacto: menos espaço vazio, mais
    coisa cabendo na tela sem precisar rolar tanto. */
@@ -1475,7 +1485,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 /* CHAT LATERAL DA SALA DE VOZ */
 .voice-chat-col {
   grid-column: 2; grid-row: 1; border-left: 1px solid #26272e; background: #16171b;
-  display: flex; flex-direction: column; min-height: 0;
+  display: flex; flex-direction: column; min-height: 0; position: relative;
 }
 .voice-chat-col.hidden { display: none; }
 .voice-incall-wrap:not(.chat-open) #voice-chat-col { display: none; }

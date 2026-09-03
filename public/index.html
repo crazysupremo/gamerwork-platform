@@ -708,6 +708,12 @@
 
     <!-- Painel de chat de texto -->
     <section id="text-panel" class="text-panel hidden">
+      <!-- Arrastar e soltar arquivo pra anexar — some sozinho quando o
+           arquivo sai de cima da área ou é solto. -->
+      <div id="chat-dropzone-overlay" class="chat-dropzone-overlay hidden">
+        <span class="ng-icon-wrap" data-icon="upload"></span>
+        <span>Solte o arquivo aqui pra anexar</span>
+      </div>
       <div id="messages" class="messages"></div>
       <div id="typing-indicator" class="typing-indicator"></div>
       <!-- Pedido de mensagem (DM com quem não é amigo nem do mesmo servidor):
@@ -816,6 +822,10 @@
 
         <!-- Chat da sala, ao lado da chamada — mesma conversa de texto do canal -->
         <div id="voice-chat-col" class="voice-chat-col hidden">
+          <div id="chat-dropzone-overlay-voice" class="chat-dropzone-overlay hidden">
+            <span class="ng-icon-wrap" data-icon="upload"></span>
+            <span>Solte o arquivo aqui pra anexar</span>
+          </div>
           <div class="voice-chat-header">Chat da Sala</div>
           <div id="voice-chat-messages" class="messages"></div>
           <div id="voice-attachment-preview" class="attachment-preview hidden">
