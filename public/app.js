@@ -1098,7 +1098,7 @@ async function renderMembers() {
           <span class="member-status-dot member-status-${presence}"></span>
         </div>
         <div class="member-info">
-          <div class="member-name">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${u.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">' + icon('badge-check') + '</span>' : ''}</div>
+          <div class="member-name">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${userVerifiedBadgeHtml(u)}</div>
           ${u.status_message ? `<div class="member-game">🎮 ${escapeHtml(u.status_message)}</div>` : ''}
         </div>
       `;
@@ -1271,6 +1271,17 @@ function serverVerifiedBadgeHtml(category) {
   return officialServers.has(category)
     ? ' <span class="verified-badge" title="Servidor oficial NEXT GAME">' + icon('badge-check') + '</span>'
     : '';
+}
+// Selo de conta verificada — azul (NEXT GAME) ou dourado (parceiro oficial,
+// ex: dono do jogo parceiro Magic Tank — ver verified_gold no admin de
+// Usuários). Aceita qualquer objeto com is_verified/verified_gold: membro de
+// servidor, resultado de busca, autor de mensagem, o próprio "me", etc.
+function userVerifiedBadgeHtml(user) {
+  if (!user || !user.is_verified) return '';
+  const gold = !!user.verified_gold;
+  const cls = gold ? 'verified-badge verified-badge-gold' : 'verified-badge';
+  const title = gold ? 'Conta oficial verificada — parceiro NEXT GAME' : 'Conta oficial verificada — NEXT GAME';
+  return ` <span class="${cls}" title="${title}">` + icon('badge-check') + '</span>';
 }
 function renderServerIconHtml(category) {
   return renderServerIconOnly(category) + serverVerifiedBadgeHtml(category);
@@ -1445,7 +1456,11 @@ function renderCategories(channels) {
   const nameEl = document.getElementById('active-server-name');
   const iconEl = document.getElementById('active-server-icon');
   nameEl.textContent = activeServerCategory || 'NEXT GAME';
-  if (iconEl) iconEl.innerHTML = activeServerCategory ? categoryIcon(activeServerCategory) : '🎮';
+  // CORRIGIDO: servidor oficial com logo de verdade (caminho de imagem, não
+  // emoji) aparecia como texto cru bagunçado do lado do nome — categoryIcon()
+  // devolvia só a string do caminho, sem virar <img>. renderServerIconOnly()
+  // já sabe detectar isso e montar a tag certa.
+  if (iconEl) iconEl.innerHTML = activeServerCategory ? renderServerIconOnly(activeServerCategory) : '🎮';
 
   const channelsInServer = channels.filter((ch) => ch.category === activeServerCategory);
   const groups = [
@@ -2085,7 +2100,7 @@ async function loadManageMembers() {
     row.innerHTML = `
       <div class="member-avatar ${avatarFrameClass(m)}">${renderAvatarHtml(m)}</div>
       <div class="server-member-info">
-        <div class="server-member-name">${escapeHtml(m.username)}<span class="user-tag-inline">${escapeHtml(userTag(m))}</span>${m.is_owner ? ' 👑' : ''}${m.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">' + icon('badge-check') + '</span>' : ''}</div>
+        <div class="server-member-name">${escapeHtml(m.username)}<span class="user-tag-inline">${escapeHtml(userTag(m))}</span>${m.is_owner ? ' 👑' : ''}${userVerifiedBadgeHtml(m)}</div>
         <div class="server-member-roles">${rolesHtml}</div>
       </div>
       <div class="server-member-actions">
@@ -2597,11 +2612,36 @@ document.getElementById('btn-close-ranking').onclick = () => modalRanking.classL
 const modalRewards = document.getElementById('modal-rewards');
 let rewardsCache = null;
 
+// PAUSADO TEMPORARIAMENTE (a pedido — "vamos melhorar isso"): em vez de tirar
+// a loja de recompensas do ar de vez, deixa a tela acessível mas mostra um
+// aviso de manutenção no lugar do catálogo, sem carregar/desbloquear nada.
+// Pra reativar depois, é só voltar isso pra false — nenhuma outra mudança
+// necessária, o resto do sistema (streak, catálogo, API) continua intacto.
+const REWARDS_SHOP_DISABLED = true;
+
 document.getElementById('nav-rewards').onclick = () => {
   modalRewards.classList.remove('hidden');
-  loadRewards();
+  if (REWARDS_SHOP_DISABLED) {
+    showRewardsUnavailable();
+  } else {
+    loadRewards();
+  }
 };
 document.getElementById('btn-close-rewards').onclick = () => modalRewards.classList.add('hidden');
+
+function showRewardsUnavailable() {
+  document.getElementById('rewards-streak-summary').innerHTML = '';
+  document.getElementById('rewards-catalog').innerHTML = `
+    <div class="rewards-unavailable">
+      <span class="ng-icon-wrap" data-icon="settings"></span>
+      <strong>Loja de recompensas temporariamente indisponível</strong>
+      <span>Estamos melhorando essa área — volta em breve.</span>
+    </div>
+  `;
+  document.querySelectorAll('#rewards-catalog [data-icon]').forEach((el) => {
+    el.innerHTML = icon(el.getAttribute('data-icon'));
+  });
+}
 
 // Atualiza a bolinha de streak no sino de recompensas da navbar.
 async function refreshStreakBadge() {
@@ -3785,7 +3825,7 @@ async function openProfilePreview(user) {
     : '';
 
   document.getElementById('profile-preview-username').innerHTML =
-    `${escapeHtml(user.username)}${user.is_admin ? ' 👑' : ''}${user.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">' + icon('badge-check') + '</span>' : ''}${pv2BadgeInline}`;
+    `${escapeHtml(user.username)}${user.is_admin ? ' 👑' : ''}${userVerifiedBadgeHtml(user)}${pv2BadgeInline}`;
   document.getElementById('profile-preview-status').textContent = user.status_message ? '🎮 ' + user.status_message : '';
 
   // Identificador estilo Discord (@Username#1234) — sistema de hashtag.
@@ -5128,7 +5168,7 @@ function clearMessagesView(channelId) {
 
 function updateNavbarProfile() {
   renderAvatarInto(document.getElementById('navbar-avatar'), me);
-  const badgeHtml = `${me.is_admin ? ' 👑' : ''}${me.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">' + icon('badge-check') + '</span>' : ''}`;
+  const badgeHtml = `${me.is_admin ? ' 👑' : ''}${userVerifiedBadgeHtml(me)}`;
   document.getElementById('navbar-username').innerHTML = `${escapeHtml(me.username)}${badgeHtml}`;
   const level = Math.max(1, Math.floor((me.message_count || 0) / 10) + 1);
   document.getElementById('navbar-level').textContent = `Nível ${level}`;
@@ -6074,7 +6114,7 @@ async function runGlobalSearch(term) {
       .map(
         (u) => `<div class="search-result-item" data-kind="player" data-id="${u.id}">
           <div class="search-result-icon round">${renderAvatarHtml(u)}</div>
-          <div class="search-result-text"><span class="search-result-title">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${u.is_verified ? ' <span class="verified-badge" title="Conta oficial verificada — NEXT GAME">' + icon('badge-check') + '</span>' : ''}</span><span class="search-result-meta">${escapeHtml(userTag(u))}${u.status_message ? ' · 🎮 ' + escapeHtml(u.status_message) : ''}</span></div>
+          <div class="search-result-text"><span class="search-result-title">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${userVerifiedBadgeHtml(u)}</span><span class="search-result-meta">${escapeHtml(userTag(u))}${u.status_message ? ' · 🎮 ' + escapeHtml(u.status_message) : ''}</span></div>
         </div>`
       )
       .join('')}</div>`;
@@ -6885,7 +6925,7 @@ function renderMessage(msg) {
         <div class="meta">
           <strong>${escapeHtml(msg.username)}</strong>
           ${pv2BadgeHtml}
-          ${author && author.is_verified ? '<span class="verified-badge" title="Conta oficial verificada — NEXT GAME">' + icon('badge-check') + '</span>' : ''}
+          ${userVerifiedBadgeHtml(author)}
           ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
           · <span class="pv2-live-time">${time}</span>
           ${msg.edited ? '<span class="edited-tag">(editado)</span>' : ''}

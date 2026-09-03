@@ -1,5 +1,14 @@
 // admin.js - painel de moderação
 
+// Conta de moderador (staff parcial — só ajuda com BLUEX/moderação básica,
+// ver requireModerator no server.js) não tem is_admin=1, então só pode ver
+// as abas "Segurança/BLUEX" e "Moderação". As outras nem aparecem na barra
+// lateral pra ela, e as chamadas de API que só admin de verdade pode usar
+// (usuários, loja, personalização, suporte, audit log, monitoramento) nem
+// são feitas — evita 403 inúteis e deixa claro o que essa conta pode fazer.
+const MODERATOR_ALLOWED_TABS = ['seguranca', 'moderacao'];
+let isFullAdmin = false;
+
 async function init() {
   const meRes = await fetch('/api/me', { credentials: 'include' });
   if (!meRes.ok) {
@@ -7,21 +16,40 @@ async function init() {
     return;
   }
   const me = await meRes.json();
-  if (!me.is_admin) {
-    document.getElementById('admin-guard').textContent = 'Acesso restrito a administradores.';
+  if (!me.is_admin && !me.is_moderator) {
+    document.getElementById('admin-guard').textContent = 'Acesso restrito a administradores/moderadores.';
     return;
   }
-  // SEGURANÇA: 2FA agora é obrigatório pra usar o painel (ver requireAdmin
-  // no server.js) — se essa conta de admin ainda não ativou, nem tenta
-  // carregar os dados (todas as chamadas a /api/admin/* dariam 403 mesmo).
-  // Mostra direto a orientação de como ativar, em vez de uma tela quebrada
-  // cheia de tabelas vazias/erros.
+  // SEGURANÇA: 2FA agora é obrigatório pra usar o painel (ver requireAdmin/
+  // requireModerator no server.js) — se essa conta ainda não ativou, nem
+  // tenta carregar os dados (todas as chamadas a /api/admin/* dariam 403
+  // mesmo). Mostra direto a orientação de como ativar, em vez de uma tela
+  // quebrada cheia de tabelas vazias/erros.
   if (!me.totp_enabled) {
     document.getElementById('admin-2fa-required').classList.remove('hidden');
     return;
   }
+  isFullAdmin = !!me.is_admin;
   document.getElementById('admin-layout').classList.remove('hidden');
   initAdminTabs();
+
+  if (!isFullAdmin) {
+    // Moderador: some com as abas que não pode ver e abre direto em
+    // Segurança/BLUEX (a primeira que ela tem acesso).
+    document.querySelectorAll('.admin-nav-btn').forEach((btn) => {
+      if (!MODERATOR_ALLOWED_TABS.includes(btn.dataset.tab)) btn.remove();
+    });
+    loadBluexPanel();
+    setInterval(loadBluexPanel, 10000);
+    loadSuspiciousAccounts();
+    loadMinors();
+    loadReports();
+    loadBlocked();
+    loadFlaggedFrames();
+    loadFlagged();
+    return;
+  }
+
   loadMonitoring();
   setInterval(loadMonitoring, 10000);
   loadBluexPanel();
@@ -252,15 +280,19 @@ document.getElementById('btn-close-diagnosis').onclick = () => {
 // dados numa visão consolidada.
 async function loadBluexPanel() {
   try {
-    const [monRes, usersRes, framesRes, blockedRes] = await Promise.all([
-      fetch('/api/admin/monitoring', { credentials: 'include' }),
-      fetch('/api/admin/users', { credentials: 'include' }),
+    // Rotas enxutas (ver server.js) — antes usava /api/admin/monitoring e
+    // /api/admin/users (dados de servidor e lista completa com e-mail de
+    // todo mundo) só pra pegar 2-3 campos. Trocado pra funcionar também com
+    // a conta de moderador parcial, que não tem acesso a essas duas.
+    const [statusRes, suspendedRes, framesRes, blockedRes] = await Promise.all([
+      fetch('/api/admin/bluex/status', { credentials: 'include' }),
+      fetch('/api/admin/bluex/suspended', { credentials: 'include' }),
       fetch('/api/admin/flagged-frames', { credentials: 'include' }),
       fetch('/api/admin/blocked-messages', { credentials: 'include' }),
     ]);
-    if (!monRes.ok || !usersRes.ok || !framesRes.ok || !blockedRes.ok) return;
-    const mon = await monRes.json();
-    const users = await usersRes.json();
+    if (!statusRes.ok || !suspendedRes.ok || !framesRes.ok || !blockedRes.ok) return;
+    const status = await statusRes.json();
+    const suspended = await suspendedRes.json();
     const frames = await framesRes.json();
     const blocked = await blockedRes.json();
 
@@ -269,13 +301,13 @@ async function loadBluexPanel() {
     const statusCards = [
       {
         label: 'Moderação de imagem/texto (Groq embutido)',
-        ok: mon.environment.groq_configured,
+        ok: status.groq_configured,
         okText: 'Ativa',
         offText: 'Falta GROQ_API_KEY',
       },
       {
         label: 'BLUEX externo (opcional, centraliza vários apps)',
-        ok: mon.environment.bluex_configured,
+        ok: status.bluex_configured,
         okText: 'Conectado',
         offText: 'Não configurado — usando só o Groq embutido, funciona igual',
       },
@@ -291,7 +323,6 @@ async function loadBluexPanel() {
       .join('');
 
     // Contas suspensas automaticamente — o item mais urgente de todos
-    const suspended = users.filter((u) => u.auto_suspended);
     const suspTbody = document.querySelector('#bluex-suspended-table tbody');
     suspTbody.innerHTML = suspended
       .map(
@@ -699,7 +730,7 @@ async function loadUsers() {
       <td>${escapeHtml(u.email || '—')}</td>
       <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
       <td>${u.is_admin ? 'Sim' : 'Não'}</td>
-      <td>${u.is_verified ? '✔️ Verificado' : '—'}</td>
+      <td>${u.verified_gold ? '🥇 Verificado (dourado)' : u.is_verified ? '✔️ Verificado' : '—'}</td>
       <td>${u.plan === 'plus' ? '✨ PLUS' : 'Free'}</td>
       <td>${
         u.auto_suspended
@@ -717,6 +748,7 @@ async function loadUsers() {
           ? `<button class="action" data-action="revoke-plan" data-id="${u.id}">Remover Plus</button>`
           : `<button class="action" data-action="grant-plan" data-id="${u.id}">Conceder Plus</button>`}
         <button class="action" data-action="toggle-verify" data-id="${u.id}">${u.is_verified ? 'Remover selo' : '✔️ Verificar'}</button>
+        <button class="action" data-action="toggle-verify-gold" data-id="${u.id}">${u.verified_gold ? 'Remover dourado' : '🥇 Verificar (dourado, parceiro)'}</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -740,6 +772,13 @@ async function loadUsers() {
   tbody.querySelectorAll('button[data-action="toggle-verify"]').forEach((btn) =>
     btn.addEventListener('click', async () => {
       await fetch(`/api/admin/users/${btn.dataset.id}/verify`, { method: 'POST', credentials: 'include' });
+      loadUsers();
+      loadAuditLogs();
+    })
+  );
+  tbody.querySelectorAll('button[data-action="toggle-verify-gold"]').forEach((btn) =>
+    btn.addEventListener('click', async () => {
+      await fetch(`/api/admin/users/${btn.dataset.id}/verify-gold`, { method: 'POST', credentials: 'include' });
       loadUsers();
       loadAuditLogs();
     })

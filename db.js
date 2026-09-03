@@ -881,6 +881,13 @@ async function initDb() {
   await run('UPDATE users SET is_verified = 1 WHERE is_admin = 1');
   await run('UPDATE users SET is_verified = 1 WHERE id = ?', [AI_BOT_USER_ID]);
 
+  // Selo dourado — mesma ideia do selo azul (is_verified), mas pra contas
+  // de PARCEIRO oficial (ex: dono/representante do jogo parceiro Magic
+  // Tank), visualmente diferente do azul da própria NEXT GAME. Sempre junto
+  // com is_verified=1 (é um selo "verificado", só muda a cor); o admin liga
+  // pelo painel /admin.html > Usuários quando quiser (ver /verify-gold).
+  await ensureColumn('users', 'verified_gold INTEGER NOT NULL DEFAULT 0');
+
   // Recuperação de senha por e-mail — token de uso único com validade curta,
   // separado do verification_code (que é só pra confirmação de cadastro).
   await ensureColumn('users', 'reset_token TEXT');
@@ -912,6 +919,49 @@ async function initDb() {
   // ---------- SERVIDORES OFICIAIS (selo de verificado) ----------
   await ensureColumn('servers', 'is_official INTEGER NOT NULL DEFAULT 0');
   await seedOfficialServers({ run, get, all });
+
+  // ---------- CONTA DE MODERADOR (acesso parcial: BLUEX + moderação básica) ----------
+  await ensureColumn('users', 'is_moderator INTEGER NOT NULL DEFAULT 0');
+  await seedModeratorAccount({ run, get });
+}
+
+// Conta de staff com acesso PARCIAL ao painel /admin.html — só as abas
+// "Segurança/BLUEX" e "Moderação" (denúncias, contas suspeitas/menores,
+// mensagens bloqueadas/sinalizadas, banir/suspender conta flagrada). Sem
+// acesso a Usuários, Loja, Personalização, Suporte ou Audit Log — essas
+// continuam exclusivas de quem tem is_admin=1 de verdade (ver requireAdmin
+// vs requireModerator em server.js). Roda só uma vez: se a conta já existe
+// (foi criada aqui ou alguém já trocou a senha dela), não mexe em nada.
+async function seedModeratorAccount({ run, get }) {
+  const USERNAME = 'moderador_bluex';
+  // Senha inicial temporária — a pessoa que for usar essa conta deve trocar
+  // em Configurações > Segurança assim que entrar pela primeira vez (e
+  // precisa ativar 2FA antes de conseguir abrir o painel /admin.html, igual
+  // qualquer conta admin/moderadora — ver requireModerator).
+  const INITIAL_PASSWORD = 'BluexMod#2026';
+  const existing = await get('SELECT id FROM users WHERE username = ?', [USERNAME]);
+  if (existing) {
+    // Já existe — só garante que continua marcada como moderadora (não
+    // sobrescreve senha/e-mail, pra não derrubar quem já está usando).
+    await run('UPDATE users SET is_moderator = 1 WHERE id = ?', [existing.id]);
+    return;
+  }
+  const id = crypto.randomUUID();
+  const passwordHash = bcrypt.hashSync(INITIAL_PASSWORD, 10);
+  const discriminator = await generateUniqueDiscriminator(USERNAME);
+  await run(
+    `INSERT INTO users (id, username, password_hash, is_admin, is_moderator, is_banned, email_verified, avatar, status_message, discriminator, username_tag)
+     VALUES (?, ?, ?, 0, 1, 0, 1, ?, ?, ?, ?)`,
+    [
+      id,
+      USERNAME,
+      passwordHash,
+      'emoji:🛡️:#5865f2',
+      'Moderação — Segurança/BLUEX',
+      discriminator,
+      `${USERNAME}#${discriminator}`,
+    ]
+  );
 }
 
 // Servidor "NEXT GAME" (oficial da plataforma) e "Magic Tank" (jogo
@@ -955,6 +1005,15 @@ async function seedOfficialServers({ run, get, all }) {
          VALUES (?, ?, ?, ?, ?, 1, 1, ?, datetime('now'))`,
         [srv.category, srv.icon, srv.description, AI_BOT_USER_ID, inviteCode, AI_BOT_USER_ID]
       );
+    }
+    // Canal de texto #geral e sala de voz oficial — checa se já existe antes
+    // de criar (idempotente), pra servir tanto quem tá vendo isso pela
+    // primeira vez quanto quem já tinha os servidores de uma versão anterior
+    // (que só vinham com o canal de texto).
+    const existingText = await get("SELECT id FROM channels WHERE category = ? AND type = 'texto' AND name = 'geral'", [
+      srv.category,
+    ]);
+    if (!existingText) {
       await run('INSERT INTO channels (id, name, category, type, created_by) VALUES (?, ?, ?, ?, ?)', [
         crypto.randomUUID(),
         'geral',
@@ -962,6 +1021,13 @@ async function seedOfficialServers({ run, get, all }) {
         'texto',
         AI_BOT_USER_ID,
       ]);
+    }
+    const existingVoice = await get("SELECT id FROM channels WHERE category = ? AND type = 'voz'", [srv.category]);
+    if (!existingVoice) {
+      await run(
+        "INSERT INTO channels (id, name, category, type, created_by, voice_type) VALUES (?, ?, ?, ?, ?, 'conversa')",
+        [crypto.randomUUID(), 'Sala Oficial', srv.category, 'voz', AI_BOT_USER_ID]
+      );
     }
     await run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
       crypto.randomUUID(),

@@ -1,5 +1,28 @@
 [
   {
+    "version": "0.29.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Nova conta de staff (@moderador_bluex) com acesso PARCIAL ao painel /admin.html — só as abas Segurança/BLUEX e Moderação (denúncias, contas suspeitas/menores, mensagens bloqueadas/sinalizadas, banir/suspender conta flagrada). Sem acesso a Usuários, Loja, Personalização, Suporte ou Audit Log.",
+      "Nova: selo de verificado DOURADO, pra diferenciar conta de parceiro oficial (ex: dono do jogo parceiro) do selo azul da própria NEXT GAME. Liga pelo painel /admin.html > Usuários > \"🥇 Verificar (dourado, parceiro)\"."
+    ]
+  },
+  {
+    "version": "0.28.4",
+    "date": "2026-09-03",
+    "changes": [
+      "Corrigido: nos servidores oficiais (NEXT GAME e Magic Tank), o caminho da logo aparecia como texto bagunçado do lado do nome no topo da coluna de canais em vez de virar imagem.",
+      "Servidores oficiais agora também vêm com uma sala de voz oficial (\"Sala Oficial\"), além do canal de texto #geral."
+    ]
+  },
+  {
+    "version": "0.28.3",
+    "date": "2026-09-03",
+    "changes": [
+      "Loja de recompensas pausada temporariamente (a pedido, pra melhorar essa área) — quem clica vê um aviso \"temporariamente indisponível\" em vez do catálogo. Nada foi apagado: é só uma chave (REWARDS_SHOP_DISABLED em app.js) fácil de desligar quando quiser reativar."
+    ]
+  },
+  {
     "version": "0.28.2",
     "date": "2026-09-03",
     "changes": [

@@ -1297,6 +1297,11 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
    de "disco azul com check branco" sem precisar de um SVG customizado. */
 .verified-badge .ng-icon path:first-child { fill: #3897f0; stroke: none; }
 .verified-badge .ng-icon path:last-child { fill: none; stroke: white; stroke-width: 3px; }
+/* Selo DOURADO — mesma forma, cor diferente, pra conta de PARCEIRO oficial
+   (ex: dono do jogo parceiro Magic Tank) se distinguir da conta oficial da
+   própria NEXT GAME (azul). Ver verified_gold no admin de Usuários. */
+.verified-badge-gold .ng-icon path:first-child { fill: #d4a017; }
+.verified-badge-gold .ng-icon path:last-child { stroke: #1a1400; }
 .dm-pending-tag {
   display: inline-block; margin-left: 6px; background: rgba(88,101,242,0.2); color: #c7cdff;
   font-size: 9.5px; font-weight: 800; text-transform: uppercase; padding: 1px 6px; border-radius: 8px;
@@ -1699,6 +1704,15 @@ video:fullscreen { background: #000; object-fit: contain; }
 .streak-progress-fill { height: 100%; background: var(--gradient-brand); border-radius: 4px; transition: width 0.3s ease; }
 
 .rewards-catalog { display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; }
+/* Loja de recompensas pausada temporariamente (ver REWARDS_SHOP_DISABLED em
+   app.js) — aviso simples no lugar do catálogo, sem quebrar o modal. */
+.rewards-unavailable {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;
+  padding: 32px 16px; color: #9aa0ab;
+}
+.rewards-unavailable .ng-icon-wrap { width: 32px; height: 32px; color: #6d7178; margin-bottom: 4px; }
+.rewards-unavailable strong { color: #dbdee1; font-size: 14px; }
+.rewards-unavailable span { font-size: 12.5px; }
 .reward-card {
   position: relative; display: flex; gap: 12px; align-items: flex-start; background: #1e1f22;
   border: 1px solid #35373c; border-radius: 10px; padding: 12px; overflow: hidden;

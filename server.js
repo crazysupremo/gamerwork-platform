@@ -293,6 +293,23 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// Acesso PARCIAL ao painel — pra contas de staff que ajudam só com
+// BLUEX/moderação básica (denúncias, contas suspeitas/menores, mensagens
+// bloqueadas/sinalizadas, banir/suspender conta flagrada), sem ver
+// Usuários, Loja, Personalização, Suporte ou Audit Log. Admin de verdade
+// (is_admin) passa por aqui também — essas rotas fazem parte do que ele já
+// podia fazer. 2FA continua obrigatório, mesma regra do requireAdmin.
+function requireModerator(req, res, next) {
+  if (!req.user.is_admin && !req.user.is_moderator) return res.status(403).json({ error: 'Somente admins/moderadores' });
+  if (!req.user.totp_enabled) {
+    return res.status(403).json({
+      error: 'Sua conta precisa ativar a verificação em duas etapas (2FA) antes de acessar o painel.',
+      requires2faSetup: true,
+    });
+  }
+  next();
+}
+
 // Rate limit dedicado ao painel admin — mais apertado que o geral do /api/
 // (120/min), porque aqui é onde ficam ações sensíveis (banir, conceder
 // coins, ver dados de todo mundo). Reduz o estrago de uma sessão de admin
@@ -1144,9 +1161,13 @@ app.get(
       discriminator: req.user.discriminator,
       username_tag: req.user.username_tag || `${req.user.username}#${req.user.discriminator || '0000'}`,
       is_admin: req.user.is_admin,
+      // Staff parcial (só BLUEX/moderação básica) — ver requireModerator.
+      // is_admin sempre implica acesso total, independente disso.
+      is_moderator: !!req.user.is_moderator,
       // Selo de verificado (conta oficial NEXT GAME) — separado de is_admin,
       // ver /api/admin/users/:id/verify.
       is_verified: !!req.user.is_verified,
+      verified_gold: !!req.user.verified_gold,
       email: req.user.email,
       email_verified: !!req.user.email_verified,
       status_message: req.user.status_message,
@@ -2096,7 +2117,7 @@ app.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const user = await db.get(
-      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified, bio, country, language,
+      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified, verified_gold, bio, country, language,
         region, reputation, points, login_streak, longest_streak, created_at, favorite_games, platforms,
         preferred_rank, play_style
        FROM users WHERE id = ? AND is_banned = 0`,
@@ -3268,7 +3289,7 @@ app.get(
 
     const server = await db.get('SELECT owner_id FROM servers WHERE category = ?', [req.params.category]);
     const members = await db.all(
-      `SELECT u.id, u.username, u.discriminator, u.username_tag, u.avatar, u.avatar_frame, u.is_admin, u.is_verified
+      `SELECT u.id, u.username, u.discriminator, u.username_tag, u.avatar, u.avatar_frame, u.is_admin, u.is_verified, u.verified_gold
        FROM server_members sm JOIN users u ON u.id = sm.user_id
        WHERE sm.category = ? ORDER BY u.username`,
       [req.params.category]
@@ -3538,7 +3559,7 @@ app.get(
     const otherIds = rows.map((r) => r.other_id);
     const placeholders = otherIds.map(() => '?').join(',');
     const users = await db.all(
-      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified FROM users WHERE id IN (${placeholders})`,
+      `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified, verified_gold FROM users WHERE id IN (${placeholders})`,
       otherIds
     );
     const usersMap = {};
@@ -3706,7 +3727,7 @@ app.get(
     }
 
     const target = await db.get(
-      'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, is_admin, is_verified FROM users WHERE id = ?',
+      'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, is_admin, is_verified, verified_gold FROM users WHERE id = ?',
       [targetId]
     );
     if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -3787,7 +3808,7 @@ app.get(
       const hiddenAt = iAmA ? row.hidden_for_a : row.hidden_for_b;
 
       const other = await db.get(
-        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, is_admin, is_verified FROM users WHERE id = ?',
+        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, is_admin, is_verified, verified_gold FROM users WHERE id = ?',
         [otherId]
       );
       if (!other) continue;
@@ -4600,7 +4621,7 @@ app.post(
 app.get(
   '/api/admin/flagged-frames',
   requireAuth,
-  requireAdmin,
+  requireModerator,
   asyncHandler(async (req, res) => {
     res.json(await db.all('SELECT * FROM flagged_frames ORDER BY created_at DESC LIMIT 200'));
   })
@@ -4609,10 +4630,41 @@ app.get(
 app.post(
   '/api/admin/flagged-frames/:id/review',
   requireAuth,
-  requireAdmin,
+  requireModerator,
   asyncHandler(async (req, res) => {
     await db.run('UPDATE flagged_frames SET reviewed = 1 WHERE id = ?', [req.params.id]);
     res.json({ ok: true });
+  })
+);
+
+// ---------- BLUEX (versão enxuta pra conta de moderador) ----------
+// A tela BLUEX do painel usava /api/admin/monitoring (dados internos do
+// servidor: erros, lag, salas) e /api/admin/users (lista completa, com
+// e-mail de todo mundo) só pra pegar 2-3 campos. Isso extrapolava o que uma
+// conta de moderador parcial devia ver — essas duas rotas aqui devolvem só o
+// mínimo necessário pro painel BLUEX, liberadas pra moderador também.
+app.get(
+  '/api/admin/bluex/status',
+  requireAuth,
+  requireModerator,
+  asyncHandler(async (req, res) => {
+    res.json({
+      groq_configured: !!process.env.GROQ_API_KEY,
+      bluex_configured: !!process.env.BLUEX_API_KEY,
+    });
+  })
+);
+
+app.get(
+  '/api/admin/bluex/suspended',
+  requireAuth,
+  requireModerator,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await db.all(
+        'SELECT id, username, ban_reason FROM users WHERE auto_suspended = 1 ORDER BY created_at DESC'
+      )
+    );
   })
 );
 
@@ -4625,7 +4677,7 @@ app.post(
 app.get(
   '/api/admin/minors',
   requireAuth,
-  requireAdmin,
+  requireModerator,
   asyncHandler(async (req, res) => {
     const rows = await db.all(
       `SELECT id, username, username_tag, email, birth_date, estimated_age, created_at FROM users WHERE birth_date IS NOT NULL AND id != ?`,
@@ -6199,12 +6251,12 @@ app.get(
     const parsedTag = parseUserTag(q);
     const playersQuery = parsedTag.discriminator
       ? db.all(
-          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified
+          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified, verified_gold
            FROM users WHERE is_banned = 0 AND username = ? AND discriminator = ? AND id != ?`,
           [parsedTag.username, parsedTag.discriminator, req.user.id]
         )
       : db.all(
-          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified
+          `SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified, verified_gold
            FROM users WHERE is_banned = 0 AND username LIKE ? AND id != ? ORDER BY username LIMIT ?`,
           [like, req.user.id, limit]
         );
@@ -6356,7 +6408,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified FROM users WHERE is_banned = 0 AND id != ? ORDER BY username',
+        'SELECT id, username, discriminator, username_tag, avatar, avatar_frame, status_message, is_admin, is_verified, verified_gold FROM users WHERE is_banned = 0 AND id != ? ORDER BY username',
         [AI_BOT_USER_ID]
       )
     );
@@ -6474,7 +6526,7 @@ app.post(
 app.get(
   '/api/admin/reports',
   requireAuth,
-  requireAdmin,
+  requireModerator,
   asyncHandler(async (req, res) => {
     res.json(await db.all('SELECT * FROM reports ORDER BY created_at DESC'));
   })
@@ -6483,7 +6535,7 @@ app.get(
 app.post(
   '/api/admin/reports/:id/resolve',
   requireAuth,
-  requireAdmin,
+  requireModerator,
   asyncHandler(async (req, res) => {
     const { status } = req.body || {};
     await db.run('UPDATE reports SET status = ? WHERE id = ?', [status || 'resolvido', req.params.id]);
@@ -6494,7 +6546,7 @@ app.post(
 app.get(
   '/api/admin/flagged-messages',
   requireAuth,
-  requireAdmin,
+  requireModerator,
   asyncHandler(async (req, res) => {
     res.json(await db.all('SELECT * FROM messages WHERE flagged = 1 ORDER BY created_at DESC LIMIT 200'));
   })
@@ -6503,7 +6555,7 @@ app.get(
 app.get(
   '/api/admin/blocked-messages',
   requireAuth,
-  requireAdmin,
+  requireModerator,
   asyncHandler(async (req, res) => {
     res.json(await db.all('SELECT * FROM blocked_messages ORDER BY created_at DESC LIMIT 200'));
   })
@@ -6512,7 +6564,7 @@ app.get(
 app.post(
   '/api/admin/users/:id/ban',
   requireAuth,
-  requireAdmin,
+  requireModerator,
   asyncHandler(async (req, res) => {
     await db.run('UPDATE users SET is_banned = 1 WHERE id = ?', [req.params.id]);
     res.json({ ok: true });
@@ -6525,7 +6577,7 @@ app.post(
 app.post(
   '/api/admin/users/:id/unban',
   requireAuth,
-  requireAdmin,
+  requireModerator,
   asyncHandler(async (req, res) => {
     // Zera também auto_suspended/ban_reason — depois que um humano revisou
     // e decidiu desbanir, não faz sentido a conta continuar marcada como
@@ -6542,7 +6594,7 @@ app.post(
 app.post(
   '/api/admin/users/:id/timeout',
   requireAuth,
-  requireAdmin,
+  requireModerator,
   asyncHandler(async (req, res) => {
     const minutes = Math.max(1, Math.min(10080, parseInt((req.body || {}).minutes, 10) || 10));
     const until = new Date(Date.now() + minutes * 60 * 1000).toISOString();
@@ -6556,7 +6608,7 @@ app.post(
 app.post(
   '/api/admin/users/:id/untimeout',
   requireAuth,
-  requireAdmin,
+  requireModerator,
   asyncHandler(async (req, res) => {
     await db.run('UPDATE users SET timeout_until = NULL WHERE id = ?', [req.params.id]);
     logAudit(req.user, 'untimeout_user', 'user', req.params.id);
@@ -6602,7 +6654,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, email, is_admin, is_verified, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, created_at FROM users ORDER BY created_at DESC'
+        'SELECT id, username, email, is_admin, is_verified, verified_gold, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, created_at FROM users ORDER BY created_at DESC'
       )
     );
   })
@@ -6623,6 +6675,29 @@ app.post(
     await db.run('UPDATE users SET is_verified = ? WHERE id = ?', [newValue, req.params.id]);
     logAudit(req.user, newValue ? 'verify_user' : 'unverify_user', 'user', req.params.id, {});
     res.json({ ok: true, is_verified: !!newValue });
+  })
+);
+
+// Selo DOURADO — mesmo selo de "conta oficial verificada", só que na cor
+// dourada em vez de azul, pra diferenciar conta de PARCEIRO (ex: dono do
+// jogo parceiro Magic Tank) de conta oficial da própria NEXT GAME. Ligar o
+// dourado também liga o selo normal (is_verified) — não faz sentido dourado
+// sem o selo em si.
+app.post(
+  '/api/admin/users/:id/verify-gold',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const target = await db.get('SELECT verified_gold FROM users WHERE id = ?', [req.params.id]);
+    if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
+    const newValue = target.verified_gold ? 0 : 1;
+    if (newValue) {
+      await db.run('UPDATE users SET verified_gold = 1, is_verified = 1 WHERE id = ?', [req.params.id]);
+    } else {
+      await db.run('UPDATE users SET verified_gold = 0 WHERE id = ?', [req.params.id]);
+    }
+    logAudit(req.user, newValue ? 'verify_gold_user' : 'unverify_gold_user', 'user', req.params.id, {});
+    res.json({ ok: true, verified_gold: !!newValue });
   })
 );
 
@@ -6849,7 +6924,7 @@ app.get(
 app.get(
   '/api/admin/suspicious-accounts',
   requireAuth,
-  requireAdmin,
+  requireModerator,
   asyncHandler(async (req, res) => {
     const rows = await db.all(`
       SELECT s.ip, GROUP_CONCAT(DISTINCT u.username) as usernames, COUNT(DISTINCT s.user_id) as account_count

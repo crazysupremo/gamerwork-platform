@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NEXT GAME — Preview: o que a conta de moderador vê</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0e0f13; color: #e6e6e6; }
+  .sp-note {
+    background: #0f5f52; color: #d9fff6; font-size: 12.5px; padding: 8px 16px; text-align: center; font-weight: 600;
+  }
+  .admin-topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 20px; border-bottom: 1px solid #2b2d31; background: #1e1f22;
+  }
+  .admin-topbar h1 { color: #5865f2; font-size: 18px; margin: 0; }
+  .admin-topbar .tag { font-size: 11px; background: rgba(88,101,242,0.16); color: #a6b0ff; padding: 3px 10px; border-radius: 10px; font-weight: 700; }
+  .admin-layout { display: flex; min-height: calc(100vh - 90px); }
+  .admin-sidebar {
+    width: 210px; flex-shrink: 0; background: #1e1f22; border-right: 1px solid #2b2d31;
+    padding: 14px 10px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .admin-nav-btn {
+    display: flex; align-items: center; gap: 8px; text-align: left; background: none; border: none;
+    color: #b5bac1; padding: 9px 10px; border-radius: 6px; cursor: pointer; font-size: 13.5px; font-weight: 600;
+  }
+  .admin-nav-btn.active { background: #5865f2; color: white; }
+  .admin-nav-btn .badge {
+    margin-left: auto; background: #f23f42; color: white; font-size: 10.5px; font-weight: 800;
+    border-radius: 10px; padding: 1px 6px; min-width: 16px; text-align: center;
+  }
+  .admin-nav-btn.locked { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
+  .admin-content { flex: 1; padding: 22px 26px; max-width: 900px; }
+  h2 { margin-top: 0; border-bottom: 1px solid #3a3c42; padding-bottom: 6px; }
+  h2:not(:first-child) { margin-top: 32px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #2b2d31; }
+  th { color: #949ba4; }
+  button.action { background: #404249; border: none; color: #e6e6e6; padding: 4px 10px; border-radius: 4px; cursor: pointer; margin-right: 4px; font-size: 12px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 14px; }
+  .stat-card { background: #2b2d31; border-radius: 8px; padding: 12px; }
+  .stat-card .num { font-size: 15px; font-weight: 800; }
+  .stat-card .label { font-size: 11px; color: #949ba4; text-transform: uppercase; }
+  .explain { background: rgba(88,101,242,0.08); border: 1px solid rgba(88,101,242,0.3); border-radius: 10px; padding: 12px 16px; font-size: 12.5px; color: #c7cdff; margin-bottom: 16px; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="sp-note">🧪 Preview estático — exatamente o que a conta @moderador_bluex vê ao entrar em /admin.html (com dados de teste).</div>
+
+  <div class="admin-topbar">
+    <h1>🔷 NEXT GAME — Painel</h1>
+    <span class="tag">🛡️ moderador_bluex — acesso parcial</span>
+  </div>
+
+  <div class="admin-layout">
+    <nav class="admin-sidebar">
+      <button class="admin-nav-btn active">🔷 Segurança / BLUEX</button>
+      <button class="admin-nav-btn">🛡️ Moderação</button>
+      <button class="admin-nav-btn locked" title="Só admin de verdade vê essa aba">📊 Visão geral</button>
+      <button class="admin-nav-btn locked" title="Só admin de verdade vê essa aba">👥 Usuários</button>
+      <button class="admin-nav-btn locked" title="Só admin de verdade vê essa aba">🎬 Conteúdo / Loja</button>
+      <button class="admin-nav-btn locked" title="Só admin de verdade vê essa aba">🎨 Personalização</button>
+      <button class="admin-nav-btn locked" title="Só admin de verdade vê essa aba">📨 Suporte</button>
+      <button class="admin-nav-btn locked" title="Só admin de verdade vê essa aba">📜 Audit Log</button>
+    </nav>
+
+    <div class="admin-content">
+      <div class="explain">
+        As abas riscadas acima NEM APARECEM de verdade pra essa conta (só deixei visíveis aqui pra você comparar) —
+        o painel real remove elas da barra lateral e as rotas de API correspondentes recusam a chamada mesmo que
+        alguém tente acessar direto pela URL.
+      </div>
+
+      <h2>🔷 BLUEX — Painel de Proteção</h2>
+      <div class="stats-grid">
+        <div class="stat-card" style="background:#23a55a22;"><div class="num" style="color:#23a55a;">✅ Ativa</div><div class="label">Moderação de imagem/texto (Groq)</div></div>
+        <div class="stat-card" style="background:#f23f4222;"><div class="num" style="color:#f23f42;">⚠️ Não configurado</div><div class="label">BLUEX externo</div></div>
+      </div>
+
+      <h3 style="color:#f23f42;">⚠️ Suspensão automática — aguardando revisão</h3>
+      <table>
+        <thead><tr><th>Usuário</th><th>Motivo</th><th>Ações</th></tr></thead>
+        <tbody>
+          <tr><td>jogador_exemplo</td><td>Suspeita de conteúdo infantil em contexto de risco</td><td><button class="action">Revisei — desbanir</button></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Resumo de sinalizações recentes</h3>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="num">4</div><div class="label">Imagens/telas sinalizadas</div></div>
+        <div class="stat-card"><div class="num">1</div><div class="label">Ainda sem revisão</div></div>
+        <div class="stat-card"><div class="num">2</div><div class="label">Mensagens bloqueadas</div></div>
+        <div class="stat-card"><div class="num">1</div><div class="label">Contas suspensas aguardando revisão</div></div>
+      </div>
+
+      <h2>🛡️ Moderação (aba seguinte, também liberada)</h2>
+      <p style="color:#949ba4; font-size:13px;">Denúncias pendentes, contas suspeitas/menores, mensagens bloqueadas/sinalizadas, e banir/suspender conta flagrada — tudo dentro do que essa conta pode fazer.</p>
+      <table>
+        <thead><tr><th>Data</th><th>Motivo</th><th>Usuário denunciado</th><th>Status</th><th>Ações</th></tr></thead>
+        <tbody>
+          <tr><td>02/09</td><td>Assédio</td><td>usuario_x</td><td>pendente</td><td><button class="action">Resolver</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>
