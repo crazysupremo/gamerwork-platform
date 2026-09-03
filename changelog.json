@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.33.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Adicionados mais dois parágrafos na cláusula de doação: manutenções/instabilidades do serviço não geram reembolso, e declaração explícita de renúncia ao direito de arrependimento (Art. 49 do CDC) pra esse tipo de contribuição."
+    ]
+  },
+  {
+    "version": "0.33.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Suporte: quando alguém manda uma mensagem pelo \"Fale com o suporte\", agora também chega um e-mail com os detalhes do ticket (além do aviso ao vivo no painel admin) — precisa configurar a variável SUPPORT_NOTIFY_EMAIL no Render com o endereço de destino.",
+      "Nova: cláusula de doação na aba NEXTGAME PLUS, visível antes do botão de pagamento — deixa claro que valores pagos (assinatura, coins, itens) são doação voluntária, sem estorno/reembolso/chargeback."
+    ]
+  },
+  {
+    "version": "0.32.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Ajustado o texto da tela \"Ative o 2FA pra acessar o painel\" pra deixar claro que vale tanto pra admin quanto pra moderador (a mensagem antes só falava \"conta de administrador\", confuso pra quem tem só o acesso parcial)."
+    ]
+  },
+  {
     "version": "0.32.0",
     "date": "2026-09-03",
     "changes": [

@@ -2371,6 +2371,19 @@ video:fullscreen { background: #000; object-fit: contain; }
   color: #3ba55c; font-weight: 700; margin-bottom: 12px;
 }
 
+/* Cláusula de doação — fica bem visível ANTES do botão de pagamento. */
+.donation-clause-box {
+  background: rgba(250,166,26,0.06); border: 1px solid rgba(250,166,26,0.25); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 16px; font-size: 12px; color: #b5bac1; line-height: 1.6;
+}
+.donation-clause-title {
+  display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: #faa61a; margin-bottom: 8px;
+}
+.donation-clause-title .ng-icon { width: 15px; height: 15px; }
+.donation-clause-box p { margin: 0 0 8px; }
+.donation-clause-box p:last-child { margin-bottom: 0; }
+.donation-clause-box strong { color: #e6e6e6; }
+
 /* Cupom de resgate (ex: recarga full no Magic Tank -> NEXTGAME PLUS). */
 .redeem-code-box {
   display: flex; align-items: center; gap: 10px; background: rgba(250,166,26,0.08);

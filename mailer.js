@@ -142,6 +142,55 @@ async function sendAccountRecoveryCode(to, code, username) {
   return result;
 }
 
+// Aviso por e-mail sempre que chega um ticket novo de suporte — além do
+// badge/toast que já existe no painel de admin (ver /api/support/tickets em
+// server.js), pra quem não está de olho na tela o tempo todo. Só manda se
+// SUPPORT_NOTIFY_EMAIL estiver configurada (endereço de destino escolhido
+// pelo dono do site); sem ela, o ticket continua sendo salvo normal, só não
+// avisa por e-mail — igual o padrão do resto do mailer.
+const CATEGORY_LABELS = {
+  reclamacao: 'Reclamação',
+  duvida: 'Dúvida',
+  denuncia: 'Denúncia',
+  conta_banida: 'Conta banida',
+  cobranca: 'Cobrança',
+  outro: 'Outro',
+};
+
+async function sendSupportTicketNotification(ticket) {
+  const notifyTo = process.env.SUPPORT_NOTIFY_EMAIL;
+  if (!notifyTo) {
+    console.warn('[mailer] SUPPORT_NOTIFY_EMAIL não configurada — ticket salvo, mas sem aviso por e-mail.');
+    return { sent: false, skipped: true };
+  }
+  const categoryLabel = CATEGORY_LABELS[ticket.category] || ticket.category || 'Outro';
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; background:#1e1f22; color:#e6e6e6; border-radius: 12px;">
+      <h2 style="color:#5865f2; margin-top:0;">📨 Novo ticket de suporte — NEXT GAME</h2>
+      <p style="color:#949ba4; font-size: 13px; margin-bottom: 4px;">Categoria: <strong style="color:#e6e6e6;">${categoryLabel}</strong></p>
+      <p style="color:#949ba4; font-size: 13px; margin-bottom: 16px;">
+        De: <strong style="color:#e6e6e6;">${ticket.name || ticket.username || 'Anônimo'}</strong>
+        (${ticket.email})${ticket.username ? ` — @${ticket.username}` : ''}
+      </p>
+      <p style="font-weight:700; font-size: 15px; margin-bottom: 6px;">${ticket.subject}</p>
+      <p style="background:#2b2d31; padding: 14px; border-radius: 8px; white-space: pre-wrap; font-size: 13px; line-height: 1.5;">${ticket.message}</p>
+      <p style="color:#6d7178; font-size: 12px; margin-top: 20px;">
+        Responda pelo painel: nextgameblue.stream/admin.html → aba 📨 Suporte.
+      </p>
+    </div>
+  `.trim();
+  const result = await sendEmail({
+    to: notifyTo,
+    subject: `📨 Novo ticket de suporte: ${ticket.subject}`,
+    html,
+    text: `Novo ticket de suporte (${categoryLabel})\nDe: ${ticket.name || ticket.username || 'Anônimo'} (${ticket.email})\n\n${ticket.subject}\n\n${ticket.message}`,
+  });
+  if (!result.sent) {
+    console.warn('[mailer] Falha ao avisar por e-mail sobre ticket novo (o ticket já foi salvo normal):', result);
+  }
+  return result;
+}
+
 module.exports = {
   sendEmail,
   sendVerificationEmail,
@@ -149,4 +198,5 @@ module.exports = {
   sendPasswordResetEmail,
   sendBackupEmailCode,
   sendAccountRecoveryCode,
+  sendSupportTicketNotification,
 };

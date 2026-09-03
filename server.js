@@ -6583,11 +6583,24 @@ app.post(
     }
 
     const id = uuidv4();
+    const cleanSubject = String(subject).trim().slice(0, 150);
+    const cleanMessage = String(message).trim().slice(0, 4000);
     await db.run(
       `INSERT INTO support_tickets (id, user_id, username, name, email, category, subject, message)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, userId, username, name, email, categoryValue, String(subject).trim().slice(0, 150), String(message).trim().slice(0, 4000)]
+      [id, userId, username, name, email, categoryValue, cleanSubject, cleanMessage]
     );
+    // Aviso por e-mail (além do badge/toast no painel) — não trava a
+    // resposta esperando o envio, e nunca falha o ticket em si se o e-mail
+    // der erro (o ticket já está salvo de qualquer forma).
+    sendSupportTicketNotification({
+      username,
+      name,
+      email,
+      category: categoryValue,
+      subject: cleanSubject,
+      message: cleanMessage,
+    }).catch((err) => console.error('[support] erro ao avisar por e-mail:', err.message));
     res.json({ ok: true, id });
   })
 );
