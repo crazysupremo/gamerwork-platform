@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.24.2",
+    "date": "2026-09-03",
+    "changes": [
+      "O card do jogo parceiro Magic Tank na tela de Início agora tem um botão \"Jogar agora\", que leva pro site oficial (redemagictank.com.br) numa aba nova."
+    ]
+  },
+  {
+    "version": "0.24.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Tema \"Magic Tank\" (jogo parceiro) reativado — de volta na galeria de temas do NEXTGAME PLUS."
+    ]
+  },
+  {
     "version": "0.24.0",
     "date": "2026-09-03",
     "changes": [

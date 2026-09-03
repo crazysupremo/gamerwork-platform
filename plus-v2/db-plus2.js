@@ -188,10 +188,10 @@ const DEFAULT_THEMES = [
   // chat, avatar/badge, scrollbar e seleção de texto, sem precisar de
   // nenhum código extra além de entrar no catálogo.
   { key: 'gamex', name: 'GAMEX', primary: '#39ff6a', secondary: '#7c3aed', highlight: '#ffe14d', text: '#eafff0', button: '#0a1f12', premium: true, effect: 'glow' },
-  // Tema "Magic Tank" (jogo parceiro) fica pausado por enquanto, a pedido —
-  // paleta já pronta (azul neon #00a8ff + dourado #fbdc70) pra reativar
-  // rapidinho quando for a hora certa. Chave/entrada exata:
-  // { key: 'magic-tank', name: 'Magic Tank', primary: '#00a8ff', secondary: '#fbdc70', highlight: '#7fd9ff', text: '#e2e8f0', button: '#050810', premium: true, effect: 'glow' },
+  // Tema "Magic Tank" (jogo parceiro), reativado — paleta tirada direto da
+  // arte VIP que eles mandaram: azul neon (#00a8ff) + dourado (#fbdc70)
+  // sobre fundo escuro azulado.
+  { key: 'magic-tank', name: 'Magic Tank', primary: '#00a8ff', secondary: '#fbdc70', highlight: '#7fd9ff', text: '#e2e8f0', button: '#050810', premium: true, effect: 'glow' },
 ];
 
 const DEFAULT_BADGES = [
