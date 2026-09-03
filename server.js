@@ -7447,6 +7447,31 @@ io.on('connection', (socket) => {
     // o bug da duplicação (ver comentário completo em disconnectDuplicateUserSessions).
     disconnectDuplicateUserSessions(user.id, socket.id);
 
+    // CORRIGIDO — bug real reportado: às vezes, ao sair e entrar de novo
+    // numa sala com gente, a pessoa continuava ouvindo áudio mas ficava sem
+    // ver vídeo/avatar de quem já estava lá (ou o contrário). Causa: quem
+    // ENTRA nunca sabia quem já estava na sala — a conexão dependia 100% de
+    // cada participante já presente reagir sozinho ao aviso de "chegou
+    // gente nova" e iniciar a chamada pro lado dele; se essa reação
+    // falhasse silenciosamente em qualquer participante (rede lenta, estado
+    // preso de uma entrada/saída anterior etc.), quem chegou não tinha
+    // like nenhum de saber que faltava alguém, então nunca tentava de novo.
+    // Agora o servidor manda pra quem está entrando a lista de quem já está
+    // na sala — o cliente usa isso pra iniciar a conexão com cada um
+    // proativamente (ver connectVoice() em app.js), em vez de só esperar
+    // passivamente. Quem já estava na sala não inicia mais nada sozinho ao
+    // ver "chegou gente nova" (evita as duas pontas tentando negociar ao
+    // mesmo tempo) — só responde quando a oferta chega, o que já funcionava.
+    const roomBeforeJoin = voiceRooms.get(roomId);
+    const existingPeers = roomBeforeJoin
+      ? Array.from(roomBeforeJoin.values()).map((p) => ({
+          socketId: p.socketId,
+          username: p.username,
+          avatar: p.avatar,
+          avatar_frame: p.avatar_frame,
+        }))
+      : [];
+
     socket.join('rtc:' + roomId);
     socket.to('rtc:' + roomId).emit('rtc:peer-joined', {
       socketId: socket.id,
@@ -7456,13 +7481,19 @@ io.on('connection', (socket) => {
     });
 
     if (!voiceRooms.has(roomId)) voiceRooms.set(roomId, new Map());
-    voiceRooms.get(roomId).set(socket.id, { socketId: socket.id, userId: user.id, username: user.username });
+    voiceRooms.get(roomId).set(socket.id, {
+      socketId: socket.id,
+      userId: user.id,
+      username: user.username,
+      avatar: user.avatar,
+      avatar_frame: user.avatar_frame,
+    });
     broadcastVoiceRoom(roomId);
 
     // Manda o estado atual da fila de música pra quem acabou de entrar, pra
     // ele já cair sincronizado com o resto da sala.
     socket.emit('music:state', musicRoomStateForClient(roomId));
-    reply({ ok: true });
+    reply({ ok: true, peers: existingPeers });
   });
 
   socket.on('rtc:leave', (roomId) => {

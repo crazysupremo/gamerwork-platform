@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.24.0",
+    "date": "2026-09-03",
+    "changes": [
+      "URGENTE: corrigido o bug de sala de voz onde, ao sair e entrar de novo, você continuava ouvindo alguém mas não via o vídeo/avatar dela (ou o contrário) — a causa era que quem entra numa sala nunca sabia quem já estava lá, dependendo 100% de cada pessoa já presente reagir sozinha e iniciar a chamada; se essa reação falhasse silenciosamente em alguém, não tinha jeito de perceber ou tentar de novo. Agora é sempre quem entra que inicia a conexão com todo mundo que já está na sala, usando a lista que o servidor manda na hora de entrar — muito mais confiável, principalmente ao sair e voltar rápido.",
+      "Tema \"Magic Tank\" (jogo parceiro) pausado por enquanto, a pedido — a paleta já está pronta no código, é só reativar quando for a hora certa."
+    ]
+  },
+  {
+    "version": "0.23.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Novo tema exclusivo NEXTGAME PLUS: Magic Tank — paleta tirada da arte VIP do jogo parceiro (azul neon + dourado sobre fundo escuro), com efeito de brilho."
+    ]
+  },
+  {
+    "version": "0.23.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Tela de Início ganhou um card de \"Jogo Parceiro\" em destaque, com o jogo Magic Tank (ainda sem link clicável — fica só a divulgação por enquanto)."
+    ]
+  },
+  {
     "version": "0.23.0",
     "date": "2026-09-03",
     "changes": [

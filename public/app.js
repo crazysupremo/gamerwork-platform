@@ -7263,14 +7263,17 @@ function registerSocketHandlers() {
     document.getElementById('voice-panel')?.classList.add('hidden');
   });
 
-  socket.on('rtc:peer-joined', async ({ socketId, username, avatar, avatar_frame }) => {
-    // Espera SEU PRÓPRIO microfone terminar de ficar pronto antes de montar
-    // a conexão — evita entrar numa call já em andamento e a primeira
-    // negociação sair sem sua track de áudio (ver comentário em
-    // startMicrophone/micReadyPromise).
-    await micReadyPromise;
-    const pc = createPeerConnection(socketId, username, { username, avatar, avatar_frame });
-    addLocalTracksToPeer(pc);
+  socket.on('rtc:peer-joined', async ({ username }) => {
+    // CORRIGIDO: quem já está na sala não inicia mais a conexão sozinho ao
+    // ver "chegou gente nova" — agora é sempre quem ACABOU DE ENTRAR que
+    // inicia a conexão com todo mundo que já está lá (ver connectVoice() e
+    // o array `joined.peers` que o servidor manda na entrada). Antes, os
+    // dois lados podiam tentar negociar ao mesmo tempo (glare) e, pior:
+    // se ESSA reação aqui falhasse silenciosamente em algum participante
+    // (rede lenta, conexão presa de uma entrada/saída anterior etc.), quem
+    // chegou não tinha absolutamente nenhum jeito de saber ou tentar de
+    // novo — era exatamente o bug reportado de "ouço mas não vejo" depois
+    // de sair e entrar de novo na sala.
     logVoiceActivity(`${username} entrou na sala`);
     updateVoiceParticipantCount();
     SFX.peerJoin();
@@ -7497,6 +7500,22 @@ async function connectVoice(roomId) {
   // servidor, antes de qualquer outro passo — a corrida ainda existe em
   // teoria, mas a janela fica bem menor.
   await startMicrophone();
+
+  // CORRIGIDO: agora é sempre quem ACABOU DE ENTRAR (ou voltou) que inicia
+  // a conexão com cada pessoa que já está na sala — o servidor manda essa
+  // lista em joined.peers (ver rtc:join no server.js). Antes disso não
+  // existir, quem entrava dependia 100% de cada participante já presente
+  // reagir sozinho ao "peer novo" e chamar pra ele; se essa reação falhasse
+  // silenciosamente em algum participante, ninguém tinha jeito de saber ou
+  // tentar de novo — isso causava o bug real de sair e voltar pra sala e
+  // ficar ouvindo alguém sem ver o vídeo/avatar dela.
+  (joined.peers || []).forEach((peer) => {
+    if (peers[peer.socketId]) return; // já tem conexão com essa pessoa, não duplica
+    const pc = createPeerConnection(peer.socketId, peer.username, {
+      username: peer.username, avatar: peer.avatar, avatar_frame: peer.avatar_frame,
+    });
+    addLocalTracksToPeer(pc);
+  });
 
   socket.emit('channel:join', roomId); // pro chat da sala funcionar (mesmo canal, uso duplo texto+voz)
   loadVoiceChatHistory(roomId);
