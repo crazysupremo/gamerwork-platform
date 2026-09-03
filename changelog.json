@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.30.3",
+    "date": "2026-09-03",
+    "changes": [
+      "Painel de admin > Usuários: a coluna \"Plano\" agora mostra a ORIGEM de cada PLUS (pago via PayPal / concedido por admin / cupom resgatado), em vez de só \"✨ PLUS\" sem explicação. Qualquer PLUS fora dessas 3 fontes (ex: prêmio de streak de 365 dias) aparece com aviso ⚠️ pra você revisar e remover se quiser — o botão \"Remover Plus\" já existia, agora fica claro em quem usar."
+    ]
+  },
+  {
     "version": "0.30.2",
     "date": "2026-09-03",
     "changes": [

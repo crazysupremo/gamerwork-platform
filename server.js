@@ -6752,7 +6752,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, email, is_admin, is_verified, verified_gold, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, created_at FROM users ORDER BY created_at DESC'
+        'SELECT id, username, email, is_admin, is_verified, verified_gold, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, plan_source, plan_expires_at, created_at FROM users ORDER BY created_at DESC'
       )
     );
   })

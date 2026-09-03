@@ -775,6 +775,31 @@ async function loadFlagged() {
   });
 }
 
+// Repaginado (a pedido — "erro por que todo mundo tá podendo usar o Plus"):
+// a coluna "Plano" só mostrava "✨ PLUS" sem dizer DE ONDE veio, então não
+// dava pra saber se era uma conta legítima (pagou, você concedeu, ou
+// resgatou por cupom) ou algo fora do esperado. Agora mostra a origem bem
+// clara, com destaque em amarelo pra qualquer PLUS que não seja uma dessas
+// 3 fontes — pra você revisar e remover se não fizer sentido.
+const PLAN_SOURCE_LABELS = {
+  paypal: { text: '✨ PLUS — pago (PayPal)', color: '#3ba55c' },
+  admin: { text: '✨ PLUS — concedido por admin', color: '#5865f2' },
+  coupon: { text: '✨ PLUS — cupom resgatado', color: '#faa61a' },
+};
+function planLabelHtml(u) {
+  if (u.plan !== 'plus') return '<span style="color:#949ba4;">Free</span>';
+  const known = PLAN_SOURCE_LABELS[u.plan_source];
+  if (known) {
+    const expires = u.plan_expires_at ? ` (até ${new Date(u.plan_expires_at).toLocaleDateString('pt-BR')})` : '';
+    return `<span style="color:${known.color}; font-weight:700;">${known.text}${expires}</span>`;
+  }
+  // plan_source fora das 3 fontes esperadas (ex: "reward" do prêmio de
+  // streak de 365 dias, ou vazio/inconsistente) — não é bug em si, mas fica
+  // sinalizado pra você decidir se quer manter.
+  const label = u.plan_source === 'reward' ? 'prêmio de streak (365 dias)' : u.plan_source || 'origem desconhecida';
+  return `<span style="color:#faa61a; font-weight:700;" title="Fora das 3 fontes esperadas (pago/admin/cupom)">⚠️ PLUS — ${escapeHtml(label)}</span>`;
+}
+
 async function loadUsers() {
   const res = await fetch('/api/admin/users', { credentials: 'include' });
   const users = await res.json();
@@ -788,7 +813,7 @@ async function loadUsers() {
       <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
       <td>${u.is_admin ? 'Sim' : 'Não'}</td>
       <td>${u.verified_gold ? '🥇 Verificado (dourado)' : u.is_verified ? '✔️ Verificado' : '—'}</td>
-      <td>${u.plan === 'plus' ? '✨ PLUS' : 'Free'}</td>
+      <td>${planLabelHtml(u)}</td>
       <td>${
         u.auto_suspended
           ? `<span title="${escapeHtml(u.ban_reason || '')}" style="color:#f23f42;font-weight:700;">⚠️ Suspensão automática — revisar</span>`
