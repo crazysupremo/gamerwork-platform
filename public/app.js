@@ -216,7 +216,12 @@ document.getElementById('link-forgot-password').onclick = (e) => {
   e.preventDefault();
   document.getElementById('forgot-password-error').textContent = '';
   document.getElementById('forgot-password-success').classList.add('hidden');
-  document.getElementById('form-forgot-password').classList.remove('hidden');
+  // Reabre sempre com o campo de e-mail e o botão "Enviar link" visíveis de
+  // novo — caso a pessoa tenha fechado depois de um envio anterior (ver bug
+  // corrigido abaixo: esconder o <form> inteiro escondia também o botão
+  // "Fechar", travando o modal até dar F5).
+  document.getElementById('forgot-password-fields').classList.remove('hidden');
+  document.getElementById('btn-send-forgot-password').classList.remove('hidden');
   document.getElementById('forgot-password-email').value = '';
   document.getElementById('modal-forgot-password').classList.remove('hidden');
 };
@@ -242,7 +247,13 @@ document.getElementById('form-forgot-password').onsubmit = async (e) => {
       errEl.textContent = data.error || 'Erro ao pedir troca de senha';
       return;
     }
-    document.getElementById('form-forgot-password').classList.add('hidden');
+    // Esconde só o campo de e-mail e o botão de enviar — NÃO o <form>
+    // inteiro, porque o botão "Fechar" mora dentro dele também (ver
+    // .modal-actions no HTML). Escondendo o form inteiro, o "Fechar" some
+    // junto e a pessoa fica travada no modal sem jeito de sair a não ser
+    // atualizando a página. Esse era o bug real reportado.
+    document.getElementById('forgot-password-fields').classList.add('hidden');
+    btn.classList.add('hidden');
     okEl.classList.remove('hidden');
   } catch (err) {
     errEl.textContent = 'Erro de conexão com o servidor';
@@ -261,7 +272,8 @@ function maybeOpenResetPasswordFromUrl() {
   document.getElementById('reset-password-confirm').value = '';
   document.getElementById('reset-password-error').textContent = '';
   document.getElementById('reset-password-success').classList.add('hidden');
-  document.getElementById('form-reset-password').classList.remove('hidden');
+  document.getElementById('reset-password-fields').classList.remove('hidden');
+  document.getElementById('btn-send-reset-password').classList.remove('hidden');
   document.getElementById('modal-reset-password').classList.remove('hidden');
   document.getElementById('modal-reset-password').dataset.token = token;
 }
@@ -298,7 +310,10 @@ document.getElementById('form-reset-password').onsubmit = async (e) => {
       errEl.textContent = data.error || 'Erro ao trocar senha';
       return;
     }
-    document.getElementById('form-reset-password').classList.add('hidden');
+    // Mesma correção do modal de "esqueceu a senha": esconde só os campos,
+    // não o <form> inteiro (o botão "Fechar" está dentro dele).
+    document.getElementById('reset-password-fields').classList.add('hidden');
+    document.getElementById('btn-send-reset-password').classList.add('hidden');
     document.getElementById('reset-password-success').classList.remove('hidden');
     const params = new URLSearchParams(window.location.search);
     params.delete('reset');

@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.21.1",
+    "date": "2026-09-03",
+    "changes": [
+      "URGENTE: corrigido o modal \"Trocar senha\" (Esqueceu a senha?) e o de \"Escolher nova senha\" ficando travados na tela sem jeito de fechar depois de enviar o pedido — o botão \"Fechar\" ficava dentro do mesmo bloco que era escondido junto com o formulário, então sumia e só dava pra sair atualizando a página."
+    ]
+  },
+  {
     "version": "0.21.0",
     "date": "2026-09-03",
     "changes": [
