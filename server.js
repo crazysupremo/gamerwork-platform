@@ -803,18 +803,13 @@ app.post(
     // backend. Ver nota completa na resposta final sobre essa decisão.
     const discriminator = await db.generateUniqueDiscriminator(username);
     const usernameTag = `${username}#${discriminator}`;
-    // Confirmação de e-mail DESATIVADA de novo (a pedido — ainda não tem
-    // domínio verificado no Resend pra mandar e-mail de verdade pra
-    // qualquer usuário; sem isso, todo cadastro novo ficaria travado sem
-    // conseguir confirmar). A conta já nasce com email_verified = 1, sem
-    // gerar/enviar código nem bloquear login. Toda a lógica de verificação
-    // continua no arquivo (rotas /api/verify-email,
-    // /api/resend-verification-code, mailer.js, allowlist em requireAuth) —
-    // pra reativar quando tiver o domínio configurado no Resend, é só
-    // reverter este bloco: voltar email_verified para 0 na query abaixo,
-    // descomentar a geração do código e a chamada a sendVerificationEmail,
-    // e ajustar a resposta do /api/register no final desta rota (mesmo
-    // padrão já usado nesse arquivo antes).
+    // Confirmação de e-mail REATIVADA (03/09) — domínio nextgameblue.stream
+    // agora verificado no Resend, e RESEND_API_KEY/RESEND_FROM configurados
+    // no Render, então o e-mail de verdade sai pra qualquer usuário (não só
+    // pra quem criou a conta do Resend). Todo cadastro novo já nasce com
+    // email_verified = 0 e recebe um código de 6 dígitos por e-mail — o
+    // requireAuth() já bloqueia o resto do site até confirmar (allowlist:
+    // /api/me, /api/logout, /api/verify-email, /api/resend-verification-code).
     // Idade estimada por câmera é opcional e calculada no navegador da
     // pessoa — aqui só sanitiza (número plausível entre 1 e 100) ou ignora
     // qualquer coisa fora disso, já que veio do cliente e pode vir zoado.
@@ -823,8 +818,8 @@ app.post(
         ? Math.round(Number(estimated_age))
         : null;
 
-    // const verificationCode = generateEmailVerificationCode();
-    // const verificationExpires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const verificationCode = generateEmailVerificationCode();
+    const verificationExpires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
     await db.run(
       `INSERT INTO users (
@@ -832,12 +827,14 @@ app.post(
         is_admin, avatar, full_name,
         country, language, favorite_games, platforms, preferred_rank, play_style,
         discriminator, username_tag, birth_date, estimated_age
-      ) VALUES (?, ?, ?, ?, 1, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         username,
         password_hash,
         email,
+        verificationCode,
+        verificationExpires,
         isFirstUser ? 1 : 0,
         avatarValue,
         (full_name || '').slice(0, 80) || null,
@@ -854,9 +851,9 @@ app.post(
       ]
     );
 
-    // sendVerificationEmail(email, verificationCode, username).catch((err) =>
-    //   console.error('Falha ao enviar e-mail de verificação:', err)
-    // );
+    sendVerificationEmail(email, verificationCode, username).catch((err) =>
+      console.error('Falha ao enviar e-mail de verificação:', err)
+    );
 
     applySessionDuration(req, remember !== false);
     req.session.userId = id;
@@ -868,8 +865,8 @@ app.post(
       is_admin: isFirstUser ? 1 : 0,
       discriminator,
       username_tag: usernameTag,
-      email_verified: true,
-      requiresEmailVerification: false,
+      email_verified: false,
+      requiresEmailVerification: true,
     });
 
     // Cada conta começa sem nenhum servidor — igual Discord: cria o seu

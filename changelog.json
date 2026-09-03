@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.21.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Confirmação de e-mail no cadastro reativada: todo cadastro novo agora recebe um código de 6 dígitos por e-mail e precisa confirmar antes de usar o site (recurso já existia pronto, estava só desligado até o domínio de e-mail ficar verificado).",
+      "Recuperação de senha (\"Esqueceu a senha?\") passa a mandar e-mail de verdade pra qualquer usuário, não só pra quem configurou a conta de e-mail — agora que o domínio nextgameblue.stream está verificado no Resend.",
+      "Contas já existentes não são afetadas — continuam com acesso normal, sem precisar confirmar nada retroativamente."
+    ]
+  },
+  {
     "version": "0.20.2",
     "date": "2026-09-03",
     "changes": [
