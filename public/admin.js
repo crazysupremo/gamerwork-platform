@@ -655,6 +655,7 @@ async function loadUsers() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHtml(u.username)}</td>
+      <td>${escapeHtml(u.email || '—')}</td>
       <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
       <td>${u.is_admin ? 'Sim' : 'Não'}</td>
       <td>${u.is_verified ? '✔️ Verificado' : '—'}</td>

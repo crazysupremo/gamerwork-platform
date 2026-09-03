@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.22.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Recuperação de senha agora é em 2 passos: primeiro digita seu usuário (mesmo dado do login) e vê uma prévia do e-mail cadastrado (ex: \"re***@gmail.com\") — se o usuário não existir, avisa na hora — só depois confirma o envio do link de verdade. Evita o erro comum de digitar o e-mail errado sem perceber.",
+      "Painel de admin → Usuários: adicionada a coluna E-mail na lista, mostrando o e-mail cadastrado de cada conta."
+    ]
+  },
+  {
+    "version": "0.21.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Ao pedir troca de senha (\"Esqueceu a senha?\"), a mensagem de confirmação agora mostra o e-mail exato que foi digitado — ajuda a perceber na hora se teve erro de digitação, motivo comum de \"não chegou nada\"."
+    ]
+  },
+  {
     "version": "0.21.1",
     "date": "2026-09-03",
     "changes": [

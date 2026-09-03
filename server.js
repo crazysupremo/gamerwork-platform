@@ -927,22 +927,53 @@ app.post(
 // via Resend). Sem RESEND_API_KEY configurada (ou sem domínio verificado),
 // o e-mail não sai de verdade — mas o link fica no log do servidor, então
 // dá pra destravar manualmente enquanto isso não é configurado. O endpoint
-// SEMPRE responde a mesma mensagem genérica, exista ou não esse e-mail —
+// SEMPRE responde a mesma mensagem genérica, exista ou não esse usuário —
 // não dá pra usar isso pra descobrir quem tem conta aqui.
+//
+// Fluxo em 2 passos (a pedido, pra pessoa não se confundir no e-mail
+// digitado): primeiro digita o USUÁRIO (mesmo dado usado pra login, sem
+// precisar lembrar qual e-mail cadastrou) e vê uma prévia mascarada do
+// e-mail (ex: "re***@gmail.com") antes de confirmar o envio de verdade.
+function maskEmail(email) {
+  const str = String(email || '');
+  const at = str.indexOf('@');
+  if (at <= 0) return '***';
+  const local = str.slice(0, at);
+  const domain = str.slice(at + 1);
+  const visible = local.slice(0, Math.min(2, local.length));
+  return `${visible}${'*'.repeat(Math.max(3, local.length - visible.length))}@${domain}`;
+}
+
+app.post(
+  '/api/forgot-password/lookup',
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { username } = req.body || {};
+    if (!username || typeof username !== 'string') {
+      return res.status(400).json({ error: 'Digite seu usuário.' });
+    }
+    const user = await db.get('SELECT email FROM users WHERE username = ?', [username.trim()]);
+    if (!user || !user.email) {
+      return res.status(404).json({ error: 'Não encontramos esse usuário (ou ele não tem e-mail cadastrado).' });
+    }
+    res.json({ maskedEmail: maskEmail(user.email) });
+  })
+);
+
 app.post(
   '/api/forgot-password',
   authLimiter,
   asyncHandler(async (req, res) => {
-    const { email } = req.body || {};
+    const { username } = req.body || {};
     const generic = {
       ok: true,
-      message: 'Se esse e-mail tiver uma conta aqui, enviamos um link pra trocar a senha.',
+      message: 'Se esse usuário tiver uma conta aqui, enviamos um link pra trocar a senha.',
     };
-    if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email)) {
+    if (!username || typeof username !== 'string') {
       return res.json(generic);
     }
-    const user = await db.get('SELECT id, username, email FROM users WHERE email = ?', [email.trim()]);
-    if (!user) return res.json(generic);
+    const user = await db.get('SELECT id, username, email FROM users WHERE username = ?', [username.trim()]);
+    if (!user || !user.email) return res.json(generic);
 
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1h
@@ -6408,7 +6439,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, is_admin, is_verified, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, created_at FROM users ORDER BY created_at DESC'
+        'SELECT id, username, email, is_admin, is_verified, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, created_at FROM users ORDER BY created_at DESC'
       )
     );
   })

@@ -1903,23 +1903,31 @@
 </div>
 
 <!-- MODAL: ESQUECEU A SENHA — manda link de troca por e-mail. Funciona
-     deslogado, aberto direto da tela de login. -->
+     deslogado, aberto direto da tela de login.
+     Fluxo em 2 passos (a pedido, pra não confundir qual e-mail foi
+     cadastrado): 1) digita o USUÁRIO (mesmo dado do login) e vê uma prévia
+     mascarada do e-mail cadastrado (ex: "re***@gmail.com"); 2) confirma e
+     manda o link de verdade pra esse e-mail. -->
 <div id="modal-forgot-password" class="modal-overlay hidden">
   <div class="modal-card">
     <h2><span class="ng-icon-wrap" data-icon="lock"></span> Trocar senha</h2>
-    <p class="hint" style="margin-bottom:10px;">Digite o e-mail da sua conta — se existir, mandamos um link pra você escolher uma senha nova.</p>
+    <p class="hint" style="margin-bottom:10px;">Digite seu usuário — mostramos uma prévia do e-mail cadastrado antes de mandar o link.</p>
     <form id="form-forgot-password">
-      <div id="forgot-password-fields">
-        <label>E-mail</label>
-        <input type="email" id="forgot-password-email" placeholder="voce@email.com" required />
+      <div id="forgot-password-step1">
+        <label>Usuário</label>
+        <input type="text" id="forgot-password-username" placeholder="seu_usuario" autocomplete="username" required />
+      </div>
+      <div id="forgot-password-step2" class="hidden">
+        <p class="hint">Vamos mandar o link de troca pra: <strong id="forgot-password-masked-email"></strong></p>
+        <p class="hint" style="font-size:11.5px;">Não é esse e-mail? Clique em "Fechar" e confira se digitou o usuário certo.</p>
       </div>
       <p id="forgot-password-error" class="auth-error"></p>
       <p id="forgot-password-success" class="hint hidden" style="color:#3ba55c; margin-top:6px;">
-        ✅ Se esse e-mail tiver conta aqui, o link chega em instantes (confira o spam também).
+        ✅ Link enviado para <strong id="forgot-password-sent-to"></strong> — confira sua caixa de entrada (e o spam).
       </p>
       <div class="modal-actions">
         <button type="button" id="btn-close-forgot-password">Fechar</button>
-        <button type="submit" id="btn-send-forgot-password">Enviar link</button>
+        <button type="submit" id="btn-send-forgot-password">Continuar</button>
       </div>
     </form>
   </div>

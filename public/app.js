@@ -208,21 +208,28 @@ document.getElementById('btn-toggle-login-password').onclick = () => {
   btn.title = showing ? 'Mostrar senha' : 'Esconder senha';
 };
 
-// "Esqueceu a senha?" — abre o link de troca por e-mail. Sem domínio
-// verificado no Resend configurado no servidor, o e-mail pode não chegar de
-// verdade (mesma limitação da confirmação de cadastro) — mas o formulário e
-// o fluxo já funcionam por completo, é só ligar o envio quando tiver domínio.
-document.getElementById('link-forgot-password').onclick = (e) => {
-  e.preventDefault();
+// "Esqueceu a senha?" — fluxo em 2 passos, pra pessoa não se confundir no
+// e-mail digitado: 1) digita o USUÁRIO (mesmo dado do login) e vê uma prévia
+// mascarada do e-mail cadastrado (ex: "re***@gmail.com"); 2) confirma e o
+// link de troca é mandado de verdade pra esse e-mail.
+let forgotPasswordStep = 'username'; // 'username' | 'confirm' | 'done'
+let forgotPasswordUsername = '';
+
+function resetForgotPasswordModal() {
+  forgotPasswordStep = 'username';
+  forgotPasswordUsername = '';
   document.getElementById('forgot-password-error').textContent = '';
   document.getElementById('forgot-password-success').classList.add('hidden');
-  // Reabre sempre com o campo de e-mail e o botão "Enviar link" visíveis de
-  // novo — caso a pessoa tenha fechado depois de um envio anterior (ver bug
-  // corrigido abaixo: esconder o <form> inteiro escondia também o botão
-  // "Fechar", travando o modal até dar F5).
-  document.getElementById('forgot-password-fields').classList.remove('hidden');
+  document.getElementById('forgot-password-step1').classList.remove('hidden');
+  document.getElementById('forgot-password-step2').classList.add('hidden');
   document.getElementById('btn-send-forgot-password').classList.remove('hidden');
-  document.getElementById('forgot-password-email').value = '';
+  document.getElementById('btn-send-forgot-password').textContent = 'Continuar';
+  document.getElementById('forgot-password-username').value = '';
+}
+
+document.getElementById('link-forgot-password').onclick = (e) => {
+  e.preventDefault();
+  resetForgotPasswordModal();
   document.getElementById('modal-forgot-password').classList.remove('hidden');
 };
 document.getElementById('btn-close-forgot-password').onclick = () =>
@@ -230,31 +237,58 @@ document.getElementById('btn-close-forgot-password').onclick = () =>
 
 document.getElementById('form-forgot-password').onsubmit = async (e) => {
   e.preventDefault();
-  const email = document.getElementById('forgot-password-email').value.trim();
   const errEl = document.getElementById('forgot-password-error');
-  const okEl = document.getElementById('forgot-password-success');
   const btn = document.getElementById('btn-send-forgot-password');
   errEl.textContent = '';
   btn.disabled = true;
   try {
-    const res = await fetch('/api/forgot-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      errEl.textContent = data.error || 'Erro ao pedir troca de senha';
-      return;
+    if (forgotPasswordStep === 'username') {
+      // Passo 1: procura o usuário e mostra o e-mail mascarado, sem mandar
+      // nada ainda — só uma prévia pra confirmar que é a conta certa.
+      const username = document.getElementById('forgot-password-username').value.trim();
+      if (!username) {
+        errEl.textContent = 'Digite seu usuário';
+        return;
+      }
+      const res = await fetch('/api/forgot-password/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Usuário não encontrado';
+        return;
+      }
+      forgotPasswordUsername = username;
+      document.getElementById('forgot-password-masked-email').textContent = data.maskedEmail;
+      document.getElementById('forgot-password-step1').classList.add('hidden');
+      document.getElementById('forgot-password-step2').classList.remove('hidden');
+      btn.textContent = 'Enviar link';
+      forgotPasswordStep = 'confirm';
+    } else if (forgotPasswordStep === 'confirm') {
+      // Passo 2: confirmado que é a conta certa — manda o link de verdade.
+      const res = await fetch('/api/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: forgotPasswordUsername }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Erro ao pedir troca de senha';
+        return;
+      }
+      document.getElementById('forgot-password-sent-to').textContent =
+        document.getElementById('forgot-password-masked-email').textContent;
+      // Esconde só o passo atual e o botão de enviar — NUNCA o <form>
+      // inteiro, porque o botão "Fechar" mora dentro dele também (ver
+      // .modal-actions no HTML). Esse era o bug real reportado antes: sem
+      // essa distinção, o "Fechar" sumia junto e travava o modal até F5.
+      document.getElementById('forgot-password-step2').classList.add('hidden');
+      btn.classList.add('hidden');
+      document.getElementById('forgot-password-success').classList.remove('hidden');
+      forgotPasswordStep = 'done';
     }
-    // Esconde só o campo de e-mail e o botão de enviar — NÃO o <form>
-    // inteiro, porque o botão "Fechar" mora dentro dele também (ver
-    // .modal-actions no HTML). Escondendo o form inteiro, o "Fechar" some
-    // junto e a pessoa fica travada no modal sem jeito de sair a não ser
-    // atualizando a página. Esse era o bug real reportado.
-    document.getElementById('forgot-password-fields').classList.add('hidden');
-    btn.classList.add('hidden');
-    okEl.classList.remove('hidden');
   } catch (err) {
     errEl.textContent = 'Erro de conexão com o servidor';
   } finally {
