@@ -178,6 +178,22 @@ async function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Cupons de resgate (ex: "quem faz recarga full no Magic Tank ganha
+    -- NEXT GAME PLUS") — código de uso único que o admin gera e entrega por
+    -- fora (nenhum pagamento passa pelo NEXT GAME nisso), a pessoa digita em
+    -- Configurações > NEXTGAME PLUS pra liberar o plano por um tempo.
+    CREATE TABLE IF NOT EXISTS redeem_codes (
+      id TEXT PRIMARY KEY,
+      code TEXT NOT NULL UNIQUE,
+      plan TEXT NOT NULL DEFAULT 'plus',
+      days INTEGER NOT NULL DEFAULT 30,
+      note TEXT,
+      used_by TEXT,
+      used_at TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS message_reactions (
       id TEXT PRIMARY KEY,
       message_id TEXT NOT NULL,

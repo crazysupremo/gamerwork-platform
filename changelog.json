@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.30.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Auditoria de segurança do NEXTGAME PLUS: confirmado que temas, banners, badges, fundos, efeitos visuais e limite de anexo já são bloqueados no SERVIDOR pra quem não é Plus (não só escondidos na tela) — ninguém consegue burlar isso mesmo mexendo direto na API.",
+      "Reforçada a nitidez da transmissão de tela: além do bitrate (já corrigido antes), agora também trava a resolução real do encoder (sem reduzir sozinho) e pede resolução máxima já na captura, não só a ideal.",
+      "Nova: cupons de resgate — o admin gera um código em /admin.html > Conteúdo/Loja (ex: \"recarga full no Magic Tank\") e a pessoa digita em Configurações > NEXTGAME PLUS pra liberar o plano por um tempo, sem passar nenhum pagamento pelo NEXT GAME.",
+      "Corrigidos os botões de tocar/pular do NEXT Music (painel de música da sala de voz) — estavam grandes demais pro espaço e pareciam sobrepostos; agora no tamanho certo, com respiro."
+    ]
+  },
+  {
+    "version": "0.29.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Servidores oficiais (NEXT GAME, Magic Tank) agora aparecem em \"Servidores em Destaque\" na Início pra TODO MUNDO, mesmo quem ainda não é membro — com um botão \"Entrar\" no card, em vez de só ficar escondido na aba Explorar."
+    ]
+  },
+  {
+    "version": "0.29.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Tela de login: adicionada a menção de parceria oficial com o Magic Tank (logo + texto), no painel esquerdo.",
+      "Logo redonda em cima do formulário de login repaginada: anel giratório com degradê da marca e brilho mais encorpado, em vez do círculo liso de antes."
+    ]
+  },
+  {
     "version": "0.29.0",
     "date": "2026-09-03",
     "changes": [

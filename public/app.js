@@ -4703,6 +4703,45 @@ function updatePlusBadgeUI() {
   if (menuLabel) menuLabel.textContent = isPlus ? 'NEXTGAME PLUS (ativo)' : 'NEXTGAME PLUS';
 }
 
+// Cupom de resgate (ex: recarga full no jogo parceiro dá NEXTGAME PLUS de
+// brinde) — código gerado pelo admin em /admin.html > Conteúdo/Loja.
+document.getElementById('btn-redeem-code').onclick = async () => {
+  const input = document.getElementById('redeem-code-input');
+  const msgEl = document.getElementById('redeem-code-msg');
+  const code = input.value.trim();
+  if (!code) return;
+  msgEl.style.color = '';
+  msgEl.textContent = 'Verificando...';
+  try {
+    const res = await fetch('/api/redeem-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msgEl.style.color = '#f23f42';
+      msgEl.textContent = data.error || 'Código inválido';
+      return;
+    }
+    me.plan = 'plus';
+    updatePlusBadgeUI();
+    loadUploadLimits();
+    mountPlusV2Personalization();
+    SFX.reward && SFX.reward();
+    input.value = '';
+    document.getElementById('plus-already-active').classList.remove('hidden');
+    document.getElementById('paypal-button-container').innerHTML = '';
+    document.getElementById('redeem-code-box').classList.add('hidden');
+    msgEl.style.color = '#3ba55c';
+    msgEl.textContent = '🎉 ' + (data.message || 'NEXTGAME PLUS liberado!');
+  } catch (err) {
+    msgEl.style.color = '#f23f42';
+    msgEl.textContent = 'Erro de conexão com o servidor';
+  }
+};
+
 let paypalSdkLoadedFor = null; // guarda o client-id já carregado, pra não injetar o script 2x
 
 function loadPayPalSdk(clientId) {
@@ -4734,6 +4773,9 @@ async function openPlusUpgradeModal() {
   buttonContainer.innerHTML = '';
   alreadyEl.classList.add('hidden');
   notConfiguredEl.classList.add('hidden');
+  // Cupom de resgate só faz sentido pra quem ainda não é Plus.
+  document.getElementById('redeem-code-box').classList.toggle('hidden', isPlusUser());
+  document.getElementById('redeem-code-msg').textContent = '';
 
   if (isPlusUser()) {
     alreadyEl.classList.remove('hidden');
@@ -6499,14 +6541,29 @@ function gradientForName(name) {
   return SERVER_CARD_GRADIENTS[hash % SERVER_CARD_GRADIENTS.length];
 }
 
-function loadHomeServers() {
+async function loadHomeServers() {
   const grid = document.getElementById('home-servers-grid');
   grid.innerHTML = '';
   const categories = [...new Set(allChannels.map((c) => c.category))].sort((a, b) => a.localeCompare(b));
-  if (categories.length === 0) {
+
+  // Servidores oficiais (NEXT GAME, Magic Tank etc.) aparecem aqui pra
+  // TODO MUNDO — a pedido — mesmo pra quem ainda não é membro, com um botão
+  // "Entrar" em vez de abrir direto. Só entra na lista quem ainda não está
+  // nas categorias que a pessoa já é membro (senão duplicava o card).
+  let officialNotJoined = [];
+  try {
+    const res = await fetch('/api/servers/discover', { credentials: 'include' });
+    if (res.ok) {
+      const discovered = await res.json();
+      officialNotJoined = discovered.filter((s) => s.is_official && !categories.includes(s.category));
+    }
+  } catch (_) {}
+
+  if (categories.length === 0 && officialNotJoined.length === 0) {
     grid.innerHTML = '<p class="empty-hint">Nenhum servidor criado ainda — clique no + do trilho lateral pra criar o primeiro.</p>';
     return;
   }
+
   categories.forEach((category) => {
     const channelCount = allChannels.filter((c) => c.category === category).length;
     const card = document.createElement('div');
@@ -6532,6 +6589,38 @@ function loadHomeServers() {
         allChannels.find((c) => c.category === category && c.type !== 'voz') ||
         allChannels.find((c) => c.category === category);
       if (firstChannel) selectChannel(firstChannel);
+    };
+    grid.appendChild(card);
+  });
+
+  officialNotJoined.forEach((s) => {
+    const card = document.createElement('div');
+    card.className = 'home-server-card home-server-card-joinable';
+    card.dataset.name = s.category.toLowerCase();
+    card.innerHTML = `
+      <div class="home-server-banner" style="background:${gradientForName(s.category)};">
+        <div class="home-server-icon">${
+          s.icon && s.icon.startsWith('/') ? `<img src="${escapeHtml(s.icon)}" alt="" class="server-icon-logo-img" />` : escapeHtml(s.icon || serverInitials(s.category))
+        }</div>
+      </div>
+      <div class="home-server-name">${escapeHtml(s.category)} <span class="verified-badge" title="Servidor oficial NEXT GAME">${icon('badge-check')}</span></div>
+      <div class="home-server-meta">${s.text_channels} sala${s.text_channels === 1 ? '' : 's'} · 👥 ${s.member_count} membros</div>
+      <button type="button" class="home-server-join-btn">Entrar</button>
+    `;
+    card.querySelector('.home-server-join-btn').onclick = async (e) => {
+      e.stopPropagation();
+      const r = await fetch(`/api/servers/discover/${encodeURIComponent(s.category)}/join`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        alert(d.error || 'Não foi possível entrar nesse servidor.');
+        return;
+      }
+      activeServerCategory = s.category;
+      await loadChannels();
+      goHome();
     };
     grid.appendChild(card);
   });
@@ -9095,6 +9184,11 @@ function applyScreenShareBitrate(pc, videoTrack) {
   const params = sender.getParameters();
   if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
   params.encodings[0].maxBitrate = preset.maxBitrate;
+  // scaleResolutionDownBy=1 trava o encoder pra NÃO reduzir a resolução
+  // sozinho por baixo dos panos (o padrão às vezes reduz um pouco mesmo com
+  // bitrate alto liberado) — junto com o bitrate, é o que faltava pra
+  // resolução escolhida realmente aparecer nítida do outro lado.
+  params.encodings[0].scaleResolutionDownBy = 1;
   sender.setParameters(params).catch((err) => console.warn('Não deu pra ajustar o bitrate da tela:', err.message));
 }
 
@@ -9194,9 +9288,11 @@ document.getElementById('btn-confirm-share-picker').onclick = async () => {
     // sem travar nada.
     localStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        width: { ideal: preset.width },
-        height: { ideal: preset.height },
-        frameRate: { ideal: preset.frameRate },
+        // "max" além de "ideal" — evita o navegador entregar uma resolução
+        // mais baixa por conta própria mesmo tendo tela grande o bastante.
+        width: { ideal: preset.width, max: preset.width },
+        height: { ideal: preset.height, max: preset.height },
+        frameRate: { ideal: preset.frameRate, max: preset.frameRate },
       },
       audio: {
         echoCancellation: true,

@@ -59,6 +59,7 @@ async function init() {
   loadMinors();
   loadClipsAdmin();
   loadShopAdmin();
+  loadRedeemCodes();
   loadReports();
   loadSupportTickets();
   setInterval(loadSupportTickets, 20000);
@@ -461,6 +462,62 @@ document.getElementById('btn-shop-add').addEventListener('click', async () => {
   document.getElementById('shop-new-description').value = '';
   document.getElementById('shop-new-cost').value = '';
   loadShopAdmin();
+});
+
+// ---------- Cupons de resgate (ex: recarga full no Magic Tank -> PLUS) ----------
+async function loadRedeemCodes() {
+  const res = await fetch('/api/admin/redeem-codes', { credentials: 'include' });
+  const rows = await res.json();
+  const tbody = document.querySelector('#redeem-codes-table tbody');
+  tbody.innerHTML = '';
+  rows.forEach((c) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family:monospace; font-weight:700;">${escapeHtml(c.code)}</td>
+      <td>${c.days > 0 ? c.days + ' dias' : 'sem prazo'}</td>
+      <td>${escapeHtml(c.note || '—')}</td>
+      <td>${
+        c.used_by
+          ? `<span style="color:#949ba4;">Resgatado por ${escapeHtml(c.used_by_username || '?')}</span>`
+          : '<span style="color:#23a55a; font-weight:700;">Disponível</span>'
+      }</td>
+      <td>${escapeHtml(c.created_by || '—')}</td>
+      <td>${
+        c.used_by
+          ? '—'
+          : `<button class="action danger" data-action="delete-redeem" data-id="${c.id}">Apagar</button>`
+      }</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('button[data-action="delete-redeem"]').forEach((btn) =>
+    btn.addEventListener('click', async () => {
+      if (!confirm('Apagar esse código? (só dá pra apagar os que ainda não foram resgatados)')) return;
+      await fetch(`/api/admin/redeem-codes/${btn.dataset.id}`, { method: 'DELETE', credentials: 'include' });
+      loadRedeemCodes();
+    })
+  );
+}
+
+document.getElementById('btn-redeem-generate').addEventListener('click', async () => {
+  const days = document.getElementById('redeem-new-days').value;
+  const note = document.getElementById('redeem-new-note').value.trim();
+  const quantity = document.getElementById('redeem-new-quantity').value;
+  const res = await fetch('/api/admin/redeem-codes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ days, note, quantity }),
+  });
+  const data = await res.json();
+  if (!res.ok) return alert(data.error || 'Erro ao gerar código(s)');
+  const box = document.getElementById('redeem-generated-box');
+  box.classList.remove('hidden');
+  box.innerHTML =
+    `<strong>${data.codes.length} código(s) gerado(s):</strong><br>` +
+    data.codes.map((c) => `<span style="font-family:monospace; font-weight:700;">${escapeHtml(c)}</span>`).join(' · ');
+  document.getElementById('redeem-new-note').value = '';
+  loadRedeemCodes();
 });
 
 function escapeHtml(str) {

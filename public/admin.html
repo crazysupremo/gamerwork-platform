@@ -291,6 +291,24 @@
           <input type="number" id="shop-new-cost" placeholder="Custo em coins" min="1" style="max-width:120px;" />
           <button type="button" id="btn-shop-add" class="action">+ Adicionar item</button>
         </div>
+
+        <h2>🎁 Cupons de resgate (ex: recarga full no jogo parceiro → NEXTGAME PLUS)</h2>
+        <p style="color:#949ba4; font-size:13px;">
+          Gera código(s) de uso único que dão NEXTGAME PLUS por um tempo. Nenhum pagamento passa por aqui —
+          o código é entregue por fora (WhatsApp, e-mail, dentro do outro jogo etc.), a pessoa só digita ele
+          em Configurações &gt; NEXTGAME PLUS.
+        </p>
+        <div class="admin-form-row">
+          <input type="number" id="redeem-new-days" placeholder="Dias de Plus (ex: 30)" min="0" value="30" style="max-width:160px;" />
+          <input type="text" id="redeem-new-note" placeholder="Nota (ex: Magic Tank — recarga full)" />
+          <input type="number" id="redeem-new-quantity" placeholder="Quantidade" min="1" max="50" value="1" style="max-width:120px;" />
+          <button type="button" id="btn-redeem-generate" class="action">+ Gerar código(s)</button>
+        </div>
+        <div id="redeem-generated-box" class="hidden" style="background:rgba(35,165,90,0.1); border:1px solid #23a55a; border-radius:8px; padding:10px 14px; margin-top:10px; font-size:13px;"></div>
+        <table id="redeem-codes-table">
+          <thead><tr><th>Código</th><th>Dias</th><th>Nota</th><th>Status</th><th>Criado por</th><th>Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
 
       <!-- ---------- PERSONALIZAÇÃO (Plus V2) ---------- -->

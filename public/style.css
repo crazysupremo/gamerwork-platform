@@ -235,6 +235,15 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .auth-stat-num { font-size: 19px; font-weight: 900; color: white; line-height: 1; }
 .auth-stat-label { font-size: 10.5px; color: #9aa0ab; }
 
+/* Parceria com o Magic Tank, visível já na tela de login (a pedido). */
+.auth-partner-row {
+  display: inline-flex; align-items: center; gap: 10px; background: rgba(20,21,28,0.55);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 8px 14px; margin-bottom: 14px;
+  backdrop-filter: blur(6px);
+}
+.auth-partner-logo { width: 26px; height: 26px; border-radius: 7px; object-fit: cover; flex-shrink: 0; }
+.auth-partner-text { font-size: 12px; color: #b5bac1; }
+.auth-partner-text strong { color: #f2f3f5; }
 .auth-left-footer { font-size: 11px; color: #8b909a; margin: 0; }
 .auth-left-powered-by { font-size: 11px; color: #6d7178; margin: 4px 0 0; }
 .auth-left-powered-by strong { color: #8b909a; }
@@ -248,19 +257,32 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 /* Emblema circular com brilho ao redor da logo, igual selo/medalha —
    substitui a logo "achatada" que tinha antes só na tela de login. */
+/* Repaginado ("melhora essa logo") — anel giratório com degradê da marca em
+   volta do círculo (pseudo-elemento com mask, gira sozinho) + brilho mais
+   encorpado em camadas (azul + roxo), em vez de só um círculo liso com
+   sombra simples. O logo em si continua flutuando suave como antes. */
 .auth-logo-badge {
-  width: 108px; height: 108px; border-radius: 50%; margin: 0 auto 18px;
+  width: 116px; height: 116px; border-radius: 50%; margin: 0 auto 20px; position: relative;
   display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(circle, rgba(88,101,242,0.22) 0%, rgba(20,21,27,0.4) 70%);
-  border: 1px solid rgba(88,101,242,0.5);
-  box-shadow: 0 0 0 6px rgba(88,101,242,0.08), 0 0 40px rgba(88,101,242,0.35);
+  background: radial-gradient(circle, rgba(88,101,242,0.26) 0%, rgba(16,17,23,0.55) 72%);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 0 0 1px rgba(88,101,242,0.2), 0 0 46px rgba(88,101,242,0.4), 0 0 84px rgba(145,70,255,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.08);
   animation: authLogoFloat 3.6s ease-in-out infinite;
 }
-.auth-logo-img { display: block; height: 62px; width: auto; }
+.auth-logo-badge::before {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%; padding: 2px;
+  background: conic-gradient(from 0deg, #5865f2, #9146ff, #00d9c0, #5865f2);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0.8; animation: authLogoRingSpin 7s linear infinite;
+}
+.auth-logo-img { display: block; height: 62px; width: auto; position: relative; z-index: 1; filter: drop-shadow(0 2px 10px rgba(0,0,0,0.4)); }
 @keyframes authLogoFloat {
   0%, 100% { transform: translateY(0) rotate(-1.5deg); }
   50% { transform: translateY(-6px) rotate(1.5deg); }
 }
+@keyframes authLogoRingSpin { to { transform: rotate(360deg); } }
 .auth-card-title {
   margin: 0 0 6px;
   font-size: 22px;
@@ -1049,6 +1071,16 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   box-shadow: 0 10px 20px rgba(88,101,242,0.22);
 }
 .home-server-card:active { transform: translateY(-1px) scale(0.99); }
+/* Servidor oficial que a pessoa ainda não é membro — aparece pra todo mundo
+   (a pedido), com botão "Entrar" em vez de abrir direto, já que ela ainda
+   não tem acesso. */
+.home-server-card-joinable { cursor: default; }
+.home-server-join-btn {
+  margin-top: 6px; width: calc(100% - 16px); background: var(--gradient-brand); color: white; border: none;
+  border-radius: 8px; padding: 6px 0; font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.home-server-join-btn:hover { filter: brightness(1.1); }
 /* Faixa colorida no topo do card (gradientForName no JS) — substitui a
    "capa" de jogo que não temos como gerar; dá o mesmo efeito visual de
    card mais rico, sem imagem nenhuma. */
@@ -1587,7 +1619,13 @@ video:fullscreen { background: #000; object-fit: contain; }
 #music-player-mount { width: 100%; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background: #000; margin-bottom: 10px; }
 #music-player-mount iframe { width: 100%; height: 100%; }
 .music-now-playing-info { font-size: 12px; color: #dbdee1; margin-bottom: 10px; line-height: 1.4; }
-.music-controls { display: flex; gap: 8px; }
+/* CORRIGIDO: os botões de tocar/pular usavam o mesmo tamanho dos botões
+   grandes da barra de chamada (46px, pensados pra ficarem sozinhos numa
+   barra larga) — aqui, no painel estreito do NEXT Music, ficavam grandes
+   demais junto do resto e pareciam "grudados"/sobrepostos. Reduzidos pro
+   tamanho certo desse espaço, com respiro embaixo do player. */
+.music-controls { display: flex; gap: 10px; align-items: center; margin-top: 2px; }
+.music-controls .control-icon-btn { width: 34px; height: 34px; font-size: 13px; flex-shrink: 0; }
 .music-queue-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
 .music-queue-item {
   display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px; background: var(--bg-sidebar);
@@ -2278,6 +2316,24 @@ video:fullscreen { background: #000; object-fit: contain; }
   text-align: center; padding: 12px; border-radius: 10px; background: rgba(35,165,90,0.12);
   color: #3ba55c; font-weight: 700; margin-bottom: 12px;
 }
+
+/* Cupom de resgate (ex: recarga full no Magic Tank -> NEXTGAME PLUS). */
+.redeem-code-box {
+  display: flex; align-items: center; gap: 10px; background: rgba(250,166,26,0.08);
+  border: 1px solid rgba(250,166,26,0.3); border-radius: 12px; padding: 12px 16px; margin-top: 16px;
+}
+.redeem-code-box > .ng-icon-wrap { width: 20px; height: 20px; color: #faa61a; flex-shrink: 0; }
+.redeem-code-fields { flex: 1; display: flex; gap: 8px; }
+.redeem-code-fields input {
+  flex: 1; min-width: 0; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+  background: #101116; color: #e6e6e6; font-size: 13px; text-transform: uppercase;
+}
+.redeem-code-fields input::placeholder { text-transform: none; }
+.redeem-code-fields button {
+  background: #faa61a; color: #1a1400; border: none; border-radius: 8px; padding: 8px 16px;
+  font-weight: 700; font-size: 13px; cursor: pointer; transition: filter 0.15s ease;
+}
+.redeem-code-fields button:hover { filter: brightness(1.08); }
 
 .tournament-filter-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
 .tournament-filter-tab {

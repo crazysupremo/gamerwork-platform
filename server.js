@@ -1360,7 +1360,7 @@ async function grantPlusFromReward(userId, days) {
 // concedido manualmente por admin (plan_source=null), só no que veio de
 // prêmio com prazo (plan_source='reward').
 async function checkPlanExpiry(user) {
-  if (user.plan === 'plus' && user.plan_source === 'reward' && user.plan_expires_at) {
+  if (user.plan === 'plus' && (user.plan_source === 'reward' || user.plan_source === 'coupon') && user.plan_expires_at) {
     if (new Date(user.plan_expires_at) < new Date()) {
       await setUserPlan(user.id, 'free');
       user.plan = 'free';
@@ -1517,6 +1517,104 @@ app.post(
     if (!['free', 'plus'].includes(plan)) return res.status(400).json({ error: 'Plano inválido (use "free" ou "plus")' });
     await setUserPlan(req.params.id, plan);
     res.json({ ok: true, plan });
+  })
+);
+
+// ---------- CUPONS DE RESGATE (ex: recarga full no Magic Tank -> NEXTGAME PLUS) ----------
+// Nenhum pagamento passa pelo NEXT GAME aqui — o código é gerado no admin e
+// entregue por fora (o parceiro decide como), a pessoa só digita ele.
+function generateRedeemCode() {
+  // Formato tipo "NEXT-7F3K-9QZP" — fácil de digitar/ditar, difícil de
+  // adivinhar (36^8 combinações). Evita caracteres ambíguos (0/O, 1/I/L).
+  const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const rand = (n) =>
+    Array.from({ length: n }, () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join('');
+  return `NEXT-${rand(4)}-${rand(4)}`;
+}
+
+app.post(
+  '/api/redeem-code',
+  requireAuth,
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { code } = req.body || {};
+    if (!code || typeof code !== 'string') return res.status(400).json({ error: 'Digite um código' });
+    const clean = code.trim().toUpperCase();
+    const found = await db.get('SELECT * FROM redeem_codes WHERE code = ?', [clean]);
+    if (!found) return res.status(404).json({ error: 'Código inválido' });
+    if (found.used_by) return res.status(409).json({ error: 'Esse código já foi resgatado' });
+    const expiresAt =
+      found.days > 0 ? new Date(Date.now() + found.days * 24 * 60 * 60 * 1000).toISOString() : null;
+    await setUserPlan(req.user.id, found.plan, { source: 'coupon', expiresAt });
+    await db.run("UPDATE redeem_codes SET used_by = ?, used_at = datetime('now') WHERE id = ?", [
+      req.user.id,
+      found.id,
+    ]);
+    res.json({
+      ok: true,
+      plan: found.plan,
+      days: found.days,
+      message:
+        found.days > 0
+          ? `NEXTGAME PLUS liberado por ${found.days} dias!`
+          : 'NEXTGAME PLUS liberado!',
+    });
+  })
+);
+
+app.get(
+  '/api/admin/redeem-codes',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await db.all(
+        `SELECT rc.*, u.username as used_by_username FROM redeem_codes rc
+         LEFT JOIN users u ON u.id = rc.used_by
+         ORDER BY rc.created_at DESC LIMIT 300`
+      )
+    );
+  })
+);
+
+app.post(
+  '/api/admin/redeem-codes',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { days, note, quantity } = req.body || {};
+    const cleanDays = Math.max(0, Math.min(3650, parseInt(days, 10) || 30));
+    const cleanNote = (note || '').toString().slice(0, 200) || null;
+    const qty = Math.max(1, Math.min(50, parseInt(quantity, 10) || 1));
+    const codes = [];
+    for (let i = 0; i < qty; i++) {
+      let code;
+      // Garante que não bate com um código já existente (chance mínima, mas
+      // confere mesmo assim antes de gravar).
+      do {
+        code = generateRedeemCode();
+      } while (await db.get('SELECT id FROM redeem_codes WHERE code = ?', [code]));
+      const id = uuidv4();
+      await db.run(
+        'INSERT INTO redeem_codes (id, code, plan, days, note, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, code, 'plus', cleanDays, cleanNote, req.user.username]
+      );
+      codes.push(code);
+    }
+    logAudit(req.user, 'create_redeem_codes', 'redeem_code', null, { quantity: qty, days: cleanDays, note: cleanNote });
+    res.json({ ok: true, codes });
+  })
+);
+
+app.delete(
+  '/api/admin/redeem-codes/:id',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const found = await db.get('SELECT used_by FROM redeem_codes WHERE id = ?', [req.params.id]);
+    if (found && found.used_by) return res.status(400).json({ error: 'Não dá pra apagar um código já resgatado' });
+    await db.run('DELETE FROM redeem_codes WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
   })
 );
 

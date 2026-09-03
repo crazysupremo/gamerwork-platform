@@ -151,6 +151,14 @@
 
         <div class="auth-stats" id="landing-stats"></div>
 
+        <!-- Parceria com o Magic Tank, visível já na tela de login (a pedido)
+             — mesmo card que aparece na Início, versão compacta pra caber
+             aqui sem brigar com o resto do painel esquerdo. -->
+        <div class="auth-partner-row">
+          <img src="/assets/partner-magic-tank.png" alt="Magic Tank" class="auth-partner-logo" />
+          <span class="auth-partner-text">Parceria oficial com <strong>Magic Tank</strong></span>
+        </div>
+
         <p class="auth-left-footer">
           © 2026 NEXT GAME. Todos os direitos reservados. ·
           <a href="#" id="link-safety-info" class="auth-left-footer-link">Segurança e proteção de menores</a> ·
@@ -1294,6 +1302,17 @@
       </div>
       <div id="paypal-button-container"></div>
       <p id="plus-error" class="auth-error"></p>
+
+      <!-- Cupom de resgate (ex: quem faz recarga full no jogo parceiro ganha
+           NEXTGAME PLUS de brinde) — código entregue por fora, digita aqui. -->
+      <div id="redeem-code-box" class="redeem-code-box">
+        <span class="ng-icon-wrap" data-icon="gift"></span>
+        <div class="redeem-code-fields">
+          <input type="text" id="redeem-code-input" placeholder="Tem um código promocional? Digite aqui" maxlength="20" />
+          <button type="button" id="btn-redeem-code">Resgatar</button>
+        </div>
+      </div>
+      <p id="redeem-code-msg" class="hint" style="text-align:center;"></p>
 
       <div id="plus2-root" style="margin-top:28px; border-top:1px solid #2a2b32; padding-top:20px;"></div>
     </div>
