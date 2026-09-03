@@ -4304,6 +4304,14 @@ function openSettingsTab(tabName) {
   if (tabBtn) tabBtn.click();
 }
 
+// Aviso na Loja NEXT Coins sobre a promoção com o Magic Tank (recarga full
+// lá vira código de NEXTGAME PLUS aqui) — leva direto pro campo de resgate.
+document.getElementById('btn-shop-open-redeem').onclick = () => {
+  document.getElementById('modal-shop-coins').classList.add('hidden');
+  openSettingsTab('plus');
+  setTimeout(() => document.getElementById('redeem-code-input')?.focus(), 200);
+};
+
 async function load2FAStatus() {
   const res = await fetch('/api/2fa/status', { credentials: 'include' });
   const data = await res.json();

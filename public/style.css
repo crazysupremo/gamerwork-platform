@@ -244,6 +244,22 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .auth-partner-logo { width: 26px; height: 26px; border-radius: 7px; object-fit: cover; flex-shrink: 0; }
 .auth-partner-text { font-size: 12px; color: #b5bac1; }
 .auth-partner-text strong { color: #f2f3f5; }
+
+/* Aviso da promoção Magic Tank na Loja NEXT Coins (recarga full -> código
+   de NEXTGAME PLUS). */
+.shop-partner-promo {
+  display: flex; align-items: center; gap: 12px; background: rgba(250,166,26,0.08);
+  border: 1px solid rgba(250,166,26,0.3); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;
+}
+.shop-partner-promo-logo { width: 36px; height: 36px; border-radius: 9px; object-fit: cover; flex-shrink: 0; }
+.shop-partner-promo-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.shop-partner-promo-text strong { font-size: 13px; color: #f2f3f5; }
+.shop-partner-promo-text span { font-size: 12px; color: #b5bac1; }
+.shop-partner-promo-btn {
+  flex-shrink: 0; background: #faa61a; color: #1a1400; border: none; border-radius: 8px; padding: 8px 14px;
+  font-weight: 700; font-size: 12.5px; cursor: pointer; transition: filter 0.15s ease;
+}
+.shop-partner-promo-btn:hover { filter: brightness(1.08); }
 .auth-left-footer { font-size: 11px; color: #8b909a; margin: 0; }
 .auth-left-powered-by { font-size: 11px; color: #6d7178; margin: 4px 0 0; }
 .auth-left-powered-by strong { color: #8b909a; }

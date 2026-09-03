@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.30.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Gerado um lote de 100 cupons prontos pra entregar ao Magic Tank (30 dias de PLUS cada, uso único) — já cadastrados no banco assim que essa versão subir, sem precisar gerar pelo admin."
+    ]
+  },
+  {
+    "version": "0.30.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Loja NEXT Coins: adicionado aviso da promoção com o Magic Tank — \"Fez a recarga full no Magic Tank? Resgate seu código\" — com botão que já leva direto pro campo de resgate em Configurações > NEXTGAME PLUS."
+    ]
+  },
+  {
     "version": "0.30.0",
     "date": "2026-09-03",
     "changes": [

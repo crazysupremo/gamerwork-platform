@@ -932,6 +932,12 @@ async function initDb() {
   await ensurePlusV2Schema({ run, get, all, ensureColumn });
   await seedPlusV2Defaults({ run, get, all, ensureColumn });
 
+  // ---------- CUPONS PRÉ-GERADOS (Magic Tank — recarga full -> 1 mês de PLUS) ----------
+  // Lote pronto pra entregar direto ao parceiro (ele distribui pra quem
+  // compra a recarga full) — sem precisar entrar no /admin.html toda vez.
+  // Idempotente: cada código só é inserido se ainda não existir.
+  await seedMagicTankCoupons({ run, get });
+
   // ---------- SERVIDORES OFICIAIS (selo de verificado) ----------
   await ensureColumn('servers', 'is_official INTEGER NOT NULL DEFAULT 0');
   await seedOfficialServers({ run, get, all });
@@ -948,6 +954,45 @@ async function initDb() {
 // continuam exclusivas de quem tem is_admin=1 de verdade (ver requireAdmin
 // vs requireModerator em server.js). Roda só uma vez: se a conta já existe
 // (foi criada aqui ou alguém já trocou a senha dela), não mexe em nada.
+// Lote de 100 códigos de uso único (30 dias de PLUS cada) pra entregar ao
+// parceiro Magic Tank — ele distribui um código pra cada pessoa que faz a
+// recarga full, e cada código só funciona UMA vez (ver /api/redeem-code em
+// server.js: assim que alguém resgata, marca used_by e nunca mais aceita de
+// novo). Idempotente: roda toda vez que o servidor sobe, mas só insere quem
+// ainda não existe — não duplica nem recria os que já foram resgatados.
+const MAGIC_TANK_COUPON_CODES = [
+  'NEXT-25V6-9NQ5', 'NEXT-2ADG-43YZ', 'NEXT-2AMN-QC76', 'NEXT-2NU8-2VNG', 'NEXT-2NUB-MZPM',
+  'NEXT-3S73-TE36', 'NEXT-3SRR-58BA', 'NEXT-3Y4F-CAWA', 'NEXT-4244-2HP3', 'NEXT-4U9V-Z4ME',
+  'NEXT-4X77-73W8', 'NEXT-52KT-U6M9', 'NEXT-5XG3-WBY5', 'NEXT-6VDX-XBYY', 'NEXT-6WWR-EDJM',
+  'NEXT-78S2-CQFR', 'NEXT-7DBU-7NAR', 'NEXT-8JK2-KE6B', 'NEXT-8QNC-4N4P', 'NEXT-8SYS-SCXU',
+  'NEXT-8Z7R-NACK', 'NEXT-9MMF-TQQ5', 'NEXT-9RTU-ZZEB', 'NEXT-9SKV-SRQP', 'NEXT-AD8Y-HUNN',
+  'NEXT-AJ3P-HGN2', 'NEXT-AQYM-5QJB', 'NEXT-AXSE-7R67', 'NEXT-BA7G-CDVS', 'NEXT-BADG-6GMZ',
+  'NEXT-BBMS-824E', 'NEXT-BH3C-TGWZ', 'NEXT-BS42-JRNW', 'NEXT-BYNC-BFHE', 'NEXT-CCUZ-J2XG',
+  'NEXT-CDEH-2NRX', 'NEXT-CJWF-M2F7', 'NEXT-CT58-Y9UD', 'NEXT-DBMZ-Z9G2', 'NEXT-DJ22-MHVH',
+  'NEXT-EWY9-ZK3J', 'NEXT-FCP9-2PF4', 'NEXT-FJM5-ER8K', 'NEXT-FT87-ED5A', 'NEXT-GHJA-WFHV',
+  'NEXT-GKPH-GQ5P', 'NEXT-GQBY-KDBG', 'NEXT-H2PR-7AG2', 'NEXT-H62M-ZSH8', 'NEXT-HXB4-2NJS',
+  'NEXT-JQE8-SSX4', 'NEXT-JZM5-C5TG', 'NEXT-KEFB-3JM3', 'NEXT-KMQT-EX2B', 'NEXT-KP9A-5JX7',
+  'NEXT-KPER-34ZT', 'NEXT-KV7B-6TV9', 'NEXT-M6U7-4VR5', 'NEXT-ME2S-P2MW', 'NEXT-MEN2-TK7F',
+  'NEXT-NGQF-B965', 'NEXT-NNXZ-GPWR', 'NEXT-PBWK-Q6WH', 'NEXT-PG4P-SBQU', 'NEXT-PQ47-D6JS',
+  'NEXT-PQ85-FAS3', 'NEXT-PSBV-TH83', 'NEXT-QHPC-8C7S', 'NEXT-QNYZ-UUJA', 'NEXT-QRXN-MBDA',
+  'NEXT-QW8N-ZSTT', 'NEXT-R7PK-4PZC', 'NEXT-S7X3-PQ9K', 'NEXT-SFMW-RZVT', 'NEXT-TJ3M-W4ZU',
+  'NEXT-TJ8J-KYNZ', 'NEXT-UPG9-YTNN', 'NEXT-UTBR-H4BD', 'NEXT-VUY9-DSBQ', 'NEXT-W2WJ-3MTX',
+  'NEXT-W3VN-4GZ4', 'NEXT-WECG-GGJ9', 'NEXT-WEMH-795D', 'NEXT-WFDV-79XE', 'NEXT-WMJ9-JSV8',
+  'NEXT-WMKF-BBRN', 'NEXT-WMKZ-M5WA', 'NEXT-X5XS-XXU2', 'NEXT-X842-M7V9', 'NEXT-XJAA-3ZX9',
+  'NEXT-XM4F-755F', 'NEXT-XW7T-898E', 'NEXT-XZAQ-Y782', 'NEXT-YAV9-3MGC', 'NEXT-YAZX-HEF9',
+  'NEXT-YJGT-KRH9', 'NEXT-YN5K-X6N2', 'NEXT-YSG2-JQHP', 'NEXT-YSH2-4EDV', 'NEXT-YYUW-R6DT',
+];
+async function seedMagicTankCoupons({ run, get }) {
+  for (const code of MAGIC_TANK_COUPON_CODES) {
+    const existing = await get('SELECT id FROM redeem_codes WHERE code = ?', [code]);
+    if (existing) continue;
+    await run(
+      'INSERT INTO redeem_codes (id, code, plan, days, note, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+      [crypto.randomUUID(), code, 'plus', 30, 'Magic Tank — recarga full', 'seed']
+    );
+  }
+}
+
 async function seedModeratorAccount({ run, get }) {
   const USERNAME = 'moderador_bluex';
   // Senha inicial temporária — a pessoa que for usar essa conta deve trocar
