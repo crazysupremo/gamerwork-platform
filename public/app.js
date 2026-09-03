@@ -7749,6 +7749,7 @@ function registerSocketHandlers() {
 
   socket.on('rtc:signal', async ({ from, username, avatar, avatar_frame, data }) => {
     let pc = peers[from];
+    let isNewPc = false;
     if (!pc) {
       // Mesma espera do rtc:peer-joined — garante que a resposta (answer)
       // já sai com sua track de áudio, em vez de depender de uma
@@ -7757,11 +7758,21 @@ function registerSocketHandlers() {
       pc = peers[from];
       if (!pc) {
         pc = createPeerConnection(from, username, { username, avatar, avatar_frame });
-        addLocalTracksToPeer(pc);
+        isNewPc = true;
       }
     }
     if (data.type === 'offer') {
+      // CORRIGIDO (tela/perfil sumindo pra quem sai e volta pra sala): antes
+      // as tracks locais (mic + tela compartilhada) eram adicionadas ANTES
+      // de aplicar a oferta recebida — isso dispara onnegotiationneeded no
+      // meio da negociação de uma oferta chegando, uma corrida que em
+      // alguns navegadores acaba gerando uma resposta sem as tracks certas
+      // (quem tá reentrando não recebe a tela/câmera de quem já estava
+      // compartilhando). Agora: primeiro aplica a oferta (estado estável),
+      // DEPOIS adiciona as tracks, DEPOIS cria a resposta — assim a resposta
+      // sempre sai com tudo que você está transmitindo no momento.
       await pc.setRemoteDescription(data);
+      if (isNewPc) addLocalTracksToPeer(pc);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       socket.emit('rtc:signal', { to: from, data: pc.localDescription });

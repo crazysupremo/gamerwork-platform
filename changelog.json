@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.34.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Investigado a fundo o erro de não ver a tela/perfil de quem já estava transmitindo, ao sair e voltar pra sala de voz. Causa provável: quem já estava na sala adicionava a própria tela/câmera na conexão ANTES de processar o pedido de quem estava reentrando, o que podia disparar uma renegociação no meio da hora errada e gerar uma resposta sem as tracks certas. Corrigido: agora primeiro processa o pedido de quem reentrou, DEPOIS adiciona a própria transmissão, DEPOIS responde — garantindo que a resposta sempre leva tudo que está sendo transmitido no momento."
+    ]
+  },
+  {
     "version": "0.33.1",
     "date": "2026-09-03",
     "changes": [
