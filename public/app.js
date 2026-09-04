@@ -9069,14 +9069,16 @@ function toggleDeafen() {
 // ---------- BARRA FIXA "CONECTADO POR VOZ" ----------
 
 function updateVoiceBar() {
+  // A barra do meio (dentro de Amigos/Mensagens) foi removida a pedido —
+  // ficou redundante depois que a barra "Voltar para" da lateral esquerda
+  // passou a ter os mesmos botões de mutar/ensurdecer/desconectar.
   const bar = document.getElementById('voice-connected-bar');
   const sidebarBar = document.getElementById('sidebar-return-to-call');
+  bar.classList.add('hidden');
   if (!connectedVoiceRoomId) {
-    bar.classList.add('hidden');
     sidebarBar.classList.add('hidden');
     return;
   }
-  bar.classList.remove('hidden');
   sidebarBar.classList.remove('hidden');
   const channel = allChannels.find((c) => c.id === connectedVoiceRoomId);
   const roomLabel = channel ? channel.name : 'sala de voz';

@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.40.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Removida a barrinha de voz que ficava dentro de Amigos/Mensagens — ficou redundante já que a barra \"Voltar para\" da lateral esquerda tem os mesmos botões de mutar, ensurdecer e desconectar."
+    ]
+  },
+  {
     "version": "0.39.2",
     "date": "2026-09-04",
     "changes": [
