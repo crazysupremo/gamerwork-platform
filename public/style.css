@@ -68,6 +68,14 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 @keyframes bootSpin { to { transform: rotate(360deg); } }
 
+/* Vídeo de abertura da logo — pequeno, centralizado, some sozinho quando acaba. */
+.login-intro-overlay {
+  position: fixed; inset: 0; z-index: 10000; background: #0b0c10; display: flex;
+  align-items: center; justify-content: center; opacity: 1; transition: opacity 0.35s ease;
+}
+.login-intro-overlay.login-intro-fading { opacity: 0; pointer-events: none; }
+#login-intro-video { width: min(360px, 60vw); height: auto; display: block; }
+
 .auth-remember-row { margin: 4px 0 2px; font-size: 12.5px; color: #9aa0ab; }
 
 .auth-screen {
