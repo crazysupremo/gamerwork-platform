@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.43.1",
+    "date": "2026-09-04",
+    "changes": [
+      "Corrigido: editar e apagar mensagem não refletia na tela (o servidor salvava certinho, mas faltava uma marcação na mensagem que o site usa pra achar ela de novo e atualizar/sumir). Agora atualiza na hora, sem precisar recarregar a página."
+    ]
+  },
+  {
     "version": "0.43.0",
     "date": "2026-09-04",
     "changes": [

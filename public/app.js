@@ -7070,6 +7070,12 @@ function renderMessage(msg) {
   el.className =
     'message' + (isBot ? ' bot-message' : '') + (isDm ? ' dm-message' + (isOwn ? ' dm-message-own' : ' dm-message-their') : '') +
     (pv2Classes.length ? ' ' + pv2Classes.join(' ') : '');
+  // CORRIGIDO: faltava esse atributo — é o que os eventos chat:edited e
+  // chat:deleted usam (document.querySelector('.message[data-id="..."]'))
+  // pra achar a mensagem certa na tela depois de editar/apagar. Sem ele, o
+  // servidor editava/apagava certinho no banco, mas a tela nunca refletia
+  // sozinha (parecia que "não funcionava", sem erro nenhum no console).
+  el.dataset.id = msg.id;
 
   const avatarHtml = isBot
     ? '<span>🤖</span>'
