@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.39.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Otimização de performance: servidor agora comprime as respostas (gzip) e o navegador guarda em cache arquivos que não mudaram — o site deve carregar bem mais rápido, principalmente em conexões mais lentas.",
+      "Imagens pesadas de fundo do login e dos selos de recompensa reduzidas de tamanho sem perder qualidade visível (a de fundo do login caiu de quase 2MB pra ~170KB).",
+      "Corrigido o vídeo de abertura da logo que apontava pra um arquivo com nome errado (não carregava)."
+    ]
+  },
+  {
     "version": "0.38.0",
     "date": "2026-09-04",
     "changes": [

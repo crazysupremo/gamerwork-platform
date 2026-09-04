@@ -2,6 +2,7 @@
 const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
+const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieSession = require('cookie-session');
@@ -72,11 +73,21 @@ app.set('trust proxy', 1);
 // ative e ajuste se quiser uma política mais restrita.
 app.use(helmet({ contentSecurityPolicy: false }));
 
+// OTIMIZAÇÃO DE PERFORMANCE — o site estava "pesando": nenhuma resposta ia
+// comprimida (gzip) e os arquivos estáticos (JS/CSS/imagens) não tinham
+// cache-control nenhum, então o navegador baixava tudo de novo, inteiro,
+// toda vez. compression() reduz o tamanho de HTML/CSS/JS/JSON em ~70-80% na
+// rede; o maxAge no express.static abaixo faz o navegador reaproveitar
+// arquivo (imagem, vídeo, JS) que não mudou em vez de rebaixar. 1 dia é
+// tempo suficiente pra sentir diferença sem prender a pessoa numa versão
+// antiga por muito tempo (o site já tem aviso de atualização automático).
+app.use(compression());
+
 // 100kb era pouco pra imagem em base64 (avatar/evidência de torneio somados
 // ao resto do corpo da requisição já passam disso) — 700kb dá folga
 // confortável sem abrir espaço pra abuso.
 app.use(express.json({ limit: '700kb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1d', etag: true }));
 app.use(
   cookieSession({
     name: 'session',
