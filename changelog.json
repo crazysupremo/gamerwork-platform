@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.39.2",
+    "date": "2026-09-04",
+    "changes": [
+      "Revertida a otimização de compressão/cache do servidor e a redução das imagens (fundo do login e selos) a pedido — voltaram ao estado original. Só ficou a remoção do vídeo de abertura entre login e Início."
+    ]
+  },
+  {
+    "version": "0.39.1",
+    "date": "2026-09-04",
+    "changes": [
+      "Removido o vídeo de abertura que tocava entre a tela de login/recarregamento e a Início — deixava a transição mais lenta e travada."
+    ]
+  },
+  {
     "version": "0.39.0",
     "date": "2026-09-04",
     "changes": [
