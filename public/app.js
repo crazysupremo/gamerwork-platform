@@ -9005,6 +9005,7 @@ function updateMicButton() {
   btn.title = micMuted ? 'Ativar microfone' : 'Mutar microfone';
   btn.classList.toggle('muted', micMuted);
   document.getElementById('bar-btn-mute').classList.toggle('active-state', micMuted);
+  document.getElementById('sidebar-return-to-call-mute').classList.toggle('active-state', micMuted);
 }
 
 function toggleMic() {
@@ -9093,6 +9094,7 @@ function toggleDeafen() {
   if (isDeafened && !micMuted) toggleMic();
   document.querySelectorAll('#video-grid video').forEach((v) => (v.muted = isDeafened));
   document.getElementById('bar-btn-deafen').classList.toggle('active-state', isDeafened);
+  document.getElementById('sidebar-return-to-call-deafen').classList.toggle('active-state', isDeafened);
 }
 
 // ---------- BARRA FIXA "CONECTADO POR VOZ" ----------
@@ -9111,6 +9113,10 @@ function updateVoiceBar() {
   const roomLabel = channel ? channel.name : 'sala de voz';
   document.getElementById('voice-connected-room-name').textContent = roomLabel;
   document.getElementById('sidebar-return-to-call-room').textContent = roomLabel;
+  // Sincroniza o estado visual dos botões de mutar/ensurdecer com o estado
+  // real (ex.: já tinha mutado antes de entrar de novo numa call).
+  document.getElementById('sidebar-return-to-call-mute').classList.toggle('active-state', micMuted);
+  document.getElementById('sidebar-return-to-call-deafen').classList.toggle('active-state', isDeafened);
 }
 
 document.getElementById('voice-connected-info').onclick = () => {
@@ -9128,6 +9134,14 @@ document.getElementById('sidebar-return-to-call-info').onclick = () => {
   if (!connectedVoiceRoomId) return;
   const channel = allChannels.find((c) => c.id === connectedVoiceRoomId);
   if (channel) selectChannel(channel);
+};
+document.getElementById('sidebar-return-to-call-mute').onclick = (e) => {
+  e.stopPropagation();
+  toggleMic();
+};
+document.getElementById('sidebar-return-to-call-deafen').onclick = (e) => {
+  e.stopPropagation();
+  toggleDeafen();
 };
 document.getElementById('sidebar-return-to-call-disconnect').onclick = (e) => {
   e.stopPropagation();

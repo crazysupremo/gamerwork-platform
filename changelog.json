@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.38.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Barra \"voltar pra sala de voz\" na lateral agora também mostra claramente pra qual sala você está voltando, e ganhou botões de mutar microfone e ensurdecer direto ali, sem precisar voltar pra sala primeiro."
+    ]
+  },
+  {
     "version": "0.37.0",
     "date": "2026-09-04",
     "changes": [

@@ -2173,11 +2173,15 @@ video:fullscreen { background: #000; object-fit: contain; }
 .sidebar-return-to-call-room {
   font-size: 12.5px; color: #e6e6e6; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.sidebar-return-to-call-disconnect {
-  width: 26px; height: 26px; border-radius: 50%; border: none; background: transparent; color: #7d828c;
+.sidebar-return-to-call-controls { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.sidebar-return-to-call-icon-btn {
+  width: 24px; height: 24px; border-radius: 50%; border: none; background: transparent; color: #7d828c;
   cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease; font-size: 11px;
 }
+.sidebar-return-to-call-icon-btn .ng-icon { width: 13px; height: 13px; }
+.sidebar-return-to-call-icon-btn:hover { background: rgba(255,255,255,0.08); color: #e6e6e6; }
+.sidebar-return-to-call-icon-btn.active-state { background: #f23f42; color: white; }
 .sidebar-return-to-call-disconnect:hover { background: #f23f42; color: white; }
 
 /* Volume geral da chamada — aumenta/diminui o que você ouve de todo mundo de
