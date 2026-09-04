@@ -9099,13 +9099,18 @@ function toggleDeafen() {
 
 function updateVoiceBar() {
   const bar = document.getElementById('voice-connected-bar');
+  const sidebarBar = document.getElementById('sidebar-return-to-call');
   if (!connectedVoiceRoomId) {
     bar.classList.add('hidden');
+    sidebarBar.classList.add('hidden');
     return;
   }
   bar.classList.remove('hidden');
+  sidebarBar.classList.remove('hidden');
   const channel = allChannels.find((c) => c.id === connectedVoiceRoomId);
-  document.getElementById('voice-connected-room-name').textContent = channel ? channel.name : 'sala de voz';
+  const roomLabel = channel ? channel.name : 'sala de voz';
+  document.getElementById('voice-connected-room-name').textContent = roomLabel;
+  document.getElementById('sidebar-return-to-call-room').textContent = roomLabel;
 }
 
 document.getElementById('voice-connected-info').onclick = () => {
@@ -9115,6 +9120,19 @@ document.getElementById('voice-connected-info').onclick = () => {
 };
 document.getElementById('bar-btn-mute').onclick = toggleMic;
 document.getElementById('bar-btn-deafen').onclick = toggleDeafen;
+
+// "Voltar pra sala de voz" no rodapé da barra lateral esquerda — mesma
+// ideia da barra do meio (voice-connected-info), só que fixa lá embaixo,
+// visível em QUALQUER tela do app (Início, Explorar, DMs...), igual Discord.
+document.getElementById('sidebar-return-to-call-info').onclick = () => {
+  if (!connectedVoiceRoomId) return;
+  const channel = allChannels.find((c) => c.id === connectedVoiceRoomId);
+  if (channel) selectChannel(channel);
+};
+document.getElementById('sidebar-return-to-call-disconnect').onclick = (e) => {
+  e.stopPropagation();
+  disconnectVoice();
+};
 
 // ---------- VOLUME GERAL DA CHAMADA (aumentar/diminuir/mutar tudo de uma vez) ----------
 function applyMasterVolumeToAllTiles() {

@@ -1,5 +1,42 @@
 [
   {
+    "version": "0.37.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Link do Admin agora abre numa aba nova em vez de navegar pra fora da página — isso é o que te mantinha desconectado da call/transmissão ao abrir o painel de administração.",
+      "Conferido: áudio da transmissão de tela (quando o navegador permite) e volume individual por participante já estavam funcionando corretamente, sem necessidade de mudança."
+    ]
+  },
+  {
+    "version": "0.36.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Nova barra \"voltar pra sala de voz\" fixa no rodapé da barra lateral esquerda (igual Discord) — aparece sempre que você está numa call, mesmo navegando por outras telas do site, com o nome da sala e um botão de desconectar rápido.",
+      "Logo voltada pra versão anterior (com \"NEXT GAME\" escrito), agora recolorida de roxo pra azul (a mesma cor da marca nova) e aumentada dentro do círculo da tela de login, preenchendo melhor o anel giratório."
+    ]
+  },
+  {
+    "version": "0.35.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Roxo trocado pelo azul da logo nova em todo o app (degradê da marca, botões, badges, anel da logo do login, aba NEXTGAME PLUS, pílulas de premium na Personalização) — extraído da cor exata do novo ícone (#0284ED), misturado com o azul e o verde-água que já existiam pra ficar tudo na mesma família de cor."
+    ]
+  },
+  {
+    "version": "0.34.2",
+    "date": "2026-09-04",
+    "changes": [
+      "Corrigido um risco/risquinho tracejado que aparecia embaixo do ícone da logo nova — o recorte anterior pegava a pontinha de cima do texto \"NEXT\" por engano. Recortado mais justo, sem nenhum resquício de texto."
+    ]
+  },
+  {
+    "version": "0.34.1",
+    "date": "2026-09-04",
+    "changes": [
+      "Logo trocada em todo lugar (tela de login, favicon da aba do navegador, apple-touch-icon, barra lateral) pela nova arte enviada — recortado só o ícone \"N1\", sem o texto \"NEXT GAME\" embaixo, com fundo transparente."
+    ]
+  },
+  {
     "version": "0.34.0",
     "date": "2026-09-03",
     "changes": [

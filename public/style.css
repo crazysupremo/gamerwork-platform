@@ -16,9 +16,15 @@ button:active { transform: scale(0.94); }
 [data-icon] { display: inline-flex; align-items: center; justify-content: center; }
 :root {
   --accent: #5865f2;
-  --accent-2: #9146ff;
+  /* Repaginado (a pedido — "troca o roxo pelo azul da logo") — era roxo
+     puro (#9146ff), agora é o azul de verdade extraído da logo nova
+     (#0284ED), pra combinar com a marca em vez de destoar dela. O degradê
+     da marca inteiro foi recalculado em torno desse azul, pra tudo ficar
+     na mesma família de cor (azul → azul da logo → verde-água) em vez de
+     pular pro roxo no meio do caminho. */
+  --accent-2: #0284ed;
   --accent-3: #00d9c0;
-  --gradient-brand: linear-gradient(135deg, #5865f2 0%, #9146ff 55%, #00d9c0 100%);
+  --gradient-brand: linear-gradient(135deg, #5865f2 0%, #0284ed 55%, #00d9c0 100%);
   --bg-app: #14151a;
   --bg-rail: #0e0f13;
   --bg-sidebar: #1a1b20;
@@ -288,12 +294,12 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .auth-logo-badge::before {
   content: ''; position: absolute; inset: -3px; border-radius: 50%; padding: 2px;
-  background: conic-gradient(from 0deg, #5865f2, #9146ff, #00d9c0, #5865f2);
+  background: conic-gradient(from 0deg, #5865f2, #0284ed, #00d9c0, #5865f2);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
   opacity: 0.8; animation: authLogoRingSpin 7s linear infinite;
 }
-.auth-logo-img { display: block; height: 62px; width: auto; position: relative; z-index: 1; filter: drop-shadow(0 2px 10px rgba(0,0,0,0.4)); }
+.auth-logo-img { display: block; height: 108px; width: 108px; border-radius: 50%; position: relative; z-index: 1; filter: drop-shadow(0 2px 10px rgba(0,0,0,0.4)); }
 @keyframes authLogoFloat {
   0%, 100% { transform: translateY(0) rotate(-1.5deg); }
   50% { transform: translateY(-6px) rotate(1.5deg); }
@@ -2142,6 +2148,38 @@ video:fullscreen { background: #000; object-fit: contain; }
 .voice-connected-controls button.active-state { background: #f23f42; color: white; }
 #bar-btn-disconnect:hover { background: #f23f42; color: white; }
 
+/* "Voltar pra sala de voz" no rodapé da barra lateral esquerda — igual
+   Discord: fica fixo lá embaixo (margin-top:auto empurra pro final da
+   coluna) sempre que você está numa call, mesmo navegando por outras
+   telas. Clicável, leva direto de volta pro canal. */
+.sidebar-return-to-call {
+  margin-top: auto; display: flex; align-items: center; gap: 6px;
+  background: rgba(35,165,90,0.12); border: 1px solid rgba(35,165,90,0.3); border-radius: 10px;
+  padding: 8px 10px; flex-shrink: 0;
+}
+.sidebar-return-to-call-info {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  background: none; border: none; cursor: pointer; padding: 0; text-align: left;
+}
+.sidebar-return-to-call-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #23a55a; flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(35,165,90,0.2); animation: sidebarCallPulse 2s ease-in-out infinite;
+}
+@keyframes sidebarCallPulse {
+  0%, 100% { opacity: 1; } 50% { opacity: 0.5; }
+}
+.sidebar-return-to-call-text { min-width: 0; display: flex; flex-direction: column; }
+.sidebar-return-to-call-label { font-size: 9.5px; color: #23a55a; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 800; }
+.sidebar-return-to-call-room {
+  font-size: 12.5px; color: #e6e6e6; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-return-to-call-disconnect {
+  width: 26px; height: 26px; border-radius: 50%; border: none; background: transparent; color: #7d828c;
+  cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sidebar-return-to-call-disconnect:hover { background: #f23f42; color: white; }
+
 /* Volume geral da chamada — aumenta/diminui o que você ouve de todo mundo de
    uma vez (independente do volume individual de cada pessoa, que continua
    ajustável na própria tile de vídeo). Clicar no ícone muta/desmuta rápido. */
@@ -2337,7 +2375,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 @media (max-width: 640px) {
   .settings-sidebar-divider { padding: 0 8px; display: flex; align-items: center; }
 }
-.settings-sidebar-item-plus.active { background: linear-gradient(135deg, #9146ff 0%, #ff7ac6 100%); }
+.settings-sidebar-item-plus.active { background: linear-gradient(135deg, #0284ed 0%, #00d9c0 100%); }
 
 .plus-promo-banner {
   position: relative; overflow: hidden; border-radius: 14px; padding: 30px 24px; text-align: center;

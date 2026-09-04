@@ -441,6 +441,23 @@
       <div id="me-avatar" class="member-avatar" style="display:none"></div>
       <span id="me-username" style="display:none"></span>
     </div>
+
+    <!-- "Voltar pra sala de voz" — igual Discord: fica fixo no rodapé da
+         barra lateral esquerda sempre que você está conectado numa call,
+         mesmo navegando por outras telas. Clicável, leva direto de volta
+         pro canal de voz. margin-top:auto empurra pro final da coluna. -->
+    <div id="sidebar-return-to-call" class="sidebar-return-to-call hidden">
+      <button type="button" id="sidebar-return-to-call-info" class="sidebar-return-to-call-info">
+        <span class="sidebar-return-to-call-dot"></span>
+        <div class="sidebar-return-to-call-text">
+          <span class="sidebar-return-to-call-label">Conectado por voz</span>
+          <span id="sidebar-return-to-call-room" class="sidebar-return-to-call-room"></span>
+        </div>
+      </button>
+      <button type="button" id="sidebar-return-to-call-disconnect" class="sidebar-return-to-call-disconnect" title="Desconectar">
+        <span class="ng-icon-wrap" data-icon="phone-off"></span>
+      </button>
+    </div>
   </nav>
 
   <div class="app-main">
@@ -507,7 +524,11 @@
           <button type="button" id="nav-sfx-toggle" title="Ligar/desligar sons e efeitos">
             <span class="ng-icon-wrap" data-icon="volume-2"></span> <span id="sfx-toggle-label">Sons e efeitos</span>
           </button>
-          <a href="/admin.html" id="admin-link" class="hidden">
+          <!-- target="_blank" — abre o admin numa aba nova em vez de navegar
+               pra fora da página. Isso é o que mantém você conectado na
+               call/transmissão: navegar pra outra página encerraria a
+               conexão de voz, abrir em aba nova não. -->
+          <a href="/admin.html" id="admin-link" class="hidden" target="_blank" rel="noopener">
             <span class="ng-icon-wrap" data-icon="shield-check"></span> Admin
           </a>
           <button type="button" id="btn-logout">
