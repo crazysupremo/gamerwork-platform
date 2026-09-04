@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.42.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Arma 3 adicionado na lista de jogos favoritos do cadastro.",
+      "Agora dá pra enviar uma FOTO de verdade como ícone do servidor (na hora de criar e também depois, em Informações e regras), não só emoji.",
+      "Novo painel de Admin (Conteúdo/Loja): marcar/desmarcar QUALQUER servidor como oficial (selo azul), na hora, quantos servidores quiser — só admin de verdade tem acesso, moderador não vê essa opção."
+    ]
+  },
+  {
+    "version": "0.41.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Botão de mostrar/esconder senha (o \"olhinho\") agora aparece em todo campo de senha do site — cadastro, trocar senha, 2FA, recuperação de conta e senha de servidor — não só na tela de login."
+    ]
+  },
+  {
     "version": "0.40.0",
     "date": "2026-09-04",
     "changes": [

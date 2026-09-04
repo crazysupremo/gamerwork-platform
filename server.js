@@ -357,6 +357,20 @@ function generateInviteCode() {
   return crypto.randomBytes(5).toString('hex');
 }
 
+// Ícone de servidor pode ser: um emoji curto (ex: "🎮", até 8 caracteres —
+// contando possíveis variantes/skin tone), um caminho de asset do próprio
+// site (ex: "/assets/logo.png", servidores oficiais) ou uma FOTO enviada
+// pela pessoa (data URI base64, ex: "data:image/jpeg;base64,..."). 500KB
+// de folga é bem mais que suficiente pra uma imagem redimensionada 256x256
+// no navegador antes de enviar, e ainda cabe folgado no limite de 700kb do
+// corpo da requisição inteira (json({ limit: '700kb' })).
+function isValidServerIcon(icon) {
+  if (!icon || typeof icon !== 'string') return false;
+  if (icon.startsWith('data:image/')) return icon.length <= 500000;
+  if (icon.startsWith('/')) return icon.length <= 200;
+  return icon.length <= 8;
+}
+
 async function isServerMember(category, userId) {
   const row = await db.get('SELECT id FROM server_members WHERE category = ? AND user_id = ?', [category, userId]);
   return !!row;
@@ -2923,7 +2937,7 @@ app.post(
     const inviteCode = generateInviteCode();
     await db.run(
       'INSERT INTO servers (category, icon, owner_id, invite_code, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'))',
-      [cleanCategory, icon && typeof icon === 'string' && icon.length <= 8 ? icon : null, req.user.id, inviteCode, req.user.id]
+      [cleanCategory, isValidServerIcon(icon) ? icon : null, req.user.id, inviteCode, req.user.id]
     );
     await db.run('INSERT INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
       uuidv4(),
@@ -3351,7 +3365,7 @@ app.patch(
          icon = COALESCE(excluded.icon, servers.icon),
          updated_by = excluded.updated_by,
          updated_at = excluded.updated_at`,
-      [req.params.category, description || null, rules || null, icon && icon.length <= 8 ? icon : null, req.user.id]
+      [req.params.category, description || null, rules || null, isValidServerIcon(icon) ? icon : null, req.user.id]
     );
     if (typeof discoverable === 'boolean') {
       await db.run('UPDATE servers SET discoverable = ? WHERE category = ?', [discoverable ? 1 : 0, req.params.category]);
@@ -6817,6 +6831,42 @@ app.post(
     }
     logAudit(req.user, newValue ? 'verify_gold_user' : 'unverify_gold_user', 'user', req.params.id, {});
     res.json({ ok: true, verified_gold: !!newValue });
+  })
+);
+
+// ---------- SELO DE SERVIDOR OFICIAL (selo azul) ----------
+// Só admin de verdade (requireAdmin, não moderador) pode marcar QUALQUER
+// servidor como oficial NEXT GAME — liga/desliga na hora, quantas vezes
+// quiser, em qualquer servidor (não só os pré-cadastrados no seed).
+app.get(
+  '/api/admin/servers/search',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const q = String(req.query.q || '').trim();
+    const rows = await db.all(
+      `SELECT s.category, s.icon, s.is_official,
+        (SELECT COUNT(*) FROM server_members WHERE category = s.category) as member_count
+       FROM servers s
+       ${q ? 'WHERE s.category LIKE ?' : ''}
+       ORDER BY s.is_official DESC, s.category ASC LIMIT 50`,
+      q ? [`%${q}%`] : []
+    );
+    res.json(rows);
+  })
+);
+
+app.post(
+  '/api/admin/servers/:category/toggle-official',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const server = await db.get('SELECT is_official FROM servers WHERE category = ?', [req.params.category]);
+    if (!server) return res.status(404).json({ error: 'Servidor não encontrado' });
+    const newValue = server.is_official ? 0 : 1;
+    await db.run('UPDATE servers SET is_official = ? WHERE category = ?', [newValue, req.params.category]);
+    logAudit(req.user, newValue ? 'mark_server_official' : 'unmark_server_official', 'server', req.params.category, {});
+    res.json({ ok: true, is_official: !!newValue });
   })
 );
 

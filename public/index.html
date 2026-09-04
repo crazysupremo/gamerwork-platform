@@ -218,9 +218,15 @@
         <label class="wizard-label">E-mail</label>
         <input type="email" id="wiz-email" placeholder="Digite seu e-mail" required />
         <label class="wizard-label">Senha</label>
-        <input type="password" id="wiz-password" placeholder="Crie uma senha (mín. 6 caracteres)" required />
+        <div class="password-toggle-wrap">
+          <input type="password" id="wiz-password" placeholder="Crie uma senha (mín. 6 caracteres)" required />
+          <button type="button" class="input-icon-toggle" title="Mostrar senha" aria-label="Mostrar senha"><span class="ng-icon-wrap" data-icon="eye"></span></button>
+        </div>
         <label class="wizard-label">Confirmar senha</label>
-        <input type="password" id="wiz-password-confirm" placeholder="Confirme sua senha" required />
+        <div class="password-toggle-wrap">
+          <input type="password" id="wiz-password-confirm" placeholder="Confirme sua senha" required />
+          <button type="button" class="input-icon-toggle" title="Mostrar senha" aria-label="Mostrar senha"><span class="ng-icon-wrap" data-icon="eye"></span></button>
+        </div>
         <label class="wizard-label">Data de nascimento</label>
         <input type="date" id="wiz-birthdate" required />
 
@@ -967,8 +973,15 @@
       <input type="text" id="server-name" placeholder="ex: Valorant, Trabalho, Minecraft" required />
 
       <label>Ícone</label>
-      <div class="avatar-emoji-row" id="server-icon-row"></div>
+      <div class="server-icon-picker-row">
+        <button type="button" id="server-icon-upload-preview" class="server-icon-upload-preview" title="Enviar uma foto">
+          <span class="ng-icon-wrap" data-icon="camera"></span>
+        </button>
+        <div class="avatar-emoji-row" id="server-icon-row"></div>
+      </div>
+      <input type="file" id="server-icon-file" accept="image/*" class="hidden" />
       <input type="hidden" id="server-icon-input" value="🎮" />
+      <p class="hint">Clica no quadrado com a câmera pra enviar uma foto, ou escolhe um emoji ao lado.</p>
 
       <p class="hint">Você já entra como dono, com um canal #geral pronto pra conversar. Depois é só criar mais salas dentro dele.</p>
 
@@ -1185,10 +1198,16 @@
         <input type="email" id="profile-email" placeholder="seu@email.com" />
 
         <label>Nova senha (deixe em branco pra não trocar)</label>
-        <input type="password" id="profile-new-password" placeholder="Nova senha" />
+        <div class="password-toggle-wrap">
+          <input type="password" id="profile-new-password" placeholder="Nova senha" />
+          <button type="button" class="input-icon-toggle" title="Mostrar senha" aria-label="Mostrar senha"><span class="ng-icon-wrap" data-icon="eye"></span></button>
+        </div>
 
         <label>Senha atual (obrigatória pra trocar e-mail ou senha)</label>
-        <input type="password" id="profile-current-password" placeholder="Senha atual" />
+        <div class="password-toggle-wrap">
+          <input type="password" id="profile-current-password" placeholder="Senha atual" />
+          <button type="button" class="input-icon-toggle" title="Mostrar senha" aria-label="Mostrar senha"><span class="ng-icon-wrap" data-icon="eye"></span></button>
+        </div>
 
       </form>
     </div>
@@ -1220,7 +1239,10 @@
       </div>
       <div id="twofa-on-view" class="hidden">
         <p class="hint"><span class="ng-icon-wrap" data-icon="check"></span> 2FA está ativado nessa conta.</p>
-        <input type="password" id="twofa-disable-password" placeholder="Senha atual, pra desativar" />
+        <div class="password-toggle-wrap">
+          <input type="password" id="twofa-disable-password" placeholder="Senha atual, pra desativar" />
+          <button type="button" class="input-icon-toggle" title="Mostrar senha" aria-label="Mostrar senha"><span class="ng-icon-wrap" data-icon="eye"></span></button>
+        </div>
         <div class="modal-actions" style="justify-content:flex-start; margin-top:8px;">
           <button type="button" id="btn-2fa-disable" class="danger-action">Desativar 2FA</button>
         </div>
@@ -1721,6 +1743,17 @@
     </div>
 
     <form id="form-server-info" class="hidden">
+      <label>Ícone do servidor</label>
+      <div class="server-icon-picker-row">
+        <button type="button" id="server-info-icon-upload-preview" class="server-icon-upload-preview" title="Enviar uma foto">
+          <span class="ng-icon-wrap" data-icon="camera"></span>
+        </button>
+        <div class="avatar-emoji-row" id="server-info-icon-row"></div>
+      </div>
+      <input type="file" id="server-info-icon-file" accept="image/*" class="hidden" />
+      <input type="hidden" id="server-info-icon-input" />
+      <p class="hint">Clica no quadrado com a câmera pra enviar uma foto, ou escolhe um emoji ao lado.</p>
+
       <label>Descrição do servidor</label>
       <textarea id="server-info-description-input" rows="2" maxlength="500" placeholder="Sobre o que é esse servidor..."></textarea>
       <label>Regras</label>
@@ -1787,6 +1820,7 @@
         <div class="input-icon-wrap">
           <span class="input-icon"><span class="ng-icon-wrap" data-icon="lock"></span></span>
           <input type="password" id="server-password-input" placeholder="Definir/trocar a senha do servidor" maxlength="60" />
+          <button type="button" class="input-icon-toggle" title="Mostrar senha" aria-label="Mostrar senha"><span class="ng-icon-wrap" data-icon="eye"></span></button>
         </div>
         <div class="modal-actions" style="margin-top:10px; justify-content:flex-start;">
           <button type="button" id="btn-save-server-password"><span class="ng-icon-wrap" data-icon="save"></span> Salvar senha</button>
@@ -2135,7 +2169,10 @@
         <label style="margin-top:10px;">Novo e-mail principal</label>
         <input type="email" id="account-recovery-new-email" placeholder="seu-novo-email@exemplo.com" />
         <label style="margin-top:10px;">Nova senha (opcional — deixe em branco pra manter a atual)</label>
-        <input type="password" id="account-recovery-new-password" placeholder="Nova senha" />
+        <div class="password-toggle-wrap">
+          <input type="password" id="account-recovery-new-password" placeholder="Nova senha" />
+          <button type="button" class="input-icon-toggle" title="Mostrar senha" aria-label="Mostrar senha"><span class="ng-icon-wrap" data-icon="eye"></span></button>
+        </div>
       </div>
       <p id="account-recovery-error" class="auth-error"></p>
       <p id="account-recovery-success" class="hint hidden" style="color:#3ba55c; margin-top:6px;"></p>
@@ -2155,9 +2192,15 @@
     <form id="form-reset-password">
       <div id="reset-password-fields">
         <label>Nova senha</label>
-        <input type="password" id="reset-password-new" placeholder="Nova senha" minlength="6" required />
+        <div class="password-toggle-wrap">
+          <input type="password" id="reset-password-new" placeholder="Nova senha" minlength="6" required />
+          <button type="button" class="input-icon-toggle" title="Mostrar senha" aria-label="Mostrar senha"><span class="ng-icon-wrap" data-icon="eye"></span></button>
+        </div>
         <label>Confirmar nova senha</label>
-        <input type="password" id="reset-password-confirm" placeholder="Digite de novo" minlength="6" required />
+        <div class="password-toggle-wrap">
+          <input type="password" id="reset-password-confirm" placeholder="Digite de novo" minlength="6" required />
+          <button type="button" class="input-icon-toggle" title="Mostrar senha" aria-label="Mostrar senha"><span class="ng-icon-wrap" data-icon="eye"></span></button>
+        </div>
       </div>
       <p id="reset-password-error" class="auth-error"></p>
       <p id="reset-password-success" class="hint hidden" style="color:#3ba55c; margin-top:6px;">

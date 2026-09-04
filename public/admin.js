@@ -60,6 +60,7 @@ async function init() {
   loadClipsAdmin();
   loadShopAdmin();
   loadRedeemCodes();
+  loadOfficialServers();
   loadReports();
   loadSupportTickets();
   setInterval(loadSupportTickets, 20000);
@@ -518,6 +519,57 @@ document.getElementById('btn-redeem-generate').addEventListener('click', async (
     data.codes.map((c) => `<span style="font-family:monospace; font-weight:700;">${escapeHtml(c)}</span>`).join(' · ');
   document.getElementById('redeem-new-note').value = '';
   loadRedeemCodes();
+});
+
+// ---------- Servidores oficiais (selo azul) — só admin de verdade ----------
+async function loadOfficialServers(q) {
+  const res = await fetch(`/api/admin/servers/search${q ? '?q=' + encodeURIComponent(q) : ''}`, {
+    credentials: 'include',
+  });
+  const rows = await res.json();
+  const tbody = document.querySelector('#official-servers-table tbody');
+  tbody.innerHTML = '';
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="color:#949ba4;">Nenhum servidor encontrado.</td></tr>';
+    return;
+  }
+  rows.forEach((s) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(s.category)}</td>
+      <td>${s.member_count}</td>
+      <td>${
+        s.is_official
+          ? '<span style="color:#3897f0; font-weight:700;">✔️ Oficial</span>'
+          : '<span style="color:#949ba4;">Comum</span>'
+      }</td>
+      <td>
+        <button class="action ${s.is_official ? 'danger' : ''}" data-action="toggle-official" data-category="${escapeHtml(s.category)}">
+          ${s.is_official ? 'Remover selo' : 'Marcar oficial'}
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('button[data-action="toggle-official"]').forEach((btn) =>
+    btn.addEventListener('click', async () => {
+      await fetch(`/api/admin/servers/${encodeURIComponent(btn.dataset.category)}/toggle-official`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      loadOfficialServers(document.getElementById('official-server-search').value.trim());
+    })
+  );
+}
+
+document.getElementById('btn-official-server-search').addEventListener('click', () => {
+  loadOfficialServers(document.getElementById('official-server-search').value.trim());
+});
+document.getElementById('official-server-search').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    loadOfficialServers(document.getElementById('official-server-search').value.trim());
+  }
 });
 
 function escapeHtml(str) {

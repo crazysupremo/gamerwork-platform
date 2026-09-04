@@ -347,8 +347,9 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   background: #101116; color: #e6e6e6; font-size: 14px; transition: border-color 0.15s ease, background 0.15s ease;
 }
 .auth-form input:focus { outline: none; border-color: var(--accent); background: #14151c; }
-/* Botão de mostrar/esconder senha, dentro do próprio campo — só existe no
-   login de propósito (não precisa disso em toda tela de senha do site). */
+/* Botão de mostrar/esconder senha ("olhinho"), dentro do próprio campo —
+   agora em TODO campo de senha do site (login, cadastro, trocar senha,
+   2FA, recuperação de conta, senha de servidor...), não só no login. */
 .input-icon-toggle {
   position: absolute; right: 6px; background: none; border: none; color: #8b909a; opacity: 0.7;
   padding: 6px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; margin: 0;
@@ -356,8 +357,12 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .input-icon-toggle:hover { opacity: 1; background: rgba(255,255,255,0.06); filter: none; box-shadow: none; }
 .input-icon-toggle .ng-icon { width: 16px; height: 16px; }
-.auth-form .input-icon-wrap:has(.input-icon-toggle) input { padding-right: 38px; }
+.input-icon-wrap:has(.input-icon-toggle) input { padding-right: 38px; }
 #login-password { padding-right: 38px; }
+/* Wrapper leve pra campos de senha que não tinham ícone à esquerda (fora
+   das telas de auth) — só precisa de position:relative pro olhinho encaixar. */
+.password-toggle-wrap { position: relative; }
+.password-toggle-wrap input { padding-right: 38px !important; width: 100%; }
 .auth-remember-row-wrap { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 2px; flex-wrap: wrap; }
 .auth-remember-row-wrap .auth-remember-row { margin: 0; }
 .auth-forgot-link { font-size: 12px; color: var(--accent-3); text-decoration: none; font-weight: 600; }
@@ -2244,6 +2249,17 @@ video:fullscreen { background: #000; object-fit: contain; }
 }
 .avatar-emoji-row button:hover { outline: 2px solid var(--accent); }
 .avatar-emoji-row button.avatar-emoji-selected { outline: 2px solid var(--accent-3); }
+
+/* Botão "câmera" pra enviar foto de ícone de servidor — fica do lado do
+   seletor de emoji, mesma altura, com anel destacado pra não passar batido. */
+.server-icon-picker-row { display: flex; align-items: center; gap: 10px; }
+.server-icon-upload-preview {
+  width: 34px; height: 34px; border-radius: 10px; border: 1.5px dashed #4a4d57; background: var(--bg-sidebar);
+  color: #9aa0ab; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; overflow: hidden; padding: 0; transition: border-color 0.15s ease, color 0.15s ease;
+}
+.server-icon-upload-preview:hover { border-color: var(--accent-2); color: var(--accent-2); }
+.server-icon-upload-preview img { width: 100%; height: 100%; object-fit: cover; }
 
 /* MOLDURAS DE AVATAR ANIMADAS (recompensas por streak de acesso) — usa
    box-shadow em vez de border, porque box-shadow não é cortado pelo

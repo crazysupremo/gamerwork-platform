@@ -38,25 +38,75 @@ const SERVER_ICONS = ['🎮', '🕹️', '👾', '🔫', '⚔️', '🏆', '⚽'
 
 // Monta a fileira de ícones pra escolher o emoji de um servidor novo.
 // Reaproveitada tanto no modal de criar servidor quanto em qualquer outro
-// lugar que precise do mesmo seletor de emoji.
-function buildIconRow(rowId, hiddenInputId) {
+// lugar que precise do mesmo seletor de emoji. selectedIcon (opcional) é o
+// ícone que o servidor já tem hoje (ex: ao editar) — se ele for uma foto
+// (data URI) em vez de emoji, nenhum emoji fica marcado como selecionado.
+function buildIconRow(rowId, hiddenInputId, selectedIcon) {
   const row = document.getElementById(rowId);
   const hiddenInput = document.getElementById(hiddenInputId);
   row.innerHTML = '';
-  SERVER_ICONS.forEach((icon, i) => {
+  const initial = selectedIcon && !selectedIcon.startsWith('data:') && !selectedIcon.startsWith('/') ? selectedIcon : SERVER_ICONS[0];
+  SERVER_ICONS.forEach((icon) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = icon;
     btn.style.background = '#5865f2';
-    if (i === 0) btn.classList.add('avatar-emoji-selected');
+    if (icon === initial && (!selectedIcon || !selectedIcon.startsWith('data:'))) btn.classList.add('avatar-emoji-selected');
     btn.onclick = () => {
       hiddenInput.value = icon;
       row.querySelectorAll('button').forEach((b) => b.classList.remove('avatar-emoji-selected'));
       btn.classList.add('avatar-emoji-selected');
+      const preview = row.parentElement && row.parentElement.querySelector('.server-icon-upload-preview');
+      if (preview) preview.innerHTML = '<span class="ng-icon-wrap" data-icon="camera"></span>';
     };
     row.appendChild(btn);
   });
-  hiddenInput.value = SERVER_ICONS[0];
+  hiddenInput.value = selectedIcon || SERVER_ICONS[0];
+}
+
+// Botão "câmera" que fica do lado do seletor de emoji — deixa a pessoa
+// enviar uma FOTO de verdade pro ícone do servidor em vez de só emoji.
+// Mesmo padrão do avatar de perfil: recorta em quadrado, redimensiona pra
+// 256px e converte pra JPEG em base64 (cabe folgado no limite do servidor).
+function wireServerIconUpload(previewBtnId, fileInputId, hiddenInputId, rowId, currentIcon) {
+  const previewBtn = document.getElementById(previewBtnId);
+  const fileInput = document.getElementById(fileInputId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+  const row = document.getElementById(rowId);
+
+  if (currentIcon && currentIcon.startsWith('data:')) {
+    previewBtn.innerHTML = `<img src="${currentIcon}" alt="" />`;
+  } else {
+    previewBtn.innerHTML = '<span class="ng-icon-wrap" data-icon="camera"></span>';
+  }
+
+  previewBtn.onclick = () => fileInput.click();
+  fileInput.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const size = 256;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        hiddenInput.value = dataUrl;
+        previewBtn.innerHTML = `<img src="${dataUrl}" alt="" />`;
+        if (row) row.querySelectorAll('button').forEach((b) => b.classList.remove('avatar-emoji-selected'));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+    fileInput.value = '';
+  };
 }
 
 // Gera o HTML de um avatar (foto enviada, emoji escolhido, ou inicial do nome).
@@ -198,16 +248,22 @@ document.getElementById('btn-hero-features').onclick = () => {
   document.getElementById('auth-features').scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
-// Mostrar/esconder a senha no login — só alterna o type do campo, nada é
-// enviado nem logado em lugar nenhum.
-document.getElementById('btn-toggle-login-password').onclick = () => {
-  const input = document.getElementById('login-password');
-  const btn = document.getElementById('btn-toggle-login-password');
+// Mostrar/esconder senha ("olhinho") — genérico, funciona em QUALQUER campo
+// de senha do site (login, cadastro, trocar senha, 2FA, recuperação de
+// conta, senha de servidor...), não só no login. Delegação de evento: acha
+// o input de senha mais próximo dentro do mesmo wrapper e alterna o type.
+// Nada é enviado nem logado em lugar nenhum, só muda a exibição no navegador.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.input-icon-toggle');
+  if (!btn) return;
+  const wrap = btn.closest('.input-icon-wrap, .password-toggle-wrap');
+  const input = wrap && wrap.querySelector('input');
+  if (!input) return;
   const showing = input.type === 'text';
   input.type = showing ? 'password' : 'text';
   btn.innerHTML = icon(showing ? 'eye' : 'eye-off');
   btn.title = showing ? 'Mostrar senha' : 'Esconder senha';
-};
+});
 
 // "Esqueceu a senha?" — fluxo em 2 passos, pra pessoa não se confundir no
 // e-mail digitado: 1) digita o USUÁRIO (mesmo dado do login) e vê uma prévia
@@ -468,7 +524,7 @@ const WIZARD_COUNTRIES = [
 const WIZARD_LANGUAGES = ['Português (Brasil)', 'Português (Portugal)', 'English', 'Español', 'Français', 'Deutsch'];
 const WIZARD_GAMES = [
   'Valorant', 'League of Legends', 'CS2', 'Fortnite', 'Apex Legends', 'Minecraft',
-  'GTA V', 'Free Fire', 'Overwatch 2', 'Dota 2', 'Rocket League', 'Call of Duty',
+  'GTA V', 'Free Fire', 'Overwatch 2', 'Dota 2', 'Rocket League', 'Call of Duty', 'Arma 3',
 ];
 const WIZARD_PLATFORMS = [
   { value: 'pc', label: '💻 PC' },
@@ -1235,7 +1291,7 @@ async function loadServerIcons() {
 // do NOME (não do ícone, que já fica ocupado com a logo/emoji).
 function renderServerIconOnly(category) {
   const raw = serverIcons[category];
-  if (raw && raw.startsWith('/')) {
+  if (raw && (raw.startsWith('/') || raw.startsWith('data:'))) {
     return `<img src="${escapeHtml(raw)}" alt="" class="server-icon-logo-img" />`;
   }
   return escapeHtml(raw || serverInitials(category));
@@ -1655,6 +1711,7 @@ function showCopyToast(text) {
 
 const modalServerInfo = document.getElementById('modal-server-info');
 let serverInfoEditing = false;
+let serverInfoCurrentIcon = null;
 
 document.getElementById('btn-server-info').onclick = async () => {
   if (!activeServerCategory) return;
@@ -1672,6 +1729,7 @@ document.getElementById('btn-server-info').onclick = async () => {
   document.getElementById('server-info-rules').textContent = info.rules || 'Nenhuma regra definida ainda.';
   document.getElementById('server-info-description-input').value = info.description || '';
   document.getElementById('server-info-rules-input').value = info.rules || '';
+  serverInfoCurrentIcon = info.icon || null;
 
   modalServerInfo.classList.remove('hidden');
 };
@@ -1684,17 +1742,27 @@ document.getElementById('btn-edit-server-info').onclick = () => {
   document.getElementById('form-server-info').classList.remove('hidden');
   document.getElementById('btn-edit-server-info').classList.add('hidden');
   document.getElementById('btn-save-server-info').classList.remove('hidden');
+  // Foto/emoji do servidor não muda a não ser que a pessoa mude de
+  // propósito — se o ícone atual for uma foto (data:/caminho), nenhum
+  // emoji fica marcado, e a prévia da câmera já mostra a foto de hoje.
+  buildIconRow('server-info-icon-row', 'server-info-icon-input', serverInfoCurrentIcon);
+  wireServerIconUpload('server-info-icon-upload-preview', 'server-info-icon-file', 'server-info-icon-input', 'server-info-icon-row', serverInfoCurrentIcon);
 };
 
 document.getElementById('btn-save-server-info').onclick = async () => {
   const description = document.getElementById('server-info-description-input').value.trim();
   const rules = document.getElementById('server-info-rules-input').value.trim();
+  const icon = document.getElementById('server-info-icon-input').value;
   await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ description, rules }),
+    body: JSON.stringify({ description, rules, icon }),
   });
+  // Ícone pode ter mudado — atualiza o cache local usado pelo trilho de
+  // servidores/Início pra refletir na hora, sem precisar recarregar a página.
+  serverIcons[activeServerCategory] = icon;
+  renderServerRail([...new Set(allChannels.map((c) => c.category))]);
   modalServerInfo.classList.add('hidden');
 };
 
@@ -4012,6 +4080,7 @@ function openNewServerModal() {
   document.getElementById('new-server-error').textContent = '';
   document.getElementById('form-new-server').reset();
   buildIconRow('server-icon-row', 'server-icon-input');
+  wireServerIconUpload('server-icon-upload-preview', 'server-icon-file', 'server-icon-input', 'server-icon-row');
   modalNewServer.classList.remove('hidden');
   document.getElementById('server-name').focus();
 }
@@ -5243,7 +5312,7 @@ async function loadExplore() {
     const card = document.createElement('div');
     card.className = 'explore-card';
     card.innerHTML = `
-      <div class="explore-card-icon">${s.icon && s.icon.startsWith('/') ? `<img src="${escapeHtml(s.icon)}" alt="" class="server-icon-logo-img" />` : escapeHtml(s.icon || serverInitials(s.category))}</div>
+      <div class="explore-card-icon">${s.icon && (s.icon.startsWith('/') || s.icon.startsWith('data:')) ? `<img src="${escapeHtml(s.icon)}" alt="" class="server-icon-logo-img" />` : escapeHtml(s.icon || serverInitials(s.category))}</div>
       <div class="explore-card-info">
         <strong>${escapeHtml(s.category)}${s.is_official ? ' <span class="verified-badge" title="Servidor oficial NEXT GAME">' + icon('badge-check') + '</span>' : ''}</strong>
         <p>${s.description ? escapeHtml(s.description) : 'Sem descrição ainda.'}</p>
@@ -6587,7 +6656,7 @@ async function loadHomeServers() {
     card.innerHTML = `
       <div class="home-server-banner" style="background:${gradientForName(s.category)};">
         <div class="home-server-icon">${
-          s.icon && s.icon.startsWith('/') ? `<img src="${escapeHtml(s.icon)}" alt="" class="server-icon-logo-img" />` : escapeHtml(s.icon || serverInitials(s.category))
+          s.icon && (s.icon.startsWith('/') || s.icon.startsWith('data:')) ? `<img src="${escapeHtml(s.icon)}" alt="" class="server-icon-logo-img" />` : escapeHtml(s.icon || serverInitials(s.category))
         }</div>
       </div>
       <div class="home-server-name">${escapeHtml(s.category)} <span class="verified-badge" title="Servidor oficial NEXT GAME">${icon('badge-check')}</span></div>

@@ -8,11 +8,10 @@ const path = require('path');
 
 // Pode trocar sem reempacotar o instalador, se um dia mudar de domínio —
 // só definir a variável de ambiente NEXT_GAME_URL antes de abrir o app.
-// BUG CORRIGIDO: estava apontando pra 'bluegames-nextgame.onrender.com', um
-// endereço que não existe mais (por isso a tela preta — o app ficava
-// tentando carregar um site morto pra sempre). O endereço certo, no ar, é
-// este aqui embaixo.
-const NEXT_GAME_URL = process.env.NEXT_GAME_URL || 'https://gamerwork-platform.onrender.com';
+// ATUALIZADO: aponta pro domínio próprio do site (nextgameblue.stream) em
+// vez do endereço genérico do Render (onrender.com) — é o domínio de
+// verdade, fica certo mesmo se o nome do serviço no Render mudar de novo.
+const NEXT_GAME_URL = process.env.NEXT_GAME_URL || 'https://nextgameblue.stream';
 
 let mainWindow = null;
 let loadRetryCount = 0;
