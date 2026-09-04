@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.39.1",
+    "date": "2026-09-04",
+    "changes": [
+      "Removido o vídeo de abertura que tocava entre a tela de login/recarregamento e a Início — deixava a transição mais lenta e travada."
+    ]
+  },
+  {
     "version": "0.39.0",
     "date": "2026-09-04",
     "changes": [

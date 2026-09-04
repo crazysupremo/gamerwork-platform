@@ -911,45 +911,14 @@ async function tryResumeSession() {
   document.getElementById('auth-screen').classList.remove('hidden');
 }
 
-// Vídeo pequeno e centralizado da logo, sobre o app enquanto ele carrega —
-// some sozinho quando o vídeo acaba (ou depois de um tempo máximo, se o
-// vídeo não existir/não carregar, pra nunca travar a pessoa numa tela preta).
-// BUG CORRIGIDO ("tela fica meio apagada, preciso relogar"): se
-// playLoginIntro() rodasse duas vezes seguidas (ex: um resume de sessão que
-// já tinha chamado startApp, seguido de qualquer outro caminho que chame de
-// novo), a segunda chamada resetava o overlay pra opacity:1 bem no meio do
-// fade-out da primeira — o resultado é o overlay ficando preso numa
-// opacidade intermediária, dando a impressão de "tudo meio apagado" por
-// cima do app, sem nunca sumir de vez. Uma trava simples (só deixa rodar
-// uma vez por sessão de app) resolve isso de raiz.
-let loginIntroAlreadyPlayed = false;
-function playLoginIntro() {
-  if (loginIntroAlreadyPlayed) return;
-  loginIntroAlreadyPlayed = true;
-  const overlay = document.getElementById('login-intro-overlay');
-  const video = document.getElementById('login-intro-video');
-  overlay.classList.remove('hidden', 'login-intro-fading');
-  try {
-    video.currentTime = 0;
-    video.play().catch(() => {});
-  } catch (_) {}
-
-  let done = false;
-  const finish = () => {
-    if (done) return;
-    done = true;
-    overlay.classList.add('login-intro-fading');
-    setTimeout(() => overlay.classList.add('hidden'), 400);
-  };
-  video.onended = finish;
-  video.onerror = finish;
-  setTimeout(finish, 4500);
-}
+// Vídeo de abertura da logo removido a pedido (deixava a transição entre
+// login/recarregamento e a Início mais pesada e travada).
 
 function startApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  playLoginIntro();
+  // Vídeo de abertura removido a pedido — deixava o login/recarregamento
+  // mais lento e travava a transição entre a tela de login e a Início.
   document.getElementById('me-username').textContent = me.username;
   renderAvatarInto(document.getElementById('me-avatar'), me);
   // Link "Admin" também aparece pra conta de moderador (acesso parcial —
