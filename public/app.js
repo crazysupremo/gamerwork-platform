@@ -6600,7 +6600,23 @@ function gradientForName(name) {
 async function loadHomeServers() {
   const grid = document.getElementById('home-servers-grid');
   grid.innerHTML = '';
-  const categories = [...new Set(allChannels.map((c) => c.category))].sort((a, b) => a.localeCompare(b));
+  let categories = [...new Set(allChannels.map((c) => c.category))].sort((a, b) => a.localeCompare(b));
+
+  // Servidor com selo oficial sempre no topo de "Servidores em Destaque" —
+  // liga por padrão, admin pode desligar em Configurações do site.
+  let officialPinned = true;
+  try {
+    const cfgRes = await fetch('/api/site-config', { credentials: 'include' });
+    if (cfgRes.ok) officialPinned = (await cfgRes.json()).official_servers_pinned;
+  } catch (_) {}
+  if (officialPinned) {
+    categories = categories.sort((a, b) => {
+      const aOff = officialServers.has(a) ? 1 : 0;
+      const bOff = officialServers.has(b) ? 1 : 0;
+      if (aOff !== bOff) return bOff - aOff;
+      return a.localeCompare(b);
+    });
+  }
 
   // Servidores oficiais (NEXT GAME, Magic Tank etc.) aparecem aqui pra
   // TODO MUNDO — a pedido — mesmo pra quem ainda não é membro, com um botão

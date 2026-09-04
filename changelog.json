@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.43.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Servidor com selo oficial agora aparece sempre primeiro em \"Servidores em Destaque\" na Início — o admin pode ligar/desligar esse comportamento em Admin > Conteúdo/Loja.",
+      "Chat de texto mais rápido pra enviar: a checagem de segurança BLUEX deixou de travar a mensagem antes dela aparecer — agora ela aparece na hora e a checagem roda por baixo dos panos (some depois se for sinalizada, igual antes).",
+      "Removida uma busca duplicada no banco que rodava em toda mensagem enviada em canal de servidor."
+    ]
+  },
+  {
     "version": "0.42.0",
     "date": "2026-09-04",
     "changes": [

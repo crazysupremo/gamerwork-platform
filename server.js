@@ -6870,6 +6870,36 @@ app.post(
   })
 );
 
+// "Servidores com selo oficial sempre no topo de Servidores em Destaque" —
+// liga por padrão (é o que foi pedido), mas o admin pode desligar a
+// qualquer momento sem precisar de deploy novo.
+app.get(
+  '/api/site-config',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const row = await db.get("SELECT value FROM site_config WHERE key = 'official_servers_pinned'");
+    res.json({ official_servers_pinned: row ? row.value === '1' : true });
+  })
+);
+
+app.put(
+  '/api/admin/site-config',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { official_servers_pinned } = req.body || {};
+    if (typeof official_servers_pinned === 'boolean') {
+      await db.run(
+        `INSERT INTO site_config (key, value) VALUES ('official_servers_pinned', ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [official_servers_pinned ? '1' : '0']
+      );
+    }
+    logAudit(req.user, 'update_site_config', 'site_config', 'official_servers_pinned', req.body || {});
+    res.json({ ok: true });
+  })
+);
+
 // ---------- DASHBOARD ADMINISTRATIVO: MONITORAMENTO (dados, erros, lag) ----------
 // Serve pra responder "quanta gente cabe aqui sem travar" com dados de
 // verdade em vez de achismo: uso de memória/CPU real do processo, quantas
@@ -7501,15 +7531,18 @@ io.on('connection', (socket) => {
       // Admin do site e quem tem manage_channels passam direto por cima.
       if (!channelId.startsWith('dm::')) {
         // Canal privado por cargo (item 5 do plano) — verificado aqui no
-        // backend, não só escondido da lista no frontend.
+        // backend, não só escondido da lista no frontend. OTIMIZAÇÃO: era
+        // uma query pra pegar a linha inteira do canal (checar acesso) e
+        // logo em seguida OUTRA query idêntica só pra pegar
+        // category/read_only/slow_mode — a mesma linha, buscada duas vezes.
+        // Reaproveita channelForAccess (já tem tudo que precisa) em vez de
+        // buscar de novo — menos uma ida-e-volta ao banco por mensagem.
         const channelForAccess = await db.get('SELECT * FROM channels WHERE id = ?', [channelId]);
         if (!channelForAccess || !(await canAccessChannel(channelForAccess, user))) {
           socket.emit('chat:blocked', { reason: 'Você não tem acesso a esse canal.', categories: [] });
           return;
         }
-        const channelRow = await db.get('SELECT category, read_only, slow_mode_seconds FROM channels WHERE id = ?', [
-          channelId,
-        ]);
+        const channelRow = channelForAccess;
         if (channelRow) {
           const bypass = user.is_admin || (await hasServerPermission(channelRow.category, user, 'manage_channels'));
           if (channelRow.read_only && !bypass) {
@@ -7564,36 +7597,6 @@ io.on('connection', (socket) => {
           categories: scan.categories,
         });
         return;
-      }
-
-      // Análise de aliciamento/comportamento suspeito via BLUEX — capacidade
-      // NOVA que só existe quando BLUEX_API_URL/BLUEX_API_KEY estão
-      // configuradas (sem isso, analyzeTextForGrooming() retorna
-      // flagged:false na hora, sem chamada de rede nenhuma — não atrasa o
-      // chat pra quem não usa a integração). Mesma política das outras
-      // sinalizações: bloqueia a mensagem + registra sempre; suspende a
-      // conta automaticamente só pra categoria "revisar_urgente".
-      if (content && content.trim()) {
-        const groomingCheck = await analyzeTextForGrooming(content);
-        if (groomingCheck.flagged) {
-          const blockedId = uuidv4();
-          await db.run(
-            'INSERT INTO blocked_messages (id, channel_id, user_id, username, content, flag_categories) VALUES (?, ?, ?, ?, ?, ?)',
-            [blockedId, channelId, user.id, user.username, content, JSON.stringify(groomingCheck.categories)]
-          );
-          io.emit('moderation:frame-flagged', {
-            username: user.username,
-            reason: groomingCheck.reason || 'texto sinalizado (comportamento suspeito)',
-          });
-          socket.emit('chat:blocked', {
-            reason: 'Mensagem bloqueada pelo filtro de segurança e registrada para revisão de um moderador.',
-            categories: groomingCheck.categories,
-          });
-          if (shouldAutoSuspend(groomingCheck.categories)) {
-            await autoSuspendUser(user.id, user.username, groomingCheck.reason);
-          }
-          return;
-        }
       }
 
       // Anexo de imagem passa pela mesma moderação por IA usada em
@@ -7731,6 +7734,38 @@ io.on('connection', (socket) => {
         // respondendo toda mensagem de um bate-papo em grupo sozinha, só
         // quando alguém realmente chama ela pra ajudar com uma dúvida.
         triggerAiReply(channelId, user).catch((err) => console.error('Erro ao gerar resposta da IA no canal:', err));
+      }
+
+      // OTIMIZAÇÃO DE VELOCIDADE (a pedido — chat de texto estava demorando
+      // pra enviar): a análise de aliciamento/comportamento suspeito via
+      // BLUEX roda AQUI, depois que a mensagem já apareceu pra todo mundo,
+      // em vez de travar o envio esperando essa chamada de rede terminar.
+      // Continua tendo o mesmo efeito de segurança — se vier sinalizada, a
+      // mensagem é apagada e registrada pra revisão, e a suspensão
+      // automática continua valendo — só que a mensagem some um instante
+      // depois de aparecer, em vez de nunca chegar a aparecer. Sem
+      // BLUEX_API_URL/BLUEX_API_KEY configuradas isso nem chega a fazer
+      // chamada de rede nenhuma (retorna flagged:false na hora).
+      if (content && content.trim()) {
+        analyzeTextForGrooming(content)
+          .then(async (groomingCheck) => {
+            if (!groomingCheck.flagged) return;
+            const blockedId = uuidv4();
+            await db.run(
+              'INSERT INTO blocked_messages (id, channel_id, user_id, username, content, flag_categories) VALUES (?, ?, ?, ?, ?, ?)',
+              [blockedId, channelId, user.id, user.username, content, JSON.stringify(groomingCheck.categories)]
+            );
+            await db.run('UPDATE messages SET deleted = 1 WHERE id = ?', [id]);
+            io.to(channelId).emit('chat:deleted', { id, channel_id: channelId });
+            io.emit('moderation:frame-flagged', {
+              username: user.username,
+              reason: groomingCheck.reason || 'texto sinalizado (comportamento suspeito)',
+            });
+            if (shouldAutoSuspend(groomingCheck.categories)) {
+              await autoSuspendUser(user.id, user.username, groomingCheck.reason);
+            }
+          })
+          .catch((err) => console.error('Erro na análise BLUEX (assíncrona) de mensagem:', err));
       }
     } catch (err) {
       console.error('Erro ao processar chat:message:', err);

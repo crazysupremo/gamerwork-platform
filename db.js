@@ -212,6 +212,15 @@ async function initDb() {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Configurações gerais do site, uma linha por chave (liga/desliga
+    -- simples que o admin controla). Começou com "official_servers_pinned"
+    -- (servidores com selo oficial sempre no topo de "Servidores em
+    -- Destaque"), mas serve pra qualquer outro toggle parecido no futuro.
+    CREATE TABLE IF NOT EXISTS site_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS tournaments (
       id TEXT PRIMARY KEY,
       category TEXT NOT NULL,

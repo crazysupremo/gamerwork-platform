@@ -61,6 +61,7 @@ async function init() {
   loadShopAdmin();
   loadRedeemCodes();
   loadOfficialServers();
+  loadSiteConfig();
   loadReports();
   loadSupportTickets();
   setInterval(loadSupportTickets, 20000);
@@ -522,6 +523,20 @@ document.getElementById('btn-redeem-generate').addEventListener('click', async (
 });
 
 // ---------- Servidores oficiais (selo azul) — só admin de verdade ----------
+async function loadSiteConfig() {
+  const res = await fetch('/api/site-config', { credentials: 'include' });
+  const cfg = await res.json();
+  document.getElementById('official-servers-pinned-toggle').checked = !!cfg.official_servers_pinned;
+}
+document.getElementById('official-servers-pinned-toggle').addEventListener('change', async (e) => {
+  await fetch('/api/admin/site-config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ official_servers_pinned: e.target.checked }),
+  });
+});
+
 async function loadOfficialServers(q) {
   const res = await fetch(`/api/admin/servers/search${q ? '?q=' + encodeURIComponent(q) : ''}`, {
     credentials: 'include',
