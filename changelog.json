@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.43.3",
+    "date": "2026-09-04",
+    "changes": [
+      "Ao mandar uma foto no chat, aparece um aviso \"🔍 Analisando imagem antes de enviar...\" enquanto a verificação roda no servidor (some sozinho quando a imagem aparece ou é bloqueada)."
+    ]
+  },
+  {
     "version": "0.43.2",
     "date": "2026-09-04",
     "changes": [

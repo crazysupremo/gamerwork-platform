@@ -1707,6 +1707,29 @@ function showCopyToast(text) {
   }, 1800);
 }
 
+// Toast que fica na tela até alguém chamar hideAnalyzingImageToast() — usado
+// pra avisar "🔍 Analisando imagem..." enquanto o anexo passa pela
+// verificação BLUEX/IA no servidor (que já bloqueia a imagem ANTES dela
+// aparecer pra qualquer um — isso aqui é só o feedback visual de que a
+// checagem está rolando, pra não parecer que travou/não fez nada).
+let analyzingImageToastEl = null;
+function showAnalyzingImageToast() {
+  hideAnalyzingImageToast();
+  const toast = document.createElement('div');
+  toast.className = 'copy-toast';
+  toast.textContent = '🔍 Analisando imagem antes de enviar...';
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('copy-toast-show'));
+  analyzingImageToastEl = toast;
+}
+function hideAnalyzingImageToast() {
+  if (!analyzingImageToastEl) return;
+  const toast = analyzingImageToastEl;
+  analyzingImageToastEl = null;
+  toast.classList.remove('copy-toast-show');
+  setTimeout(() => toast.remove(), 200);
+}
+
 // ---------- INFORMAÇÕES/REGRAS DO SERVIDOR ----------
 
 const modalServerInfo = document.getElementById('modal-server-info');
@@ -7638,6 +7661,12 @@ document.getElementById('form-message').onsubmit = (e) => {
   const content = input.value.trim();
   if (!content && !pendingAttachment) return;
   if (!currentChannel) return;
+  // Anexo de imagem passa por verificação no servidor ANTES de aparecer pra
+  // qualquer um (já bloqueava antes dessa mudança) — isso aqui é só o aviso
+  // visual de que a checagem está rolando, some sozinho quando a mensagem
+  // aparece ou quando é bloqueada (ver chat:message/chat:blocked abaixo).
+  const isImageAttachment = pendingAttachment && pendingAttachment.type && pendingAttachment.type.startsWith('image/');
+  if (isImageAttachment) showAnalyzingImageToast();
   socket.emit('chat:message', {
     channelId: currentChannel.id,
     content,
@@ -7683,6 +7712,7 @@ function registerSocketHandlers() {
   socket.on('connect', () => checkForUpdates());
 
   socket.on('chat:message', (msg) => {
+    if (msg.user_id === me.id && msg.attachment) hideAnalyzingImageToast();
     if (currentChannel && msg.channel_id === currentChannel.id) {
       renderMessage(msg);
       // Já está com essa DM aberta na tela — a mensagem que acabou de
@@ -7699,6 +7729,7 @@ function registerSocketHandlers() {
   });
 
   socket.on('chat:blocked', ({ reason }) => {
+    hideAnalyzingImageToast();
     alert('⚠️ ' + reason);
   });
 
