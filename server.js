@@ -4656,6 +4656,21 @@ async function analyzeTextForGrooming(text) {
   return { flagged: !!result.flagged, categories: result.categories || [], reason: result.reason || null };
 }
 
+// CORRIGIDO ("verificação de armas não funciona"): a categoria de arma só
+// pegava "arma de fogo real anunciada pra venda" — uma foto de arma de
+// verdade em qualquer OUTRO contexto (ameaça, ostentação, posando com ela
+// etc.) passava direto sem ser sinalizada. Ampliado pra pegar arma de fogo
+// ou faca real em qualquer contexto que pareça de verdade (não brinquedo,
+// réplica óbvia, jogo ou desenho), continua com as mesmas exceções de
+// sempre (caça/tiro esportivo/coleção mostrados de forma normal e legal
+// não conta sozinho — só quando usada de forma ameaçadora, à venda fora de
+// canal legal, ou em contexto de crime).
+const WEAPON_CATEGORY_TEXT =
+  'arma de fogo ou faca real (não brinquedo, réplica claramente falsa, arma de jogo/desenho) usada de forma ' +
+  'ameaçadora, empunhada de forma intimidadora, anunciada pra venda fora de loja/plataforma legal, ou em ' +
+  'contexto de crime — não conta sozinho uma arma de fogo legal guardada, numa vitrine de loja de verdade, ' +
+  'ou em contexto normal de caça/tiro esportivo/coleção mostrado sem ameaça';
+
 const ATTACHMENT_MODERATION_PROMPT =
   'Esta imagem foi anexada por alguém numa mensagem de chat de uma plataforma pra gamers e ' +
   'equipes de trabalho. Responda APENAS um JSON, sem texto extra, no formato ' +
@@ -4664,7 +4679,7 @@ const ATTACHMENT_MODERATION_PROMPT =
   'real (não desenho/arte), violência física grave/sangue real, maus-tratos ou crueldade real contra ' +
   'animais (agressão, ferimentos, negligência grave — não caça/pesca/pecuária legais retratadas de ' +
   'forma normal), um crime real acontecendo no momento da foto (ex: agressão, roubo, sequestro), ' +
-  'armas de fogo reais anunciadas pra venda, ou qualquer imagem envolvendo uma criança/adolescente ' +
+  WEAPON_CATEGORY_TEXT + ', ou qualquer imagem envolvendo uma criança/adolescente ' +
   'em contexto sexualizado ou de risco (se tiver a menor dúvida sobre isso, marque flagged=true e ' +
   'categoria "revisar_urgente"). Não marque memes, prints de jogos, fotos comuns do dia a dia, cenas ' +
   'de caça/pesca/criação de animais dentro da normalidade, ou arte/desenho fictício. Na dúvida fora ' +
@@ -4674,8 +4689,8 @@ const FRAME_MODERATION_PROMPT =
   'Esta imagem é um print de uma tela compartilhada numa plataforma de chat/voz pra gamers e ' +
   'equipes de trabalho. Responda APENAS um JSON, sem texto extra, no formato ' +
   '{"flagged": true ou false, "categories": [...], "reason": "..."}. ' +
-  'Marque flagged=true SOMENTE se a imagem mostrar claramente: armas de fogo reais anunciadas ' +
-  'pra venda, instruções de fabricação de explosivos, violência física grave/sangue real (não ' +
+  'Marque flagged=true SOMENTE se a imagem mostrar claramente: ' + WEAPON_CATEGORY_TEXT + ', ' +
+  'instruções de fabricação de explosivos, violência física grave/sangue real (não ' +
   'de jogos, filmes ou desenhos), maus-tratos ou crueldade real contra animais (agressão, ' +
   'ferimentos, negligência grave — não caça/pesca/pecuária legais retratadas de forma normal), um ' +
   'crime real acontecendo no momento da captura (ex: agressão, roubo, sequestro), ou conteúdo ' +

@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.43.2",
+    "date": "2026-09-04",
+    "changes": [
+      "Corrigida a verificação de armas (BLUEX/IA em anexo de chat e print de tela): antes só sinalizava arma de fogo real anunciada pra venda — agora pega arma de fogo/faca real usada de forma ameaçadora ou em contexto de crime também, não só à venda.",
+      "Conferidas as outras categorias de verificação (nudez, violência, maus-tratos a animais, crime, conteúdo com menor) — já estavam com definição ampla, sem o mesmo problema."
+    ]
+  },
+  {
     "version": "0.43.1",
     "date": "2026-09-04",
     "changes": [
