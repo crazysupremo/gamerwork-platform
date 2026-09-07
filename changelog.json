@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.43.4",
+    "date": "2026-09-07",
+    "changes": [
+      "Verificação de imagem alinhada com o Protection BLUEX: o filtro reserva (usado quando o BLUEX está fora do ar) agora também pega drogas, símbolos/discurso de ódio e automutilação/suicídio — antes só o BLUEX tinha essas categorias, o reserva ficava mais fraco."
+    ]
+  },
+  {
     "version": "0.43.3",
     "date": "2026-09-04",
     "changes": [

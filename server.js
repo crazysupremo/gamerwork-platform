@@ -4671,6 +4671,17 @@ const WEAPON_CATEGORY_TEXT =
   'contexto de crime — não conta sozinho uma arma de fogo legal guardada, numa vitrine de loja de verdade, ' +
   'ou em contexto normal de caça/tiro esportivo/coleção mostrado sem ameaça';
 
+// Categorias alinhadas com o Protection BLUEX (mesmas adições de lá: drogas,
+// ódio, automutilação) — importante porque esse prompt aqui é o FALLBACK
+// usado quando o BLUEX está fora do ar ou mal configurado (ver
+// moderateImage()/analyzeTextForGrooming() acima). Se as duas listas de
+// categoria ficarem diferentes, o nível de proteção muda dependendo de o
+// BLUEX estar respondendo ou não naquele momento — mantidas em sincronia de
+// propósito.
+const EXTRA_CATEGORIES_TEXT =
+  'drogas ilícitas sendo usadas/vendidas, símbolos ou discurso visual de ódio (extremismo, supremacismo), ' +
+  'automutilação ou incentivo/instrução de suicídio';
+
 const ATTACHMENT_MODERATION_PROMPT =
   'Esta imagem foi anexada por alguém numa mensagem de chat de uma plataforma pra gamers e ' +
   'equipes de trabalho. Responda APENAS um JSON, sem texto extra, no formato ' +
@@ -4679,7 +4690,7 @@ const ATTACHMENT_MODERATION_PROMPT =
   'real (não desenho/arte), violência física grave/sangue real, maus-tratos ou crueldade real contra ' +
   'animais (agressão, ferimentos, negligência grave — não caça/pesca/pecuária legais retratadas de ' +
   'forma normal), um crime real acontecendo no momento da foto (ex: agressão, roubo, sequestro), ' +
-  WEAPON_CATEGORY_TEXT + ', ou qualquer imagem envolvendo uma criança/adolescente ' +
+  WEAPON_CATEGORY_TEXT + ', ' + EXTRA_CATEGORIES_TEXT + ', ou qualquer imagem envolvendo uma criança/adolescente ' +
   'em contexto sexualizado ou de risco (se tiver a menor dúvida sobre isso, marque flagged=true e ' +
   'categoria "revisar_urgente"). Não marque memes, prints de jogos, fotos comuns do dia a dia, cenas ' +
   'de caça/pesca/criação de animais dentro da normalidade, ou arte/desenho fictício. Na dúvida fora ' +
@@ -4689,7 +4700,7 @@ const FRAME_MODERATION_PROMPT =
   'Esta imagem é um print de uma tela compartilhada numa plataforma de chat/voz pra gamers e ' +
   'equipes de trabalho. Responda APENAS um JSON, sem texto extra, no formato ' +
   '{"flagged": true ou false, "categories": [...], "reason": "..."}. ' +
-  'Marque flagged=true SOMENTE se a imagem mostrar claramente: ' + WEAPON_CATEGORY_TEXT + ', ' +
+  'Marque flagged=true SOMENTE se a imagem mostrar claramente: ' + WEAPON_CATEGORY_TEXT + ', ' + EXTRA_CATEGORIES_TEXT + ', ' +
   'instruções de fabricação de explosivos, violência física grave/sangue real (não ' +
   'de jogos, filmes ou desenhos), maus-tratos ou crueldade real contra animais (agressão, ' +
   'ferimentos, negligência grave — não caça/pesca/pecuária legais retratadas de forma normal), um ' +
