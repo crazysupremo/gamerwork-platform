@@ -112,6 +112,7 @@
       <button type="button" class="admin-nav-btn active" data-tab="seguranca">🔷 Segurança / BLUEX</button>
       <button type="button" class="admin-nav-btn" data-tab="geral">📊 Visão geral</button>
       <button type="button" class="admin-nav-btn" data-tab="moderacao">🛡️ Moderação</button>
+      <button type="button" class="admin-nav-btn" data-tab="dms">🔒 DMs</button>
       <button type="button" class="admin-nav-btn" data-tab="usuarios">👥 Usuários</button>
       <button type="button" class="admin-nav-btn" data-tab="conteudo">🎬 Conteúdo / Loja</button>
       <button type="button" class="admin-nav-btn" data-tab="personalizacao">🎨 Personalização</button>
@@ -261,6 +262,27 @@
           <thead><tr><th>Data</th><th>Usuário</th><th>Conteúdo</th><th>Categorias</th></tr></thead>
           <tbody></tbody>
         </table>
+      </div>
+
+      <!-- ---------- DMs (leitura, pra moderação) ---------- -->
+      <div id="admin-tab-dms" class="admin-tab-panel hidden">
+        <h2>🔒 Conversas diretas (DM)</h2>
+        <p style="color:#949ba4; font-size:13px;">
+          Acesso total pedido explicitamente — leitura apenas. Abrir uma conversa aqui NÃO deixa mandar
+          mensagem se passando por nenhum dos dois participantes, e cada abertura fica registrada no
+          Audit Log (ação "view_dm").
+        </p>
+        <table id="dm-channels-table">
+          <thead><tr><th>Participante A</th><th>Participante B</th><th>Mensagens</th><th>Última atividade</th><th>Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div id="dm-viewer-panel" class="error-diagnosis-panel hidden">
+          <div class="error-diagnosis-header">
+            <strong id="dm-viewer-title">Conversa</strong>
+            <button type="button" id="btn-close-dm-viewer" aria-label="Fechar">✕</button>
+          </div>
+          <div id="dm-viewer-body" style="max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
       </div>
 
       <!-- ---------- USUÁRIOS ---------- -->

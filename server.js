@@ -455,9 +455,15 @@ async function requireChannelAccess(channelId, user) {
   // DM não é uma linha na tabela "channels" (o id já é "dm::userA::userB"),
   // então não passa pela checagem de canal de servidor — só confirma que
   // quem está pedindo é uma das duas pessoas da conversa.
+  // Admin é exceção de propósito (visibilidade total pedida explicitamente)
+  // — só pra LEITURA (esta função só é usada pra ver histórico e pra
+  // entrar na sala e receber mensagens ao vivo; o ENVIO de mensagem em DM
+  // tem checagem própria, separada, que não abre essa exceção pro admin —
+  // ver chat:message: admin não deveria conseguir postar se passando por
+  // participante de uma conversa alheia).
   if (channelId.startsWith('dm::')) {
     const parts = channelId.split('::');
-    if (parts[1] !== user.id && parts[2] !== user.id) {
+    if (parts[1] !== user.id && parts[2] !== user.id && !user.is_admin) {
       return { ok: false, status: 403, error: 'Você não tem acesso a essa conversa' };
     }
     return { ok: true, channel: { id: channelId, type: 'dm' } };
@@ -854,9 +860,17 @@ app.post(
         ? JSON.stringify(platforms.slice(0, 6).map((p) => String(p).slice(0, 20)))
         : null;
 
-    // Não conta o usuário-bot da IA aqui, senão a primeira pessoa de verdade
-    // que se cadastra nunca vira admin (o bot já ocupa a "vaga" de primeiro).
-    const countRow = await db.get('SELECT COUNT(*) as c FROM users WHERE id != ?', [AI_BOT_USER_ID]);
+    // Não conta o usuário-bot da IA nem a conta seed "moderador_bluex" aqui
+    // — CORRIGIDO: a conta de moderador já vem semeada no banco (ver
+    // seedModeratorAccount em db.js) desde antes de qualquer humano se
+    // cadastrar, então sem essa exclusão ela ocupava sozinha a "vaga" de
+    // primeiro usuário e a promessa do README ("o primeiro usuário que se
+    // registrar vira administrador automaticamente") nunca se cumpria de
+    // verdade — a primeira pessoa real nunca virava admin.
+    const countRow = await db.get('SELECT COUNT(*) as c FROM users WHERE id != ? AND username != ?', [
+      AI_BOT_USER_ID,
+      'moderador_bluex',
+    ]);
     const isFirstUser = Number(countRow.c) === 0;
     const id = uuidv4();
     const password_hash = bcrypt.hashSync(password, 10);
@@ -6824,6 +6838,57 @@ app.post(
   })
 );
 
+// ---------- DMs (visibilidade total do admin, pedida explicitamente) ----------
+// Só LEITURA — abrir uma conversa aqui não deixa o admin mandar mensagem se
+// passando por nenhum dos dois participantes (ver checagem em chat:message).
+// Cada acesso fica registrado no audit log, igual qualquer outra ação de
+// admin — não é uma porta dos fundos silenciosa.
+app.get(
+  '/api/admin/dm-channels',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(`
+      SELECT
+        d.id, d.status, d.created_at,
+        ua.id as user_a_id, ua.username as user_a_username,
+        ub.id as user_b_id, ub.username as user_b_username,
+        (SELECT COUNT(*) FROM messages m WHERE m.channel_id = d.id AND m.deleted = 0) as message_count,
+        (SELECT MAX(created_at) FROM messages m WHERE m.channel_id = d.id AND m.deleted = 0) as last_message_at
+      FROM dm_channels d
+      JOIN users ua ON ua.id = d.user_a
+      JOIN users ub ON ub.id = d.user_b
+      ORDER BY COALESCE(last_message_at, d.created_at) DESC
+      LIMIT 200
+    `);
+    res.json(rows);
+  })
+);
+
+app.get(
+  '/api/admin/dm-channels/:id/messages',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    if (!req.params.id.startsWith('dm::')) return res.status(400).json({ error: 'ID inválido' });
+    const rows = await db.all(
+      'SELECT id, user_id, username, content, attachment, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at ASC LIMIT 200',
+      [req.params.id]
+    );
+    rows.forEach((m) => {
+      if (m.attachment) {
+        try {
+          m.attachment = JSON.parse(m.attachment);
+        } catch (_) {
+          m.attachment = null;
+        }
+      }
+    });
+    logAudit(req.user, 'view_dm', 'dm_channel', req.params.id);
+    res.json(rows);
+  })
+);
+
 // ---------- AUDIT LOG (painel admin) ----------
 
 app.get(
@@ -7694,6 +7759,20 @@ io.on('connection', (socket) => {
           }
         }
       } else {
+        // CORRIGIDO (auditoria de segurança) — faltava confirmar que quem tá
+        // mandando é de fato um dos dois participantes da conversa. Sem essa
+        // checagem, qualquer usuário logado podia emitir chat:message com o
+        // channelId de uma DM alheia (dm::vítimaA::vítimaB) e injetar uma
+        // mensagem falsa numa conversa privada de outras duas pessoas —
+        // salva no banco e entregue ao vivo pra quem estivesse com ela
+        // aberta. Propositalmente SEM exceção pra admin aqui (diferente da
+        // leitura em requireChannelAccess): admin pode ver, mas não deve
+        // conseguir se passar por participante e postar em nome de ninguém.
+        const dmParts = channelId.split('::');
+        if (dmParts[1] !== user.id && dmParts[2] !== user.id) {
+          socket.emit('chat:blocked', { reason: 'Você não tem acesso a essa conversa.', categories: [] });
+          return;
+        }
         // DM: se ainda é um PEDIDO DE MENSAGEM pendente (ver /api/dm/:userId
         // e /accept), só quem mandou o pedido pode continuar escrevendo —
         // quem recebeu precisa aceitar antes de poder responder.
