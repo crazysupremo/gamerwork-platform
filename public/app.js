@@ -113,7 +113,9 @@ function wireServerIconUpload(previewBtnId, fileInputId, hiddenInputId, rowId, c
 function renderAvatarHtml(user, sizeClass) {
   const avatar = user && user.avatar;
   if (avatar && avatar.startsWith('data:image/')) {
-    return `<img src="${avatar}" alt="" />`;
+    // Escapa mesmo o servidor já validando o formato — defesa em profundidade,
+    // já que isso vira atributo src="..." (ver auditoria de segurança).
+    return `<img src="${escapeHtml(avatar)}" alt="" />`;
   }
   if (avatar && avatar.startsWith('emoji:')) {
     const parts = avatar.split(':'); // emoji:🎮:#5865f2
@@ -990,6 +992,11 @@ function startApp() {
   loadIceServers();
   maybeShowMinorSafetyBanner();
   loadUploadLimits();
+  // Carrega cedo (não só quando a pessoa abre Configurações → Notificações)
+  // pra já valer desde a primeira mensagem/chamada que chegar na sessão —
+  // sem isso, window.notificationPrefs ficava undefined até a pessoa entrar
+  // naquela aba pelo menos uma vez.
+  loadNotificationPrefs().catch(() => {});
   enforceScreenQualityForPlan();
   updatePlusBadgeUI();
   // Aplica tema/fundo/efeitos/badge/banner escolhidos na Personalização —
@@ -997,7 +1004,10 @@ function startApp() {
   // fica só salvo no banco, sem realmente aparecer no site.
   if (typeof PlusV2Live !== 'undefined') PlusV2Live.refresh(window.fetch.bind(window));
 
-  socket = io({ auth: { userId: me.id } });
+  // O servidor identifica o usuário pelo cookie de sessão (httpOnly), não
+  // por nada que a gente mande aqui — não dá (nem deveria dar) pra alegar
+  // ser outro userId só mudando esse handshake.
+  socket = io();
   registerSocketHandlers();
 
   // Guarda a versão atual como referência e passa a checar de novo a cada
@@ -2494,7 +2504,7 @@ async function renderBracket(tournamentId, container, format) {
           <div class="bracket-match" data-match-id="${m.id}">
             <div class="bracket-side ${m.winner_id === m.player_a_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_a_name || 'A definir')} ${m.score_a != null ? `(${m.score_a})` : ''}</div>
             <div class="bracket-side ${m.winner_id === m.player_b_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_b_name || 'A definir')} ${m.score_b != null ? `(${m.score_b})` : ''}</div>
-            ${m.evidence_url ? `<a href="${m.evidence_url}" target="_blank" class="bracket-evidence-link">📷 Ver evidência</a>` : ''}
+            ${m.evidence_url ? `<a href="${escapeHtml(m.evidence_url)}" target="_blank" rel="noopener noreferrer" class="bracket-evidence-link">📷 Ver evidência</a>` : ''}
             ${canReport ? '<button type="button" class="bracket-report-btn">Registrar resultado</button>' : ''}
             ${
               canReport
@@ -3403,7 +3413,9 @@ async function openDmCall(userId, username) {
   }
   if (!inChatMode) enterChatMode();
   document.getElementById('friends-panel').classList.add('hidden');
-  socket.emit('dm:ring', { toUserId: userId, channelId: data.channel_id, fromUsername: me.username });
+  // channelId/fromUsername não precisam mais ser mandados — o servidor
+  // deriva os dois a partir da sessão de quem está ligando (ver dm:ring).
+  socket.emit('dm:ring', { toUserId: userId });
   selectChannel({ id: data.channel_id, type: 'voz', name: '📞 ' + username }, { autoConnect: true });
 }
 
@@ -3420,13 +3432,19 @@ function showCallToast(fromUsername, channelId) {
     </div>
   `;
   toast.style.cursor = 'pointer';
+  // Toca de novo a cada ~2.2s enquanto o toast estiver na tela — uma
+  // "campainha" de verdade, não só um bipe único fácil de não perceber.
+  const ringInterval = setInterval(() => SFX.join(), 2200);
+  const stopRinging = () => clearInterval(ringInterval);
   toast.onclick = () => {
+    stopRinging();
     toast.remove();
     selectChannel({ id: channelId, type: 'voz', name: '📞 ' + fromUsername }, { autoConnect: true });
   };
   document.body.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add('reward-toast-show'));
   setTimeout(() => {
+    stopRinging();
     toast.classList.remove('reward-toast-show');
     setTimeout(() => toast.remove(), 400);
   }, 8000);
@@ -3908,13 +3926,23 @@ async function openProfilePreview(user) {
   // um pedido de mensagem que a pessoa precisa aceitar (a resposta de
   // openDmText já sabe qual dos dois casos é e mostra o aviso certo).
   const msgBtn = document.getElementById('profile-preview-message-btn');
+  const callBtn = document.getElementById('profile-preview-call-btn');
   if (user.id === me.id || user.id === AI_BOT_USER_ID) {
     msgBtn.classList.add('hidden');
+    callBtn.classList.add('hidden');
   } else {
     msgBtn.classList.remove('hidden');
     msgBtn.onclick = () => {
       modalProfilePreview.classList.add('hidden');
       openDmText(user.id, user.username);
+    };
+    // Ligar funciona pra qualquer pessoa, não só amigos — mesma lógica de
+    // /api/dm/:userId (que já permite abrir conversa com qualquer um, virando
+    // "pedido de mensagem" quando não são amigos nem estão no mesmo servidor).
+    callBtn.classList.remove('hidden');
+    callBtn.onclick = () => {
+      modalProfilePreview.classList.add('hidden');
+      openDmCall(user.id, user.username);
     };
   }
 
@@ -6996,8 +7024,11 @@ function renderMessageContentHtml(msg) {
 function renderAttachmentHtml(attachment) {
   // .url = arquivo grande no R2 (NEXTGAME PLUS ou FREE dentro do limite
   // maior); .data = base64 pequeno direto na mensagem (caminho antigo, sem R2).
-  const src = attachment && (attachment.url || attachment.data);
-  if (!src) return '';
+  const rawSrc = attachment && (attachment.url || attachment.data);
+  if (!rawSrc) return '';
+  // Escapado mesmo o servidor já validando o formato — defesa em profundidade,
+  // já que isso vira atributo src="..."/href="..." (ver auditoria de segurança).
+  const src = escapeHtml(rawSrc);
   const safeName = escapeHtml(attachment.name || 'arquivo');
   if ((attachment.type || '').startsWith('image/')) {
     return `
@@ -7740,10 +7771,12 @@ function registerSocketHandlers() {
     SFX.mention && SFX.mention();
   });
 
-  // Mensagem nova em algum canal de um servidor que não estou olhando agora
-  // — acende o badge vermelho no ícone dele no trilho, igual Discord.
+  // Mensagem nova em algum canal de um servidor/grupo que não estou olhando
+  // agora — acende o badge vermelho no ícone dele no trilho, igual Discord,
+  // e toca um som (mesmo toggle "Mensagem recebida" das DMs).
   socket.on('server:activity', ({ category, channel_id }) => {
     if (currentChannel && currentChannel.id === channel_id) return; // já estou vendo esse canal
+    if (!window.notificationPrefs || window.notificationPrefs.mensagem !== false) SFX.message();
     bumpUnreadServer(category);
   });
 
@@ -7947,9 +7980,15 @@ function registerSocketHandlers() {
   });
 
   // Mensagem de DM chegou e a pessoa não está com essa conversa aberta —
-  // mostra o pop-up (o som já toca no handler de chat:message, não repete aqui).
+  // mostra o pop-up. CORRIGIDO: esse é o caminho de verdade pra "mensagem
+  // chegou em outro lugar" (o comentário antigo dizia que o som já tocava no
+  // handler de chat:message, mas aquele handler só recebe eventos de canais
+  // em que o socket está "dentro" — pra conversa fechada, é ESSE evento que
+  // chega, e não tocava som nenhum). Respeita o toggle "Mensagem recebida"
+  // de Configurações → Notificações.
   socket.on('dm:notify', ({ fromUsername, channelId, preview }) => {
     if (currentChannel && currentChannel.id === channelId) return;
+    if (!window.notificationPrefs || window.notificationPrefs.mensagem !== false) SFX.message();
     showMessageToast(fromUsername, channelId, preview);
   });
 

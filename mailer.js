@@ -12,6 +12,20 @@
 
 const RESEND_FROM = process.env.RESEND_FROM || 'NEXT GAME <onboarding@resend.dev>';
 
+// Escapa HTML pra qualquer campo vindo de usuário (nome, assunto, mensagem
+// de ticket de suporte etc.) antes de injetar no corpo de um e-mail — sem
+// isso, alguém abrindo /api/support/tickets (rota pública, sem login) podia
+// mandar markup/link disfarçado no assunto/mensagem, que ia direto pro
+// e-mail HTML que o admin recebe e confia.
+function escapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function sendEmail({ to, subject, html, text }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -169,11 +183,11 @@ async function sendSupportTicketNotification(ticket) {
       <h2 style="color:#5865f2; margin-top:0;">📨 Novo ticket de suporte — NEXT GAME</h2>
       <p style="color:#949ba4; font-size: 13px; margin-bottom: 4px;">Categoria: <strong style="color:#e6e6e6;">${categoryLabel}</strong></p>
       <p style="color:#949ba4; font-size: 13px; margin-bottom: 16px;">
-        De: <strong style="color:#e6e6e6;">${ticket.name || ticket.username || 'Anônimo'}</strong>
-        (${ticket.email})${ticket.username ? ` — @${ticket.username}` : ''}
+        De: <strong style="color:#e6e6e6;">${escapeHtml(ticket.name || ticket.username || 'Anônimo')}</strong>
+        (${escapeHtml(ticket.email)})${ticket.username ? ` — @${escapeHtml(ticket.username)}` : ''}
       </p>
-      <p style="font-weight:700; font-size: 15px; margin-bottom: 6px;">${ticket.subject}</p>
-      <p style="background:#2b2d31; padding: 14px; border-radius: 8px; white-space: pre-wrap; font-size: 13px; line-height: 1.5;">${ticket.message}</p>
+      <p style="font-weight:700; font-size: 15px; margin-bottom: 6px;">${escapeHtml(ticket.subject)}</p>
+      <p style="background:#2b2d31; padding: 14px; border-radius: 8px; white-space: pre-wrap; font-size: 13px; line-height: 1.5;">${escapeHtml(ticket.message)}</p>
       <p style="color:#6d7178; font-size: 12px; margin-top: 20px;">
         Responda pelo painel: nextgameblue.stream/admin.html → aba 📨 Suporte.
       </p>

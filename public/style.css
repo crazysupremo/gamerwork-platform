@@ -2645,6 +2645,8 @@ video:fullscreen { background: #000; object-fit: contain; }
 .profile-stat:hover { transform: translateY(-2px); border-color: #3a3c42; }
 .profile-stat-num { display: block; font-size: 18px; font-weight: 900; color: white; }
 .profile-stat-label { font-size: 10px; color: #9aa0ab; text-transform: uppercase; }
+.profile-preview-primary-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.profile-preview-primary-actions .profile-preview-message-btn { margin-bottom: 0; }
 .profile-preview-message-btn {
   display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
   padding: 10px; margin-bottom: 10px; border-radius: 8px; border: none; background: var(--accent);

@@ -77,16 +77,19 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // confortável sem abrir espaço pra abuso.
 app.use(express.json({ limit: '700kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(
-  cookieSession({
-    name: 'session',
-    keys: [SESSION_SECRET],
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: IS_PRODUCTION,
-  })
-);
+// Guardado numa variável (em vez de só passar direto pro app.use) porque o
+// Socket.io reaproveita essa MESMA instância pra ler a sessão a partir do
+// cookie assinado — ver "io.use(wrapMiddleware(sessionMiddleware))" mais
+// abaixo, na seção de Socket.io.
+const sessionMiddleware = cookieSession({
+  name: 'session',
+  keys: [SESSION_SECRET],
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: IS_PRODUCTION,
+});
+app.use(sessionMiddleware);
 
 // Limite de tentativas de login/registro por IP, pra dificultar força bruta
 const authLimiter = rateLimit({
@@ -324,15 +327,36 @@ const adminApiLimiter = rateLimit({
 
 // Tokens temporários pra segunda etapa do login com 2FA — vivem só na
 // memória do processo (não precisam persistir, expiram sozinhos em minutos).
-const pending2FALogins = new Map(); // tempToken -> { userId, expires }
+const pending2FALogins = new Map(); // tempToken -> { userId, expires, attempts }
 const PENDING_2FA_TTL_MS = 5 * 60 * 1000;
+// CORRIGIDO (auditoria de segurança) — o authLimiter só limita por IP (20
+// tentativas/15min), o que não segura um atacante com vários IPs
+// (proxy/botnet) tentando forçar o PIN de 6 dígitos contra UM tempToken
+// específico. Isso limita por tentativa de login em si, não por IP —
+// esgotar as tentativas invalida o tempToken na hora, não só depois de
+// expirar os 5 minutos.
+const MAX_2FA_ATTEMPTS = 5;
 function createPending2FAToken(userId, remember) {
   const token = crypto.randomBytes(24).toString('hex');
-  pending2FALogins.set(token, { userId, remember: !!remember, expires: Date.now() + PENDING_2FA_TTL_MS });
+  pending2FALogins.set(token, { userId, remember: !!remember, expires: Date.now() + PENDING_2FA_TTL_MS, attempts: 0 });
   return token;
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Compara código de verificação/recuperação em tempo constante — os
+// códigos de e-mail eram comparados com !==, que sai no primeiro byte
+// diferente (defesa em profundidade; risco prático baixo já que esses
+// códigos têm TTL curto e passam pelo authLimiter, mas não custa fechar).
+function codeMatches(attempt, expected) {
+  const attemptBuf = Buffer.from(String(attempt || ''));
+  const expectedBuf = Buffer.from(String(expected || ''));
+  if (attemptBuf.length !== expectedBuf.length) {
+    crypto.timingSafeEqual(expectedBuf, expectedBuf);
+    return false;
+  }
+  return crypto.timingSafeEqual(attemptBuf, expectedBuf);
+}
 
 // Chama a IA dentro de uma sala de servidor/grupo (fora de DM) quando
 // alguém escreve @ia, @bot ou @NEXT GAME IA em qualquer lugar da mensagem
@@ -1075,7 +1099,7 @@ app.post(
     if (!code || typeof code !== 'string') {
       return res.status(400).json({ error: 'Informe o código recebido por e-mail.' });
     }
-    if (!req.user.verification_code || req.user.verification_code !== code.trim()) {
+    if (!req.user.verification_code || !codeMatches(code.trim(), req.user.verification_code)) {
       return res.status(400).json({ error: 'Código incorreto.' });
     }
     if (!req.user.verification_expires || new Date(req.user.verification_expires) < new Date()) {
@@ -1125,8 +1149,15 @@ app.post(
       pending2FALogins.delete(tempToken);
       return res.status(401).json({ error: 'Não foi possível concluir o login' });
     }
+    if (pending.attempts >= MAX_2FA_ATTEMPTS) {
+      pending2FALogins.delete(tempToken);
+      return res.status(401).json({ error: 'Muitas tentativas — faça login novamente desde o início.' });
+    }
     const valid = code && authenticator.check(String(code).trim(), user.totp_secret);
-    if (!valid) return res.status(401).json({ error: 'Código incorreto' });
+    if (!valid) {
+      pending.attempts += 1;
+      return res.status(401).json({ error: 'Código incorreto' });
+    }
 
     pending2FALogins.delete(tempToken);
     applySessionDuration(req, pending.remember === true);
@@ -1740,10 +1771,18 @@ app.post(
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120);
     const key = `attachments/${req.user.id}/${uuidv4()}-${safeName}`;
     try {
+      // CORRIGIDO (auditoria de segurança) — sem ContentLength assinado, o
+      // "size" só era conferido AQUI (no momento de gerar a URL) contra o
+      // limite do plano, mas nada impedia o navegador de reaproveitar a
+      // uploadUrl retornada e fazer o PUT de verdade com um arquivo bem
+      // maior. Incluindo ContentLength no comando assinado, o Content-Length
+      // vira parte da assinatura SigV4 — um PUT com tamanho diferente do
+      // que foi validado aqui é rejeitado pelo R2 por assinatura inválida.
       const command = new PutObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME,
         Key: key,
         ContentType: contentType || 'application/octet-stream',
+        ContentLength: size,
       });
       const uploadUrl = await getSignedUrl(getR2Client(), command, { expiresIn: 600 });
       const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
@@ -1863,7 +1902,18 @@ app.patch(
       if (avatar.length > 350000) {
         return res.status(400).json({ error: 'Imagem muito grande — escolha uma menor' });
       }
-      if (avatar && !avatar.startsWith('data:image/') && !avatar.startsWith('emoji:')) {
+      // CORRIGIDO (auditoria de segurança) — só checava startsWith('data:image/'),
+      // o que deixa passar algo como 'data:image/png",onerror="..."' (o prefixo
+      // bate, mas tem uma aspa no meio). O frontend renderiza isso direto num
+      // atributo src="${avatar}" sem escapar — passando essa validação, dava
+      // pra quebrar o atributo e injetar HTML/JS que roda pra QUALQUER outro
+      // usuário que veja esse avatar (perfil, chat, lista de membros). Regex
+      // fecha o formato inteiro: só base64 de verdade, sem aspas/tags no meio.
+      const isValidDataUrlImage = /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(avatar);
+      // "emoji:<emoji>:<cor>" é sempre renderizado como texto escapado no
+      // frontend (nunca vira atributo HTML), então não precisa de validação
+      // de formato aqui — só o caso de data URL (que vira src="...") precisa.
+      if (avatar && !isValidDataUrlImage && !avatar.startsWith('emoji:')) {
         return res.status(400).json({ error: 'Formato de avatar inválido' });
       }
       await db.run('UPDATE users SET avatar = ? WHERE id = ?', [avatar || null, req.user.id]);
@@ -1999,7 +2049,7 @@ app.post(
     if (!req.user.backup_email_code_expires || new Date(req.user.backup_email_code_expires) < new Date()) {
       return res.status(400).json({ error: 'Código expirado — peça um novo' });
     }
-    if (!code || String(code).trim() !== req.user.backup_email_code) {
+    if (!code || !codeMatches(String(code).trim(), req.user.backup_email_code)) {
       return res.status(400).json({ error: 'Código incorreto' });
     }
     await db.run(
@@ -2071,7 +2121,7 @@ app.post(
     if (new Date(user.recovery_code_expires) < new Date()) {
       return res.status(400).json({ error: 'Código expirado — peça um novo' });
     }
-    if (String(code).trim() !== user.recovery_code) {
+    if (!codeMatches(String(code).trim(), user.recovery_code)) {
       return res.status(400).json({ error: 'Código incorreto' });
     }
     if (!newEmail || !EMAIL_REGEX.test(newEmail) || newEmail.length > 200) {
@@ -5242,7 +5292,14 @@ app.post(
     // do plano: "evidência/screenshot de resultado").
     let evidenceUrl = null;
     if (evidence) {
-      if (typeof evidence !== 'string' || evidence.length > 500000 || !evidence.startsWith('data:image/')) {
+      // CORRIGIDO (auditoria de segurança) — mesmo problema do avatar: só
+      // checava o prefixo, e o frontend renderiza isso num href="..." sem
+      // escapar. Regex garante que é base64 de verdade, sem aspas/tags no meio.
+      const isValidDataUrlImage =
+        typeof evidence === 'string' &&
+        evidence.length <= 500000 &&
+        /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(evidence);
+      if (!isValidDataUrlImage) {
         return res.status(400).json({ error: 'Evidência precisa ser uma imagem válida (máx. ~350KB)' });
       }
       evidenceUrl = evidence;
@@ -7206,15 +7263,42 @@ app.get(
 
 // ---------- SOCKET.IO: chat + sinalização WebRTC ----------
 
+// CORRIGIDO (auditoria de segurança) — antes esse middleware confiava
+// cegamente no userId que o PRÓPRIO CLIENTE mandava em
+// socket.handshake.auth.userId, só checando se aquele id existia e não
+// estava banido. Isso permitia personificação total: qualquer um podia
+// abrir uma conexão Socket.io direto (sem passar pela UI) dizendo "eu sou o
+// usuário X" — bastava saber o id dele (vaza fácil em listas de membros,
+// mensagens, perfis) — e virar aquele usuário de verdade: receber DMs
+// dele, mandar mensagem em nome dele, entrar em call de voz como ele. Sem
+// precisar de senha nem de roubar cookie nenhum.
+//
+// Agora a sessão é lida do MESMO cookie assinado (httpOnly) que a API HTTP
+// usa — reaproveitando a mesma instância de cookie-session (ver
+// `sessionMiddleware` lá em cima) — em vez de aceitar o que o cliente diz
+// que é. O handshake.auth.userId enviado pelo cliente não é mais usado pra
+// nada (o client ainda manda, mas é ignorado).
+const wrapMiddleware = (middleware) => (socket, next) => middleware(socket.request, {}, next);
+io.use(wrapMiddleware(sessionMiddleware));
+
 io.use(async (socket, next) => {
-  // O cliente busca /api/me (autenticado via cookie de sessão) antes de conectar
-  // e envia o userId no handshake. Aqui revalidamos esse userId contra o banco.
   try {
-    const userId = socket.handshake.auth && socket.handshake.auth.userId;
-    if (!userId) return next(new Error('userId ausente no handshake'));
-    const user = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
+    const session = socket.request.session;
+    if (!session || !session.userId || !session.sessionId) {
+      return next(new Error('Não autenticado'));
+    }
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [session.userId]);
     if (!user || user.is_banned) return next(new Error('Usuário inválido ou banido'));
+    // Mesma checagem de "sessão revogada" que a API HTTP faz em requireAuth
+    // — assim um logout/"encerrar sessão em outro dispositivo" também
+    // derruba a conexão de socket, não só as chamadas REST.
+    const sessionRow = await db.get('SELECT * FROM user_sessions WHERE id = ? AND user_id = ?', [
+      session.sessionId,
+      user.id,
+    ]);
+    if (!sessionRow || sessionRow.revoked) return next(new Error('Sessão encerrada'));
     socket.user = user;
+    socket.sessionId = sessionRow.id;
     next();
   } catch (err) {
     next(err);
@@ -7471,7 +7555,18 @@ io.on('connection', (socket) => {
     broadcastOnlineUsers();
   });
 
-  socket.on('channel:join', (channelId) => {
+  // CORRIGIDO (auditoria de segurança) — diferente de rtc:join (voz, que já
+  // checava canAccessChannel) e de chat:message (que também checa), esse
+  // join de canal de TEXTO não validava nada: qualquer usuário logado podia
+  // chamar channel:join com o id de um canal privado por cargo, ou de uma
+  // DM de outras duas pessoas, e passar a receber ao vivo tudo que rolasse
+  // ali (mensagem, digitação, presença) — mesmo sem ter acesso de verdade.
+  // requireChannelAccess já trata os dois casos (canal de servidor com
+  // cargo restrito, e DM só entre os dois participantes).
+  socket.on('channel:join', async (channelId) => {
+    if (typeof channelId !== 'string' || !channelId) return;
+    const access = await requireChannelAccess(channelId, user);
+    if (!access.ok) return;
     socket.join(channelId);
     socket.to(channelId).emit('presence:join', { userId: user.id, username: user.username });
   });
@@ -7508,8 +7603,17 @@ io.on('connection', (socket) => {
         } else if (data) {
           // Anexo pequeno direto no banco (sem R2 configurado, ou arquivo
           // pequeno o bastante que nem precisa do storage externo).
+          // CORRIGIDO (auditoria de segurança) — só checava startsWith('data:'),
+          // que deixa passar algo tipo 'data:"><script>...' — o frontend
+          // renderiza isso direto num src="..."/href="..." sem escapar.
+          // Regex valida a sintaxe inteira de data URL (mime/subtipo + base64
+          // só com o charset certo), sem travar tipo de arquivo nenhum.
           const validShape =
-            nameOk && typeof type === 'string' && typeof data === 'string' && data.startsWith('data:') && Number.isFinite(size);
+            nameOk &&
+            typeof type === 'string' &&
+            typeof data === 'string' &&
+            /^data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/]+={0,2}$/.test(data) &&
+            Number.isFinite(size);
           // Checa o tamanho de verdade (data.length, ~33% maior que o
           // arquivo original por causa do base64), não só o "size" que o
           // cliente mandou (que pode mentir).
@@ -8089,11 +8193,25 @@ io.on('connection', (socket) => {
 
   // Notifica a pessoa específica que alguém está ligando pra ela (DM de voz)
   // — só chega pras conexões dela, não é um broadcast geral.
-  socket.on('dm:ring', ({ toUserId, channelId, fromUsername }) => {
-    if (!toUserId || !channelId) return;
+  // CORRIGIDO (agora que ligar pra qualquer usuário ficou mais visível na
+  // UI, vale fechar isso): antes confiava no channelId e no fromUsername que
+  // o CLIENTE mandava — dava pra chamar dm:ring com um channelId de outra
+  // conversa/canal qualquer (só o texto do toast mentia, o clique real
+  // dependia do requireChannelAccess do channel:join, que já barra o acesso
+  // de verdade) e um fromUsername forjado, fingindo ser outra pessoa
+  // ligando. Agora o servidor deriva o channelId de verdade (mesmo dmId
+  // usado por /api/dm/:userId) e usa o username real da sessão, e não deixa
+  // ligar pra quem te bloqueou ou você bloqueou.
+  socket.on('dm:ring', async ({ toUserId }) => {
+    if (!toUserId || typeof toUserId !== 'string' || toUserId === user.id) return;
+    const blocked = await db.get(
+      'SELECT id FROM blocked_users WHERE (user_id = ? AND blocked_user_id = ?) OR (user_id = ? AND blocked_user_id = ?)',
+      [user.id, toUserId, toUserId, user.id]
+    );
+    if (blocked) return;
     io.to('user:' + toUserId).emit('dm:ring', {
-      fromUsername: fromUsername || user.username,
-      channelId,
+      fromUsername: user.username,
+      channelId: dmChannelId(user.id, toUserId),
     });
   });
 
@@ -8127,6 +8245,16 @@ process.on('unhandledRejection', (reason) => {
 });
 
 async function main() {
+  // Trava de segurança: sem isso, um deploy em produção que esqueceu de
+  // configurar SESSION_SECRET fica assinando cookie de sessão com um valor
+  // que está público no código-fonte — qualquer um pode forjar uma sessão
+  // válida pra qualquer userId. Em dev, segue com o valor padrão (só avisa).
+  if (IS_PRODUCTION && !process.env.SESSION_SECRET) {
+    console.error(
+      'ERRO: SESSION_SECRET não configurada em produção. Defina essa variável de ambiente antes de subir (não use o valor padrão do código).'
+    );
+    process.exit(1);
+  }
   await db.initDb();
   httpServer.listen(PORT, () => {
     console.log(`NEXT GAME rodando em http://localhost:${PORT}`);
