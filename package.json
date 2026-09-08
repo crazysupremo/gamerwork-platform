@@ -1,7 +1,7 @@
 {
-  "name": "next-game",
-  "version": "0.43.4",
-  "description": "NEXT GAME - plataforma de chat/voz para gamers e trabalho, com salas criadas por usuários, compartilhamento de tela e moderação de conteúdo",
+  "name": "protection-bluex-api",
+  "version": "0.1.0",
+  "description": "PROTECTION BLUEX (BLUE SPORTS GAMES) — API de verificação de idade, moderação de conteúdo e análise de comportamento suspeito, pra empresas clientes integrarem via chave de API.",
   "main": "server.js",
   "engines": {
     "node": "22.x"
@@ -11,18 +11,11 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.700.0",
-    "@aws-sdk/s3-request-presigner": "^3.700.0",
     "@libsql/client": "^0.14.0",
-    "bcryptjs": "^2.4.3",
     "cookie-session": "^2.1.0",
     "express": "^4.19.2",
     "express-rate-limit": "^7.4.0",
     "helmet": "^7.1.0",
-    "lucide-static": "^1.34.0",
-    "otplib": "^12.0.1",
-    "qrcode": "^1.5.4",
-    "socket.io": "^4.7.5",
     "uuid": "^9.0.1"
   }
 }

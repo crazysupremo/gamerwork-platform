@@ -1,20 +1,24 @@
-# Blueprint de deploy para o Render.com
-# Como usar: no painel do Render, clique em "New +" -> "Blueprint" e aponte
-# para o repositório do GitHub que contém este arquivo. O Render lê este
-# arquivo automaticamente e configura o serviço sozinho.
 services:
   - type: web
-    name: next-game
-    runtime: node
+    name: protection-bluex-api
+    env: node
     plan: free
     buildCommand: npm install
     startCommand: npm start
     envVars:
-      - key: NODE_VERSION
-        value: 22.11.0
+      - key: NODE_ENV
+        value: production
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_VISION_MODEL_2
+        sync: false
+      - key: GROQ_TEXT_MODEL_2
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
       - key: SESSION_SECRET
         generateValue: true
       - key: TURSO_DATABASE_URL
-        sync: false # preencha no painel do Render com a URL do seu banco Turso (turso.tech)
+        sync: false
       - key: TURSO_AUTH_TOKEN
-        sync: false # preencha no painel do Render com o token do seu banco Turso
+        sync: false
