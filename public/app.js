@@ -2449,7 +2449,7 @@ return `
           <div class="bracket-match" data-match-id="${m.id}">
             <div class="bracket-side ${m.winner_id === m.player_a_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_a_name || 'A definir')} ${m.score_a != null ? `(${m.score_a})` : ''}</div>
             <div class="bracket-side ${m.winner_id === m.player_b_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_b_name || 'A definir')} ${m.score_b != null ? `(${m.score_b})` : ''}</div>
-            ${m.evidence_url ? `<a href="${m.evidence_url}" target="_blank" class="bracket-evidence-link">📷 Ver evidência</a>` : ''}
+            ${m.evidence_url && /^(https?:|data:image\/)/i.test(m.evidence_url) ? `<a href="${escapeHtml(m.evidence_url).replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer" class="bracket-evidence-link">📷 Ver evidência</a>` : ''}
             ${canReport ? '<button type="button" class="bracket-report-btn">Registrar resultado</button>' : ''}
             ${
               canReport

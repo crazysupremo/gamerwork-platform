@@ -798,8 +798,14 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 
 .sidebar {
   width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; padding: 0;
-  min-height: 0; overflow-y: auto;
+  min-height: 0;
 }
+/* CORRIGIDO: overflow-y:auto aqui fazia o navegador também tratar o eixo X
+   como "auto" (regra do CSS: um eixo "visible" ao lado de outro que não é
+   vira "auto" junto), cortando o menu "⋯" (.sidebar-more-menu), que é mais
+   largo que a coluna e fica posicionado como absolute. O scroll de verdade
+   já é feito por dentro (#categories-container e .friends-list têm o
+   próprio overflow-y), então a .sidebar não precisa rolar sozinha. */
 /* Repaginado (a pedido — "coluna do meio ficou tumultuada"): cabeçalho antes
    tinha 6 botõezinhos de 22px espremidos numa linha só, sem respiro nenhum.
    Agora só sobra o essencial visível (Criar sala + Fechar); o resto vira um

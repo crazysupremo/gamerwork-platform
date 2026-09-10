@@ -8630,7 +8630,15 @@ io.on('connection', (socket) => {
     broadcastOnlineUsers();
   });
 
-  socket.on('channel:join', (channelId) => {
+  socket.on('channel:join', async (channelId) => {
+    if (typeof channelId !== 'string' || !channelId) return;
+    try {
+      const access = await requireChannelAccess(channelId, user);
+      if (!access.ok) return;
+    } catch (err) {
+      console.error('Erro ao checar acesso ao canal (channel:join):', err);
+      return;
+    }
     socket.join(channelId);
     socket.to(channelId).emit('presence:join', { userId: user.id, username: user.username });
   });

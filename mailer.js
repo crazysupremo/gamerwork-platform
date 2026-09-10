@@ -12,6 +12,19 @@
 
 const RESEND_FROM = process.env.RESEND_FROM || 'NEXT GAME <onboarding@resend.dev>';
 
+// Escapa valores vindos do usuário (username, dados de ticket de suporte)
+// antes de colocar em HTML de e-mail — sem isso, alguém podia mandar
+// "<img src=x onerror=...>" como nome/assunto/mensagem do ticket e injetar
+// HTML no e-mail que o admin recebe.
+function escapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function sendEmail({ to, subject, html, text }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -43,7 +56,7 @@ async function sendEmail({ to, subject, html, text }) {
 }
 
 async function sendVerificationEmail(to, code, username) {
-  const safeUsername = String(username || '').slice(0, 60);
+  const safeUsername = escapeHtml(String(username || '').slice(0, 60));
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 420px; margin: 0 auto; padding: 24px; background:#1e1f22; color:#e6e6e6; border-radius: 12px;">
       <h2 style="color:#5865f2; margin-top:0;">NEXT GAME</h2>
@@ -73,7 +86,7 @@ function generateVerificationCode() {
 }
 
 async function sendPasswordResetEmail(to, resetUrl, username) {
-  const safeUsername = String(username || '').slice(0, 60);
+  const safeUsername = escapeHtml(String(username || '').slice(0, 60));
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 420px; margin: 0 auto; padding: 24px; background:#1e1f22; color:#e6e6e6; border-radius: 12px;">
       <h2 style="color:#5865f2; margin-top:0;">NEXT GAME</h2>
@@ -99,7 +112,7 @@ async function sendPasswordResetEmail(to, resetUrl, username) {
 }
 
 async function sendBackupEmailCode(to, code, username) {
-  const safeUsername = String(username || '').slice(0, 60);
+  const safeUsername = escapeHtml(String(username || '').slice(0, 60));
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 420px; margin: 0 auto; padding: 24px; background:#1e1f22; color:#e6e6e6; border-radius: 12px;">
       <h2 style="color:#5865f2; margin-top:0;">NEXT GAME</h2>
@@ -121,7 +134,7 @@ async function sendBackupEmailCode(to, code, username) {
 }
 
 async function sendAccountRecoveryCode(to, code, username) {
-  const safeUsername = String(username || '').slice(0, 60);
+  const safeUsername = escapeHtml(String(username || '').slice(0, 60));
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 420px; margin: 0 auto; padding: 24px; background:#1e1f22; color:#e6e6e6; border-radius: 12px;">
       <h2 style="color:#5865f2; margin-top:0;">NEXT GAME</h2>
@@ -169,11 +182,11 @@ async function sendSupportTicketNotification(ticket) {
       <h2 style="color:#5865f2; margin-top:0;">📨 Novo ticket de suporte — NEXT GAME</h2>
       <p style="color:#949ba4; font-size: 13px; margin-bottom: 4px;">Categoria: <strong style="color:#e6e6e6;">${categoryLabel}</strong></p>
       <p style="color:#949ba4; font-size: 13px; margin-bottom: 16px;">
-        De: <strong style="color:#e6e6e6;">${ticket.name || ticket.username || 'Anônimo'}</strong>
-        (${ticket.email})${ticket.username ? ` — @${ticket.username}` : ''}
+        De: <strong style="color:#e6e6e6;">${escapeHtml(ticket.name || ticket.username || 'Anônimo')}</strong>
+        (${escapeHtml(ticket.email)})${ticket.username ? ` — @${escapeHtml(ticket.username)}` : ''}
       </p>
-      <p style="font-weight:700; font-size: 15px; margin-bottom: 6px;">${ticket.subject}</p>
-      <p style="background:#2b2d31; padding: 14px; border-radius: 8px; white-space: pre-wrap; font-size: 13px; line-height: 1.5;">${ticket.message}</p>
+      <p style="font-weight:700; font-size: 15px; margin-bottom: 6px;">${escapeHtml(ticket.subject)}</p>
+      <p style="background:#2b2d31; padding: 14px; border-radius: 8px; white-space: pre-wrap; font-size: 13px; line-height: 1.5;">${escapeHtml(ticket.message)}</p>
       <p style="color:#6d7178; font-size: 12px; margin-top: 20px;">
         Responda pelo painel: nextgameblue.stream/admin.html → aba 📨 Suporte.
       </p>
