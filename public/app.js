@@ -969,7 +969,8 @@ row.innerHTML = `
           <span class="member-status-dot member-status-${presence}"></span>
         </div>
         <div class="member-info">
-          <div class="member-name">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${userVerifiedBadgeHtml(u)}</div>
+          <div class="member-name"${roleColorStyleFor(u)}>${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${userVerifiedBadgeHtml(u)}</div>
+          ${u.roles && u.roles.length ? `<div class="member-role-tag" style="color:${escapeHtml(u.roles[0].color)};">${escapeHtml(u.roles[0].name)}</div>` : ''}
           ${u.status_message ? `<div class="member-game">🎮 ${escapeHtml(u.status_message)}</div>` : ''}
         </div>
       `;
@@ -1125,6 +1126,16 @@ return officialServers.has(category)
 : '';
 }
 
+function roleColorFor(user) {
+if (!user || !user.roles || user.roles.length === 0) return null;
+const color = user.roles[0].color;
+if (!color || color.toLowerCase() === '#99aab5') return null;
+return color;
+}
+function roleColorStyleFor(user) {
+const color = roleColorFor(user);
+return color ? ` style="color:${escapeHtml(color)};"` : '';
+}
 function userVerifiedBadgeHtml(user) {
 if (!user || !user.is_verified) return '';
 const gold = !!user.verified_gold;
@@ -1266,7 +1277,43 @@ return `${window.location.origin}/?invite=${info.invite_code}&channel=${ch.id}`;
 return `${window.location.origin}/?channel=${ch.id}`;
 }
 
-function renderCategories(channels) {
+let serverBannerCache = {};
+function invalidateServerBannerCache(category) {
+if (category) delete serverBannerCache[category];
+else serverBannerCache = {};
+}
+async function loadServerBannerFor(category) {
+if (!category) return null;
+if (Object.prototype.hasOwnProperty.call(serverBannerCache, category)) return serverBannerCache[category];
+try {
+const res = await fetch(`/api/servers/${encodeURIComponent(category)}`, { credentials: 'include' });
+const data = res.ok ? await res.json() : {};
+serverBannerCache[category] = data.banner || null;
+return serverBannerCache[category];
+} catch (_) {
+return null;
+}
+}
+
+let channelGroupsCache = {};
+async function loadChannelGroupsFor(category) {
+if (!category) return [];
+if (channelGroupsCache[category]) return channelGroupsCache[category];
+try {
+const res = await fetch(`/api/servers/${encodeURIComponent(category)}/channel-groups`, { credentials: 'include' });
+const data = res.ok ? await res.json() : [];
+channelGroupsCache[category] = data;
+return data;
+} catch (_) {
+return [];
+}
+}
+function invalidateChannelGroupsCache(category) {
+if (category) delete channelGroupsCache[category];
+else channelGroupsCache = {};
+}
+
+async function renderCategories(channels) {
 const container = document.getElementById('categories-container');
 container.innerHTML = '';
 
@@ -1276,11 +1323,38 @@ nameEl.textContent = activeServerCategory || 'NEXT GAME';
 
 if (iconEl) iconEl.innerHTML = activeServerCategory ? renderServerIconOnly(activeServerCategory) : '🎮';
 
+const bannerEl = document.getElementById('active-server-banner');
+if (bannerEl) {
+const banner = await loadServerBannerFor(activeServerCategory);
+if (banner) {
+bannerEl.style.backgroundImage = `url("${banner}")`;
+bannerEl.classList.remove('hidden');
+} else {
+bannerEl.style.backgroundImage = '';
+bannerEl.classList.add('hidden');
+}
+}
+
 const channelsInServer = channels.filter((ch) => ch.category === activeServerCategory);
-const groups = [
+const customGroups = await loadChannelGroupsFor(activeServerCategory);
+let groups;
+if (customGroups.length > 0) {
+groups = customGroups.map((g) => ({
+key: 'group:' + g.id,
+label: g.name,
+groupId: g.id,
+channels: channelsInServer.filter((c) => c.group_id === g.id),
+}));
+const ungrouped = channelsInServer.filter((c) => !c.group_id);
+if (ungrouped.length > 0) {
+groups.push({ key: 'group:none', label: 'SEM CATEGORIA', groupId: null, channels: ungrouped });
+}
+} else {
+groups = [
 { key: 'texto', label: 'CANAIS DE TEXTO', channels: channelsInServer.filter((c) => c.type === 'texto') },
 { key: 'voz', label: 'CANAIS DE VOZ', channels: channelsInServer.filter((c) => c.type === 'voz') },
 ];
+}
 
 groups.forEach((group) => {
 if (group.channels.length === 0) return;
@@ -1633,8 +1707,71 @@ if (me.is_admin) manageServerPermissions = SERVER_PERMISSION_KEYS_CLIENT;
 document.getElementById('btn-delete-server').classList.toggle('hidden', !manageServerIsOwner);
 document.getElementById('btn-leave-server').classList.toggle('hidden', manageServerIsOwner);
 
+const bannerPreview = document.getElementById('server-banner-preview');
+const bannerEmpty = document.getElementById('server-banner-empty');
+if (info.banner) {
+bannerPreview.src = info.banner;
+bannerPreview.classList.remove('hidden');
+bannerEmpty.classList.add('hidden');
+} else {
+bannerPreview.classList.add('hidden');
+bannerEmpty.classList.remove('hidden');
+}
+document.getElementById('server-banner-error').textContent = '';
+
 await loadManageInvite();
 modalServerManage.classList.remove('hidden');
+};
+
+document.getElementById('btn-upload-server-banner').onclick = () => {
+document.getElementById('server-banner-file').click();
+};
+document.getElementById('server-banner-file').onchange = async (e) => {
+const file = e.target.files[0];
+e.target.value = '';
+if (!file || !activeServerCategory) return;
+const errorEl = document.getElementById('server-banner-error');
+errorEl.textContent = '';
+try {
+const dataUrl = await resizeImageToDataUrl(file, 960);
+const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, {
+method: 'PATCH',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ banner: dataUrl }),
+});
+const data = await res.json().catch(() => ({}));
+if (!res.ok) {
+errorEl.textContent = data.error || 'Erro ao enviar o banner';
+return;
+}
+document.getElementById('server-banner-preview').src = dataUrl;
+document.getElementById('server-banner-preview').classList.remove('hidden');
+document.getElementById('server-banner-empty').classList.add('hidden');
+invalidateServerBannerCache(activeServerCategory);
+renderCategories(allChannels);
+showCopyToast('Banner atualizado!');
+} catch (_) {
+errorEl.textContent = 'Erro ao processar a imagem';
+}
+};
+document.getElementById('btn-remove-server-banner').onclick = async () => {
+if (!activeServerCategory) return;
+const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, {
+method: 'PATCH',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ banner: null }),
+});
+if (!res.ok) {
+document.getElementById('server-banner-error').textContent = 'Erro ao remover o banner';
+return;
+}
+document.getElementById('server-banner-preview').classList.add('hidden');
+document.getElementById('server-banner-empty').classList.remove('hidden');
+invalidateServerBannerCache(activeServerCategory);
+renderCategories(allChannels);
+showCopyToast('Banner removido!');
 };
 document.getElementById('btn-close-server-manage').onclick = () => modalServerManage.classList.add('hidden');
 
@@ -3374,6 +3511,36 @@ return;
 showCopyToast('Sala renomeada!');
 },
 },
+{
+icon: '📁',
+label: 'Mover pra categoria',
+onClick: async () => {
+const groups = await loadChannelGroupsFor(ch.category);
+if (groups.length === 0) {
+alert('Esse servidor ainda não tem nenhuma categoria criada — cria uma primeiro em "⋯ → Nova categoria de canal".');
+return;
+}
+const options = groups.map((g, i) => `${i + 1}) ${g.name}`).join('\n');
+const choice = prompt(`Mover "${ch.name}" pra qual categoria? Digite o número (0 pra tirar de qualquer categoria):\n0) Sem categoria\n${options}`, '');
+if (choice === null) return;
+const idx = parseInt(choice, 10);
+if (Number.isNaN(idx) || idx < 0 || idx > groups.length) return;
+const groupId = idx === 0 ? null : groups[idx - 1].id;
+const res = await fetch(`/api/channels/${ch.id}/group`, {
+method: 'PATCH',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ groupId }),
+});
+if (!res.ok) {
+const data = await res.json().catch(() => ({}));
+alert(data.error || 'Erro ao mover o canal');
+return;
+}
+showCopyToast('Canal movido!');
+await loadChannels();
+},
+},
 { separator: true },
 {
 icon: '🐢',
@@ -3710,6 +3877,29 @@ showCopyToast('Sala rápida criada! Ela some sozinha quando todo mundo sair.');
 } catch (err) {
 alert('Erro de conexão com o servidor');
 }
+};
+
+document.getElementById('btn-new-channel-group').onclick = async () => {
+if (!activeServerCategory) {
+alert('Crie ou entre num servidor primeiro.');
+return;
+}
+const name = prompt('Nome da categoria (ex: GERAL, ANÚNCIOS, JOGOS):', '');
+if (name === null || !name.trim()) return;
+const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/channel-groups`, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ name: name.trim() }),
+});
+const data = await res.json().catch(() => ({}));
+if (!res.ok) {
+alert(data.error || 'Erro ao criar categoria');
+return;
+}
+invalidateChannelGroupsCache(activeServerCategory);
+showCopyToast('Categoria criada!');
+renderCategories(allChannels);
 };
 
 const modalNewServer = document.getElementById('modal-new-server');

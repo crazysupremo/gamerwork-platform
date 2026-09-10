@@ -75,7 +75,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // 100kb era pouco pra imagem em base64 (avatar/evidência de torneio somados
 // ao resto do corpo da requisição já passam disso) — 700kb dá folga
 // confortável sem abrir espaço pra abuso.
-app.use(express.json({ limit: '700kb' }));
+app.use(express.json({ limit: '1.6mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(
   cookieSession({
@@ -369,6 +369,17 @@ function isValidServerIcon(icon) {
   if (icon.startsWith('data:image/')) return icon.length <= 500000;
   if (icon.startsWith('/')) return icon.length <= 200;
   return icon.length <= 8;
+}
+
+// Banner do servidor (item 8 da especificação) — imagem larga (tipo capa),
+// mesma lógica do ícone mas com mais folga de tamanho já que é bem maior em
+// pixels. Precisou subir o limite do corpo da requisição (express.json)
+// junto — ver mais abaixo.
+function isValidServerBanner(banner) {
+  if (!banner || typeof banner !== 'string') return false;
+  if (banner.startsWith('data:image/')) return banner.length <= 1200000;
+  if (banner.startsWith('/')) return banner.length <= 200;
+  return false;
 }
 
 async function isServerMember(category, userId) {
@@ -2968,7 +2979,7 @@ app.post(
   '/api/channels',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { name, category, type, voice_type, voice_game } = req.body || {};
+    const { name, category, type, voice_type, voice_game, groupId } = req.body || {};
     if (
       !name ||
       !category ||
@@ -3015,13 +3026,110 @@ app.post(
     const canManage = await hasServerPermission(cleanCategory, req.user, 'manage_channels');
     if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra criar salas nesse servidor' });
 
+    // Categoria/pasta de canal (opcional) — precisa existir e ser desse
+    // mesmo servidor, senão ignora silenciosamente (canal fica sem pasta).
+    let cleanGroupId = null;
+    if (groupId) {
+      const group = await db.get('SELECT id FROM channel_groups WHERE id = ? AND category = ?', [groupId, cleanCategory]);
+      if (group) cleanGroupId = group.id;
+    }
+
     const id = uuidv4();
     await db.run(
-      'INSERT INTO channels (id, name, category, type, created_by, voice_type, voice_game) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, cleanName, cleanCategory, type, req.user.id, cleanVoiceType, cleanVoiceGame]
+      'INSERT INTO channels (id, name, category, type, created_by, voice_type, voice_game, group_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, cleanName, cleanCategory, type, req.user.id, cleanVoiceType, cleanVoiceGame, cleanGroupId]
     );
 
-    res.json({ id, name: cleanName, category: cleanCategory, type, voice_type: cleanVoiceType, voice_game: cleanVoiceGame });
+    res.json({ id, name: cleanName, category: cleanCategory, type, voice_type: cleanVoiceType, voice_game: cleanVoiceGame, group_id: cleanGroupId });
+  })
+);
+
+// ---------- CATEGORIAS/PASTAS DE CANAL (a pedido, "igual Discord") ----------
+app.get(
+  '/api/servers/:category/channel-groups',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const isMember = await isServerMember(req.params.category, req.user.id);
+    if (!isMember && !req.user.is_admin) return res.status(403).json({ error: 'Você não é membro desse servidor' });
+    res.json(
+      await db.all('SELECT * FROM channel_groups WHERE category = ? ORDER BY position ASC, created_at ASC', [req.params.category])
+    );
+  })
+);
+
+app.post(
+  '/api/servers/:category/channel-groups',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra criar categorias nesse servidor' });
+    const { name } = req.body || {};
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'Nome da categoria é obrigatório' });
+    }
+    const maxPos = await db.get('SELECT MAX(position) as maxPos FROM channel_groups WHERE category = ?', [req.params.category]);
+    const id = uuidv4();
+    await db.run('INSERT INTO channel_groups (id, category, name, position) VALUES (?, ?, ?, ?)', [
+      id,
+      req.params.category,
+      name.trim().slice(0, 40).toUpperCase(),
+      (maxPos && maxPos.maxPos != null ? maxPos.maxPos : -1) + 1,
+    ]);
+    res.json({ id, category: req.params.category, name: name.trim().slice(0, 40).toUpperCase() });
+  })
+);
+
+app.patch(
+  '/api/servers/:category/channel-groups/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra editar categorias nesse servidor' });
+    const group = await db.get('SELECT id FROM channel_groups WHERE id = ? AND category = ?', [req.params.id, req.params.category]);
+    if (!group) return res.status(404).json({ error: 'Categoria não encontrada' });
+    const { name, position } = req.body || {};
+    if (name && typeof name === 'string' && name.trim()) {
+      await db.run('UPDATE channel_groups SET name = ? WHERE id = ?', [name.trim().slice(0, 40).toUpperCase(), req.params.id]);
+    }
+    if (Number.isInteger(position)) {
+      await db.run('UPDATE channel_groups SET position = ? WHERE id = ?', [position, req.params.id]);
+    }
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/servers/:category/channel-groups/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra apagar categorias nesse servidor' });
+    // Canais dentro voltam a ficar sem categoria (não apaga o canal em si).
+    await db.run('UPDATE channels SET group_id = NULL WHERE group_id = ?', [req.params.id]);
+    await db.run('DELETE FROM channel_groups WHERE id = ? AND category = ?', [req.params.id, req.params.category]);
+    res.json({ ok: true });
+  })
+);
+
+// Move um canal existente pra outra categoria (ou tira de qualquer
+// categoria, mandando groupId: null) — usado pelo menu de contexto do canal.
+app.patch(
+  '/api/channels/:id/group',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const channel = await db.get('SELECT * FROM channels WHERE id = ?', [req.params.id]);
+    if (!channel) return res.status(404).json({ error: 'Canal não encontrado' });
+    const canManage = await hasServerPermission(channel.category, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra mover esse canal' });
+    const { groupId } = req.body || {};
+    let cleanGroupId = null;
+    if (groupId) {
+      const group = await db.get('SELECT id FROM channel_groups WHERE id = ? AND category = ?', [groupId, channel.category]);
+      if (!group) return res.status(400).json({ error: 'Categoria inválida' });
+      cleanGroupId = group.id;
+    }
+    await db.run('UPDATE channels SET group_id = ? WHERE id = ?', [cleanGroupId, req.params.id]);
+    res.json({ ok: true, group_id: cleanGroupId });
   })
 );
 
@@ -3352,21 +3460,38 @@ app.patch(
   asyncHandler(async (req, res) => {
     const canManage = await hasServerPermission(req.params.category, req.user, 'manage_server');
     if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar esse servidor' });
-    const { description, rules, icon, discoverable, access_mode, password } = req.body || {};
+    const { description, rules, icon, banner, discoverable, access_mode, password } = req.body || {};
     if ((description && description.length > 500) || (rules && rules.length > 2000)) {
       return res.status(400).json({ error: 'Descrição (máx. 500) ou regras (máx. 2000) muito longas' });
     }
+    if (banner !== undefined && banner !== null && !isValidServerBanner(banner)) {
+      return res.status(400).json({ error: 'Banner inválido — envie uma imagem menor' });
+    }
     await db.run(
-      `INSERT INTO servers (category, description, rules, icon, updated_by, updated_at)
-       VALUES (?, ?, ?, ?, ?, datetime('now'))
+      `INSERT INTO servers (category, description, rules, icon, banner, updated_by, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
        ON CONFLICT(category) DO UPDATE SET
          description = excluded.description,
          rules = excluded.rules,
          icon = COALESCE(excluded.icon, servers.icon),
+         banner = COALESCE(excluded.banner, servers.banner),
          updated_by = excluded.updated_by,
          updated_at = excluded.updated_at`,
-      [req.params.category, description || null, rules || null, isValidServerIcon(icon) ? icon : null, req.user.id]
+      [
+        req.params.category,
+        description || null,
+        rules || null,
+        isValidServerIcon(icon) ? icon : null,
+        isValidServerBanner(banner) ? banner : null,
+        req.user.id,
+      ]
     );
+    // Remover o banner de propósito (mandou banner: null explicitamente) —
+    // o COALESCE acima nunca apaga, só o dono pedindo "sem banner" apaga de
+    // verdade.
+    if (banner === null) {
+      await db.run('UPDATE servers SET banner = NULL WHERE category = ?', [req.params.category]);
+    }
     if (typeof discoverable === 'boolean') {
       await db.run('UPDATE servers SET discoverable = ? WHERE category = ?', [discoverable ? 1 : 0, req.params.category]);
     }
@@ -3406,8 +3531,11 @@ app.get(
        WHERE sm.category = ? ORDER BY u.username`,
       [req.params.category]
     );
+    // "position" incluído de propósito — é o que decide qual cor "vence"
+    // quando alguém tem mais de um cargo colorido, igual Discord (cargo mais
+    // "alto" na hierarquia manda na cor do nome).
     const roleRows = await db.all(
-      `SELECT smr.user_id, r.id as role_id, r.name, r.color
+      `SELECT smr.user_id, r.id as role_id, r.name, r.color, r.position
        FROM server_member_roles smr JOIN server_roles r ON r.id = smr.role_id
        WHERE smr.category = ?`,
       [req.params.category]
@@ -3416,7 +3544,10 @@ app.get(
       members.map((m) => ({
         ...m,
         is_owner: server && server.owner_id === m.id,
-        roles: roleRows.filter((r) => r.user_id === m.id).map((r) => ({ id: r.role_id, name: r.name, color: r.color })),
+        roles: roleRows
+          .filter((r) => r.user_id === m.id)
+          .sort((a, b) => b.position - a.position)
+          .map((r) => ({ id: r.role_id, name: r.name, color: r.color, position: r.position })),
       }))
     );
   })
@@ -6715,6 +6846,119 @@ app.post(
     const { status } = req.body || {};
     await db.run('UPDATE reports SET status = ? WHERE id = ?', [status || 'resolvido', req.params.id]);
     res.json({ ok: true });
+  })
+);
+
+// ---------- INVESTIGAÇÃO DE CONVERSA (admin geral, com motivo obrigatório) ----------
+// A pedido — admin geral consegue ver o histórico de mensagens de qualquer
+// usuário, MAS só digitando um motivo (denúncia, suspeita etc.) toda vez, e
+// cada acesso fica gravado pra sempre em admin_investigation_log (quem viu,
+// de quem, quando, por quê). Isso é o que a LGPD pede de verdade: acesso a
+// dado pessoal só com propósito legítimo e rastreável — não é "criptografia"
+// no sentido literal (as mensagens continuam em texto normal no banco,
+// como sempre foram, porque o app precisa disso pra funcionar pro usuário
+// comum), é controle de acesso com auditoria. requireAdmin (não
+// requireModerator) de propósito — só admin geral, não moderador parcial.
+app.post(
+  '/api/admin/investigate',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { targetUsername, reason, relatedReportId } = req.body || {};
+    if (!targetUsername || typeof targetUsername !== 'string') {
+      return res.status(400).json({ error: 'Informe o nome de usuário.' });
+    }
+    if (!reason || typeof reason !== 'string' || reason.trim().length < 5) {
+      return res.status(400).json({ error: 'O motivo é obrigatório (mínimo 5 caracteres) — fica registrado no log de auditoria.' });
+    }
+    const target = await db.get('SELECT id, username, email FROM users WHERE username = ?', [targetUsername.trim()]);
+    if (!target) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+    // Registra ANTES de devolver os dados — se der erro no meio, o acesso já
+    // fica registrado (nunca some o rastro de uma tentativa real).
+    const logId = uuidv4();
+    await db.run(
+      'INSERT INTO admin_investigation_log (id, admin_id, admin_username, target_user_id, target_username, reason, related_report_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [logId, req.user.id, req.user.username, target.id, target.username, reason.trim().slice(0, 500), relatedReportId || null]
+    );
+    logAudit(req.user, 'investigate_user_conversations', 'user', target.id, { reason: reason.trim().slice(0, 200) });
+
+    // Últimas 300 mensagens (de qualquer canal/DM) da pessoa — dado pessoal
+    // sensível, por isso o motivo obrigatório acima. Não inclui anexo em si
+    // (só o texto), pra não abrir uma porta ainda maior sem necessidade.
+    const messages = await db.all(
+      `SELECT id, channel_id, content, created_at, deleted, flagged FROM messages
+       WHERE user_id = ? ORDER BY created_at DESC LIMIT 300`,
+      [target.id]
+    );
+    res.json({
+      target: { id: target.id, username: target.username, email: target.email },
+      messages,
+      logId,
+    });
+  })
+);
+
+// Resumo por IA da conversa investigada — em vez do admin ter que ler tudo
+// cru, a IA aponta o que parece relevante. Reaproveita o mesmo texto já
+// carregado (não faz uma segunda consulta ao banco), então não amplia o
+// acesso, só ajuda a interpretar o que já foi liberado acima.
+app.post(
+  '/api/admin/investigate/summarize',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { messages, targetUsername } = req.body || {};
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.json({ summary: 'Sem mensagens pra resumir.' });
+    }
+    const joined = messages
+      .slice(0, 300)
+      .map((m) => String(m.content || '').slice(0, 300))
+      .filter(Boolean)
+      .join('\n---\n')
+      .slice(0, 8000);
+    if (!joined.trim()) return res.json({ summary: 'Sem texto pra resumir (mensagens só com anexo, sem texto).' });
+    const prompt =
+      `Você está ajudando um administrador a revisar o histórico de mensagens do usuário "${targetUsername || ''}" ` +
+      'numa investigação com motivo já registrado. Resuma em português, de forma objetiva e neutra, os principais ' +
+      'temas/tom das mensagens abaixo, e aponte claramente se algo parecer preocupante (assédio, ameaça, aliciamento, ' +
+      'venda de item ilegal, spam, etc.) — sem inventar nada que não esteja no texto. Se não houver nada de anormal, diga isso ' +
+      'claramente. Mensagens (mais recentes primeiro, separadas por ---):\n\n' +
+      joined;
+    const result = await callGroqText(prompt);
+    // callGroqText espera um JSON de moderação — aqui é texto livre, então
+    // chama a Groq diretamente em vez de reaproveitar o parser JSON dela.
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) return res.json({ summary: 'IA indisponível (GROQ_API_KEY não configurada) — leia as mensagens diretamente abaixo.' });
+    try {
+      const textModel = process.env.GROQ_TEXT_MODEL || 'llama-3.3-70b-versatile';
+      const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+        body: JSON.stringify({
+          model: textModel,
+          max_tokens: 500,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      if (!apiRes.ok) return res.json({ summary: 'Não consegui gerar o resumo agora — leia as mensagens diretamente abaixo.' });
+      const data = await apiRes.json();
+      const summary = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || 'Sem resumo.';
+      res.json({ summary });
+    } catch (err) {
+      console.error('Erro ao resumir investigação:', err.message);
+      res.json({ summary: 'Não consegui gerar o resumo agora — leia as mensagens diretamente abaixo.' });
+    }
+  })
+);
+
+app.get(
+  '/api/admin/investigation-log',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    res.json(await db.all('SELECT * FROM admin_investigation_log ORDER BY created_at DESC LIMIT 300'));
   })
 );
 

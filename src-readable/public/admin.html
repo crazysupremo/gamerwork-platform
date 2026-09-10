@@ -112,6 +112,7 @@
       <button type="button" class="admin-nav-btn active" data-tab="seguranca">🔷 Segurança / BLUEX</button>
       <button type="button" class="admin-nav-btn" data-tab="geral">📊 Visão geral</button>
       <button type="button" class="admin-nav-btn" data-tab="moderacao">🛡️ Moderação</button>
+      <button type="button" class="admin-nav-btn" data-tab="investigacao">🔍 Investigação</button>
       <button type="button" class="admin-nav-btn" data-tab="usuarios">👥 Usuários</button>
       <button type="button" class="admin-nav-btn" data-tab="conteudo">🎬 Conteúdo / Loja</button>
       <button type="button" class="admin-nav-btn" data-tab="personalizacao">🎨 Personalização</button>
@@ -259,6 +260,43 @@
         <h2>Mensagens sinalizadas (enviadas, mas com termo de atenção)</h2>
         <table id="flagged-table">
           <thead><tr><th>Data</th><th>Usuário</th><th>Conteúdo</th><th>Categorias</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- ---------- INVESTIGAÇÃO (admin geral, motivo obrigatório) ---------- -->
+      <div id="admin-tab-investigacao" class="admin-tab-panel hidden">
+        <h2>🔍 Investigar conversas de um usuário</h2>
+        <p style="color:#949ba4; font-size:13px;">
+          Ferramenta pra revisar o histórico de mensagens de uma pessoa quando houver denúncia ou suspeita de
+          algo — não é pra navegação livre. Todo acesso pede um motivo e fica registrado pra sempre no
+          log de auditoria (aba "Log de Acessos" abaixo), com seu usuário, data/hora e o que você escreveu.
+        </p>
+        <div class="admin-form-row">
+          <input type="text" id="investigate-username" placeholder="Nome de usuário exato" />
+        </div>
+        <div class="admin-form-row">
+          <textarea id="investigate-reason" placeholder="Motivo (obrigatório) — ex: denúncia #123, suspeita de aliciamento relatada por outro usuário..." style="flex:1; min-height:60px; padding:8px; border-radius:6px; border:1px solid #3a3c42; background:#1e1f22; color:#e6e6e6;"></textarea>
+        </div>
+        <div class="admin-form-row">
+          <button type="button" id="btn-investigate-search" class="action">Ver conversas (registra o acesso)</button>
+        </div>
+        <p id="investigate-error" style="color:#f23f42; font-size:13px;"></p>
+
+        <div id="investigate-result" class="hidden" style="margin-top:20px;">
+          <h3 id="investigate-target-title" style="font-size:14px;"></h3>
+          <button type="button" id="btn-investigate-summarize" class="action" style="margin-bottom:12px;">🤖 Resumir com IA</button>
+          <div id="investigate-summary" class="hidden" style="background:rgba(88,101,242,0.1); border:1px solid #5865f2; border-radius:8px; padding:12px; margin-bottom:14px; font-size:13px; white-space:pre-wrap;"></div>
+          <table id="investigate-messages-table">
+            <thead><tr><th>Data</th><th>Canal</th><th>Mensagem</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <h2 style="margin-top:32px;">📜 Log de acessos (auditoria)</h2>
+        <p style="color:#949ba4; font-size:13px;">Todo acesso à ferramenta acima, de qualquer admin, pra sempre. Nunca é apagado.</p>
+        <table id="investigation-log-table">
+          <thead><tr><th>Quando</th><th>Admin</th><th>Usuário investigado</th><th>Motivo</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

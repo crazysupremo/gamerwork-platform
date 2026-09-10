@@ -70,6 +70,7 @@ async function init() {
   loadFlagged();
   loadUsers();
   loadAuditLogs();
+  loadInvestigationLog();
 }
 
 // ---------- Navegação por abas (sidebar) ----------
@@ -974,6 +975,80 @@ async function timeoutUser(id) {
   });
   loadAuditLogs();
   alert('Timeout aplicado.');
+}
+
+// ---------- Investigação de conversa (admin geral, motivo obrigatório) ----------
+let investigateLastMessages = [];
+
+document.getElementById('btn-investigate-search').addEventListener('click', async () => {
+  const errorEl = document.getElementById('investigate-error');
+  errorEl.textContent = '';
+  const targetUsername = document.getElementById('investigate-username').value.trim();
+  const reason = document.getElementById('investigate-reason').value.trim();
+  if (!targetUsername) { errorEl.textContent = 'Digite o nome de usuário.'; return; }
+  if (reason.length < 5) { errorEl.textContent = 'Motivo obrigatório (mínimo 5 caracteres) — fica registrado.'; return; }
+  const res = await fetch('/api/admin/investigate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ targetUsername, reason }),
+  });
+  const data = await res.json();
+  if (!res.ok) { errorEl.textContent = data.error || 'Erro ao buscar.'; return; }
+
+  investigateLastMessages = data.messages;
+  document.getElementById('investigate-target-title').textContent =
+    `Conversas de ${data.target.username} (${data.target.email || 'sem e-mail'}) — ${data.messages.length} mensagem(ns)`;
+  document.getElementById('investigate-summary').classList.add('hidden');
+  document.getElementById('investigate-summary').textContent = '';
+
+  const tbody = document.querySelector('#investigate-messages-table tbody');
+  tbody.innerHTML = '';
+  data.messages.forEach((m) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${new Date(m.created_at).toLocaleString('pt-BR')}</td>
+      <td class="mono">${escapeHtml(m.channel_id)}</td>
+      <td>${escapeHtml(m.content || '(sem texto/só anexo)')}${m.deleted ? ' <span class="tag tag-inactive">apagada</span>' : ''}${m.flagged ? ' <span class="tag tag-flagged">sinalizada</span>' : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('investigate-result').classList.remove('hidden');
+  loadInvestigationLog();
+});
+
+document.getElementById('btn-investigate-summarize').addEventListener('click', async () => {
+  const summaryEl = document.getElementById('investigate-summary');
+  summaryEl.classList.remove('hidden');
+  summaryEl.textContent = 'Gerando resumo...';
+  const targetUsername = document.getElementById('investigate-username').value.trim();
+  const res = await fetch('/api/admin/investigate/summarize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ messages: investigateLastMessages, targetUsername }),
+  });
+  const data = await res.json();
+  summaryEl.textContent = data.summary || 'Sem resumo.';
+});
+
+async function loadInvestigationLog() {
+  const el = document.querySelector('#investigation-log-table tbody');
+  if (!el) return;
+  const res = await fetch('/api/admin/investigation-log', { credentials: 'include' });
+  if (!res.ok) return;
+  const rows = await res.json();
+  el.innerHTML = '';
+  rows.forEach((r) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
+      <td>${escapeHtml(r.admin_username)}</td>
+      <td>${escapeHtml(r.target_username)}</td>
+      <td>${escapeHtml(r.reason)}</td>
+    `;
+    el.appendChild(tr);
+  });
 }
 
 async function loadAuditLogs() {

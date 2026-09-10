@@ -2231,7 +2231,20 @@ video:fullscreen { background: #000; object-fit: contain; }
 .member-status-dot.member-status-offline { background: #6d7178; }
 .member-info { min-width: 0; }
 .member-name { font-size: 13px; color: #dbdee1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.member-role-tag { font-size: 10.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.9; }
 .member-game { font-size: 11px; color: var(--accent-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* BANNER DO SERVIDOR (capa larga, item 8 da especificação) */
+.server-banner-preview-wrap {
+  width: 100%; height: 140px; border-radius: 10px; overflow: hidden; position: relative;
+  background: var(--gradient-brand); display: flex; align-items: center; justify-content: center;
+}
+.server-banner-preview { width: 100%; height: 100%; object-fit: cover; }
+.server-banner-empty { color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 600; }
+.server-banner-topbar {
+  width: 100%; height: 120px; border-radius: 0; background-size: cover; background-position: center;
+  flex-shrink: 0;
+}
 
 /* EDITOR DE AVATAR (perfil) */
 .avatar-editor { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }

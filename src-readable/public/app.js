@@ -1127,7 +1127,8 @@ async function renderMembers() {
           <span class="member-status-dot member-status-${presence}"></span>
         </div>
         <div class="member-info">
-          <div class="member-name">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${userVerifiedBadgeHtml(u)}</div>
+          <div class="member-name"${roleColorStyleFor(u)}>${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${userVerifiedBadgeHtml(u)}</div>
+          ${u.roles && u.roles.length ? `<div class="member-role-tag" style="color:${escapeHtml(u.roles[0].color)};">${escapeHtml(u.roles[0].name)}</div>` : ''}
           ${u.status_message ? `<div class="member-game">🎮 ${escapeHtml(u.status_message)}</div>` : ''}
         </div>
       `;
@@ -1305,6 +1306,22 @@ function serverVerifiedBadgeHtml(category) {
 // ex: dono do jogo parceiro Magic Tank — ver verified_gold no admin de
 // Usuários). Aceita qualquer objeto com is_verified/verified_gold: membro de
 // servidor, resultado de busca, autor de mensagem, o próprio "me", etc.
+// Cor do nome pelo cargo (igual Discord) — usa a cor do cargo de posição
+// mais alta que a pessoa tem (o servidor já manda a lista ordenada por
+// posição, ver /api/servers/:category/members). Cargo cinza padrão
+// (#99aab5, cor default de cargo novo) não conta como "colorido" — deixa o
+// nome na cor normal, senão todo mundo com cargo sem cor escolhida ficaria
+// cinza à toa.
+function roleColorFor(user) {
+  if (!user || !user.roles || user.roles.length === 0) return null;
+  const color = user.roles[0].color;
+  if (!color || color.toLowerCase() === '#99aab5') return null;
+  return color;
+}
+function roleColorStyleFor(user) {
+  const color = roleColorFor(user);
+  return color ? ` style="color:${escapeHtml(color)};"` : '';
+}
 function userVerifiedBadgeHtml(user) {
   if (!user || !user.is_verified) return '';
   const gold = !!user.verified_gold;
@@ -1475,7 +1492,51 @@ async function buildChannelInviteLink(ch) {
   return `${window.location.origin}/?channel=${ch.id}`;
 }
 
-function renderCategories(channels) {
+// Banner do servidor (capa larga no topo da sidebar) — carregado à parte da
+// lista enxuta de /api/servers (que só tem ícone) pra não pesar o payload de
+// todo mundo com imagens grandes; só busca o do servidor ativo, sob demanda,
+// e guarda em cache até alguém trocar o banner de novo.
+let serverBannerCache = {};
+function invalidateServerBannerCache(category) {
+  if (category) delete serverBannerCache[category];
+  else serverBannerCache = {};
+}
+async function loadServerBannerFor(category) {
+  if (!category) return null;
+  if (Object.prototype.hasOwnProperty.call(serverBannerCache, category)) return serverBannerCache[category];
+  try {
+    const res = await fetch(`/api/servers/${encodeURIComponent(category)}`, { credentials: 'include' });
+    const data = res.ok ? await res.json() : {};
+    serverBannerCache[category] = data.banner || null;
+    return serverBannerCache[category];
+  } catch (_) {
+    return null;
+  }
+}
+
+// Categorias/pastas de canal customizadas (a pedido, "igual Discord") — cada
+// servidor pode ter as próprias, misturando texto e voz na mesma pasta. Um
+// servidor que nunca criou nenhuma categoria continua com o agrupamento fixo
+// de sempre (texto/voz), sem quebrar nada que já existia.
+let channelGroupsCache = {};
+async function loadChannelGroupsFor(category) {
+  if (!category) return [];
+  if (channelGroupsCache[category]) return channelGroupsCache[category];
+  try {
+    const res = await fetch(`/api/servers/${encodeURIComponent(category)}/channel-groups`, { credentials: 'include' });
+    const data = res.ok ? await res.json() : [];
+    channelGroupsCache[category] = data;
+    return data;
+  } catch (_) {
+    return [];
+  }
+}
+function invalidateChannelGroupsCache(category) {
+  if (category) delete channelGroupsCache[category];
+  else channelGroupsCache = {};
+}
+
+async function renderCategories(channels) {
   const container = document.getElementById('categories-container');
   container.innerHTML = '';
 
@@ -1491,11 +1552,38 @@ function renderCategories(channels) {
   // já sabe detectar isso e montar a tag certa.
   if (iconEl) iconEl.innerHTML = activeServerCategory ? renderServerIconOnly(activeServerCategory) : '🎮';
 
+  const bannerEl = document.getElementById('active-server-banner');
+  if (bannerEl) {
+    const banner = await loadServerBannerFor(activeServerCategory);
+    if (banner) {
+      bannerEl.style.backgroundImage = `url("${banner}")`;
+      bannerEl.classList.remove('hidden');
+    } else {
+      bannerEl.style.backgroundImage = '';
+      bannerEl.classList.add('hidden');
+    }
+  }
+
   const channelsInServer = channels.filter((ch) => ch.category === activeServerCategory);
-  const groups = [
-    { key: 'texto', label: 'CANAIS DE TEXTO', channels: channelsInServer.filter((c) => c.type === 'texto') },
-    { key: 'voz', label: 'CANAIS DE VOZ', channels: channelsInServer.filter((c) => c.type === 'voz') },
-  ];
+  const customGroups = await loadChannelGroupsFor(activeServerCategory);
+  let groups;
+  if (customGroups.length > 0) {
+    groups = customGroups.map((g) => ({
+      key: 'group:' + g.id,
+      label: g.name,
+      groupId: g.id,
+      channels: channelsInServer.filter((c) => c.group_id === g.id),
+    }));
+    const ungrouped = channelsInServer.filter((c) => !c.group_id);
+    if (ungrouped.length > 0) {
+      groups.push({ key: 'group:none', label: 'SEM CATEGORIA', groupId: null, channels: ungrouped });
+    }
+  } else {
+    groups = [
+      { key: 'texto', label: 'CANAIS DE TEXTO', channels: channelsInServer.filter((c) => c.type === 'texto') },
+      { key: 'voz', label: 'CANAIS DE VOZ', channels: channelsInServer.filter((c) => c.type === 'voz') },
+    ];
+  }
 
   groups.forEach((group) => {
     if (group.channels.length === 0) return;
@@ -1900,8 +1988,76 @@ document.getElementById('btn-server-manage').onclick = async () => {
   document.getElementById('btn-delete-server').classList.toggle('hidden', !manageServerIsOwner);
   document.getElementById('btn-leave-server').classList.toggle('hidden', manageServerIsOwner);
 
+  // Prévia do banner atual (já veio junto no GET acima, sem precisar de
+  // outra chamada).
+  const bannerPreview = document.getElementById('server-banner-preview');
+  const bannerEmpty = document.getElementById('server-banner-empty');
+  if (info.banner) {
+    bannerPreview.src = info.banner;
+    bannerPreview.classList.remove('hidden');
+    bannerEmpty.classList.add('hidden');
+  } else {
+    bannerPreview.classList.add('hidden');
+    bannerEmpty.classList.remove('hidden');
+  }
+  document.getElementById('server-banner-error').textContent = '';
+
   await loadManageInvite();
   modalServerManage.classList.remove('hidden');
+};
+
+// Envio/remoção de banner — mesmo esquema de redimensionar-e-exportar do
+// resto do site (resizeImageToDataUrl), só que num tamanho maior (960px de
+// lado maior) já que é uma imagem de capa, não um ícone pequeno.
+document.getElementById('btn-upload-server-banner').onclick = () => {
+  document.getElementById('server-banner-file').click();
+};
+document.getElementById('server-banner-file').onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !activeServerCategory) return;
+  const errorEl = document.getElementById('server-banner-error');
+  errorEl.textContent = '';
+  try {
+    const dataUrl = await resizeImageToDataUrl(file, 960);
+    const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ banner: dataUrl }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Erro ao enviar o banner';
+      return;
+    }
+    document.getElementById('server-banner-preview').src = dataUrl;
+    document.getElementById('server-banner-preview').classList.remove('hidden');
+    document.getElementById('server-banner-empty').classList.add('hidden');
+    invalidateServerBannerCache(activeServerCategory);
+    renderCategories(allChannels);
+    showCopyToast('Banner atualizado!');
+  } catch (_) {
+    errorEl.textContent = 'Erro ao processar a imagem';
+  }
+};
+document.getElementById('btn-remove-server-banner').onclick = async () => {
+  if (!activeServerCategory) return;
+  const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ banner: null }),
+  });
+  if (!res.ok) {
+    document.getElementById('server-banner-error').textContent = 'Erro ao remover o banner';
+    return;
+  }
+  document.getElementById('server-banner-preview').classList.add('hidden');
+  document.getElementById('server-banner-empty').classList.remove('hidden');
+  invalidateServerBannerCache(activeServerCategory);
+  renderCategories(allChannels);
+  showCopyToast('Banner removido!');
 };
 document.getElementById('btn-close-server-manage').onclick = () => modalServerManage.classList.add('hidden');
 
@@ -3735,6 +3891,36 @@ function buildChannelContextMenuItems(ch) {
         showCopyToast('Sala renomeada!');
       },
     },
+    {
+      icon: '📁',
+      label: 'Mover pra categoria',
+      onClick: async () => {
+        const groups = await loadChannelGroupsFor(ch.category);
+        if (groups.length === 0) {
+          alert('Esse servidor ainda não tem nenhuma categoria criada — cria uma primeiro em "⋯ → Nova categoria de canal".');
+          return;
+        }
+        const options = groups.map((g, i) => `${i + 1}) ${g.name}`).join('\n');
+        const choice = prompt(`Mover "${ch.name}" pra qual categoria? Digite o número (0 pra tirar de qualquer categoria):\n0) Sem categoria\n${options}`, '');
+        if (choice === null) return;
+        const idx = parseInt(choice, 10);
+        if (Number.isNaN(idx) || idx < 0 || idx > groups.length) return;
+        const groupId = idx === 0 ? null : groups[idx - 1].id;
+        const res = await fetch(`/api/channels/${ch.id}/group`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ groupId }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          alert(data.error || 'Erro ao mover o canal');
+          return;
+        }
+        showCopyToast('Canal movido!');
+        await loadChannels();
+      },
+    },
     { separator: true },
     {
       icon: '🐢',
@@ -4093,6 +4279,31 @@ document.getElementById('btn-quick-room').onclick = async () => {
   } catch (err) {
     alert('Erro de conexão com o servidor');
   }
+};
+
+// Nova categoria de canal (pasta customizada, tipo Discord) — pede o nome e
+// cria; a lista de canais recarrega já agrupada por elas.
+document.getElementById('btn-new-channel-group').onclick = async () => {
+  if (!activeServerCategory) {
+    alert('Crie ou entre num servidor primeiro.');
+    return;
+  }
+  const name = prompt('Nome da categoria (ex: GERAL, ANÚNCIOS, JOGOS):', '');
+  if (name === null || !name.trim()) return;
+  const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/channel-groups`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    alert(data.error || 'Erro ao criar categoria');
+    return;
+  }
+  invalidateChannelGroupsCache(activeServerCategory);
+  showCopyToast('Categoria criada!');
+  renderCategories(allChannels);
 };
 
 // ---------- CRIAR SERVIDOR (modal separado — não cria sala junto) ----------

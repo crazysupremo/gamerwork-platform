@@ -559,6 +559,7 @@
          (Criar sala + Fechar), e o resto (loja, info, gerenciar, sala
          rápida) entra num menu "⋯" — mesmos botões/ids de sempre, só
          reorganizados, então nenhuma função muda. -->
+    <div id="active-server-banner" class="server-banner-topbar hidden"></div>
     <div class="sidebar-header">
       <div class="sidebar-header-identity">
         <span id="active-server-icon" class="sidebar-header-icon">🎮</span>
@@ -573,6 +574,7 @@
             <button id="btn-server-info"><span class="ng-icon-wrap" data-icon="info"></span> Informações e regras</button>
             <button id="btn-server-manage"><span class="ng-icon-wrap" data-icon="users"></span> Membros, cargos e convite</button>
             <button id="btn-quick-room"><span class="ng-icon-wrap" data-icon="zap"></span> Sala Rápida</button>
+            <button id="btn-new-channel-group"><span class="ng-icon-wrap" data-icon="plus"></span> Nova categoria de canal</button>
           </div>
         </div>
         <button id="btn-close-channel-sidebar" title="Fechar"><span class="ng-icon-wrap" data-icon="x"></span></button>
@@ -1773,12 +1775,28 @@
   <div class="modal-card modal-card-wide">
     <h2><span class="ng-icon-wrap" data-icon="settings"></span> Gerenciar Servidor</h2>
     <div class="manage-tabs">
-      <button type="button" class="manage-tab active" data-tab="invite"><span class="ng-icon-wrap" data-icon="link"></span> Convite</button>
+      <button type="button" class="manage-tab active" data-tab="geral"><span class="ng-icon-wrap" data-icon="settings"></span> Geral</button>
+      <button type="button" class="manage-tab" data-tab="invite"><span class="ng-icon-wrap" data-icon="link"></span> Convite</button>
       <button type="button" class="manage-tab" data-tab="members"><span class="ng-icon-wrap" data-icon="users"></span> Membros</button>
       <button type="button" class="manage-tab" data-tab="roles"><span class="ng-icon-wrap" data-icon="crown"></span> Cargos</button>
     </div>
 
-    <div id="manage-tab-invite" class="manage-tab-panel">
+    <div id="manage-tab-geral" class="manage-tab-panel">
+      <label>Banner do servidor</label>
+      <p class="hint" style="margin-bottom:10px;">Imagem larga que aparece no topo do servidor — tipo uma capa.</p>
+      <div id="server-banner-preview-wrap" class="server-banner-preview-wrap">
+        <img id="server-banner-preview" class="server-banner-preview hidden" alt="Banner do servidor" />
+        <div id="server-banner-empty" class="server-banner-empty">Sem banner ainda</div>
+      </div>
+      <input type="file" id="server-banner-file" accept="image/*" class="hidden" />
+      <div class="modal-actions" style="margin-top:10px; justify-content:flex-start;">
+        <button type="button" id="btn-upload-server-banner"><span class="ng-icon-wrap" data-icon="camera"></span> Enviar imagem</button>
+        <button type="button" id="btn-remove-server-banner"><span class="ng-icon-wrap" data-icon="x"></span> Remover banner</button>
+      </div>
+      <p id="server-banner-error" class="auth-error"></p>
+    </div>
+
+    <div id="manage-tab-invite" class="manage-tab-panel hidden">
       <p class="hint" style="margin-bottom:10px;">Como as pessoas entram nesse servidor:</p>
       <div class="tournament-filter-tabs" style="margin-bottom:14px;">
         <button type="button" class="tournament-filter-tab active" data-access-mode="convite"><span class="ng-icon-wrap" data-icon="link"></span> Por convite</button>

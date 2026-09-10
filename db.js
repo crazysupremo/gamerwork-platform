@@ -109,6 +109,18 @@ async function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Categorias/pastas de canal customizadas (a pedido, igual Discord) —
+    -- cada servidor pode criar as próprias (ex: "ANÚNCIOS", "GERAL", "JOGOS").
+    -- Servidor sem nenhuma categoria criada continua com o agrupamento fixo
+    -- de sempre (texto/voz), retrocompatível.
+    CREATE TABLE IF NOT EXISTS channel_groups (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      name TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     -- Canal privado por cargo (item 5 do plano): se um canal tem QUALQUER
     -- linha aqui, só quem tem um desses cargos (ou é dono/admin) o vê e
     -- acessa. Sem nenhuma linha = visível pra todo mundo do servidor, igual
@@ -154,6 +166,23 @@ async function initDb() {
       reporter_user_id TEXT NOT NULL,
       reason TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'pendente',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Log de auditoria de investigação de conversa por admin (LGPD: acesso a
+    -- dado pessoal de um usuário só com propósito registrado, nunca livre e
+    -- sem rastro). Toda vez que um admin geral abre o histórico de mensagens
+    -- de alguém pela ferramenta de investigação, fica uma linha aqui —
+    -- quem viu, de quem, quando e por qual motivo (denúncia, suspeita etc.).
+    -- Isso nunca é apagado nem editável, é só INSERT.
+    CREATE TABLE IF NOT EXISTS admin_investigation_log (
+      id TEXT PRIMARY KEY,
+      admin_id TEXT NOT NULL,
+      admin_username TEXT NOT NULL,
+      target_user_id TEXT NOT NULL,
+      target_username TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      related_report_id TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -950,6 +979,10 @@ async function initDb() {
   // ---------- SERVIDORES OFICIAIS (selo de verificado) ----------
   await ensureColumn('servers', 'is_official INTEGER NOT NULL DEFAULT 0');
   await seedOfficialServers({ run, get, all });
+
+  // ---------- CATEGORIAS DE CANAL + BANNER DE SERVIDOR (a pedido, "igual Discord") ----------
+  await ensureColumn('channels', 'group_id TEXT');
+  await ensureColumn('servers', 'banner TEXT');
 
   // ---------- CONTA DE MODERADOR (acesso parcial: BLUEX + moderação básica) ----------
   await ensureColumn('users', 'is_moderator INTEGER NOT NULL DEFAULT 0');

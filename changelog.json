@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.47.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Cargos com cor: o nome de quem tem um cargo colorido agora aparece na cor do cargo na lista de membros (igual Discord), com o nome do cargo embaixo.",
+      "Categorias de canal: dá pra criar pastas customizadas (ex: GERAL, ANÚNCIOS, JOGOS) pra organizar os canais de um servidor, misturando texto e voz na mesma pasta — em '⋯ → Nova categoria de canal', e mover um canal existente pra qualquer pasta pelo menu de contexto dele.",
+      "Banner do servidor: em Gerenciar Servidor → Geral, dá pra enviar uma imagem de capa larga que aparece no topo da sidebar do servidor."
+    ]
+  },
+  {
+    "version": "0.46.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Nova aba Admin > Investigação: admin geral pode ver o histórico de mensagens de qualquer usuário, mas só digitando um motivo (denúncia, suspeita etc.) — cada acesso fica registrado pra sempre no log de auditoria (quem viu, de quem, quando, por quê). Tem botão de resumo por IA pra não precisar ler tudo cru."
+    ]
+  },
+  {
     "version": "0.45.0",
     "date": "2026-09-10",
     "changes": [
