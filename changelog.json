@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.45.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Todo o código que roda no navegador (HTML, CSS e JavaScript) agora vai pro ar comprimido/minificado — igual sites grandes fazem. Ctrl+U mostra uma parede de texto ilegível em vez do código organizado com comentários. O código original comentado ficou guardado à parte (pasta src-readable/) pra eu continuar editando."
+    ]
+  },
+  {
     "version": "0.44.0",
     "date": "2026-09-09",
     "changes": [
