@@ -1136,6 +1136,11 @@ function roleColorStyleFor(user) {
 const color = roleColorFor(user);
 return color ? ` style="color:${escapeHtml(color)};"` : '';
 }
+
+function channelIconPrefix(ch) {
+if (ch.type === 'voz') return ch.video_enabled ? '🎥 ' : '🔊 ';
+return ch.type === 'texto' && ch.read_only ? '📢 ' : '# ';
+}
 function userVerifiedBadgeHtml(user) {
 if (!user || !user.is_verified) return '';
 const gold = !!user.verified_gold;
@@ -1392,7 +1397,9 @@ if (ch.voice_type === 'jogo' && ch.voice_game) voiceTag = ` · 🎮 ${ch.voice_g
 else if (ch.voice_type === 'evento') voiceTag = ' · 🏆 Evento';
 if (ch.is_quick) voiceTag += ' · ⚡ rápida';
 }
-label.textContent = (ch.type === 'voz' ? '🔊 ' : '# ') + ch.name + (ch.read_only ? ' 🔒' : '') + voiceTag;
+
+const readOnlySuffix = ch.read_only && ch.type !== 'texto' ? ' 🔒' : '';
+label.textContent = channelIconPrefix(ch) + ch.name + readOnlySuffix + voiceTag;
 el.appendChild(label);
 el.onclick = () => selectChannel(ch);
 el.oncontextmenu = (e) => {
@@ -2477,6 +2484,158 @@ document.getElementById('form-new-tournament').classList.add('hidden');
 loadTournaments();
 };
 
+const modalServerEvents = document.getElementById('modal-server-events');
+let canManageServerEvents = false;
+let pendingEventImage = null;
+
+document.getElementById('btn-open-server-events').onclick = async () => {
+if (!activeServerCategory) return;
+const infoRes = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}`, { credentials: 'include' });
+const info = await infoRes.json();
+canManageServerEvents = !!info.is_owner || (info.my_permissions || []).includes('manage_channels') || me.is_admin;
+document.getElementById('btn-new-event').classList.toggle('hidden', !canManageServerEvents);
+document.getElementById('form-new-event').classList.add('hidden');
+document.getElementById('event-error').textContent = '';
+
+const channelSelect = document.getElementById('event-channel');
+const channelsInServer = allChannels.filter((c) => c.category === activeServerCategory);
+channelSelect.innerHTML =
+'<option value="">Nenhum canal específico</option>' +
+channelsInServer.map((c) => `<option value="${c.id}">${channelIconPrefix(c)}${escapeHtml(c.name)}</option>`).join('');
+
+modalServerEvents.classList.remove('hidden');
+await loadServerEvents();
+};
+document.getElementById('btn-close-server-events').onclick = () => modalServerEvents.classList.add('hidden');
+document.getElementById('btn-new-event').onclick = () => {
+document.getElementById('form-new-event').classList.remove('hidden');
+document.getElementById('event-error').textContent = '';
+pendingEventImage = null;
+};
+document.getElementById('btn-cancel-event').onclick = () => {
+document.getElementById('form-new-event').classList.add('hidden');
+};
+document.getElementById('event-image-file').onchange = async (e) => {
+const file = e.target.files[0];
+if (!file) { pendingEventImage = null; return; }
+try {
+pendingEventImage = await resizeImageToDataUrl(file, 960);
+} catch (_) {
+pendingEventImage = null;
+}
+};
+
+const EVENT_STATUS_LABEL = { agendado: '📅 Agendado', em_andamento: '🔴 Ao vivo agora', encerrado: '✅ Encerrado', cancelado: '❌ Cancelado' };
+
+async function loadServerEvents() {
+const list = document.getElementById('server-events-list');
+list.innerHTML = '<p class="empty-hint">Carregando...</p>';
+const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/events`, { credentials: 'include' });
+const events = await res.json().catch(() => []);
+list.innerHTML = '';
+if (!Array.isArray(events) || events.length === 0) {
+list.innerHTML = '<p class="empty-hint">Nenhum evento agendado nesse servidor ainda.</p>';
+return;
+}
+events.forEach((ev) => {
+const card = document.createElement('div');
+card.className = 'tournament-card';
+const channel = allChannels.find((c) => c.id === ev.channel_id);
+const dateText = new Date(ev.event_date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+card.innerHTML = `
+      ${ev.image ? `<img src="${ev.image}" alt="" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px;" />` : ''}
+      <div class="tournament-info">
+        <h3>📅 ${escapeHtml(ev.name)}</h3>
+        ${ev.description ? `<p class="hint">${escapeHtml(ev.description)}</p>` : ''}
+        <div class="tournament-meta">
+          <span>${EVENT_STATUS_LABEL[ev.status] || ev.status}</span>
+          <span>🕒 ${dateText}</span>
+          ${channel ? `<span>${channelIconPrefix(channel)}${escapeHtml(channel.name)}</span>` : ''}
+          <span>👥 ${ev.participants_count}${ev.max_participants ? '/' + ev.max_participants : ''}</span>
+        </div>
+      </div>
+      <div class="tournament-actions">
+        <button class="btn-event-rsvp">${ev.is_going ? 'Cancelar presença' : 'Confirmar presença'}</button>
+        <button class="btn-event-participants">Ver quem vai</button>
+        ${canManageServerEvents ? '<button class="btn-event-status">Mudar status</button>' : ''}
+        ${canManageServerEvents ? '<button class="btn-event-delete">Excluir</button>' : ''}
+      </div>
+    `;
+card.querySelector('.btn-event-rsvp').onclick = async () => {
+const method = ev.is_going ? 'DELETE' : 'POST';
+const r = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/events/${ev.id}/rsvp`, {
+method,
+credentials: 'include',
+});
+const d = await r.json().catch(() => ({}));
+if (!r.ok) { alert(d.error || 'Erro ao confirmar presença'); return; }
+loadServerEvents();
+};
+card.querySelector('.btn-event-participants').onclick = async () => {
+const r = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/events/${ev.id}/participants`, { credentials: 'include' });
+const rows = await r.json().catch(() => []);
+alert(rows.length === 0 ? 'Ninguém confirmou presença ainda.' : 'Confirmaram presença:\n' + rows.map((u) => u.username).join('\n'));
+};
+const statusBtn = card.querySelector('.btn-event-status');
+if (statusBtn) {
+statusBtn.onclick = async () => {
+const options = Object.keys(EVENT_STATUS_LABEL);
+const choice = prompt(`Novo status (${options.join(' / ')}):`, ev.status);
+if (!choice || !options.includes(choice)) return;
+const r = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/events/${ev.id}`, {
+method: 'PATCH',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ status: choice }),
+});
+if (!r.ok) { alert('Erro ao atualizar status'); return; }
+loadServerEvents();
+};
+}
+const deleteBtn = card.querySelector('.btn-event-delete');
+if (deleteBtn) {
+deleteBtn.onclick = async () => {
+if (!confirm(`Excluir o evento "${ev.name}"?`)) return;
+await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/events/${ev.id}`, {
+method: 'DELETE',
+credentials: 'include',
+});
+loadServerEvents();
+};
+}
+list.appendChild(card);
+});
+}
+
+document.getElementById('form-new-event').onsubmit = async (e) => {
+e.preventDefault();
+const errorEl = document.getElementById('event-error');
+errorEl.textContent = '';
+const body = {
+name: document.getElementById('event-name').value.trim(),
+description: document.getElementById('event-description').value.trim(),
+event_date: document.getElementById('event-date').value,
+channel_id: document.getElementById('event-channel').value || null,
+max_participants: document.getElementById('event-max-participants').value || null,
+image: pendingEventImage,
+};
+const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/events`, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify(body),
+});
+const data = await res.json().catch(() => ({}));
+if (!res.ok) {
+errorEl.textContent = data.error || 'Erro ao criar evento';
+return;
+}
+document.getElementById('form-new-event').reset();
+document.getElementById('form-new-event').classList.add('hidden');
+pendingEventImage = null;
+loadServerEvents();
+};
+
 const modalRanking = document.getElementById('modal-ranking');
 let rankingScope = 'global';
 
@@ -2525,6 +2684,189 @@ loadRankingModal();
 };
 });
 document.getElementById('btn-close-ranking').onclick = () => modalRanking.classList.add('hidden');
+
+const modalServerGames = document.getElementById('modal-server-games');
+
+document.getElementById('btn-open-server-games').onclick = async () => {
+if (!activeServerCategory) return;
+modalServerGames.classList.remove('hidden');
+await loadServerGamesHub();
+};
+document.getElementById('btn-close-server-games').onclick = () => modalServerGames.classList.add('hidden');
+document.getElementById('btn-games-open-tournaments').onclick = () => {
+modalServerGames.classList.add('hidden');
+document.getElementById('btn-tournaments').click();
+};
+document.getElementById('btn-games-open-events').onclick = () => {
+modalServerGames.classList.add('hidden');
+document.getElementById('btn-open-server-events').click();
+};
+document.getElementById('btn-games-open-ranking').onclick = () => {
+modalServerGames.classList.add('hidden');
+modalRanking.classList.remove('hidden');
+document.querySelectorAll('#modal-ranking .tournament-filter-tab').forEach((t) => t.classList.toggle('active', t.dataset.scope === 'servidor'));
+rankingScope = 'servidor';
+loadRankingModal();
+};
+
+async function loadServerGamesHub() {
+const playingList = document.getElementById('server-games-playing-list');
+const voiceList = document.getElementById('server-games-voice-list');
+playingList.innerHTML = '<p class="empty-hint">Carregando...</p>';
+voiceList.innerHTML = '';
+
+let members = [];
+try {
+const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/members`, { credentials: 'include' });
+members = res.ok ? await res.json() : [];
+} catch (_) {}
+const playing = members.filter((u) => onlineUserIds.has(u.id) && u.status_message && u.status_message.trim());
+if (playing.length === 0) {
+playingList.innerHTML = '<p class="empty-hint">Ninguém com um jogo marcado no status agora.</p>';
+} else {
+const byGame = {};
+playing.forEach((u) => {
+const game = u.status_message.trim();
+(byGame[game] = byGame[game] || []).push(u);
+});
+playingList.innerHTML = Object.entries(byGame)
+.map(
+([game, users]) => `
+      <div class="tournament-card">
+        <div class="tournament-info">
+          <h3>🎮 ${escapeHtml(game)}</h3>
+          <div class="tournament-meta"><span>👥 ${users.map((u) => escapeHtml(u.username)).join(', ')}</span></div>
+        </div>
+      </div>
+    `
+)
+.join('');
+}
+
+const gameVoiceChannels = allChannels.filter(
+(c) => c.category === activeServerCategory && c.type === 'voz' && c.voice_type === 'jogo'
+);
+const active = gameVoiceChannels
+.map((c) => ({ channel: c, participants: voiceParticipants[c.id] || [] }))
+.filter((r) => r.participants.length > 0);
+if (active.length === 0) {
+voiceList.innerHTML = '<p class="empty-hint">Nenhuma sala de voz de jogo com gente dentro agora.</p>';
+} else {
+voiceList.innerHTML = active
+.map(
+(r) => `
+      <div class="tournament-card">
+        <div class="tournament-info">
+          <h3>${channelIconPrefix(r.channel)}${escapeHtml(r.channel.name)}${r.channel.voice_game ? ' · 🎮 ' + escapeHtml(r.channel.voice_game) : ''}</h3>
+          <div class="tournament-meta"><span>👥 ${r.participants.map((p) => escapeHtml(p.username)).join(', ')}</span></div>
+        </div>
+        <div class="tournament-actions">
+          <button class="btn-games-join-voice" data-id="${r.channel.id}">Entrar</button>
+        </div>
+      </div>
+    `
+)
+.join('');
+voiceList.querySelectorAll('.btn-games-join-voice').forEach((btn) => {
+btn.onclick = () => {
+const ch = allChannels.find((c) => c.id === btn.dataset.id);
+if (ch) {
+modalServerGames.classList.add('hidden');
+selectChannel(ch, { autoConnect: true });
+}
+};
+});
+}
+}
+
+const modalServerBots = document.getElementById('modal-server-bots');
+
+document.getElementById('btn-open-server-bots').onclick = async () => {
+if (!activeServerCategory) return;
+modalServerBots.classList.remove('hidden');
+await loadServerBots();
+await loadServerBotsStats();
+};
+document.getElementById('btn-close-server-bots').onclick = () => modalServerBots.classList.add('hidden');
+
+async function loadServerBots() {
+const list = document.getElementById('server-bots-list');
+list.innerHTML = '<p class="empty-hint">Carregando...</p>';
+const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/bots`, { credentials: 'include' });
+const bots = await res.json().catch(() => []);
+const channelsInServer = allChannels.filter((c) => c.category === activeServerCategory && c.type === 'texto');
+list.innerHTML = bots
+.map(
+(bot) => `
+    <div class="tournament-card" style="${bot.ready ? '' : 'opacity:0.6;'}">
+      <div class="tournament-info">
+        <h3>🤖 ${escapeHtml(bot.name)} ${bot.ready ? '' : '<span class="hint">(em breve)</span>'}</h3>
+        <p class="hint">${escapeHtml(bot.description)}</p>
+        ${
+          bot.ready
+            ? `<select class="bot-channel-select" data-key="${bot.key}" ${bot.enabled ? '' : 'disabled'}>
+                <option value="">Canal padrão (#geral)</option>
+                ${channelsInServer.map((c) => `<option value="${c.id}" ${bot.config && bot.config.channel_id === c.id ? 'selected' : ''}>${channelIconPrefix(c)}${escapeHtml(c.name)}</option>`).join('')}
+              </select>`
+            : ''
+        }
+      </div>
+      <div class="tournament-actions">
+        <label class="checkbox-row">
+          <input type="checkbox" class="bot-enabled-toggle" data-key="${bot.key}" ${bot.enabled ? 'checked' : ''} ${bot.ready ? '' : 'disabled'} />
+          ${bot.enabled ? 'Ligado' : 'Desligado'}
+        </label>
+      </div>
+    </div>
+  `
+)
+.join('');
+
+list.querySelectorAll('.bot-enabled-toggle').forEach((cb) => {
+cb.onchange = async () => {
+const key = cb.dataset.key;
+const channelSelect = list.querySelector(`.bot-channel-select[data-key="${key}"]`);
+await saveServerBotConfig(key, cb.checked, channelSelect ? channelSelect.value : '');
+loadServerBots();
+};
+});
+list.querySelectorAll('.bot-channel-select').forEach((sel) => {
+sel.onchange = async () => {
+const key = sel.dataset.key;
+const cb = list.querySelector(`.bot-enabled-toggle[data-key="${key}"]`);
+await saveServerBotConfig(key, cb ? cb.checked : true, sel.value);
+};
+});
+}
+
+async function saveServerBotConfig(botKey, enabled, channelId) {
+const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/bots/${botKey}`, {
+method: 'PATCH',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ enabled, channel_id: channelId || null }),
+});
+if (!res.ok) {
+const data = await res.json().catch(() => ({}));
+alert(data.error || 'Erro ao configurar bot');
+}
+}
+
+async function loadServerBotsStats() {
+const panel = document.getElementById('server-bots-stats-panel');
+const grid = document.getElementById('server-bots-stats-grid');
+const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/bots/stats`, { credentials: 'include' });
+if (!res.ok) { panel.classList.add('hidden'); return; }
+const s = await res.json();
+panel.classList.remove('hidden');
+grid.innerHTML = `
+    <span>👥 ${s.member_count} membro(s)</span>
+    <span># ${s.channel_count} canal(is)</span>
+    <span>💬 ${s.messages_7d} mensagens (7 dias)</span>
+    ${s.most_active_channel ? `<span>🔥 Canal mais ativo: ${escapeHtml(s.most_active_channel)}</span>` : ''}
+    ${s.top_games.length > 0 ? `<span>🎮 Jogos: ${s.top_games.map((g) => escapeHtml(g.voice_game)).join(', ')}</span>` : ''}
+  `;
+}
 
 const modalRewards = document.getElementById('modal-rewards');
 let rewardsCache = null;
@@ -3572,10 +3914,31 @@ credentials: 'include',
 body: JSON.stringify({ read_only: wantsReadOnly }),
 });
 const data = await res.json();
-if (!res.ok) alert(data.error || 'Erro ao configurar canal');
-else showCopyToast(wantsReadOnly ? 'Canal em somente-leitura' : 'Canal normal de novo');
+if (!res.ok) { alert(data.error || 'Erro ao configurar canal'); return; }
+showCopyToast(wantsReadOnly ? 'Canal em somente-leitura' : 'Canal normal de novo');
+await loadChannels();
 },
 },
+...(ch.type === 'voz'
+? [
+{
+icon: '🎥',
+label: ch.video_enabled ? 'Desmarcar como canal de vídeo' : 'Marcar como canal de vídeo',
+onClick: async () => {
+const res = await fetch(`/api/channels/${ch.id}/settings`, {
+method: 'PATCH',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ video_enabled: !ch.video_enabled }),
+});
+const data = await res.json().catch(() => ({}));
+if (!res.ok) { alert(data.error || 'Erro ao configurar canal'); return; }
+showCopyToast(!ch.video_enabled ? 'Canal marcado como vídeo 🎥' : 'Canal voltou a ser só voz');
+await loadChannels();
+},
+},
+]
+: []),
 {
 icon: '🎭',
 label: 'Restringir por cargo',
@@ -3821,6 +4184,7 @@ const isVoice = document.getElementById('room-type').value === 'voz';
 document.getElementById('room-voice-type-fields').classList.toggle('hidden', !isVoice);
 const isGame = isVoice && document.getElementById('room-voice-type').value === 'jogo';
 document.getElementById('room-voice-game-field').classList.toggle('hidden', !isGame);
+document.getElementById('room-text-fields').classList.toggle('hidden', isVoice);
 }
 document.getElementById('room-type').onchange = updateRoomVoiceFieldsVisibility;
 document.getElementById('room-voice-type').onchange = updateRoomVoiceFieldsVisibility;
@@ -3832,6 +4196,8 @@ const category = document.getElementById('room-category').value.trim();
 const type = document.getElementById('room-type').value;
 const voice_type = type === 'voz' ? document.getElementById('room-voice-type').value : undefined;
 const voice_game = voice_type === 'jogo' ? document.getElementById('room-voice-game').value.trim() : undefined;
+const video_enabled = type === 'voz' ? document.getElementById('room-video-enabled').checked : undefined;
+const read_only = type === 'texto' ? document.getElementById('room-announcements-only').checked : undefined;
 const errorEl = document.getElementById('room-error');
 errorEl.textContent = '';
 
@@ -3840,7 +4206,7 @@ const res = await fetch('/api/channels', {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 credentials: 'include',
-body: JSON.stringify({ name, category, type, voice_type, voice_game }),
+body: JSON.stringify({ name, category, type, voice_type, voice_game, video_enabled, read_only }),
 });
 const data = await res.json();
 if (!res.ok) {
@@ -4826,7 +5192,7 @@ socket.emit('channel:leave', currentChannel.id);
 currentChannel = channel;
 
 document.getElementById('current-channel-name').textContent =
-channel.type === 'voz' ? '🔊 ' + channel.name : isDm ? channel.name : '# ' + channel.name;
+channel.type === 'voz' ? channelIconPrefix(channel) + channel.name : isDm ? channel.name : '# ' + channel.name;
 updateAiQuickSuggestions();
 document.getElementById('home-panel').classList.add('hidden');
 document.getElementById('home-header-stats').classList.add('hidden');
@@ -7391,7 +7757,7 @@ const ch = allChannels.find((c) => c.id === id);
 if (ch) ch.name = name;
 if (currentChannel && currentChannel.id === id) {
 currentChannel.name = name;
-document.getElementById('current-channel-name').textContent = (currentChannel.type === 'voz' ? '🔊 ' : '# ') + name;
+document.getElementById('current-channel-name').textContent = channelIconPrefix(currentChannel) + name;
 }
 renderCategories(allChannels);
 });

@@ -333,6 +333,49 @@ async function initDb() {
       UNIQUE(tournament_id, user_id)
     );
 
+    -- Eventos de servidor (item 7 da especificação) — diferente de torneio
+    -- (que é competição com chave/ranking): evento é algo com data/hora,
+    -- descrição, canal e limite de vagas, onde membros confirmam presença.
+    -- Ex: "assistir juntos", "live", "reunião do clã", torneio informal etc.
+    CREATE TABLE IF NOT EXISTS server_events (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      channel_id TEXT,
+      name TEXT NOT NULL,
+      description TEXT,
+      image TEXT,
+      event_date TEXT NOT NULL,
+      max_participants INTEGER,
+      status TEXT NOT NULL DEFAULT 'agendado',
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_server_events_category ON server_events(category, event_date);
+
+    CREATE TABLE IF NOT EXISTS server_event_rsvps (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(event_id, user_id)
+    );
+
+    -- Área de Bots (item 13 da especificação) — catálogo de automações que
+    -- o dono do servidor pode ligar/desligar. Cada bot tem uma config
+    -- própria em JSON (ex: qual canal ele posta). Os que já postam mensagem
+    -- de verdade (boas-vindas, anúncio de evento) rodam direto no server.js,
+    -- sem motor de bot separado — mais simples e sem infra nova pra manter.
+    CREATE TABLE IF NOT EXISTS server_bots (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      bot_key TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      config TEXT,
+      installed_by TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(category, bot_key)
+    );
+
     CREATE TABLE IF NOT EXISTS user_rewards (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -1045,6 +1088,15 @@ async function initDb() {
   // ---------- CATEGORIAS DE CANAL + BANNER DE SERVIDOR (a pedido, "igual Discord") ----------
   await ensureColumn('channels', 'group_id TEXT');
   await ensureColumn('servers', 'banner TEXT');
+
+  // ---------- CANAL DE VÍDEO (item 4 da especificação) ----------
+  // "Anúncios" não precisou de coluna nova — já reaproveita read_only (canal
+  // somente-leitura), que já bloqueia envio de mensagem pra quem não tem
+  // manage_channels no backend (ver socket chat:message). Só muda o ícone/
+  // rótulo mostrado quando é um canal de texto read_only, pra parecer um
+  // tipo dedicado sem duplicar a lógica de permissão que já existe e já
+  // funciona.
+  await ensureColumn('channels', 'video_enabled INTEGER NOT NULL DEFAULT 0');
 
   // ---------- HIERARQUIA ROOT + IA COPILOTO ----------
   await ensureColumn('users', 'is_root INTEGER NOT NULL DEFAULT 0');

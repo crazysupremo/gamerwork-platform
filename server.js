@@ -512,6 +512,46 @@ async function postSystemMessage(channelId, content) {
   }
 }
 
+// ---------- ÁREA DE BOTS DO SERVIDOR (item 13 da especificação) ----------
+// Reaproveita postSystemMessage (bot único, já existente, que posta no
+// canal fixo "gamers-geral" pra avisos da plataforma inteira) — aqui é o
+// mesmo mecanismo, mas por servidor e opt-in via server_bots.
+const SERVER_BOTS_CATALOG = {
+  boas_vindas: { name: 'Boas-vindas', description: 'Posta uma mensagem automática quando alguém novo entra no servidor.', ready: true },
+  anuncios_eventos: { name: 'Anúncios de eventos', description: 'Avisa automaticamente no canal quando um evento novo é criado.', ready: true },
+  musica: { name: 'Música', description: 'Tocar música nas salas de voz.', ready: false },
+  estatisticas: { name: 'Estatísticas', description: 'Painel de estatísticas do servidor (membros, mensagens, jogos mais usados).', ready: true },
+};
+
+async function getServerBotChannel(category, config) {
+  if (config && config.channel_id) {
+    const ch = await db.get('SELECT id FROM channels WHERE id = ? AND category = ?', [config.channel_id, category]);
+    if (ch) return ch.id;
+  }
+  // Sem canal configurado: usa #geral se existir, senão o canal de texto
+  // mais antigo do servidor.
+  const fallback = await db.get(
+    "SELECT id FROM channels WHERE category = ? AND type = 'texto' ORDER BY (name = 'geral') DESC, created_at ASC LIMIT 1",
+    [category]
+  );
+  return fallback ? fallback.id : null;
+}
+
+async function triggerServerBot(category, botKey, buildMessage) {
+  try {
+    const bot = await db.get('SELECT * FROM server_bots WHERE category = ? AND bot_key = ?', [category, botKey]);
+    if (!bot || !bot.enabled) return;
+    let config = {};
+    try { config = bot.config ? JSON.parse(bot.config) : {}; } catch (_) {}
+    const channelId = await getServerBotChannel(category, config);
+    if (!channelId) return;
+    const content = buildMessage();
+    if (content) postSystemMessage(channelId, content);
+  } catch (err) {
+    console.error('Erro ao rodar bot do servidor:', err);
+  }
+}
+
 // ---------- AUDIT LOG ----------
 // Registra toda ação administrativa/de moderação de verdade (banir, expulsar,
 // limpar canal, apagar mensagem de outro, mudar cargo, aplicar timeout) —
@@ -2998,7 +3038,7 @@ app.post(
   '/api/channels',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { name, category, type, voice_type, voice_game, groupId } = req.body || {};
+    const { name, category, type, voice_type, voice_game, groupId, video_enabled, read_only } = req.body || {};
     if (
       !name ||
       !category ||
@@ -3053,13 +3093,32 @@ app.post(
       if (group) cleanGroupId = group.id;
     }
 
+    // Canal de vídeo (item 4 da especificação) — variação do canal de voz
+    // normal, só marca que a câmera é esperada por padrão; usa a mesma
+    // infraestrutura de voz/RTC que já existe (não duplica nada). Canal de
+    // anúncios reaproveita read_only, que já existia mas só dava pra ligar
+    // DEPOIS de criar o canal (menu de contexto) — agora dá pra já criar
+    // read_only direto.
+    const cleanVideoEnabled = type === 'voz' && video_enabled ? 1 : 0;
+    const cleanReadOnly = type === 'texto' && read_only ? 1 : 0;
+
     const id = uuidv4();
     await db.run(
-      'INSERT INTO channels (id, name, category, type, created_by, voice_type, voice_game, group_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, cleanName, cleanCategory, type, req.user.id, cleanVoiceType, cleanVoiceGame, cleanGroupId]
+      'INSERT INTO channels (id, name, category, type, created_by, voice_type, voice_game, group_id, video_enabled, read_only) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, cleanName, cleanCategory, type, req.user.id, cleanVoiceType, cleanVoiceGame, cleanGroupId, cleanVideoEnabled, cleanReadOnly]
     );
 
-    res.json({ id, name: cleanName, category: cleanCategory, type, voice_type: cleanVoiceType, voice_game: cleanVoiceGame, group_id: cleanGroupId });
+    res.json({
+      id,
+      name: cleanName,
+      category: cleanCategory,
+      type,
+      voice_type: cleanVoiceType,
+      voice_game: cleanVoiceGame,
+      group_id: cleanGroupId,
+      video_enabled: !!cleanVideoEnabled,
+      read_only: !!cleanReadOnly,
+    });
   })
 );
 
@@ -3149,6 +3208,254 @@ app.patch(
     }
     await db.run('UPDATE channels SET group_id = ? WHERE id = ?', [cleanGroupId, req.params.id]);
     res.json({ ok: true, group_id: cleanGroupId });
+  })
+);
+
+// ---------- EVENTOS DE SERVIDOR (item 7 da especificação) ----------
+// Diferente de torneio: evento tem data/hora, descrição, canal e limite de
+// vagas, e membros confirmam presença (RSVP) — pode ser qualquer atividade
+// (live, "assistir juntos", reunião, torneio informal etc), não só competição.
+
+app.get(
+  '/api/servers/:category/events',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const isMember = await isServerMember(req.params.category, req.user.id);
+    if (!isMember && !req.user.is_admin) return res.status(403).json({ error: 'Você não é membro desse servidor' });
+    const events = await db.all(
+      'SELECT * FROM server_events WHERE category = ? ORDER BY event_date ASC',
+      [req.params.category]
+    );
+    if (events.length > 0) {
+      const ids = events.map((e) => e.id);
+      const placeholders = ids.map(() => '?').join(',');
+      const rsvps = await db.all(
+        `SELECT event_id, user_id FROM server_event_rsvps WHERE event_id IN (${placeholders})`,
+        ids
+      );
+      events.forEach((e) => {
+        const going = rsvps.filter((r) => r.event_id === e.id);
+        e.participants_count = going.length;
+        e.is_going = going.some((r) => r.user_id === req.user.id);
+      });
+    }
+    res.json(events);
+  })
+);
+
+app.post(
+  '/api/servers/:category/events',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra criar eventos nesse servidor' });
+    const { name, description, image, event_date, channel_id, max_participants } = req.body || {};
+    if (!name || typeof name !== 'string' || !name.trim() || name.trim().length > 80) {
+      return res.status(400).json({ error: 'Nome do evento precisa ter entre 1 e 80 caracteres' });
+    }
+    if (!event_date || isNaN(new Date(event_date).getTime())) {
+      return res.status(400).json({ error: 'Data/hora do evento inválida' });
+    }
+    if (description && String(description).length > 1000) {
+      return res.status(400).json({ error: 'Descrição muito longa (máx. 1000 caracteres)' });
+    }
+    let cleanChannelId = null;
+    if (channel_id) {
+      const channel = await db.get('SELECT id FROM channels WHERE id = ? AND category = ?', [channel_id, req.params.category]);
+      if (channel) cleanChannelId = channel.id;
+    }
+    let cleanMaxParticipants = null;
+    if (max_participants !== undefined && max_participants !== null && max_participants !== '') {
+      const parsed = parseInt(max_participants, 10);
+      if (Number.isFinite(parsed) && parsed > 0) cleanMaxParticipants = Math.min(parsed, 5000);
+    }
+    // Imagem de capa do evento — mesma folga de tamanho do banner de servidor.
+    let cleanImage = null;
+    if (image && typeof image === 'string' && image.startsWith('data:image/') && image.length <= 1200000) {
+      cleanImage = image;
+    }
+    const id = uuidv4();
+    await db.run(
+      `INSERT INTO server_events (id, category, channel_id, name, description, image, event_date, max_participants, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, req.params.category, cleanChannelId, name.trim(), (description || '').trim().slice(0, 1000) || null, cleanImage, new Date(event_date).toISOString(), cleanMaxParticipants, req.user.id]
+    );
+    logAudit(req.user, 'server_event_create', 'server_event', id, { category: req.params.category, name: name.trim() });
+    io.to('server:' + req.params.category).emit('event:created', { category: req.params.category });
+    const eventDateFmt = new Date(event_date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    triggerServerBot(req.params.category, 'anuncios_eventos', () => `📅 Novo evento: **${name.trim()}** — ${eventDateFmt}. Confirme presença em Eventos do servidor!`);
+    res.json({ id, ok: true });
+  })
+);
+
+app.patch(
+  '/api/servers/:category/events/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra editar eventos nesse servidor' });
+    const event = await db.get('SELECT id FROM server_events WHERE id = ? AND category = ?', [req.params.id, req.params.category]);
+    if (!event) return res.status(404).json({ error: 'Evento não encontrado' });
+    const { status } = req.body || {};
+    if (status && !['agendado', 'em_andamento', 'encerrado', 'cancelado'].includes(status)) {
+      return res.status(400).json({ error: 'Status inválido' });
+    }
+    if (status) await db.run('UPDATE server_events SET status = ? WHERE id = ?', [status, req.params.id]);
+    io.to('server:' + req.params.category).emit('event:created', { category: req.params.category });
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/servers/:category/events/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra apagar eventos nesse servidor' });
+    await db.run('DELETE FROM server_event_rsvps WHERE event_id = ?', [req.params.id]);
+    await db.run('DELETE FROM server_events WHERE id = ? AND category = ?', [req.params.id, req.params.category]);
+    io.to('server:' + req.params.category).emit('event:created', { category: req.params.category });
+    res.json({ ok: true });
+  })
+);
+
+// Confirmar/cancelar presença — qualquer membro do servidor pode, respeita
+// o limite de vagas se o evento tiver um definido.
+app.post(
+  '/api/servers/:category/events/:id/rsvp',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const isMember = await isServerMember(req.params.category, req.user.id);
+    if (!isMember) return res.status(403).json({ error: 'Você não é membro desse servidor' });
+    const event = await db.get('SELECT * FROM server_events WHERE id = ? AND category = ?', [req.params.id, req.params.category]);
+    if (!event) return res.status(404).json({ error: 'Evento não encontrado' });
+    if (event.max_participants) {
+      const count = await db.get('SELECT COUNT(*) as c FROM server_event_rsvps WHERE event_id = ?', [event.id]);
+      const already = await db.get('SELECT id FROM server_event_rsvps WHERE event_id = ? AND user_id = ?', [event.id, req.user.id]);
+      if (!already && count.c >= event.max_participants) {
+        return res.status(400).json({ error: 'Esse evento já atingiu o limite de vagas' });
+      }
+    }
+    await db.run(
+      'INSERT INTO server_event_rsvps (id, event_id, user_id) VALUES (?, ?, ?) ON CONFLICT(event_id, user_id) DO NOTHING',
+      [uuidv4(), event.id, req.user.id]
+    );
+    res.json({ ok: true });
+  })
+);
+
+app.delete(
+  '/api/servers/:category/events/:id/rsvp',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM server_event_rsvps WHERE event_id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    res.json({ ok: true });
+  })
+);
+
+app.get(
+  '/api/servers/:category/events/:id/participants',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const isMember = await isServerMember(req.params.category, req.user.id);
+    if (!isMember && !req.user.is_admin) return res.status(403).json({ error: 'Você não é membro desse servidor' });
+    const rows = await db.all(
+      `SELECT u.id, u.username, u.avatar FROM server_event_rsvps r JOIN users u ON u.id = r.user_id
+       WHERE r.event_id = ? ORDER BY r.created_at ASC`,
+      [req.params.id]
+    );
+    res.json(rows);
+  })
+);
+
+// ---------- ÁREA DE BOTS DO SERVIDOR (item 13 da especificação) ----------
+
+app.get(
+  '/api/servers/:category/bots',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const isMember = await isServerMember(req.params.category, req.user.id);
+    if (!isMember && !req.user.is_admin) return res.status(403).json({ error: 'Você não é membro desse servidor' });
+    const rows = await db.all('SELECT * FROM server_bots WHERE category = ?', [req.params.category]);
+    const byKey = {};
+    rows.forEach((r) => { byKey[r.bot_key] = r; });
+    const catalog = Object.entries(SERVER_BOTS_CATALOG).map(([key, meta]) => {
+      const row = byKey[key];
+      let config = {};
+      try { config = row && row.config ? JSON.parse(row.config) : {}; } catch (_) {}
+      return { key, name: meta.name, description: meta.description, ready: meta.ready, enabled: !!(row && row.enabled), config };
+    });
+    res.json(catalog);
+  })
+);
+
+app.patch(
+  '/api/servers/:category/bots/:botKey',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const canManage = await hasServerPermission(req.params.category, req.user, 'manage_channels');
+    if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra gerenciar bots nesse servidor' });
+    const meta = SERVER_BOTS_CATALOG[req.params.botKey];
+    if (!meta) return res.status(404).json({ error: 'Bot não existe no catálogo' });
+    if (!meta.ready && req.body && req.body.enabled) {
+      return res.status(400).json({ error: 'Esse bot ainda não está disponível (em breve).' });
+    }
+    const { enabled, channel_id } = req.body || {};
+    let cleanChannelId = null;
+    if (channel_id) {
+      const ch = await db.get('SELECT id FROM channels WHERE id = ? AND category = ?', [channel_id, req.params.category]);
+      if (ch) cleanChannelId = ch.id;
+    }
+    const config = JSON.stringify(cleanChannelId ? { channel_id: cleanChannelId } : {});
+    await db.run(
+      `INSERT INTO server_bots (id, category, bot_key, enabled, config, installed_by)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(category, bot_key) DO UPDATE SET
+         enabled = excluded.enabled, config = excluded.config, installed_by = excluded.installed_by, updated_at = datetime('now')`,
+      [uuidv4(), req.params.category, req.params.botKey, enabled ? 1 : 0, config, req.user.id]
+    );
+    logAudit(req.user, 'server_bot_toggle', 'server_bot', req.params.botKey, { category: req.params.category, enabled: !!enabled });
+    res.json({ ok: true });
+  })
+);
+
+// Painel de estatísticas do servidor (o "bot de estatísticas" do catálogo)
+// — tudo aqui vem de contagem real no banco, sem número inventado.
+app.get(
+  '/api/servers/:category/bots/stats',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const isMember = await isServerMember(req.params.category, req.user.id);
+    if (!isMember && !req.user.is_admin) return res.status(403).json({ error: 'Você não é membro desse servidor' });
+    const category = req.params.category;
+    const [memberCount, channelCount, messages7d, mostActiveChannel, topGames] = await Promise.all([
+      db.get('SELECT COUNT(*) as c FROM server_members WHERE category = ?', [category]),
+      db.get('SELECT COUNT(*) as c FROM channels WHERE category = ?', [category]),
+      db.get(
+        `SELECT COUNT(*) as c FROM messages m JOIN channels c ON c.id = m.channel_id
+         WHERE c.category = ? AND m.created_at >= datetime('now', '-7 day')`,
+        [category]
+      ),
+      db.get(
+        `SELECT c.name, COUNT(*) as c FROM messages m JOIN channels c ON c.id = m.channel_id
+         WHERE c.category = ? AND m.created_at >= datetime('now', '-7 day')
+         GROUP BY c.id ORDER BY c DESC LIMIT 1`,
+        [category]
+      ),
+      db.all(
+        `SELECT voice_game, COUNT(*) as c FROM channels
+         WHERE category = ? AND type = 'voz' AND voice_game IS NOT NULL
+         GROUP BY voice_game ORDER BY c DESC LIMIT 5`,
+        [category]
+      ),
+    ]);
+    res.json({
+      member_count: memberCount.c,
+      channel_count: channelCount.c,
+      messages_7d: messages7d.c,
+      most_active_channel: mostActiveChannel ? mostActiveChannel.name : null,
+      top_games: topGames,
+    });
   })
 );
 
@@ -3271,6 +3578,9 @@ app.post(
       'INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)',
       [uuidv4(), server.category, req.user.id]
     );
+    if (result.changes > 0) {
+      triggerServerBot(server.category, 'boas_vindas', () => `👋 **${req.user.username}** acabou de entrar no servidor! Deem as boas-vindas.`);
+    }
     // Só conta uso se a pessoa realmente entrou agora (não recontava se já
     // era membro e clicou no link de novo).
     if (result.changes > 0) {
@@ -3297,11 +3607,14 @@ app.post(
     if (!password || !bcrypt.compareSync(String(password), server.password_hash)) {
       return res.status(403).json({ error: 'Senha incorreta' });
     }
-    await db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+    const result = await db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
       uuidv4(),
       server.category,
       req.user.id,
     ]);
+    if (result.changes > 0) {
+      triggerServerBot(server.category, 'boas_vindas', () => `👋 **${req.user.username}** acabou de entrar no servidor! Deem as boas-vindas.`);
+    }
     res.json({ category: server.category });
   })
 );
@@ -3445,11 +3758,14 @@ app.post(
       req.params.category,
     ]);
     if (!server) return res.status(404).json({ error: 'Servidor não encontrado ou não é público' });
-    await db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+    const result = await db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
       uuidv4(),
       server.category,
       req.user.id,
     ]);
+    if (result.changes > 0) {
+      triggerServerBot(server.category, 'boas_vindas', () => `👋 **${req.user.username}** acabou de entrar no servidor! Deem as boas-vindas.`);
+    }
     res.json({ ok: true, category: server.category });
   })
 );
@@ -3602,6 +3918,7 @@ app.post(
       req.params.category,
       target.id,
     ]);
+    triggerServerBot(req.params.category, 'boas_vindas', () => `👋 **${target.username}** acabou de entrar no servidor! Deem as boas-vindas.`);
     logAudit(req.user, 'add_member', 'server', req.params.category, { added_user_id: target.id });
     res.json({ ok: true, username: target.username });
   })
@@ -4343,11 +4660,14 @@ async function executeAiTool(name, args, user) {
       const code = String(args.invite_code || '').trim();
       const server = await db.get('SELECT category FROM servers WHERE invite_code = ?', [code]);
       if (!server) return 'Esse código de convite não é válido.';
-      await db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
+      const joinResult = await db.run('INSERT OR IGNORE INTO server_members (id, category, user_id) VALUES (?, ?, ?)', [
         uuidv4(),
         server.category,
         user.id,
       ]);
+      if (joinResult.changes > 0) {
+        triggerServerBot(server.category, 'boas_vindas', () => `👋 **${user.username}** acabou de entrar no servidor! Deem as boas-vindas.`);
+      }
       return `Você entrou no servidor "${server.category}"!`;
     }
     case 'create_server': {
@@ -6613,7 +6933,7 @@ app.patch(
     const canManage = await hasServerPermission(channel.category, req.user, 'manage_channels');
     if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra configurar esse canal' });
 
-    const { slow_mode_seconds, read_only, name } = req.body || {};
+    const { slow_mode_seconds, read_only, name, video_enabled } = req.body || {};
     if (typeof slow_mode_seconds === 'number') {
       const clamped = Math.max(0, Math.min(21600, Math.floor(slow_mode_seconds)));
       await db.run('UPDATE channels SET slow_mode_seconds = ? WHERE id = ?', [clamped, channel.id]);
@@ -6621,12 +6941,15 @@ app.patch(
     if (typeof read_only === 'boolean') {
       await db.run('UPDATE channels SET read_only = ? WHERE id = ?', [read_only ? 1 : 0, channel.id]);
     }
+    if (typeof video_enabled === 'boolean') {
+      await db.run('UPDATE channels SET video_enabled = ? WHERE id = ?', [video_enabled ? 1 : 0, channel.id]);
+    }
     if (typeof name === 'string') {
       const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 40);
       if (cleanName.length < 2) return res.status(400).json({ error: 'Nome precisa ter pelo menos 2 caracteres' });
       await db.run('UPDATE channels SET name = ? WHERE id = ?', [cleanName, channel.id]);
     }
-    const updated = await db.get('SELECT id, name, slow_mode_seconds, read_only FROM channels WHERE id = ?', [channel.id]);
+    const updated = await db.get('SELECT id, name, slow_mode_seconds, read_only, video_enabled FROM channels WHERE id = ?', [channel.id]);
     io.to(channel.id).emit('channel:settings-updated', updated);
     if (typeof name === 'string') io.to('server:' + channel.category).emit('channel:renamed', updated);
     res.json(updated);

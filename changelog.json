@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.49.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Canal de vídeo: marca qualquer sala de voz como 'canal de vídeo' (ícone 🎥 próprio) pelo menu de contexto ou ao criar a sala.",
+      "Canal de anúncios: ao criar uma sala de texto, dá pra marcar como 'somente admin/gerente posta' direto (📢), sem precisar configurar depois.",
+      "Eventos do servidor: crie eventos com nome, descrição, imagem, data/hora, canal e limite de vagas — membros confirmam presença, veem quem vai, e o dono pode marcar como ao vivo/encerrado/cancelado.",
+      "Jogos do servidor: novo hub que reúne torneios, ranking e eventos num só lugar, com visão ao vivo de quem tá jogando o quê agora e quais salas de voz de jogo estão ativas.",
+      "Bots do servidor: área nova com Boas-vindas (posta mensagem automática quando alguém entra) e Anúncios de eventos (avisa quando um evento é criado) — ambos funcionando de verdade, com canal configurável. Música fica marcado 'em breve'. Estatísticas do servidor (membros, canais, mensagens dos últimos 7 dias, canal mais ativo, jogos mais usados) também nessa área."
+    ]
+  },
+  {
     "version": "0.48.0",
     "date": "2026-09-10",
     "changes": [

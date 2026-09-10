@@ -575,6 +575,9 @@
             <button id="btn-server-manage"><span class="ng-icon-wrap" data-icon="users"></span> Membros, cargos e convite</button>
             <button id="btn-quick-room"><span class="ng-icon-wrap" data-icon="zap"></span> Sala Rápida</button>
             <button id="btn-new-channel-group"><span class="ng-icon-wrap" data-icon="plus"></span> Nova categoria de canal</button>
+            <button id="btn-open-server-events"><span class="ng-icon-wrap" data-icon="calendar"></span> Eventos do servidor</button>
+            <button id="btn-open-server-games"><span class="ng-icon-wrap" data-icon="trophy"></span> Jogos do servidor</button>
+            <button id="btn-open-server-bots"><span class="ng-icon-wrap" data-icon="zap"></span> Bots do servidor</button>
           </div>
         </div>
         <button id="btn-close-channel-sidebar" title="Fechar"><span class="ng-icon-wrap" data-icon="x"></span></button>
@@ -955,6 +958,17 @@
           <label>Jogo</label>
           <input type="text" id="room-voice-game" placeholder="ex: Valorant, CS2, Minecraft" maxlength="40" />
         </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="room-video-enabled" />
+          🎥 Canal de vídeo (destaca a câmera pra quem entra)
+        </label>
+      </div>
+
+      <div id="room-text-fields" class="hidden">
+        <label class="checkbox-row">
+          <input type="checkbox" id="room-announcements-only" />
+          📢 Canal de anúncios (só admin/quem gerencia o servidor pode postar)
+        </label>
       </div>
 
       <div class="modal-actions">
@@ -1974,6 +1988,82 @@
     <div id="ranking-list" class="ranking-list"></div>
     <div class="modal-actions">
       <button type="button" id="btn-close-ranking">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: eventos do servidor (item 7 da especificação) -->
+<div id="modal-server-events" class="modal-overlay hidden">
+  <div class="modal-card modal-card-wide">
+    <h2><span class="ng-icon-wrap" data-icon="calendar"></span> Eventos do servidor</h2>
+    <div id="server-events-list" class="tournaments-list"></div>
+
+    <form id="form-new-event" class="hidden tournament-create-form">
+      <label>Nome do evento</label>
+      <input type="text" id="event-name" maxlength="80" placeholder="ex: Live de estreia, Noite de Valorant" required />
+      <label>Descrição</label>
+      <textarea id="event-description" maxlength="1000" rows="3" placeholder="Do que se trata o evento"></textarea>
+      <label>Data e hora</label>
+      <input type="datetime-local" id="event-date" required />
+      <label>Canal (opcional)</label>
+      <select id="event-channel"></select>
+      <label>Limite de participantes (opcional)</label>
+      <input type="number" id="event-max-participants" min="1" max="5000" placeholder="deixe em branco pra ilimitado" />
+      <label>Imagem de capa (opcional)</label>
+      <input type="file" id="event-image-file" accept="image/*" />
+      <div class="modal-actions">
+        <button type="button" id="btn-cancel-event">Cancelar</button>
+        <button type="submit">Criar evento</button>
+      </div>
+      <p id="event-error" class="auth-error"></p>
+    </form>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-close-server-events">Fechar</button>
+      <button type="button" id="btn-new-event" class="hidden">+ Criar evento</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: hub de Jogos do servidor (item 6 da especificação) — junta o que
+     já existe (torneios, ranking) com uma visão ao vivo de quem tá jogando
+     agora, sem duplicar nenhum dos dois sistemas. -->
+<div id="modal-server-games" class="modal-overlay hidden">
+  <div class="modal-card modal-card-wide">
+    <h2><span class="ng-icon-wrap" data-icon="trophy"></span> Jogos do servidor</h2>
+
+    <div class="modal-actions" style="justify-content:flex-start; margin-bottom:16px;">
+      <button type="button" id="btn-games-open-tournaments">🏆 Torneios</button>
+      <button type="button" id="btn-games-open-ranking">📊 Ranking do servidor</button>
+      <button type="button" id="btn-games-open-events">📅 Eventos</button>
+    </div>
+
+    <h3 style="margin:0 0 8px;">🟢 Jogando agora</h3>
+    <div id="server-games-playing-list" class="tournaments-list"></div>
+
+    <h3 style="margin:18px 0 8px;">🔊 Salas de voz de jogo ativas</h3>
+    <div id="server-games-voice-list" class="tournaments-list"></div>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-close-server-games">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: bots do servidor (item 13 da especificação) -->
+<div id="modal-server-bots" class="modal-overlay hidden">
+  <div class="modal-card modal-card-wide">
+    <h2><span class="ng-icon-wrap" data-icon="zap"></span> Bots do servidor</h2>
+    <p class="hint" style="margin-bottom:14px;">Automações que rodam nesse servidor — cada uma pode ser ligada ou desligada, e algumas deixam escolher em qual canal postam.</p>
+    <div id="server-bots-list"></div>
+
+    <div id="server-bots-stats-panel" class="hidden" style="margin-top:16px; border-top:1px solid #3a3c42; padding-top:14px;">
+      <h3 style="margin:0 0 10px;">📊 Estatísticas do servidor</h3>
+      <div id="server-bots-stats-grid" class="tournament-meta" style="flex-wrap:wrap; gap:14px;"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-close-server-bots">Fechar</button>
     </div>
   </div>
 </div>
