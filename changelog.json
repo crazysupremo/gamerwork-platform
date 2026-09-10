@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.48.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Nova hierarquia PROPRIETÁRIO/ROOT: acima de administrador geral, é quem tem autoridade máxima sobre a plataforma. Quem já é admin pode se tornar o primeiro ROOT direto no painel (aba Proprietário).",
+      "IA copiloto administrativa: analisa denúncias, mensagens sinalizadas e configurações arriscadas a cada 30 minutos (ou sob demanda em 'Analisar agora'), e gera alertas com sugestão de ação — ela NUNCA executa nada sozinha, só sugere e aguarda o proprietário decidir (revisar, ignorar ou preparar ação).",
+      "Copiloto conversacional: o proprietário pode perguntar em linguagem natural sobre a plataforma ('quais servidores tiveram mais denúncias hoje') e a IA responde com base em dados reais do banco.",
+      "Painel de permissões da IA (o que ela pode ler/analisar/sugerir) e registro permanente de todo alerta e decisão tomada (log de ações da IA).",
+      "NextGame Control Center: visão geral da plataforma pro proprietário — usuários, servidores, mensagens, denúncias e chamadas de voz em tempo real."
+    ]
+  },
+  {
     "version": "0.47.0",
     "date": "2026-09-10",
     "changes": [

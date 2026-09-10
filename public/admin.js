@@ -3,6 +3,8 @@
 const MODERATOR_ALLOWED_TABS = ['seguranca', 'moderacao'];
 let isFullAdmin = false;
 
+let isRootUser = false;
+
 async function init() {
 const meRes = await fetch('/api/me', { credentials: 'include' });
 if (!meRes.ok) {
@@ -60,6 +62,7 @@ loadFlagged();
 loadUsers();
 loadAuditLogs();
 loadInvestigationLog();
+initRootPanel(me);
 }
 
 function initAdminTabs() {
@@ -821,7 +824,7 @@ tr.innerHTML = `
       <td>${escapeHtml(u.username)}</td>
       <td>${escapeHtml(u.email || '—')}</td>
       <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
-      <td>${u.is_admin ? 'Sim' : u.is_moderator ? '<span style="color:#faa61a;" title="Acesso parcial: só Segurança/BLUEX e Moderação">🛡️ Moderador</span>' : 'Não'}</td>
+      <td>${u.is_root ? '<span style="color:#f2c94c;font-weight:700;" title="Proprietário — autoridade máxima da plataforma">👑 ROOT</span>' : u.is_admin ? 'Sim' : u.is_moderator ? '<span style="color:#faa61a;" title="Acesso parcial: só Segurança/BLUEX e Moderação">🛡️ Moderador</span>' : 'Não'}</td>
       <td>${u.verified_gold ? '🥇 Verificado (dourado)' : u.is_verified ? '✔️ Verificado' : '—'}</td>
       <td>${planLabelHtml(u)}</td>
       <td>${
@@ -841,6 +844,7 @@ tr.innerHTML = `
           : `<button class="action" data-action="grant-plan" data-id="${u.id}">Conceder Plus</button>`}
         <button class="action" data-action="toggle-verify" data-id="${u.id}">${u.is_verified ? 'Remover selo' : '✔️ Verificar'}</button>
         <button class="action" data-action="toggle-verify-gold" data-id="${u.id}">${u.verified_gold ? 'Remover dourado' : '🥇 Verificar (dourado, parceiro)'}</button>
+        ${isRootUser ? `<button class="action" data-action="toggle-root" data-id="${u.id}" data-current="${u.is_root ? '1' : '0'}">${u.is_root ? '👑 Remover ROOT' : '👑 Tornar ROOT'}</button>` : ''}
       </td>
     `;
 tbody.appendChild(tr);
@@ -871,6 +875,24 @@ loadAuditLogs();
 tbody.querySelectorAll('button[data-action="toggle-verify-gold"]').forEach((btn) =>
 btn.addEventListener('click', async () => {
 await fetch(`/api/admin/users/${btn.dataset.id}/verify-gold`, { method: 'POST', credentials: 'include' });
+loadUsers();
+loadAuditLogs();
+})
+);
+
+tbody.querySelectorAll('button[data-action="toggle-root"]').forEach((btn) =>
+btn.addEventListener('click', async () => {
+const makeRoot = btn.dataset.current !== '1';
+if (makeRoot && !confirm('Tornar essa conta PROPRIETÁRIA (ROOT)? Ela passa a ter autoridade máxima sobre toda a plataforma, acima de qualquer admin.')) return;
+if (!makeRoot && !confirm('Remover o ROOT dessa conta?')) return;
+const res = await fetch(`/api/root/users/${btn.dataset.id}/root`, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ makeRoot }),
+});
+const data = await res.json().catch(() => ({}));
+if (!res.ok) { alert(data.error || 'Erro ao alterar ROOT'); return; }
 loadUsers();
 loadAuditLogs();
 })
@@ -987,6 +1009,211 @@ tr.innerHTML = `
     `;
 el.appendChild(tr);
 });
+}
+
+async function initRootPanel(me) {
+const navBtn = document.getElementById('admin-nav-proprietario');
+try {
+const res = await fetch('/api/root/status', { credentials: 'include' });
+if (!res.ok) { navBtn.remove(); return; }
+const status = await res.json();
+if (!me.is_root && !status.can_bootstrap) {
+navBtn.remove();
+return;
+}
+navBtn.classList.remove('hidden');
+if (!me.is_root && status.can_bootstrap) {
+document.getElementById('root-bootstrap-banner').classList.remove('hidden');
+document.getElementById('root-panel-content').classList.add('hidden');
+document.getElementById('btn-root-bootstrap').onclick = async () => {
+const r = await fetch('/api/root/bootstrap', { method: 'POST', credentials: 'include' });
+const data = await r.json().catch(() => ({}));
+if (!r.ok) { alert(data.error || 'Erro ao virar proprietário'); return; }
+alert('Você agora é o proprietário (ROOT) do NextGame! Recarregando o painel...');
+window.location.reload();
+};
+return;
+}
+
+isRootUser = true;
+document.getElementById('root-bootstrap-banner').classList.add('hidden');
+document.getElementById('root-panel-content').classList.remove('hidden');
+loadUsers();
+loadRootOverview();
+setInterval(loadRootOverview, 20000);
+loadAiAlerts();
+loadAiPermissions();
+loadAiActionLog();
+document.getElementById('btn-ai-analyze-now').onclick = async () => {
+const btn = document.getElementById('btn-ai-analyze-now');
+btn.disabled = true;
+btn.textContent = 'Analisando...';
+await fetch('/api/root/ai/analyze', { method: 'POST', credentials: 'include' });
+await loadAiAlerts();
+btn.disabled = false;
+btn.textContent = '🔄 Analisar agora';
+};
+document.getElementById('btn-root-ai-ask').onclick = askAiCopilot;
+document.getElementById('root-ai-ask-input').addEventListener('keydown', (e) => {
+if (e.key === 'Enter') askAiCopilot();
+});
+} catch (_) {
+navBtn.remove();
+}
+}
+
+async function loadRootOverview() {
+const res = await fetch('/api/root/overview', { credentials: 'include' });
+if (!res.ok) return;
+const o = await res.json();
+const stats = [
+['Usuários registrados', o.users_total],
+['Online agora', o.users_online_now],
+['Novos hoje', o.new_users_today],
+['Novos (7 dias)', o.new_users_7d],
+['Servidores', o.servers_total],
+['Mensagens (24h)', o.messages_24h],
+['Denúncias pendentes', o.reports_pending],
+['Alertas da IA pendentes', o.ai_alerts_pending],
+['Em chamada de voz agora', o.voice_participants_now],
+];
+document.getElementById('root-overview-grid').innerHTML = stats
+.map(([label, num]) => `<div class="stat-card"><div class="num">${num}</div><div class="label">${label}</div></div>`)
+.join('');
+}
+
+const AI_ALERT_SEVERITY_LABEL = { alta: '🔴 Alta', media: '🟡 Média', baixa: '🟢 Baixa' };
+
+async function loadAiAlerts() {
+const el = document.getElementById('root-ai-alerts-list');
+const res = await fetch('/api/root/ai/alerts', { credentials: 'include' });
+if (!res.ok) return;
+const alerts = await res.json();
+const pending = alerts.filter((a) => a.status === 'pendente');
+if (pending.length === 0) {
+el.innerHTML = '<p class="hint">Nenhum alerta pendente agora — a IA analisa automaticamente a cada 30 minutos.</p>';
+return;
+}
+el.innerHTML = pending
+.map(
+(a) => `
+    <div class="alert-card" data-id="${a.id}" style="border:1px solid #3a3c42; border-radius:8px; padding:12px; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; gap:8px;">
+        <strong>${AI_ALERT_SEVERITY_LABEL[a.severity] || a.severity} — ${escapeHtml(a.title)}</strong>
+        <span class="hint">${new Date(a.created_at).toLocaleString('pt-BR')}</span>
+      </div>
+      <p style="margin:6px 0;">${escapeHtml(a.description)}</p>
+      ${a.suggested_action ? `<p class="hint">💡 Sugestão: ${escapeHtml(a.suggested_action)}</p>` : ''}
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button type="button" class="btn-ai-alert-resolve" data-id="${a.id}" data-status="acao_preparada">Preparar ação</button>
+        <button type="button" class="btn-ai-alert-resolve" data-id="${a.id}" data-status="revisado">Marcar como revisado</button>
+        <button type="button" class="btn-ai-alert-resolve" data-id="${a.id}" data-status="ignorado">Ignorar</button>
+      </div>
+    </div>
+  `
+)
+.join('');
+document.querySelectorAll('.btn-ai-alert-resolve').forEach((btn) => {
+btn.onclick = async () => {
+const id = btn.dataset.id;
+const status = btn.dataset.status;
+let note = null;
+if (status === 'acao_preparada') {
+note = prompt('Qual ação você vai tomar a partir desse alerta? (registrado no log, a execução em si é feita nas telas normais de admin)', '');
+if (note === null) return;
+}
+const res = await fetch(`/api/root/ai/alerts/${id}/resolve`, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ status, note }),
+});
+if (!res.ok) { alert('Erro ao resolver o alerta'); return; }
+loadAiAlerts();
+loadAiActionLog();
+loadRootOverview();
+};
+});
+}
+
+async function askAiCopilot() {
+const input = document.getElementById('root-ai-ask-input');
+const answerEl = document.getElementById('root-ai-ask-answer');
+const question = input.value.trim();
+if (!question) return;
+answerEl.textContent = 'Pensando...';
+const res = await fetch('/api/root/ai/ask', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ question }),
+});
+const data = await res.json().catch(() => ({}));
+answerEl.textContent = res.ok ? data.answer : data.error || 'Erro ao perguntar pra IA';
+}
+
+const AI_PERMISSION_LABELS = {
+read_stats: 'Ler estatísticas',
+analyze_servers: 'Analisar servidores',
+detect_problems: 'Detectar problemas',
+analyze_reports: 'Analisar denúncias',
+suggest_actions: 'Sugerir ações',
+};
+
+async function loadAiPermissions() {
+const el = document.getElementById('root-ai-permissions');
+const res = await fetch('/api/root/ai/permissions', { credentials: 'include' });
+if (!res.ok) return;
+const perms = await res.json();
+el.innerHTML = Object.keys(AI_PERMISSION_LABELS)
+.map(
+(key) => `
+    <label class="checkbox-row">
+      <input type="checkbox" class="ai-permission-toggle" data-key="${key}" ${perms[key] ? 'checked' : ''} />
+      ${AI_PERMISSION_LABELS[key]}
+    </label>
+  `
+)
+.join('');
+document.querySelectorAll('.ai-permission-toggle').forEach((cb) => {
+cb.onchange = async () => {
+await fetch('/api/root/ai/permissions', {
+method: 'PATCH',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ [cb.dataset.key]: cb.checked }),
+});
+};
+});
+}
+
+async function loadAiActionLog() {
+const el = document.getElementById('root-ai-action-log');
+const res = await fetch('/api/root/ai/action-log', { credentials: 'include' });
+if (!res.ok) return;
+const rows = await res.json();
+if (rows.length === 0) {
+el.innerHTML = '<p class="hint">Nenhuma ação registrada ainda.</p>';
+return;
+}
+el.innerHTML = `
+    <table><thead><tr>
+      <th>Quando</th><th>Problema detectado</th><th>Recomendação</th><th>Ação</th><th>Autorizado por</th><th>Resultado</th>
+    </tr></thead><tbody>
+      ${rows
+        .map(
+          (r) => `<tr>
+            <td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
+            <td>${escapeHtml(r.problem_detected || '')}</td>
+            <td>${escapeHtml(r.recommendation || '')}</td>
+            <td>${escapeHtml(r.action_executed || '(nenhuma)')}</td>
+            <td>${escapeHtml(r.authorized_by_username || '')}</td>
+            <td>${escapeHtml(r.result || '')}</td>
+          </tr>`
+        )
+        .join('')}
+    </tbody></table>
+  `;
 }
 
 async function loadAuditLogs() {

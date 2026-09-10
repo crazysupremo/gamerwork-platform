@@ -293,6 +293,23 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// PROPRIETÁRIO/ROOT (especificação: hierarquia ROOT > Admin Global > IA >
+// Dono do servidor > Admin do servidor > Moderador > Membro) — autoridade
+// máxima da plataforma, ACIMA de admin geral. Only ROOT vê o Control Center
+// e o painel da IA copiloto. is_admin normal NÃO passa por aqui (regra
+// fundamental do documento: nenhum cargo pode superar o ROOT, então o
+// inverso também vale — admin comum não acessa o que é do ROOT).
+function requireRoot(req, res, next) {
+  if (!req.user.is_root) return res.status(403).json({ error: 'Somente o proprietário (ROOT) da plataforma' });
+  if (!req.user.totp_enabled) {
+    return res.status(403).json({
+      error: 'Sua conta ROOT precisa ativar a verificação em duas etapas (2FA) antes de acessar o painel.',
+      requires2faSetup: true,
+    });
+  }
+  next();
+}
+
 // Acesso PARCIAL ao painel — pra contas de staff que ajudam só com
 // BLUEX/moderação básica (denúncias, contas suspeitas/menores, mensagens
 // bloqueadas/sinalizadas, banir/suspender conta flagrada), sem ver
@@ -1189,6 +1206,8 @@ app.get(
       // Staff parcial (só BLUEX/moderação básica) — ver requireModerator.
       // is_admin sempre implica acesso total, independente disso.
       is_moderator: !!req.user.is_moderator,
+      // Proprietário/ROOT — acima de admin geral, ver requireRoot.
+      is_root: !!req.user.is_root,
       // Selo de verificado (conta oficial NEXT GAME) — separado de is_admin,
       // ver /api/admin/users/:id/verify.
       is_verified: !!req.user.is_verified,
@@ -6962,6 +6981,372 @@ app.get(
   })
 );
 
+// ---------- PROPRIETÁRIO/ROOT + IA COPILOTO ADMINISTRATIVA ----------
+// Especificação: hierarquia ROOT > Administrador Global > IA > Dono do
+// servidor > Administrador do servidor > Moderador > Membro. A IA NUNCA tem
+// autoridade acima de um humano — ela analisa, detecta, sugere e aguarda
+// autorização (ver runAiAnalysis mais abaixo). Nenhuma rota aqui executa
+// punição/alteração sozinha a partir da IA; toda ação de verdade continua
+// sendo feita pelas rotas normais de admin, só que a IA aponta pra onde
+// olhar.
+
+// Bootstrap: enquanto NINGUÉM na plataforma é ROOT, qualquer admin geral
+// pode se tornar o primeiro (evita ficar travado sem dono nenhum). Depois
+// que existe um ROOT, só um ROOT pode conceder/remover ROOT de outra conta
+// (ver rota de baixo) — esta rota de bootstrap passa a recusar.
+app.post(
+  '/api/root/bootstrap',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const existingRoot = await db.get('SELECT id FROM users WHERE is_root = 1 LIMIT 1');
+    if (existingRoot) {
+      return res.status(400).json({ error: 'Já existe um proprietário (ROOT) nessa plataforma.' });
+    }
+    await db.run('UPDATE users SET is_root = 1 WHERE id = ?', [req.user.id]);
+    logAudit(req.user, 'root_bootstrap', 'user', req.user.id, {});
+    res.json({ ok: true });
+  })
+);
+
+// Conceder/remover ROOT de outra conta — só quem já é ROOT pode fazer isso.
+// REGRA FUNDAMENTAL do documento: nenhum cargo pode superar o ROOT, então só
+// o próprio ROOT decide quem mais entra nesse nível.
+app.post(
+  '/api/root/users/:id/root',
+  requireAuth,
+  requireRoot,
+  asyncHandler(async (req, res) => {
+    const { makeRoot } = req.body || {};
+    const target = await db.get('SELECT id, username, is_root FROM users WHERE id = ?', [req.params.id]);
+    if (!target) return res.status(404).json({ error: 'Usuário não encontrado' });
+    if (target.id === req.user.id && !makeRoot) {
+      return res.status(400).json({ error: 'Você não pode remover seu próprio ROOT por aqui — peça pra outro ROOT fazer isso.' });
+    }
+    await db.run('UPDATE users SET is_root = ? WHERE id = ?', [makeRoot ? 1 : 0, target.id]);
+    logAudit(req.user, makeRoot ? 'root_grant' : 'root_revoke', 'user', target.id, { username: target.username });
+    res.json({ ok: true });
+  })
+);
+
+app.get(
+  '/api/root/status',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const existingRoot = await db.get('SELECT id FROM users WHERE is_root = 1 LIMIT 1');
+    res.json({ has_root: !!existingRoot, can_bootstrap: !existingRoot && !!req.user.is_admin });
+  })
+);
+
+// Painel "NextGame Control Center" (item 24) — visão geral de toda a
+// plataforma pro proprietário. Tudo aqui é leitura de dados reais do banco,
+// nada calculado/fake.
+app.get(
+  '/api/root/overview',
+  requireAuth,
+  requireRoot,
+  asyncHandler(async (req, res) => {
+    const [users, servers, messages24h, reportsPending, alertsPending] = await Promise.all([
+      db.get('SELECT COUNT(*) as c FROM users'),
+      db.get('SELECT COUNT(*) as c FROM servers'),
+      db.get("SELECT COUNT(*) as c FROM messages WHERE created_at >= datetime('now', '-1 day')"),
+      db.get("SELECT COUNT(*) as c FROM reports WHERE status = 'pendente'"),
+      db.get("SELECT COUNT(*) as c FROM ai_alerts WHERE status = 'pendente'"),
+    ]);
+    const newUsersToday = await db.get("SELECT COUNT(*) as c FROM users WHERE created_at >= datetime('now', '-1 day')");
+    const newUsers7d = await db.get("SELECT COUNT(*) as c FROM users WHERE created_at >= datetime('now', '-7 day')");
+    // Chamadas de voz ativas agora — vem do Map em memória (voiceRooms),
+    // mesma fonte que o painel de saúde do servidor já usa mais abaixo, não
+    // uma tabela no banco (voz não é persistida, só enquanto dura a chamada).
+    const voiceRoomsSnapshot = [...voiceRooms.entries()].filter(([, participants]) => participants.size > 0);
+    const voiceParticipantsNow = voiceRoomsSnapshot.reduce((sum, [, participants]) => sum + participants.size, 0);
+    res.json({
+      users_total: users.c,
+      users_online_now: io.sockets.sockets.size,
+      new_users_today: newUsersToday.c,
+      new_users_7d: newUsers7d.c,
+      servers_total: servers.c,
+      messages_24h: messages24h.c,
+      reports_pending: reportsPending.c,
+      ai_alerts_pending: alertsPending.c,
+      voice_rooms_active: voiceRoomsSnapshot.length,
+      voice_participants_now: voiceParticipantsNow,
+    });
+  })
+);
+
+// ---------- IA COPILOTO: análise real (não é enfeite, olha dado de verdade) ----------
+// Fluxo do documento: ANALISAR → DETECTAR → SUGERIR → AVISAR → AGUARDAR
+// AUTORIZAÇÃO. A cada rodada, olha denúncias, mensagens sinalizadas e
+// servidores com configuração arriscada, e só cria um alerta novo se ainda
+// não existir um "pendente" igual (evita spam repetido a cada execução).
+async function runAiAnalysis() {
+  try {
+    const perms = (await db.get("SELECT * FROM ai_permissions WHERE id = 'default'")) || {};
+    if (!perms.detect_problems) return; // IA desligada pra detecção, respeita o painel de permissões
+
+    const newAlerts = [];
+
+    // 1) Pico de denúncias nas últimas 24h vs média diária dos últimos 7 dias.
+    if (perms.analyze_reports) {
+      const today = await db.get("SELECT COUNT(*) as c FROM reports WHERE created_at >= datetime('now', '-1 day')");
+      const last7d = await db.get("SELECT COUNT(*) as c FROM reports WHERE created_at >= datetime('now', '-7 day')");
+      const avgDaily = last7d.c / 7;
+      if (today.c >= 5 && (avgDaily === 0 || today.c >= avgDaily * 2)) {
+        newAlerts.push({
+          type: 'pico_denuncias',
+          severity: 'alta',
+          title: 'Aumento anormal de denúncias nas últimas 24h',
+          description: `${today.c} denúncia(s) nas últimas 24h, contra uma média de ${avgDaily.toFixed(1)}/dia nos últimos 7 dias.`,
+          suggested_action: 'Ver denúncias pendentes e analisar se há um padrão (mesmo usuário, mesmo servidor, mesmo tipo de conteúdo).',
+        });
+      }
+
+      // 2) Usuário com múltiplas denúncias recentes e ainda não banido.
+      const topReported = await db.all(
+        `SELECT reported_user_id, COUNT(*) as c FROM reports
+         WHERE created_at >= datetime('now', '-7 day') AND reported_user_id IS NOT NULL
+         GROUP BY reported_user_id HAVING c >= 3 ORDER BY c DESC LIMIT 5`
+      );
+      for (const row of topReported) {
+        const target = await db.get('SELECT id, username, is_banned FROM users WHERE id = ?', [row.reported_user_id]);
+        if (target && !target.is_banned) {
+          newAlerts.push({
+            type: 'usuario_denunciado_repetido',
+            severity: 'media',
+            target_user_id: target.id,
+            title: `Usuário "${target.username}" com ${row.c} denúncias em 7 dias`,
+            description: `${row.c} denúncias diferentes contra "${target.username}" na última semana, e a conta ainda não foi banida/suspensa.`,
+            suggested_action: 'Ver denúncias, analisar histórico de mensagens (via Investigação) e decidir se cabe suspensão/banimento.',
+          });
+        }
+      }
+    }
+
+    // 3) Pico de mensagens sinalizadas pela moderação (BLUEX/Groq) nas últimas 24h.
+    if (perms.analyze_servers) {
+      const flaggedToday = await db.get("SELECT COUNT(*) as c FROM messages WHERE flagged = 1 AND created_at >= datetime('now', '-1 day')");
+      const flagged7d = await db.get("SELECT COUNT(*) as c FROM messages WHERE flagged = 1 AND created_at >= datetime('now', '-7 day')");
+      const avgFlaggedDaily = flagged7d.c / 7;
+      if (flaggedToday.c >= 5 && (avgFlaggedDaily === 0 || flaggedToday.c >= avgFlaggedDaily * 2)) {
+        newAlerts.push({
+          type: 'pico_mensagens_sinalizadas',
+          severity: 'alta',
+          title: 'Aumento anormal de mensagens sinalizadas pela moderação',
+          description: `${flaggedToday.c} mensagem(ns) sinalizada(s) nas últimas 24h, contra uma média de ${avgFlaggedDaily.toFixed(1)}/dia nos últimos 7 dias.`,
+          suggested_action: 'Ver mensagens sinalizadas (aba Moderação) e confirmar se é ataque coordenado ou falso positivo do modelo.',
+        });
+      }
+
+      // 4) Configuração potencialmente arriscada: servidor público (descobrível)
+      // sem nenhuma regra definida.
+      const riskyServers = await db.all(
+        "SELECT category FROM servers WHERE discoverable = 1 AND (rules IS NULL OR rules = '') LIMIT 5"
+      );
+      for (const s of riskyServers) {
+        newAlerts.push({
+          type: 'servidor_publico_sem_regras',
+          severity: 'baixa',
+          server_category: s.category,
+          title: `Servidor público "${s.category}" sem regras definidas`,
+          description: 'Esse servidor está visível em Explorar (qualquer um entra) mas não tem regras cadastradas — dificulta moderação e expectativa dos membros.',
+          suggested_action: 'Sugerir ao dono do servidor que cadastre regras em Informações e regras.',
+        });
+      }
+    }
+
+    for (const alert of newAlerts) {
+      const dup = await db.get(
+        "SELECT id FROM ai_alerts WHERE type = ? AND status = 'pendente' AND COALESCE(target_user_id,'') = COALESCE(?,'') AND COALESCE(server_category,'') = COALESCE(?,'')",
+        [alert.type, alert.target_user_id || null, alert.server_category || null]
+      );
+      if (dup) continue; // já existe um alerta igual aberto, não duplica
+      await db.run(
+        `INSERT INTO ai_alerts (id, type, severity, server_category, target_user_id, title, description, suggested_action)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuidv4(), alert.type, alert.severity, alert.server_category || null, alert.target_user_id || null, alert.title, alert.description, alert.suggested_action || null]
+      );
+    }
+  } catch (err) {
+    console.error('Erro na análise da IA copiloto:', err.message);
+    logError('ai_analysis', err);
+  }
+}
+
+app.get(
+  '/api/root/ai/alerts',
+  requireAuth,
+  requireRoot,
+  asyncHandler(async (req, res) => {
+    res.json(await db.all('SELECT * FROM ai_alerts ORDER BY created_at DESC LIMIT 200'));
+  })
+);
+
+app.post(
+  '/api/root/ai/analyze',
+  requireAuth,
+  requireRoot,
+  asyncHandler(async (req, res) => {
+    await runAiAnalysis();
+    res.json({ ok: true });
+  })
+);
+
+// Decisão humana sobre um alerta — nunca a IA decide sozinha. status pode
+// ser: revisado (só marcou como visto), ignorado, ou acao_preparada
+// (o ROOT registra qual ação vai tomar, mas a execução em si continua sendo
+// feita nas telas normais de admin — aqui é só o registro/rastro).
+app.post(
+  '/api/root/ai/alerts/:id/resolve',
+  requireAuth,
+  requireRoot,
+  asyncHandler(async (req, res) => {
+    const { status, note } = req.body || {};
+    if (!['revisado', 'ignorado', 'acao_preparada'].includes(status)) {
+      return res.status(400).json({ error: 'Status inválido' });
+    }
+    const alert = await db.get('SELECT * FROM ai_alerts WHERE id = ?', [req.params.id]);
+    if (!alert) return res.status(404).json({ error: 'Alerta não encontrado' });
+    await db.run(
+      `UPDATE ai_alerts SET status = ?, reviewed_by = ?, reviewed_by_username = ?, reviewed_at = datetime('now'), resolution_note = ?
+       WHERE id = ?`,
+      [status, req.user.id, req.user.username, note || null, req.params.id]
+    );
+    await db.run(
+      `INSERT INTO ai_action_log (id, alert_id, server_category, target_user_id, problem_detected, recommendation, action_executed, authorized_by, authorized_by_username, result)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        uuidv4(),
+        alert.id,
+        alert.server_category,
+        alert.target_user_id,
+        alert.title,
+        alert.suggested_action,
+        status === 'acao_preparada' ? (note || 'Ação preparada pelo proprietário') : null,
+        req.user.id,
+        req.user.username,
+        status,
+      ]
+    );
+    logAudit(req.user, 'ai_alert_resolve', 'ai_alert', alert.id, { status });
+    res.json({ ok: true });
+  })
+);
+
+app.get(
+  '/api/root/ai/action-log',
+  requireAuth,
+  requireRoot,
+  asyncHandler(async (req, res) => {
+    res.json(await db.all('SELECT * FROM ai_action_log ORDER BY created_at DESC LIMIT 300'));
+  })
+);
+
+app.get(
+  '/api/root/ai/permissions',
+  requireAuth,
+  requireRoot,
+  asyncHandler(async (req, res) => {
+    res.json((await db.get("SELECT * FROM ai_permissions WHERE id = 'default'")) || {});
+  })
+);
+
+app.patch(
+  '/api/root/ai/permissions',
+  requireAuth,
+  requireRoot,
+  asyncHandler(async (req, res) => {
+    const keys = ['read_stats', 'analyze_servers', 'detect_problems', 'analyze_reports', 'suggest_actions'];
+    const updates = [];
+    const values = [];
+    for (const k of keys) {
+      if (typeof req.body[k] === 'boolean') {
+        updates.push(`${k} = ?`);
+        values.push(req.body[k] ? 1 : 0);
+      }
+    }
+    if (updates.length === 0) return res.json({ ok: true });
+    values.push(req.user.id);
+    await db.run(`UPDATE ai_permissions SET ${updates.join(', ')}, updated_by = ?, updated_at = datetime('now') WHERE id = 'default'`, values);
+    logAudit(req.user, 'ai_permissions_update', 'ai_permissions', 'default', req.body);
+    res.json({ ok: true });
+  })
+);
+
+// IA como copiloto conversacional (item 25) — o ROOT pergunta em linguagem
+// natural, a IA busca dados reais relevantes no banco (denúncias, alertas,
+// servidores) baseado em palavras-chave da pergunta, e usa a Groq só pra
+// formular a resposta em cima desses dados — nunca inventa números.
+app.post(
+  '/api/root/ai/ask',
+  requireAuth,
+  requireRoot,
+  asyncHandler(async (req, res) => {
+    const { question } = req.body || {};
+    if (!question || typeof question !== 'string' || !question.trim()) {
+      return res.status(400).json({ error: 'Pergunta vazia' });
+    }
+    const q = question.trim().slice(0, 500);
+
+    // Contexto sempre incluído: visão geral + alertas pendentes + denúncias recentes.
+    const [overview, pendingAlerts, recentReports, topServersByReports] = await Promise.all([
+      db.get(`SELECT
+          (SELECT COUNT(*) FROM users) as users_total,
+          (SELECT COUNT(*) FROM servers) as servers_total,
+          (SELECT COUNT(*) FROM reports WHERE status = 'pendente') as reports_pending,
+          (SELECT COUNT(*) FROM ai_alerts WHERE status = 'pendente') as alerts_pending`),
+      db.all("SELECT type, severity, title, description FROM ai_alerts WHERE status = 'pendente' ORDER BY created_at DESC LIMIT 10"),
+      db.all(
+        `SELECT r.reason, r.created_at, u.username as reported_username FROM reports r
+         LEFT JOIN users u ON u.id = r.reported_user_id
+         WHERE r.created_at >= datetime('now', '-1 day') ORDER BY r.created_at DESC LIMIT 15`
+      ),
+      db.all(
+        `SELECT m.channel_id, c.category, COUNT(*) as flagged_count
+         FROM messages m JOIN channels c ON c.id = m.channel_id
+         WHERE m.flagged = 1 AND m.created_at >= datetime('now', '-1 day')
+         GROUP BY c.category ORDER BY flagged_count DESC LIMIT 5`
+      ).catch(() => []),
+    ]);
+
+    const contextText =
+      `Visão geral da plataforma agora: ${overview.users_total} usuários, ${overview.servers_total} servidores, ` +
+      `${overview.reports_pending} denúncia(s) pendente(s), ${overview.alerts_pending} alerta(s) da IA pendente(s).\n\n` +
+      `Alertas pendentes da IA:\n${pendingAlerts.map((a) => `- [${a.severity}] ${a.title}: ${a.description}`).join('\n') || '(nenhum)'}\n\n` +
+      `Denúncias nas últimas 24h:\n${recentReports.map((r) => `- contra "${r.reported_username || '?'}": ${r.reason}`).join('\n') || '(nenhuma)'}\n\n` +
+      `Servidores com mais mensagens sinalizadas nas últimas 24h:\n${topServersByReports.map((s) => `- ${s.category}: ${s.flagged_count} sinalizada(s)`).join('\n') || '(nenhum)'}`;
+
+    const prompt =
+      'Você é a IA copiloto administrativa do NextGame, respondendo diretamente ao PROPRIETÁRIO da plataforma. ' +
+      'Responda a pergunta dele em português, de forma objetiva, baseada SOMENTE nos dados reais abaixo — nunca invente ' +
+      'números ou fatos que não estejam nos dados. Se os dados não tiverem o que foi perguntado, diga isso claramente e ' +
+      'sugira onde ele pode olhar (aba do painel admin). Você nunca decide ou executa nada sozinha — no máximo sugere ' +
+      'a próxima ação, e quem decide é sempre ele.\n\n' +
+      `DADOS ATUAIS:\n${contextText}\n\nPERGUNTA DO PROPRIETÁRIO: ${q}`;
+
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      return res.json({ answer: 'IA indisponível (GROQ_API_KEY não configurada) — aqui estão os dados brutos:\n\n' + contextText });
+    }
+    try {
+      const textModel = process.env.GROQ_TEXT_MODEL || 'llama-3.3-70b-versatile';
+      const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+        body: JSON.stringify({ model: textModel, max_tokens: 600, messages: [{ role: 'user', content: prompt }] }),
+      });
+      if (!apiRes.ok) return res.json({ answer: 'Não consegui gerar a resposta agora. Dados brutos:\n\n' + contextText });
+      const data = await apiRes.json();
+      const answer = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || contextText;
+      logAudit(req.user, 'ai_copilot_ask', 'ai_copilot', null, { question: q.slice(0, 200) });
+      res.json({ answer });
+    } catch (err) {
+      console.error('Erro no copiloto IA:', err.message);
+      res.json({ answer: 'Não consegui gerar a resposta agora. Dados brutos:\n\n' + contextText });
+    }
+  })
+);
+
 app.get(
   '/api/admin/flagged-messages',
   requireAuth,
@@ -7073,7 +7458,7 @@ app.get(
   asyncHandler(async (req, res) => {
     res.json(
       await db.all(
-        'SELECT id, username, email, is_admin, is_moderator, is_verified, verified_gold, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, plan_source, plan_expires_at, created_at FROM users ORDER BY created_at DESC'
+        'SELECT id, username, email, is_admin, is_moderator, is_root, is_verified, verified_gold, is_banned, auto_suspended, ban_reason, timeout_until, coins, reputation, plan, plan_source, plan_expires_at, created_at FROM users ORDER BY created_at DESC'
       )
     );
   })
@@ -8399,6 +8784,17 @@ async function main() {
   httpServer.listen(PORT, () => {
     console.log(`NEXT GAME rodando em http://localhost:${PORT}`);
   });
+
+  // IA copiloto: roda a análise automaticamente a cada 30 minutos (além do
+  // botão "Analisar agora" no painel ROOT, que chama a mesma função na
+  // hora). Só CRIA alertas quando detecta algo — nunca executa ação
+  // nenhuma sozinha, ver runAiAnalysis().
+  setInterval(() => {
+    runAiAnalysis();
+  }, 30 * 60 * 1000);
+  // Primeira rodada logo na subida do servidor, sem esperar 30min pra ter
+  // dado no painel.
+  setTimeout(() => runAiAnalysis(), 15 * 1000);
 }
 
 main().catch((err) => {

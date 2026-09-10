@@ -121,6 +121,68 @@ async function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- ---------- HIERARQUIA ROOT + IA COPILOTO (especificação do dono) ----------
+    -- PROPRIETÁRIO/ROOT: autoridade máxima da plataforma, ACIMA de
+    -- administrador global. Nenhum cargo, bot, automação ou IA pode superar
+    -- quem tem is_root=1 — essa é a regra fundamental do documento. Separado
+    -- de is_admin de propósito: todo ROOT é admin, mas nem todo admin é ROOT.
+    -- Só quem já é ROOT pode conceder/remover ROOT de outra conta (exceto o
+    -- bootstrap: se NINGUÉM ainda é ROOT, qualquer admin pode se tornar o
+    -- primeiro — ver POST /api/root/bootstrap).
+
+    -- Log de alertas gerados pela IA (analisar → detectar → sugerir →
+    -- avisar → aguardar autorização — a IA NUNCA executa nada sozinha,
+    -- só prepara e sugere; quem decide é sempre humano).
+    CREATE TABLE IF NOT EXISTS ai_alerts (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      severity TEXT NOT NULL DEFAULT 'media',
+      server_category TEXT,
+      target_user_id TEXT,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      suggested_action TEXT,
+      status TEXT NOT NULL DEFAULT 'pendente',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      reviewed_by TEXT,
+      reviewed_by_username TEXT,
+      reviewed_at TEXT,
+      resolution_note TEXT
+    );
+
+    -- Registro definitivo de tudo que a IA fez ou sugeriu (item 23 da
+    -- especificação) — data/hora, problema detectado, recomendação, ação
+    -- executada (se houve), quem autorizou, resultado. INSERT-only.
+    CREATE TABLE IF NOT EXISTS ai_action_log (
+      id TEXT PRIMARY KEY,
+      alert_id TEXT,
+      server_category TEXT,
+      target_user_id TEXT,
+      problem_detected TEXT NOT NULL,
+      recommendation TEXT,
+      action_executed TEXT,
+      authorized_by TEXT,
+      authorized_by_username TEXT,
+      result TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Permissões próprias da IA (item 20) — controla o que ela PODE fazer.
+    -- Linha única (id sempre 'default'). Tudo relacionado a ler/analisar/
+    -- sugerir vem ligado por padrão (modo somente sugestão, item 21); nada
+    -- que execute ação sozinha existe aqui de propósito — isso é sempre
+    -- manual, feito por um humano a partir de um alerta.
+    CREATE TABLE IF NOT EXISTS ai_permissions (
+      id TEXT PRIMARY KEY DEFAULT 'default',
+      read_stats INTEGER NOT NULL DEFAULT 1,
+      analyze_servers INTEGER NOT NULL DEFAULT 1,
+      detect_problems INTEGER NOT NULL DEFAULT 1,
+      analyze_reports INTEGER NOT NULL DEFAULT 1,
+      suggest_actions INTEGER NOT NULL DEFAULT 1,
+      updated_by TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     -- Canal privado por cargo (item 5 do plano): se um canal tem QUALQUER
     -- linha aqui, só quem tem um desses cargos (ou é dono/admin) o vê e
     -- acessa. Sem nenhuma linha = visível pra todo mundo do servidor, igual
@@ -983,6 +1045,13 @@ async function initDb() {
   // ---------- CATEGORIAS DE CANAL + BANNER DE SERVIDOR (a pedido, "igual Discord") ----------
   await ensureColumn('channels', 'group_id TEXT');
   await ensureColumn('servers', 'banner TEXT');
+
+  // ---------- HIERARQUIA ROOT + IA COPILOTO ----------
+  await ensureColumn('users', 'is_root INTEGER NOT NULL DEFAULT 0');
+  // Linha única de permissões da IA — cria com os padrões (modo somente
+  // sugestão) se ainda não existir. Nunca sobrescreve se o proprietário já
+  // tiver mexido nela.
+  await run(`INSERT INTO ai_permissions (id) VALUES ('default') ON CONFLICT(id) DO NOTHING`);
 
   // ---------- CONTA DE MODERADOR (acesso parcial: BLUEX + moderação básica) ----------
   await ensureColumn('users', 'is_moderator INTEGER NOT NULL DEFAULT 0');
