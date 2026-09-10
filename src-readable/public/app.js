@@ -796,6 +796,10 @@ async function authRequest(url, body, remember = true) {
       showEmailVerificationScreen();
       return;
     }
+    if (data.requiresTermsAcceptance) {
+      await showTermsAcceptanceScreen();
+      return;
+    }
     startApp();
   } catch (err) {
     authError.textContent = 'Erro de conexão com o servidor';
@@ -882,6 +886,68 @@ document.getElementById('btn-logout-from-verify').onclick = async () => {
   window.location.reload();
 };
 
+// ---------- TERMOS DE USO (bloqueante) ----------
+// Mesmo padrão da confirmação de e-mail acima: enquanto a conta não aceitou
+// a versão atual dos Termos, o backend recusa (403) qualquer outra rota,
+// então essa tela fica no lugar da tela de login/app até aceitar.
+async function showTermsAcceptanceScreen() {
+  document.getElementById('boot-loading').classList.add('hidden');
+  document.getElementById('auth-screen').classList.remove('hidden');
+  formLogin.classList.add('hidden');
+  formRegister.classList.add('hidden');
+  document.getElementById('form-2fa').classList.add('hidden');
+  document.getElementById('form-email-verify').classList.add('hidden');
+  document.getElementById('terms-accept-error').textContent = '';
+  document.getElementById('terms-accept-checkbox').checked = false;
+  document.getElementById('btn-terms-accept-submit').disabled = true;
+  document.getElementById('form-terms-accept').classList.remove('hidden');
+  const titleEl = document.getElementById('auth-card-title');
+  const subtitleEl = document.getElementById('auth-card-subtitle');
+  if (titleEl && subtitleEl) {
+    titleEl.textContent = 'TERMOS DE USO';
+    subtitleEl.textContent = 'Falta pouco — aceite pra continuar.';
+  }
+  const box = document.getElementById('terms-content-box');
+  box.textContent = 'Carregando...';
+  try {
+    const res = await fetch('/api/terms', { credentials: 'include' });
+    const data = await res.json();
+    box.textContent = data.content || 'Não foi possível carregar os Termos agora.';
+  } catch (_) {
+    box.textContent = 'Não foi possível carregar os Termos agora — verifique sua conexão e recarregue a página.';
+  }
+}
+
+document.getElementById('terms-accept-checkbox').onchange = (e) => {
+  document.getElementById('btn-terms-accept-submit').disabled = !e.target.checked;
+};
+
+document.getElementById('form-terms-accept').onsubmit = async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('terms-accept-error');
+  errEl.textContent = '';
+  try {
+    const res = await fetch('/api/terms/accept', { method: 'POST', credentials: 'include' });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      errEl.textContent = data.error || 'Erro ao registrar aceite — tente de novo.';
+      return;
+    }
+    const meRes = await fetch('/api/me', { credentials: 'include' });
+    me = await meRes.json();
+    document.getElementById('form-terms-accept').classList.add('hidden');
+    startApp();
+  } catch (err) {
+    errEl.textContent = 'Erro de conexão com o servidor';
+  }
+};
+
+document.getElementById('btn-logout-from-terms').onclick = async () => {
+  await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+  localStorage.removeItem('ng_remember_me');
+  window.location.reload();
+};
+
 document.getElementById('btn-logout').onclick = async () => {
   await fetch('/api/logout', { method: 'POST', credentials: 'include' });
   localStorage.removeItem('ng_remember_me');
@@ -949,6 +1015,10 @@ async function tryResumeSession() {
     me = await res.json();
     if (me.email_verified === false) {
       showEmailVerificationScreen();
+      return;
+    }
+    if (me.terms_accepted === false) {
+      await showTermsAcceptanceScreen();
       return;
     }
     startApp();
@@ -1856,7 +1926,32 @@ document.getElementById('btn-server-info').onclick = async () => {
   document.getElementById('server-info-rules-input').value = info.rules || '';
   serverInfoCurrentIcon = info.icon || null;
 
+  // Regras do servidor (item pedido: "assinar regras") — mostra o banner de
+  // aceite se esse servidor tem regras e essa pessoa ainda não aceitou.
+  const rulesBanner = document.getElementById('server-rules-accept-banner');
+  rulesBanner.classList.add('hidden');
+  try {
+    const rulesRes = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/rules-status`, { credentials: 'include' });
+    const rulesStatus = await rulesRes.json();
+    if (rulesStatus.has_rules && !rulesStatus.accepted) {
+      rulesBanner.classList.remove('hidden');
+    }
+  } catch (_) {}
+
   modalServerInfo.classList.remove('hidden');
+};
+
+document.getElementById('btn-accept-server-rules').onclick = async () => {
+  const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/accept-rules`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    alert('Erro ao registrar aceite das regras — tente de novo.');
+    return;
+  }
+  document.getElementById('server-rules-accept-banner').classList.add('hidden');
+  showCopyToast('Regras aceitas! Já pode mandar mensagem nesse servidor.');
 };
 
 document.getElementById('btn-close-server-info').onclick = () => modalServerInfo.classList.add('hidden');
@@ -3619,6 +3714,7 @@ function showFriendsPanel() {
   document.getElementById('voice-panel').classList.add('hidden');
   document.getElementById('friends-panel').classList.remove('hidden');
   document.getElementById('current-channel-name').textContent = 'Amigos';
+  document.getElementById('btn-channel-rules-indicator').classList.add('hidden');
   currentChannel = null;
   setNavActive('nav-inicio', false);
   // Sem canal selecionado — os ícones de busca/fixados/membros do cabeçalho
@@ -4350,6 +4446,11 @@ function buildChannelContextMenuItems(ch) {
       label: 'Restringir por cargo',
       onClick: () => openChannelAccessModal(ch),
     },
+    {
+      icon: '📋',
+      label: 'Configurar regras do canal',
+      onClick: () => openChannelRulesModal(ch, true),
+    },
     { separator: true },
     {
       icon: '🗑️',
@@ -4368,6 +4469,73 @@ function buildChannelContextMenuItems(ch) {
     },
   ];
 }
+
+// ---------- REGRAS POR CANAL (item pedido: "regras para canais") ----------
+const modalChannelRules = document.getElementById('modal-channel-rules');
+let channelRulesTarget = null;
+
+function openChannelRulesModal(ch, startEditing) {
+  channelRulesTarget = ch;
+  document.getElementById('channel-rules-title').textContent = `Regras de ${channelIconPrefix(ch)}${ch.name}`;
+  document.getElementById('channel-rules-view').classList.remove('hidden');
+  document.getElementById('form-channel-rules').classList.add('hidden');
+  document.getElementById('channel-rules-text').textContent = ch.rules || 'Nenhuma regra específica definida pra esse canal.';
+  document.getElementById('channel-rules-input').value = ch.rules || '';
+  modalChannelRules.classList.remove('hidden');
+
+  hasServerPermission_client(ch.category).then((can) => {
+    document.getElementById('btn-edit-channel-rules').classList.toggle('hidden', !can);
+    if (can && startEditing) document.getElementById('btn-edit-channel-rules').click();
+  });
+}
+
+// Checagem de permissão do lado do cliente só pra decidir SE MOSTRA o botão
+// de editar — o servidor sempre revalida de verdade no PATCH (manage_channels).
+async function hasServerPermission_client(category) {
+  if (me.is_admin) return true;
+  try {
+    const res = await fetch(`/api/servers/${encodeURIComponent(category)}`, { credentials: 'include' });
+    const info = await res.json();
+    return !!info.is_owner || (info.my_permissions || []).includes('manage_channels');
+  } catch (_) {
+    return false;
+  }
+}
+
+document.getElementById('btn-close-channel-rules').onclick = () => modalChannelRules.classList.add('hidden');
+document.getElementById('btn-edit-channel-rules').onclick = () => {
+  document.getElementById('channel-rules-view').classList.add('hidden');
+  document.getElementById('form-channel-rules').classList.remove('hidden');
+  document.getElementById('btn-edit-channel-rules').classList.add('hidden');
+  document.getElementById('btn-save-channel-rules').classList.remove('hidden');
+};
+document.getElementById('btn-save-channel-rules').onclick = async () => {
+  if (!channelRulesTarget) return;
+  const rules = document.getElementById('channel-rules-input').value.trim();
+  const res = await fetch(`/api/channels/${channelRulesTarget.id}/settings`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ rules }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    alert(data.error || 'Erro ao salvar regras do canal');
+    return;
+  }
+  channelRulesTarget.rules = rules || null;
+  const chInList = allChannels.find((c) => c.id === channelRulesTarget.id);
+  if (chInList) chInList.rules = rules || null;
+  if (currentChannel && currentChannel.id === channelRulesTarget.id) {
+    document.getElementById('btn-channel-rules-indicator').classList.toggle('hidden', !rules);
+  }
+  modalChannelRules.classList.add('hidden');
+  showCopyToast('Regras do canal salvas!');
+};
+
+document.getElementById('btn-channel-rules-indicator').onclick = () => {
+  if (currentChannel) openChannelRulesModal(currentChannel, false);
+};
 
 // ---------- CANAL PRIVADO POR CARGO ----------
 
@@ -5707,6 +5875,7 @@ function selectChannel(channel, options = {}) {
   // precisa também do "# " de canal de servidor, ficava "# 💬 nome".
   document.getElementById('current-channel-name').textContent =
     channel.type === 'voz' ? channelIconPrefix(channel) + channel.name : isDm ? channel.name : '# ' + channel.name;
+  document.getElementById('btn-channel-rules-indicator').classList.toggle('hidden', !channel.rules);
   updateAiQuickSuggestions();
   document.getElementById('home-panel').classList.add('hidden');
   document.getElementById('home-header-stats').classList.add('hidden');
@@ -5814,6 +5983,7 @@ function goHome() {
   exitChatMode();
   currentChannel = null;
   document.getElementById('current-channel-name').textContent = 'Início';
+  document.getElementById('btn-channel-rules-indicator').classList.add('hidden');
   document.getElementById('text-panel').classList.add('hidden');
   document.getElementById('voice-panel').classList.add('hidden');
   document.getElementById('friends-panel').classList.add('hidden');
@@ -8331,9 +8501,14 @@ function registerSocketHandlers() {
     }
   });
 
-  socket.on('chat:blocked', ({ reason }) => {
+  socket.on('chat:blocked', ({ reason, requiresRulesAcceptance }) => {
     hideAnalyzingImageToast();
     alert('⚠️ ' + reason);
+    // Regras do servidor ainda não aceitas — abre direto a tela onde dá pra
+    // aceitar, em vez de deixar a pessoa procurar sozinha.
+    if (requiresRulesAcceptance && requiresRulesAcceptance === activeServerCategory) {
+      document.getElementById('btn-server-info').click();
+    }
   });
 
   // Alguém que eu sigo foi ao vivo — toast de notificação.

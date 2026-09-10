@@ -244,6 +244,90 @@ const EMAIL_VERIFICATION_ALLOWLIST = new Set([
   '/api/resend-verification-code',
 ]);
 
+// Mesma lógica pros Termos de Uso — só o essencial pra ler e aceitar (ou
+// sair) fica liberado enquanto não aceitou.
+const TERMS_ALLOWLIST = new Set(['/api/me', '/api/logout', '/api/terms', '/api/terms/accept']);
+
+// ---------- TERMOS DE USO (bloqueante, item pedido: "colocar um termo no
+// início e assinar regras") ----------
+// AVISO IMPORTANTE (não é aviso legal ao usuário final, é uma nota técnica
+// pra quem administra o NEXT GAME): este texto foi redigido pra cobrir os
+// pontos essenciais de uma plataforma com usuários reais, conteúdo gerado
+// por usuário, moderação por IA, menores de idade e dados pessoais — mas
+// NÃO substitui revisão por um advogado. Antes de operar com usuários de
+// verdade (principalmente se envolver pagamento, coleta de dados sensíveis
+// ou usuários menores de idade), recomendo forte que um profissional
+// qualificado revise este texto à luz da legislação aplicável (CDC, LGPD,
+// Marco Civil da Internet, e legislação de proteção à criança/adolescente).
+//
+// CURRENT_TERMS_VERSION: se o texto abaixo mudar de forma material (não só
+// correção de digitação/formatação), suba essa string — isso força TODO
+// mundo, inclusive quem já tinha aceitado uma versão antiga, a aceitar de
+// novo antes de continuar usando o site.
+const CURRENT_TERMS_VERSION = '2026-09-10-v1';
+
+const TERMS_CONTENT = `TERMOS DE USO E DIRETRIZES DA COMUNIDADE — NEXT GAME
+Última atualização: 10 de setembro de 2026
+
+Bem-vindo(a) ao NEXT GAME. Estes Termos de Uso ("Termos") regem o uso da plataforma NEXT GAME (chat, voz, vídeo, servidores, jogos e recursos relacionados, "a Plataforma"). Ao criar uma conta ou usar a Plataforma, você concorda com estes Termos. Se você não concorda, não deve usar a Plataforma.
+
+1. QUEM PODE USAR
+1.1. Você precisa ter pelo menos 13 (treze) anos de idade para criar uma conta. Se você tem entre 13 e 18 anos, declara que possui autorização de seus pais ou responsáveis legais para usar a Plataforma.
+1.2. Você é responsável por fornecer informações verdadeiras no cadastro e por manter sua senha em sigilo. Você é responsável por toda atividade realizada com sua conta.
+1.3. É proibido criar contas para contornar um banimento, suspensão ou timeout aplicado anteriormente.
+
+2. CONTEÚDO PROIBIDO E CONDUTA PROIBIDA
+Ao usar a Plataforma (em mensagens de texto, voz, vídeo, imagens, nomes de servidor/canal, avatares, status ou qualquer outro conteúdo), você concorda em NÃO:
+  a) Publicar, transmitir ou incentivar conteúdo de exploração ou abuso sexual infantil (CSAM) em qualquer forma — isso é proibição absoluta, sem exceção, e será denunciado às autoridades competentes.
+  b) Aliciar, assediar ou tentar contato de natureza sexual ou inadequada com menores de idade.
+  c) Publicar ameaças de violência real, incitação a atos criminosos, ou conteúdo que promova terrorismo/extremismo violento.
+  d) Publicar discurso de ódio ou conteúdo que promova discriminação com base em raça, etnia, religião, gênero, orientação sexual, deficiência ou nacionalidade.
+  e) Publicar ou incentivar automutilação, suicídio ou transtornos alimentares — inclusive "desafios" ou instruções relacionadas.
+  f) Divulgar, vender ou negociar armas de fogo reais, explosivos, ou drogas ilícitas.
+  g) Assediar, perseguir (stalking), ameaçar ou expor dados pessoais de outra pessoa sem consentimento (doxxing).
+  h) Enviar spam, phishing, malware, links maliciosos, ou se passar por outra pessoa/entidade (impersonation).
+  i) Trapacear, explorar falhas do sistema, ou usar bots/automações não autorizadas para obter vantagem indevida (moedas, cargos, torneios).
+  j) Violar direitos autorais, marcas registradas ou outros direitos de propriedade intelectual de terceiros.
+  k) Usar a Plataforma para atividades ilegais sob a legislação brasileira ou do seu país de residência.
+
+3. MODERAÇÃO
+3.1. O NEXT GAME usa uma combinação de moderação automática (incluindo análise por inteligência artificial de imagens e texto) e moderação humana para identificar violações destes Termos.
+3.2. Mensagens, imagens ou contas que violem estes Termos podem ser removidas, sinalizadas, ocultadas ou bloqueadas antes mesmo de chegarem a outros usuários.
+3.3. Dependendo da gravidade, podemos aplicar: aviso, silenciamento temporário (timeout), suspensão temporária, banimento permanente, ou encaminhamento às autoridades competentes quando a lei exigir ou permitir.
+3.4. Administradores e moderadores da Plataforma podem, mediante motivo registrado e sujeito a auditoria interna, acessar conteúdo de conversas para investigar denúncias ou suspeita de violação destes Termos.
+3.5. Você pode denunciar conteúdo ou contas que violem estes Termos através das ferramentas de denúncia disponíveis na Plataforma.
+
+4. SERVIDORES E CANAIS CRIADOS POR USUÁRIOS
+4.1. Donos e administradores de servidor podem estabelecer regras adicionais para sua comunidade ou canal específico, desde que não contradigam estes Termos.
+4.2. Donos de servidor são responsáveis por moderar razoavelmente sua própria comunidade, mas isso não substitui a moderação da Plataforma como um todo.
+
+5. SEU CONTEÚDO
+5.1. Você mantém a propriedade do conteúdo que envia (mensagens, imagens, avatares etc.). Ao enviá-lo, você concede ao NEXT GAME uma licença não exclusiva para armazenar, processar (incluindo moderação automática) e exibir esse conteúdo dentro da Plataforma, pelo tempo necessário para operar o serviço.
+5.2. Você declara ter os direitos necessários sobre qualquer conteúdo que enviar.
+
+6. PRIVACIDADE E DADOS PESSOAIS
+6.1. O tratamento de dados pessoais na Plataforma segue a Lei Geral de Proteção de Dados (LGPD). Dados de conversas podem ser analisados por sistemas automáticos de moderação e, mediante motivo registrado e auditado, por administradores em investigações de denúncia.
+6.2. Você pode solicitar informações sobre os dados que temos sobre você através dos canais de suporte da Plataforma.
+
+7. LIMITAÇÃO DE RESPONSABILIDADE
+7.1. A Plataforma é fornecida "como está". Não garantimos disponibilidade ininterrupta, ausência de erros, ou que toda violação destes Termos será detectada antes de causar dano.
+7.2. Na máxima extensão permitida pela lei aplicável, o NEXT GAME não se responsabiliza por danos indiretos decorrentes do uso da Plataforma ou de conteúdo publicado por outros usuários.
+
+8. SUSPENSÃO E ENCERRAMENTO DE CONTA
+8.1. Podemos suspender ou encerrar sua conta, a nosso critério, em caso de violação destes Termos.
+8.2. Você pode encerrar sua conta a qualquer momento através das configurações da conta.
+
+9. ALTERAÇÕES NESTES TERMOS
+9.1. Podemos atualizar estes Termos periodicamente. Mudanças materiais exigirão que você aceite os novos Termos antes de continuar usando a Plataforma.
+
+10. LEI APLICÁVEL
+10.1. Estes Termos são regidos pelas leis da República Federativa do Brasil.
+
+11. CONTATO
+11.1. Dúvidas sobre estes Termos ou denúncias podem ser enviadas através dos canais de suporte disponíveis na Plataforma.
+
+Ao clicar em "Li e aceito os Termos de Uso", você confirma que leu, entendeu e concorda com todo o conteúdo acima.`;
+
 async function requireAuth(req, res, next) {
   try {
     if (!req.session.userId || !req.session.sessionId) {
@@ -263,6 +347,16 @@ async function requireAuth(req, res, next) {
     // acabou de se cadastrar quanto pra conta antiga que nunca confirmou.
     if (!user.email_verified && !EMAIL_VERIFICATION_ALLOWLIST.has(req.path)) {
       return res.status(403).json({ error: 'Confirme seu e-mail antes de continuar.', requiresEmailVerification: true });
+    }
+    // Termos de Uso: mesma lógica bloqueante, checada DEPOIS do e-mail (item
+    // pedido: "colocar um termo no início e assinar regras"). Conta antiga
+    // que aceitou uma versão anterior também é barrada se a versão atual
+    // mudou (terms_version diferente de CURRENT_TERMS_VERSION).
+    if (
+      (!user.terms_accepted_at || user.terms_version !== CURRENT_TERMS_VERSION) &&
+      !TERMS_ALLOWLIST.has(req.path)
+    ) {
+      return res.status(403).json({ error: 'Aceite os Termos de Uso antes de continuar.', requiresTermsAcceptance: true });
     }
     // Atualiza "visto por último" sem travar a resposta nisso.
     db.run("UPDATE user_sessions SET last_seen_at = datetime('now') WHERE id = ?", [sessionRow.id]).catch(() => {});
@@ -977,6 +1071,7 @@ app.post(
       username_tag: usernameTag,
       email_verified: false,
       requiresEmailVerification: true,
+      requiresTermsAcceptance: true,
     });
 
     // Cada conta começa sem nenhum servidor — igual Discord: cria o seu
@@ -1027,6 +1122,7 @@ app.post(
       username_tag: user.username_tag || `${user.username}#${user.discriminator || '0000'}`,
       email_verified: !!user.email_verified,
       requiresEmailVerification: !user.email_verified,
+      requiresTermsAcceptance: user.terms_version !== CURRENT_TERMS_VERSION,
     });
     updateStreakAndRewards(user).catch((err) => console.error('Erro ao atualizar streak:', err));
   })
@@ -1178,6 +1274,32 @@ app.post(
   })
 );
 
+// ---------- TERMOS DE USO ----------
+app.get(
+  '/api/terms',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json({
+      version: CURRENT_TERMS_VERSION,
+      content: TERMS_CONTENT,
+      already_accepted: req.user.terms_version === CURRENT_TERMS_VERSION,
+    });
+  })
+);
+
+app.post(
+  '/api/terms/accept',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await db.run("UPDATE users SET terms_accepted_at = datetime('now'), terms_version = ? WHERE id = ?", [
+      CURRENT_TERMS_VERSION,
+      req.user.id,
+    ]);
+    logAudit(req.user, 'terms_accept', 'user', req.user.id, { version: CURRENT_TERMS_VERSION });
+    res.json({ ok: true });
+  })
+);
+
 app.post(
   '/api/login/2fa',
   authLimiter,
@@ -1210,6 +1332,7 @@ app.post(
       username_tag: user.username_tag || `${user.username}#${user.discriminator || '0000'}`,
       email_verified: !!user.email_verified,
       requiresEmailVerification: !user.email_verified,
+      requiresTermsAcceptance: user.terms_version !== CURRENT_TERMS_VERSION,
     });
     updateStreakAndRewards(user).catch((err) => console.error('Erro ao atualizar streak:', err));
   })
@@ -1254,6 +1377,8 @@ app.get(
       verified_gold: !!req.user.verified_gold,
       email: req.user.email,
       email_verified: !!req.user.email_verified,
+      // Termos de Uso — ver CURRENT_TERMS_VERSION/TERMS_ALLOWLIST acima.
+      terms_accepted: req.user.terms_version === CURRENT_TERMS_VERSION,
       status_message: req.user.status_message,
       avatar: req.user.avatar,
       avatar_frame: req.user.avatar_frame,
@@ -3802,6 +3927,20 @@ app.patch(
     if (banner !== undefined && banner !== null && !isValidServerBanner(banner)) {
       return res.status(400).json({ error: 'Banner inválido — envie uma imagem menor' });
     }
+    // CORRIGIDO: description/rules eram sempre sobrescritos (mesmo quando o
+    // PATCH só mandava banner/ícone), porque o UPDATE usava excluded.* direto
+    // em vez de manter o valor já salvo quando o campo não veio no corpo da
+    // requisição — um PATCH só de banner apagava a descrição e as regras
+    // sem querer. Agora só troca o que realmente veio no request.
+    const current = await db.get('SELECT description, rules FROM servers WHERE category = ?', [req.params.category]);
+    const finalDescription = description !== undefined ? description || null : current ? current.description : null;
+    const finalRules = rules !== undefined ? rules || null : current ? current.rules : null;
+    // Regra mudou de verdade: quem já tinha aceitado a versão antiga precisa
+    // aceitar de novo (mesma lógica do CURRENT_TERMS_VERSION, só que por
+    // servidor em vez de plataforma inteira).
+    if (rules !== undefined && (current ? current.rules || '' : '') !== (rules || '')) {
+      await db.run('DELETE FROM server_rule_acceptances WHERE category = ?', [req.params.category]);
+    }
     await db.run(
       `INSERT INTO servers (category, description, rules, icon, banner, updated_by, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
@@ -3814,8 +3953,8 @@ app.patch(
          updated_at = excluded.updated_at`,
       [
         req.params.category,
-        description || null,
-        rules || null,
+        finalDescription,
+        finalRules,
         isValidServerIcon(icon) ? icon : null,
         isValidServerBanner(banner) ? banner : null,
         req.user.id,
@@ -3846,6 +3985,44 @@ app.patch(
         req.params.category,
       ]);
     }
+    res.json({ ok: true });
+  })
+);
+
+// Regras do servidor (item pedido: "assinar regras") — se o dono escreveu
+// alguma regra em servers.rules, cada membro precisa aceitar explicitamente
+// antes de poder mandar mensagem nesse servidor (ver checagem no socket
+// chat:message). Servidor sem rules preenchido não exige nada.
+app.get(
+  '/api/servers/:category/rules-status',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const isMember = await isServerMember(req.params.category, req.user.id);
+    if (!isMember && !req.user.is_admin) return res.status(403).json({ error: 'Você não é membro desse servidor' });
+    const server = await db.get('SELECT rules FROM servers WHERE category = ?', [req.params.category]);
+    const hasRules = !!(server && server.rules && server.rules.trim());
+    let accepted = true;
+    if (hasRules) {
+      const row = await db.get('SELECT id FROM server_rule_acceptances WHERE category = ? AND user_id = ?', [
+        req.params.category,
+        req.user.id,
+      ]);
+      accepted = !!row;
+    }
+    res.json({ has_rules: hasRules, accepted, rules: server ? server.rules : null });
+  })
+);
+
+app.post(
+  '/api/servers/:category/accept-rules',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const isMember = await isServerMember(req.params.category, req.user.id);
+    if (!isMember) return res.status(403).json({ error: 'Você não é membro desse servidor' });
+    await db.run(
+      'INSERT INTO server_rule_acceptances (id, category, user_id) VALUES (?, ?, ?) ON CONFLICT(category, user_id) DO NOTHING',
+      [uuidv4(), req.params.category, req.user.id]
+    );
     res.json({ ok: true });
   })
 );
@@ -6933,7 +7110,7 @@ app.patch(
     const canManage = await hasServerPermission(channel.category, req.user, 'manage_channels');
     if (!canManage) return res.status(403).json({ error: 'Você não tem permissão pra configurar esse canal' });
 
-    const { slow_mode_seconds, read_only, name, video_enabled } = req.body || {};
+    const { slow_mode_seconds, read_only, name, video_enabled, rules } = req.body || {};
     if (typeof slow_mode_seconds === 'number') {
       const clamped = Math.max(0, Math.min(21600, Math.floor(slow_mode_seconds)));
       await db.run('UPDATE channels SET slow_mode_seconds = ? WHERE id = ?', [clamped, channel.id]);
@@ -6944,12 +7121,16 @@ app.patch(
     if (typeof video_enabled === 'boolean') {
       await db.run('UPDATE channels SET video_enabled = ? WHERE id = ?', [video_enabled ? 1 : 0, channel.id]);
     }
+    if (typeof rules === 'string') {
+      if (rules.length > 2000) return res.status(400).json({ error: 'Regras do canal: máx. 2000 caracteres' });
+      await db.run('UPDATE channels SET rules = ? WHERE id = ?', [rules.trim() || null, channel.id]);
+    }
     if (typeof name === 'string') {
       const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 40);
       if (cleanName.length < 2) return res.status(400).json({ error: 'Nome precisa ter pelo menos 2 caracteres' });
       await db.run('UPDATE channels SET name = ? WHERE id = ?', [cleanName, channel.id]);
     }
-    const updated = await db.get('SELECT id, name, slow_mode_seconds, read_only, video_enabled FROM channels WHERE id = ?', [channel.id]);
+    const updated = await db.get('SELECT id, name, slow_mode_seconds, read_only, video_enabled, rules FROM channels WHERE id = ?', [channel.id]);
     io.to(channel.id).emit('channel:settings-updated', updated);
     if (typeof name === 'string') io.to('server:' + channel.category).emit('channel:renamed', updated);
     res.json(updated);
@@ -8550,6 +8731,27 @@ io.on('connection', (socket) => {
           if (channelRow.read_only && !bypass) {
             socket.emit('chat:blocked', { reason: 'Esse canal está em modo somente-leitura.', categories: [] });
             return;
+          }
+          // Regras do servidor (item pedido: "assinar regras") — se o dono
+          // escreveu alguma regra, precisa ter aceitado antes de postar
+          // nesse servidor. Quem gerencia o servidor não precisa aceitar a
+          // própria regra que escreveu.
+          if (!bypass) {
+            const server = await db.get('SELECT rules FROM servers WHERE category = ?', [channelRow.category]);
+            if (server && server.rules && server.rules.trim()) {
+              const accepted = await db.get(
+                'SELECT id FROM server_rule_acceptances WHERE category = ? AND user_id = ?',
+                [channelRow.category, user.id]
+              );
+              if (!accepted) {
+                socket.emit('chat:blocked', {
+                  reason: 'Esse servidor tem regras próprias — aceite-as em "Informações e regras" antes de mandar mensagem.',
+                  categories: [],
+                  requiresRulesAcceptance: channelRow.category,
+                });
+                return;
+              }
+            }
           }
           if (channelRow.slow_mode_seconds > 0 && !bypass) {
             const key = channelId + '::' + user.id;

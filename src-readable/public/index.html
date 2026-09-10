@@ -326,6 +326,24 @@
       </div>
     </form>
 
+    <!-- Termos de Uso — bloqueante, mesmo padrão da confirmação de e-mail
+         acima: sem aceitar, não entra no site. -->
+    <form id="form-terms-accept" class="auth-form hidden">
+      <p class="hint" style="margin-bottom:6px;">
+        Antes de continuar, leia e aceite os Termos de Uso e Diretrizes da Comunidade do NEXT GAME.
+      </p>
+      <div id="terms-content-box" style="max-height:260px; overflow-y:auto; white-space:pre-wrap; font-size:12.5px; line-height:1.5; background:#1e1f22; border:1px solid #3a3c42; border-radius:8px; padding:12px; margin-bottom:12px;"></div>
+      <label class="checkbox-row">
+        <input type="checkbox" id="terms-accept-checkbox" required />
+        Li e aceito os Termos de Uso e as Diretrizes da Comunidade.
+      </label>
+      <button type="submit" id="btn-terms-accept-submit" disabled>✅ Continuar</button>
+      <p id="terms-accept-error" class="auth-error"></p>
+      <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+        <button type="button" id="btn-logout-from-terms" class="link-btn">Sair</button>
+      </div>
+    </form>
+
       <p id="auth-error" class="auth-error"></p>
 
       <div class="auth-promo-card">
@@ -635,6 +653,7 @@
     <header class="main-header">
       <button id="btn-toggle-channel-sidebar" title="Mostrar/esconder canais do servidor" class="header-icon-btn"><span class="ng-icon-wrap" data-icon="menu"></span></button>
       <span id="current-channel-name">Início</span>
+      <button id="btn-channel-rules-indicator" class="hidden header-icon-btn" title="Ver regras deste canal">📋</button>
       <!-- Estatísticas da comunidade (Membros/Servidores/Torneios/Online) —
            versão pequena e centralizada no cabeçalho, só aparece na tela de
            Início. position:absolute de propósito: fica centralizada sem
@@ -1756,6 +1775,10 @@
       <p id="server-info-description" class="server-info-text"></p>
       <p class="hint" style="margin: 14px 0 10px;">Regras</p>
       <p id="server-info-rules" class="server-info-text"></p>
+      <div id="server-rules-accept-banner" class="hidden" style="background:#3a2f0f; border:1px solid #a97c1c; border-radius:8px; padding:12px; margin-top:12px;">
+        <p style="margin:0 0 10px;">Você precisa aceitar as regras acima antes de poder mandar mensagem nesse servidor.</p>
+        <button type="button" id="btn-accept-server-rules">✅ Li e aceito as regras</button>
+      </div>
     </div>
 
     <form id="form-server-info" class="hidden">
@@ -1780,6 +1803,25 @@
       <button type="button" id="btn-close-server-info">Fechar</button>
       <button type="button" id="btn-edit-server-info" class="hidden">Editar</button>
       <button type="button" id="btn-save-server-info" class="hidden">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: regras de um canal específico (item pedido: "regras para canais") -->
+<div id="modal-channel-rules" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2 id="channel-rules-title">Regras do canal</h2>
+    <div id="channel-rules-view">
+      <p id="channel-rules-text" class="server-info-text"></p>
+    </div>
+    <form id="form-channel-rules" class="hidden">
+      <label>Regras deste canal (além das regras gerais do servidor)</label>
+      <textarea id="channel-rules-input" rows="6" maxlength="2000" placeholder="ex: só falar sobre estratégia aqui, nada de spoiler antes de X horas..."></textarea>
+    </form>
+    <div class="modal-actions">
+      <button type="button" id="btn-close-channel-rules">Fechar</button>
+      <button type="button" id="btn-edit-channel-rules" class="hidden">Editar</button>
+      <button type="button" id="btn-save-channel-rules" class="hidden">Salvar</button>
     </div>
   </div>
 </div>

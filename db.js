@@ -121,6 +121,18 @@ async function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Registro de quem já aceitou as regras de qual servidor (item pedido:
+    -- "assinar regras" também no nível de cada comunidade, não só o termo
+    -- geral do site). Servidor sem "rules" preenchido não exige aceite
+    -- nenhum — só passa a exigir quando o dono escreve alguma regra.
+    CREATE TABLE IF NOT EXISTS server_rule_acceptances (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      accepted_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(category, user_id)
+    );
+
     -- ---------- HIERARQUIA ROOT + IA COPILOTO (especificação do dono) ----------
     -- PROPRIETÁRIO/ROOT: autoridade máxima da plataforma, ACIMA de
     -- administrador global. Nenhum cargo, bot, automação ou IA pode superar
@@ -1062,6 +1074,17 @@ async function initDb() {
   await ensureColumn('users', 'backup_email_verified INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'backup_email_code TEXT');
   await ensureColumn('users', 'backup_email_code_expires TEXT');
+
+  // ---------- TERMOS DE USO (bloqueante, igual confirmação de e-mail) ----------
+  // terms_version guarda QUAL versão a pessoa aceitou — se um dia os termos
+  // mudarem de verdade (não só correção de digitação), sobe
+  // CURRENT_TERMS_VERSION no server.js e todo mundo precisa aceitar de novo,
+  // mesmo quem já tinha aceito uma versão anterior.
+  await ensureColumn('users', 'terms_accepted_at TEXT');
+  await ensureColumn('users', 'terms_version TEXT');
+
+  // ---------- REGRAS DE SERVIDOR (aceite obrigatório) + REGRAS POR CANAL ----------
+  await ensureColumn('channels', 'rules TEXT');
 
   // Recuperação de conta via e-mail alternativo — código separado do
   // reset_token de senha, usado no fluxo "Perdi acesso ao e-mail" (login ->

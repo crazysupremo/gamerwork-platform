@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.50.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Termos de Uso: toda conta nova (e conta antiga que ainda não aceitou) precisa ler e aceitar os Termos de Uso e Diretrizes da Comunidade antes de usar o site — igual a confirmação de e-mail, é bloqueante.",
+      "Regras de servidor com aceite obrigatório: quando o dono escreve regras em 'Informações e regras', cada membro precisa aceitar antes de conseguir mandar mensagem nesse servidor. Se as regras mudarem, todo mundo precisa aceitar de novo.",
+      "Regras por canal: além das regras gerais do servidor, agora dá pra definir uma regra específica de um canal (menu de contexto → Configurar regras do canal) — aparece um ícone 📋 no topo do canal quando ele tem regra própria.",
+      "Corrigido: salvar só o banner ou só o ícone do servidor podia apagar description/rules sem querer (o PATCH sobrescrevia esses campos mesmo quando não vinham no pedido) — agora só troca o que realmente foi enviado."
+    ]
+  },
+  {
     "version": "0.49.0",
     "date": "2026-09-10",
     "changes": [
