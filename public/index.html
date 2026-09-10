@@ -2024,14 +2024,9 @@
       </button>
     </p>
     <p id="profile-preview-status" class="profile-preview-status"></p>
-    <div class="profile-preview-primary-actions">
-      <button type="button" id="profile-preview-message-btn" class="profile-preview-message-btn hidden">
-        <span class="ng-icon-wrap" data-icon="message-circle"></span> <span id="profile-preview-message-btn-label">Mandar mensagem</span>
-      </button>
-      <button type="button" id="profile-preview-call-btn" class="profile-preview-message-btn hidden">
-        <span class="ng-icon-wrap" data-icon="phone"></span> Ligar
-      </button>
-    </div>
+    <button type="button" id="profile-preview-message-btn" class="profile-preview-message-btn hidden">
+      <span class="ng-icon-wrap" data-icon="message-circle"></span> <span id="profile-preview-message-btn-label">Mandar mensagem</span>
+    </button>
     <div id="profile-preview-actions" class="profile-preview-actions"></div>
 
     <div class="profile-stats-row" id="profile-stats-row"></div>
@@ -2270,5 +2265,23 @@
 <script src="/plus2.js"></script>
 <script src="/plus2-live.js"></script>
 <script src="/app.js"></script>
+<script>
+  // Dificulta cópia casual do conteúdo da página — bloqueia menu de botão
+  // direito e alguns atalhos de DevTools. IMPORTANTE: isso NÃO esconde o
+  // código de verdade — Ctrl+U e F12 no Chrome são atalhos do próprio
+  // navegador que nenhum site consegue bloquear (de propósito, é uma
+  // proteção do navegador contra sites que tentam esconder coisa de quem
+  // está usando ele). Isso aqui só afasta quem clicaria com o botão direito
+  // ou tentaria selecionar/copiar texto da tela casualmente.
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+  document.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    const blockedCombo =
+      key === 'f12' ||
+      ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].includes(key)) ||
+      ((e.ctrlKey || e.metaKey) && key === 'u');
+    if (blockedCombo) e.preventDefault();
+  });
+</script>
 </body>
 </html>

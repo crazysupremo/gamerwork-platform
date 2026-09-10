@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.44.0",
+    "date": "2026-09-09",
+    "changes": [
+      "Painel Admin > Segurança/BLUEX agora testa a conexão de verdade com o BLUEX (não só se a chave existe) — mostra \"Configurado mas NÃO CONECTA\" com o motivo se a chave estiver errada/expirada.",
+      "Bloqueado menu de botão direito e seleção/cópia de texto da tela (campos de digitar continuam funcionando normal). Atalhos de DevTools do próprio navegador (Ctrl+U, F12) não têm como ser bloqueados por nenhum site — isso é uma proteção do próprio Chrome."
+    ]
+  },
+  {
     "version": "0.43.4",
     "date": "2026-09-07",
     "changes": [

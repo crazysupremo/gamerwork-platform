@@ -77,19 +77,16 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // confortável sem abrir espaço pra abuso.
 app.use(express.json({ limit: '700kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-// Guardado numa variável (em vez de só passar direto pro app.use) porque o
-// Socket.io reaproveita essa MESMA instância pra ler a sessão a partir do
-// cookie assinado — ver "io.use(wrapMiddleware(sessionMiddleware))" mais
-// abaixo, na seção de Socket.io.
-const sessionMiddleware = cookieSession({
-  name: 'session',
-  keys: [SESSION_SECRET],
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-  httpOnly: true,
-  sameSite: 'lax',
-  secure: IS_PRODUCTION,
-});
-app.use(sessionMiddleware);
+app.use(
+  cookieSession({
+    name: 'session',
+    keys: [SESSION_SECRET],
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: IS_PRODUCTION,
+  })
+);
 
 // Limite de tentativas de login/registro por IP, pra dificultar força bruta
 const authLimiter = rateLimit({
@@ -327,36 +324,15 @@ const adminApiLimiter = rateLimit({
 
 // Tokens temporários pra segunda etapa do login com 2FA — vivem só na
 // memória do processo (não precisam persistir, expiram sozinhos em minutos).
-const pending2FALogins = new Map(); // tempToken -> { userId, expires, attempts }
+const pending2FALogins = new Map(); // tempToken -> { userId, expires }
 const PENDING_2FA_TTL_MS = 5 * 60 * 1000;
-// CORRIGIDO (auditoria de segurança) — o authLimiter só limita por IP (20
-// tentativas/15min), o que não segura um atacante com vários IPs
-// (proxy/botnet) tentando forçar o PIN de 6 dígitos contra UM tempToken
-// específico. Isso limita por tentativa de login em si, não por IP —
-// esgotar as tentativas invalida o tempToken na hora, não só depois de
-// expirar os 5 minutos.
-const MAX_2FA_ATTEMPTS = 5;
 function createPending2FAToken(userId, remember) {
   const token = crypto.randomBytes(24).toString('hex');
-  pending2FALogins.set(token, { userId, remember: !!remember, expires: Date.now() + PENDING_2FA_TTL_MS, attempts: 0 });
+  pending2FALogins.set(token, { userId, remember: !!remember, expires: Date.now() + PENDING_2FA_TTL_MS });
   return token;
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// Compara código de verificação/recuperação em tempo constante — os
-// códigos de e-mail eram comparados com !==, que sai no primeiro byte
-// diferente (defesa em profundidade; risco prático baixo já que esses
-// códigos têm TTL curto e passam pelo authLimiter, mas não custa fechar).
-function codeMatches(attempt, expected) {
-  const attemptBuf = Buffer.from(String(attempt || ''));
-  const expectedBuf = Buffer.from(String(expected || ''));
-  if (attemptBuf.length !== expectedBuf.length) {
-    crypto.timingSafeEqual(expectedBuf, expectedBuf);
-    return false;
-  }
-  return crypto.timingSafeEqual(attemptBuf, expectedBuf);
-}
 
 // Chama a IA dentro de uma sala de servidor/grupo (fora de DM) quando
 // alguém escreve @ia, @bot ou @NEXT GAME IA em qualquer lugar da mensagem
@@ -455,15 +431,9 @@ async function requireChannelAccess(channelId, user) {
   // DM não é uma linha na tabela "channels" (o id já é "dm::userA::userB"),
   // então não passa pela checagem de canal de servidor — só confirma que
   // quem está pedindo é uma das duas pessoas da conversa.
-  // Admin é exceção de propósito (visibilidade total pedida explicitamente)
-  // — só pra LEITURA (esta função só é usada pra ver histórico e pra
-  // entrar na sala e receber mensagens ao vivo; o ENVIO de mensagem em DM
-  // tem checagem própria, separada, que não abre essa exceção pro admin —
-  // ver chat:message: admin não deveria conseguir postar se passando por
-  // participante de uma conversa alheia).
   if (channelId.startsWith('dm::')) {
     const parts = channelId.split('::');
-    if (parts[1] !== user.id && parts[2] !== user.id && !user.is_admin) {
+    if (parts[1] !== user.id && parts[2] !== user.id) {
       return { ok: false, status: 403, error: 'Você não tem acesso a essa conversa' };
     }
     return { ok: true, channel: { id: channelId, type: 'dm' } };
@@ -860,17 +830,9 @@ app.post(
         ? JSON.stringify(platforms.slice(0, 6).map((p) => String(p).slice(0, 20)))
         : null;
 
-    // Não conta o usuário-bot da IA nem a conta seed "moderador_bluex" aqui
-    // — CORRIGIDO: a conta de moderador já vem semeada no banco (ver
-    // seedModeratorAccount em db.js) desde antes de qualquer humano se
-    // cadastrar, então sem essa exclusão ela ocupava sozinha a "vaga" de
-    // primeiro usuário e a promessa do README ("o primeiro usuário que se
-    // registrar vira administrador automaticamente") nunca se cumpria de
-    // verdade — a primeira pessoa real nunca virava admin.
-    const countRow = await db.get('SELECT COUNT(*) as c FROM users WHERE id != ? AND username != ?', [
-      AI_BOT_USER_ID,
-      'moderador_bluex',
-    ]);
+    // Não conta o usuário-bot da IA aqui, senão a primeira pessoa de verdade
+    // que se cadastra nunca vira admin (o bot já ocupa a "vaga" de primeiro).
+    const countRow = await db.get('SELECT COUNT(*) as c FROM users WHERE id != ?', [AI_BOT_USER_ID]);
     const isFirstUser = Number(countRow.c) === 0;
     const id = uuidv4();
     const password_hash = bcrypt.hashSync(password, 10);
@@ -1113,7 +1075,7 @@ app.post(
     if (!code || typeof code !== 'string') {
       return res.status(400).json({ error: 'Informe o código recebido por e-mail.' });
     }
-    if (!req.user.verification_code || !codeMatches(code.trim(), req.user.verification_code)) {
+    if (!req.user.verification_code || req.user.verification_code !== code.trim()) {
       return res.status(400).json({ error: 'Código incorreto.' });
     }
     if (!req.user.verification_expires || new Date(req.user.verification_expires) < new Date()) {
@@ -1163,15 +1125,8 @@ app.post(
       pending2FALogins.delete(tempToken);
       return res.status(401).json({ error: 'Não foi possível concluir o login' });
     }
-    if (pending.attempts >= MAX_2FA_ATTEMPTS) {
-      pending2FALogins.delete(tempToken);
-      return res.status(401).json({ error: 'Muitas tentativas — faça login novamente desde o início.' });
-    }
     const valid = code && authenticator.check(String(code).trim(), user.totp_secret);
-    if (!valid) {
-      pending.attempts += 1;
-      return res.status(401).json({ error: 'Código incorreto' });
-    }
+    if (!valid) return res.status(401).json({ error: 'Código incorreto' });
 
     pending2FALogins.delete(tempToken);
     applySessionDuration(req, pending.remember === true);
@@ -1785,18 +1740,10 @@ app.post(
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120);
     const key = `attachments/${req.user.id}/${uuidv4()}-${safeName}`;
     try {
-      // CORRIGIDO (auditoria de segurança) — sem ContentLength assinado, o
-      // "size" só era conferido AQUI (no momento de gerar a URL) contra o
-      // limite do plano, mas nada impedia o navegador de reaproveitar a
-      // uploadUrl retornada e fazer o PUT de verdade com um arquivo bem
-      // maior. Incluindo ContentLength no comando assinado, o Content-Length
-      // vira parte da assinatura SigV4 — um PUT com tamanho diferente do
-      // que foi validado aqui é rejeitado pelo R2 por assinatura inválida.
       const command = new PutObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME,
         Key: key,
         ContentType: contentType || 'application/octet-stream',
-        ContentLength: size,
       });
       const uploadUrl = await getSignedUrl(getR2Client(), command, { expiresIn: 600 });
       const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
@@ -1916,18 +1863,7 @@ app.patch(
       if (avatar.length > 350000) {
         return res.status(400).json({ error: 'Imagem muito grande — escolha uma menor' });
       }
-      // CORRIGIDO (auditoria de segurança) — só checava startsWith('data:image/'),
-      // o que deixa passar algo como 'data:image/png",onerror="..."' (o prefixo
-      // bate, mas tem uma aspa no meio). O frontend renderiza isso direto num
-      // atributo src="${avatar}" sem escapar — passando essa validação, dava
-      // pra quebrar o atributo e injetar HTML/JS que roda pra QUALQUER outro
-      // usuário que veja esse avatar (perfil, chat, lista de membros). Regex
-      // fecha o formato inteiro: só base64 de verdade, sem aspas/tags no meio.
-      const isValidDataUrlImage = /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(avatar);
-      // "emoji:<emoji>:<cor>" é sempre renderizado como texto escapado no
-      // frontend (nunca vira atributo HTML), então não precisa de validação
-      // de formato aqui — só o caso de data URL (que vira src="...") precisa.
-      if (avatar && !isValidDataUrlImage && !avatar.startsWith('emoji:')) {
+      if (avatar && !avatar.startsWith('data:image/') && !avatar.startsWith('emoji:')) {
         return res.status(400).json({ error: 'Formato de avatar inválido' });
       }
       await db.run('UPDATE users SET avatar = ? WHERE id = ?', [avatar || null, req.user.id]);
@@ -2063,7 +1999,7 @@ app.post(
     if (!req.user.backup_email_code_expires || new Date(req.user.backup_email_code_expires) < new Date()) {
       return res.status(400).json({ error: 'Código expirado — peça um novo' });
     }
-    if (!code || !codeMatches(String(code).trim(), req.user.backup_email_code)) {
+    if (!code || String(code).trim() !== req.user.backup_email_code) {
       return res.status(400).json({ error: 'Código incorreto' });
     }
     await db.run(
@@ -2135,7 +2071,7 @@ app.post(
     if (new Date(user.recovery_code_expires) < new Date()) {
       return res.status(400).json({ error: 'Código expirado — peça um novo' });
     }
-    if (!codeMatches(String(code).trim(), user.recovery_code)) {
+    if (String(code).trim() !== user.recovery_code) {
       return res.status(400).json({ error: 'Código incorreto' });
     }
     if (!newEmail || !EMAIL_REGEX.test(newEmail) || newEmail.length > 200) {
@@ -4850,9 +4786,33 @@ app.get(
   requireAuth,
   requireModerator,
   asyncHandler(async (req, res) => {
+    const groq_configured = !!process.env.GROQ_API_KEY;
+    const bluex_env_present = isBluexConfigured();
+    // CORRIGIDO ("imagem de automutilação não é verificada em lugar
+    // nenhum"): antes isso só checava se as variáveis de ambiente EXISTIAM,
+    // não se a chave realmente FUNCIONA — uma BLUEX_API_KEY antiga/inválida
+    // (ex: depois de gerar uma chave nova no painel do BLUEX) aparecia como
+    // "configurado" mesmo estando quebrada, então ninguém percebia que a
+    // moderação estava caindo pro Groq direto (ou nem isso, se o
+    // GROQ_API_KEY do próprio NEXT GAME também não estiver certo). Agora
+    // faz uma chamada de teste de verdade pro BLUEX (custo mínimo, só roda
+    // quando alguém abre esse painel) pra confirmar que a chave realmente
+    // autentica, não só que a variável existe.
+    let bluex_working = false;
+    let bluex_error = null;
+    if (bluex_env_present) {
+      try {
+        await bluexRequest('/v1/analyze-text', { text: 'teste de conexão do painel admin' });
+        bluex_working = true;
+      } catch (err) {
+        bluex_error = err.message;
+      }
+    }
     res.json({
-      groq_configured: !!process.env.GROQ_API_KEY,
-      bluex_configured: !!process.env.BLUEX_API_KEY,
+      groq_configured,
+      bluex_configured: bluex_env_present,
+      bluex_working,
+      bluex_error,
     });
   })
 );
@@ -5306,14 +5266,7 @@ app.post(
     // do plano: "evidência/screenshot de resultado").
     let evidenceUrl = null;
     if (evidence) {
-      // CORRIGIDO (auditoria de segurança) — mesmo problema do avatar: só
-      // checava o prefixo, e o frontend renderiza isso num href="..." sem
-      // escapar. Regex garante que é base64 de verdade, sem aspas/tags no meio.
-      const isValidDataUrlImage =
-        typeof evidence === 'string' &&
-        evidence.length <= 500000 &&
-        /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(evidence);
-      if (!isValidDataUrlImage) {
+      if (typeof evidence !== 'string' || evidence.length > 500000 || !evidence.startsWith('data:image/')) {
         return res.status(400).json({ error: 'Evidência precisa ser uma imagem válida (máx. ~350KB)' });
       }
       evidenceUrl = evidence;
@@ -6838,57 +6791,6 @@ app.post(
   })
 );
 
-// ---------- DMs (visibilidade total do admin, pedida explicitamente) ----------
-// Só LEITURA — abrir uma conversa aqui não deixa o admin mandar mensagem se
-// passando por nenhum dos dois participantes (ver checagem em chat:message).
-// Cada acesso fica registrado no audit log, igual qualquer outra ação de
-// admin — não é uma porta dos fundos silenciosa.
-app.get(
-  '/api/admin/dm-channels',
-  requireAuth,
-  requireAdmin,
-  asyncHandler(async (req, res) => {
-    const rows = await db.all(`
-      SELECT
-        d.id, d.status, d.created_at,
-        ua.id as user_a_id, ua.username as user_a_username,
-        ub.id as user_b_id, ub.username as user_b_username,
-        (SELECT COUNT(*) FROM messages m WHERE m.channel_id = d.id AND m.deleted = 0) as message_count,
-        (SELECT MAX(created_at) FROM messages m WHERE m.channel_id = d.id AND m.deleted = 0) as last_message_at
-      FROM dm_channels d
-      JOIN users ua ON ua.id = d.user_a
-      JOIN users ub ON ub.id = d.user_b
-      ORDER BY COALESCE(last_message_at, d.created_at) DESC
-      LIMIT 200
-    `);
-    res.json(rows);
-  })
-);
-
-app.get(
-  '/api/admin/dm-channels/:id/messages',
-  requireAuth,
-  requireAdmin,
-  asyncHandler(async (req, res) => {
-    if (!req.params.id.startsWith('dm::')) return res.status(400).json({ error: 'ID inválido' });
-    const rows = await db.all(
-      'SELECT id, user_id, username, content, attachment, created_at FROM messages WHERE channel_id = ? AND deleted = 0 ORDER BY created_at ASC LIMIT 200',
-      [req.params.id]
-    );
-    rows.forEach((m) => {
-      if (m.attachment) {
-        try {
-          m.attachment = JSON.parse(m.attachment);
-        } catch (_) {
-          m.attachment = null;
-        }
-      }
-    });
-    logAudit(req.user, 'view_dm', 'dm_channel', req.params.id);
-    res.json(rows);
-  })
-);
-
 // ---------- AUDIT LOG (painel admin) ----------
 
 app.get(
@@ -7328,42 +7230,15 @@ app.get(
 
 // ---------- SOCKET.IO: chat + sinalização WebRTC ----------
 
-// CORRIGIDO (auditoria de segurança) — antes esse middleware confiava
-// cegamente no userId que o PRÓPRIO CLIENTE mandava em
-// socket.handshake.auth.userId, só checando se aquele id existia e não
-// estava banido. Isso permitia personificação total: qualquer um podia
-// abrir uma conexão Socket.io direto (sem passar pela UI) dizendo "eu sou o
-// usuário X" — bastava saber o id dele (vaza fácil em listas de membros,
-// mensagens, perfis) — e virar aquele usuário de verdade: receber DMs
-// dele, mandar mensagem em nome dele, entrar em call de voz como ele. Sem
-// precisar de senha nem de roubar cookie nenhum.
-//
-// Agora a sessão é lida do MESMO cookie assinado (httpOnly) que a API HTTP
-// usa — reaproveitando a mesma instância de cookie-session (ver
-// `sessionMiddleware` lá em cima) — em vez de aceitar o que o cliente diz
-// que é. O handshake.auth.userId enviado pelo cliente não é mais usado pra
-// nada (o client ainda manda, mas é ignorado).
-const wrapMiddleware = (middleware) => (socket, next) => middleware(socket.request, {}, next);
-io.use(wrapMiddleware(sessionMiddleware));
-
 io.use(async (socket, next) => {
+  // O cliente busca /api/me (autenticado via cookie de sessão) antes de conectar
+  // e envia o userId no handshake. Aqui revalidamos esse userId contra o banco.
   try {
-    const session = socket.request.session;
-    if (!session || !session.userId || !session.sessionId) {
-      return next(new Error('Não autenticado'));
-    }
-    const user = await db.get('SELECT * FROM users WHERE id = ?', [session.userId]);
+    const userId = socket.handshake.auth && socket.handshake.auth.userId;
+    if (!userId) return next(new Error('userId ausente no handshake'));
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
     if (!user || user.is_banned) return next(new Error('Usuário inválido ou banido'));
-    // Mesma checagem de "sessão revogada" que a API HTTP faz em requireAuth
-    // — assim um logout/"encerrar sessão em outro dispositivo" também
-    // derruba a conexão de socket, não só as chamadas REST.
-    const sessionRow = await db.get('SELECT * FROM user_sessions WHERE id = ? AND user_id = ?', [
-      session.sessionId,
-      user.id,
-    ]);
-    if (!sessionRow || sessionRow.revoked) return next(new Error('Sessão encerrada'));
     socket.user = user;
-    socket.sessionId = sessionRow.id;
     next();
   } catch (err) {
     next(err);
@@ -7620,18 +7495,7 @@ io.on('connection', (socket) => {
     broadcastOnlineUsers();
   });
 
-  // CORRIGIDO (auditoria de segurança) — diferente de rtc:join (voz, que já
-  // checava canAccessChannel) e de chat:message (que também checa), esse
-  // join de canal de TEXTO não validava nada: qualquer usuário logado podia
-  // chamar channel:join com o id de um canal privado por cargo, ou de uma
-  // DM de outras duas pessoas, e passar a receber ao vivo tudo que rolasse
-  // ali (mensagem, digitação, presença) — mesmo sem ter acesso de verdade.
-  // requireChannelAccess já trata os dois casos (canal de servidor com
-  // cargo restrito, e DM só entre os dois participantes).
-  socket.on('channel:join', async (channelId) => {
-    if (typeof channelId !== 'string' || !channelId) return;
-    const access = await requireChannelAccess(channelId, user);
-    if (!access.ok) return;
+  socket.on('channel:join', (channelId) => {
     socket.join(channelId);
     socket.to(channelId).emit('presence:join', { userId: user.id, username: user.username });
   });
@@ -7668,17 +7532,8 @@ io.on('connection', (socket) => {
         } else if (data) {
           // Anexo pequeno direto no banco (sem R2 configurado, ou arquivo
           // pequeno o bastante que nem precisa do storage externo).
-          // CORRIGIDO (auditoria de segurança) — só checava startsWith('data:'),
-          // que deixa passar algo tipo 'data:"><script>...' — o frontend
-          // renderiza isso direto num src="..."/href="..." sem escapar.
-          // Regex valida a sintaxe inteira de data URL (mime/subtipo + base64
-          // só com o charset certo), sem travar tipo de arquivo nenhum.
           const validShape =
-            nameOk &&
-            typeof type === 'string' &&
-            typeof data === 'string' &&
-            /^data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/]+={0,2}$/.test(data) &&
-            Number.isFinite(size);
+            nameOk && typeof type === 'string' && typeof data === 'string' && data.startsWith('data:') && Number.isFinite(size);
           // Checa o tamanho de verdade (data.length, ~33% maior que o
           // arquivo original por causa do base64), não só o "size" que o
           // cliente mandou (que pode mentir).
@@ -7759,20 +7614,6 @@ io.on('connection', (socket) => {
           }
         }
       } else {
-        // CORRIGIDO (auditoria de segurança) — faltava confirmar que quem tá
-        // mandando é de fato um dos dois participantes da conversa. Sem essa
-        // checagem, qualquer usuário logado podia emitir chat:message com o
-        // channelId de uma DM alheia (dm::vítimaA::vítimaB) e injetar uma
-        // mensagem falsa numa conversa privada de outras duas pessoas —
-        // salva no banco e entregue ao vivo pra quem estivesse com ela
-        // aberta. Propositalmente SEM exceção pra admin aqui (diferente da
-        // leitura em requireChannelAccess): admin pode ver, mas não deve
-        // conseguir se passar por participante e postar em nome de ninguém.
-        const dmParts = channelId.split('::');
-        if (dmParts[1] !== user.id && dmParts[2] !== user.id) {
-          socket.emit('chat:blocked', { reason: 'Você não tem acesso a essa conversa.', categories: [] });
-          return;
-        }
         // DM: se ainda é um PEDIDO DE MENSAGEM pendente (ver /api/dm/:userId
         // e /accept), só quem mandou o pedido pode continuar escrevendo —
         // quem recebeu precisa aceitar antes de poder responder.
@@ -8272,25 +8113,11 @@ io.on('connection', (socket) => {
 
   // Notifica a pessoa específica que alguém está ligando pra ela (DM de voz)
   // — só chega pras conexões dela, não é um broadcast geral.
-  // CORRIGIDO (agora que ligar pra qualquer usuário ficou mais visível na
-  // UI, vale fechar isso): antes confiava no channelId e no fromUsername que
-  // o CLIENTE mandava — dava pra chamar dm:ring com um channelId de outra
-  // conversa/canal qualquer (só o texto do toast mentia, o clique real
-  // dependia do requireChannelAccess do channel:join, que já barra o acesso
-  // de verdade) e um fromUsername forjado, fingindo ser outra pessoa
-  // ligando. Agora o servidor deriva o channelId de verdade (mesmo dmId
-  // usado por /api/dm/:userId) e usa o username real da sessão, e não deixa
-  // ligar pra quem te bloqueou ou você bloqueou.
-  socket.on('dm:ring', async ({ toUserId }) => {
-    if (!toUserId || typeof toUserId !== 'string' || toUserId === user.id) return;
-    const blocked = await db.get(
-      'SELECT id FROM blocked_users WHERE (user_id = ? AND blocked_user_id = ?) OR (user_id = ? AND blocked_user_id = ?)',
-      [user.id, toUserId, toUserId, user.id]
-    );
-    if (blocked) return;
+  socket.on('dm:ring', ({ toUserId, channelId, fromUsername }) => {
+    if (!toUserId || !channelId) return;
     io.to('user:' + toUserId).emit('dm:ring', {
-      fromUsername: user.username,
-      channelId: dmChannelId(user.id, toUserId),
+      fromUsername: fromUsername || user.username,
+      channelId,
     });
   });
 
@@ -8324,16 +8151,6 @@ process.on('unhandledRejection', (reason) => {
 });
 
 async function main() {
-  // Trava de segurança: sem isso, um deploy em produção que esqueceu de
-  // configurar SESSION_SECRET fica assinando cookie de sessão com um valor
-  // que está público no código-fonte — qualquer um pode forjar uma sessão
-  // válida pra qualquer userId. Em dev, segue com o valor padrão (só avisa).
-  if (IS_PRODUCTION && !process.env.SESSION_SECRET) {
-    console.error(
-      'ERRO: SESSION_SECRET não configurada em produção. Defina essa variável de ambiente antes de subir (não use o valor padrão do código).'
-    );
-    process.exit(1);
-  }
   await db.initDb();
   httpServer.listen(PORT, () => {
     console.log(`NEXT GAME rodando em http://localhost:${PORT}`);

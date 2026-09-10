@@ -70,7 +70,6 @@ async function init() {
   loadFlagged();
   loadUsers();
   loadAuditLogs();
-  loadDmChannels();
 }
 
 // ---------- Navegação por abas (sidebar) ----------
@@ -300,20 +299,23 @@ async function loadBluexPanel() {
     const frames = await framesRes.json();
     const blocked = await blockedRes.json();
 
-    // Status — o que está de fato rodando agora
+    // Status — o que está de fato rodando agora. BLUEX usa "bluex_working"
+    // (teste de conexão de verdade), não só "bluex_configured" (que só
+    // confere se a variável existe — uma chave antiga/inválida passava
+    // despercebida como "configurada" mesmo estando quebrada).
     const statusRow = document.getElementById('bluex-status-row');
     const statusCards = [
       {
         label: 'Moderação de imagem/texto (Groq embutido)',
         ok: status.groq_configured,
         okText: 'Ativa',
-        offText: 'Falta GROQ_API_KEY',
+        offText: 'Falta GROQ_API_KEY — NADA está sendo verificado agora',
       },
       {
         label: 'BLUEX externo (opcional, centraliza vários apps)',
-        ok: status.bluex_configured,
-        okText: 'Conectado',
-        offText: 'Não configurado — usando só o Groq embutido, funciona igual',
+        ok: status.bluex_configured ? status.bluex_working : true,
+        okText: status.bluex_configured ? 'Conectado e funcionando' : 'Não configurado — usando só o Groq embutido, funciona igual',
+        offText: 'Configurado mas NÃO CONECTA' + (status.bluex_error ? ': ' + status.bluex_error : '') + ' — caindo pro Groq embutido',
       },
     ];
     statusRow.innerHTML = statusCards
@@ -1004,62 +1006,5 @@ async function loadAuditLogs() {
   });
 }
 document.getElementById('btn-audit-filter').addEventListener('click', loadAuditLogs);
-
-// ---------- DMs (visibilidade total do admin) ----------
-async function loadDmChannels() {
-  const res = await fetch('/api/admin/dm-channels', { credentials: 'include' });
-  if (!res.ok) return;
-  const channels = await res.json();
-  const tbody = document.querySelector('#dm-channels-table tbody');
-  tbody.innerHTML = '';
-  channels.forEach((c) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${escapeHtml(c.user_a_username)}</td>
-      <td>${escapeHtml(c.user_b_username)}</td>
-      <td>${c.message_count}</td>
-      <td>${c.last_message_at ? new Date(c.last_message_at).toLocaleString('pt-BR') : '—'}</td>
-      <td><button class="action" data-action="view-dm" data-id="${escapeHtml(c.id)}" data-a="${escapeHtml(c.user_a_username)}" data-b="${escapeHtml(c.user_b_username)}">Ver conversa</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
-  tbody.querySelectorAll('button[data-action="view-dm"]').forEach((btn) =>
-    btn.addEventListener('click', () => openDmViewer(btn.dataset.id, btn.dataset.a, btn.dataset.b))
-  );
-}
-
-async function openDmViewer(channelId, usernameA, usernameB) {
-  const panel = document.getElementById('dm-viewer-panel');
-  const body = document.getElementById('dm-viewer-body');
-  document.getElementById('dm-viewer-title').textContent = `${usernameA} ↔ ${usernameB}`;
-  body.innerHTML = '<p style="color:#949ba4;">Carregando...</p>';
-  panel.classList.remove('hidden');
-  const res = await fetch(`/api/admin/dm-channels/${encodeURIComponent(channelId)}/messages`, { credentials: 'include' });
-  if (!res.ok) {
-    body.innerHTML = '<p style="color:#f23f42;">Não foi possível carregar essa conversa.</p>';
-    return;
-  }
-  const messages = await res.json();
-  if (messages.length === 0) {
-    body.innerHTML = '<p style="color:#949ba4;">Nenhuma mensagem nessa conversa ainda.</p>';
-    return;
-  }
-  body.innerHTML = messages
-    .map(
-      (m) => `
-        <div style="border-bottom:1px solid #2b2d31; padding-bottom:6px;">
-          <div style="font-size:12px; color:#949ba4;">
-            <strong style="color:#dbdee1;">${escapeHtml(m.username)}</strong> · ${new Date(m.created_at).toLocaleString('pt-BR')}
-          </div>
-          <div style="font-size:13.5px; color:#e6e6e6; white-space:pre-wrap;">${escapeHtml(m.content || '')}${m.attachment ? ' 📎 (anexo)' : ''}</div>
-        </div>
-      `
-    )
-    .join('');
-}
-
-document.getElementById('btn-close-dm-viewer').addEventListener('click', () => {
-  document.getElementById('dm-viewer-panel').classList.add('hidden');
-});
 
 init();
