@@ -264,7 +264,7 @@ const TERMS_ALLOWLIST = new Set(['/api/me', '/api/logout', '/api/terms', '/api/t
 // correção de digitação/formatação), suba essa string — isso força TODO
 // mundo, inclusive quem já tinha aceitado uma versão antiga, a aceitar de
 // novo antes de continuar usando o site.
-const CURRENT_TERMS_VERSION = '2026-09-10-v1';
+const CURRENT_TERMS_VERSION = '2026-09-10-v2';
 
 const TERMS_CONTENT = `TERMOS DE USO E DIRETRIZES DA COMUNIDADE — NEXT GAME
 Última atualização: 10 de setembro de 2026
@@ -272,9 +272,11 @@ const TERMS_CONTENT = `TERMOS DE USO E DIRETRIZES DA COMUNIDADE — NEXT GAME
 Bem-vindo(a) ao NEXT GAME. Estes Termos de Uso ("Termos") regem o uso da plataforma NEXT GAME (chat, voz, vídeo, servidores, jogos e recursos relacionados, "a Plataforma"). Ao criar uma conta ou usar a Plataforma, você concorda com estes Termos. Se você não concorda, não deve usar a Plataforma.
 
 1. QUEM PODE USAR
-1.1. Você precisa ter pelo menos 13 (treze) anos de idade para criar uma conta. Se você tem entre 13 e 18 anos, declara que possui autorização de seus pais ou responsáveis legais para usar a Plataforma.
-1.2. Você é responsável por fornecer informações verdadeiras no cadastro e por manter sua senha em sigilo. Você é responsável por toda atividade realizada com sua conta.
-1.3. É proibido criar contas para contornar um banimento, suspensão ou timeout aplicado anteriormente.
+1.1. Idade mínima: é PROIBIDO criar ou usar uma conta no NEXT GAME com menos de 13 (treze) anos completos. Não existe exceção a essa regra.
+1.2. Se você tem entre 13 e 17 anos, só pode usar a Plataforma com autorização de um dos pais ou responsável legal, que deve estar ciente do uso e destes Termos.
+1.3. Se você tem 18 anos ou mais, pode usar a Plataforma livremente, respeitando estes Termos.
+1.4. Você é responsável por fornecer informações verdadeiras no cadastro (inclusive sua idade real) e por manter sua senha em sigilo. Você é responsável por toda atividade realizada com sua conta.
+1.5. É proibido criar contas para contornar um banimento, suspensão ou timeout aplicado anteriormente.
 
 2. CONTEÚDO PROIBIDO E CONDUTA PROIBIDA
 Ao usar a Plataforma (em mensagens de texto, voz, vídeo, imagens, nomes de servidor/canal, avatares, status ou qualquer outro conteúdo), você concorda em NÃO:

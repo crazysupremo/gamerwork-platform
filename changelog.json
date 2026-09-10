@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.50.1",
+    "date": "2026-09-10",
+    "changes": [
+      "Termos de Uso: reescrita a parte de idade mínima, que estava confusa — agora deixa explícito que é proibido usar o site com menos de 13 anos, separado em itens curtos (13-17 precisa de autorização dos pais, 18+ usa livre). Como o texto mudou de verdade, todo mundo (mesmo quem já tinha aceitado antes) precisa aceitar de novo."
+    ]
+  },
+  {
     "version": "0.50.0",
     "date": "2026-09-10",
     "changes": [
