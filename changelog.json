@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.52.1",
+    "date": "2026-09-10",
+    "changes": [
+      "Corrigido bug real: contas antigas (de antes da caixinha de Termos existir) que ainda não tinham confirmado o e-mail ficavam travadas sem conseguir nem reenviar o código de confirmação — a trava dos Termos de Uso estava bloqueando essa rota por engano, mesmo pra quem só precisava confirmar o e-mail primeiro. Reenviar código volta a funcionar normalmente pra essas contas."
+    ]
+  },
+  {
     "version": "0.52.0",
     "date": "2026-09-10",
     "changes": [

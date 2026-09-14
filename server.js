@@ -246,7 +246,27 @@ const EMAIL_VERIFICATION_ALLOWLIST = new Set([
 
 // Mesma lógica pros Termos de Uso — só o essencial pra ler e aceitar (ou
 // sair) fica liberado enquanto não aceitou.
-const TERMS_ALLOWLIST = new Set(['/api/me', '/api/logout', '/api/terms', '/api/terms/accept']);
+// CORRIGIDO (bug real reportado: "a pessoa reenvia o código e não vai, só
+// chega uma vez e depois não envia mais"): contas antigas (de antes da
+// caixinha de Termos existir no cadastro) costumam estar com o e-mail AINDA
+// não confirmado E os Termos ainda não aceitos ao mesmo tempo. A verificação
+// de e-mail roda primeiro (ver requireAuth), então /api/verify-email e
+// /api/resend-verification-code já eram liberados pra essa 1ª trava — mas
+// essas mesmas rotas não estavam na lista de exceção da 2ª trava (Termos),
+// então toda tentativa de reenviar código caía direto no bloqueio "Aceite os
+// Termos de Uso antes de continuar" sem nenhuma mensagem clara — a pessoa
+// ficava travada sem conseguir nem confirmar e-mail nem aceitar os Termos.
+// Agora essas duas rotas passam por cima das duas travas, na ordem certa:
+// primeiro confirma o e-mail, depois (na próxima ação) aparece a tela de
+// aceitar os Termos normalmente.
+const TERMS_ALLOWLIST = new Set([
+  '/api/me',
+  '/api/logout',
+  '/api/terms',
+  '/api/terms/accept',
+  '/api/verify-email',
+  '/api/resend-verification-code',
+]);
 
 // ---------- TERMOS DE USO (bloqueante, item pedido: "colocar um termo no
 // início e assinar regras") ----------
