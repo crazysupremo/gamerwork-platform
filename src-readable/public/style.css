@@ -798,14 +798,8 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 
 .sidebar {
   width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; padding: 0;
-  min-height: 0;
+  min-height: 0; overflow-y: auto;
 }
-/* CORRIGIDO: overflow-y:auto aqui fazia o navegador também tratar o eixo X
-   como "auto" (regra do CSS: um eixo "visible" ao lado de outro que não é
-   vira "auto" junto), cortando o menu "⋯" (.sidebar-more-menu), que é mais
-   largo que a coluna e fica posicionado como absolute. O scroll de verdade
-   já é feito por dentro (#categories-container e .friends-list têm o
-   próprio overflow-y), então a .sidebar não precisa rolar sozinha. */
 /* Repaginado (a pedido — "coluna do meio ficou tumultuada"): cabeçalho antes
    tinha 6 botõezinhos de 22px espremidos numa linha só, sem respiro nenhum.
    Agora só sobra o essencial visível (Criar sala + Fechar); o resto vira um
@@ -2865,6 +2859,72 @@ video:fullscreen { background: #000; object-fit: contain; }
 @media (hover: none) {
   .message-attachment-download-btn { opacity: 1; }
 }
+
+/* ==========================================================================
+   POLIMENTO VISUAL (a pedido — "cria algo mais bonito no site") — refino
+   final em cima do que já existe, sem mexer em nenhuma classe/ID usada pelo
+   app.js (só ajusta cor/espaçamento/sombra/transição das mesmas coisas).
+   Fica de propósito ANTES do bloco responsivo/celular abaixo, pra essas
+   regras de tela pequena continuarem tendo a palavra final lá embaixo.
+   ========================================================================== */
+
+/* Cartões (torneios, ranking, voz) ganham uma leve "flutuada" no hover —
+   hoje só trocavam de cor, sem nenhuma sensação de profundidade. */
+.tournament-card, .ranking-row, .voice-info-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.tournament-card:hover, .ranking-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.28);
+  border-color: rgba(88,101,242,0.35);
+}
+
+/* Botões com o degradê da marca (torneios, modais, "criar/salvar") ganham o
+   mesmo brilho ao passar o mouse que o botão de enviar mensagem já tinha —
+   antes só ele tinha esse capricho, o resto ficava sem graça do lado. */
+.modal-actions button[type="submit"],
+.modal-actions button.primary,
+.btn-register {
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+.modal-actions button[type="submit"]:hover,
+.modal-actions button.primary:hover,
+.btn-register:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(88,101,242,0.4);
+  filter: brightness(1.08);
+}
+.modal-actions button[type="button"] { transition: background 0.12s ease; }
+
+/* Barrinha fininha com o degradê da marca no topo do modal — um toque de
+   identidade visual sem precisar mudar a estrutura do modal em si. */
+.modal-card { position: relative; }
+.modal-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--gradient-brand); border-radius: 12px 12px 0 0;
+}
+
+/* Anel sutil no avatar de quem está online — hoje só a bolinha de status
+   avisava; um anel fininho na cor do acento reforça isso sem poluir. */
+.member-row:not(.offline) .member-avatar {
+  box-shadow: 0 0 0 2px rgba(0,217,192,0.35);
+}
+
+/* Cabeçalho de categoria de canal com uma transição mais suave ao
+   recolher/expandir, e um pouco mais de espaço acima pra separar grupos. */
+.channel-category-header { transition: color 0.12s ease; margin-top: 4px; }
+.channel-item { transition: background 0.12s ease, color 0.12s ease; }
+
+/* Foco por teclado consistente em todo formulário dentro de modal — hoje só
+   alguns campos (mensagem, login) tinham o anel de foco do acento. */
+.modal-card input:focus-visible, .modal-card select:focus-visible, .modal-card textarea:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+
+/* Selo de servidor oficial e ícone de servidor ganham uma transição mais
+   macia no hover (a mudança de forma quadrado→arredondado já existia, só
+   faltava suavizar). */
+.server-icon { transition: border-radius 0.18s ease, transform 0.15s ease, background 0.15s ease; }
 
 /* ==========================================================================
    RESPONSIVO — CELULAR (sem precisar instalar nada, direto pelo navegador)

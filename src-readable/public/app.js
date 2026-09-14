@@ -659,6 +659,15 @@ document.getElementById('wiz-step2-next').onclick = () => goToWizardStep(3);
 document.getElementById('wiz-step3-back').onclick = () => goToWizardStep(2);
 
 document.getElementById('wiz-submit').onclick = async () => {
+  const termsErrorEl = document.getElementById('wiz-terms-error');
+  termsErrorEl.textContent = '';
+  // Checkbox de Termos de Uso direto no cadastro (item pedido: "aparece na
+  // hora do cadastro de marcar caixinha") — sem marcar, nem tenta enviar.
+  // O servidor também revalida isso (nunca confia só no cliente).
+  if (!document.getElementById('wiz-terms-checkbox').checked) {
+    termsErrorEl.textContent = 'Você precisa marcar que leu e concorda com os Termos de Uso pra continuar.';
+    return;
+  }
   const body = {
     username: document.getElementById('wiz-username').value.trim(),
     email: document.getElementById('wiz-email').value.trim(),
@@ -673,8 +682,23 @@ document.getElementById('wiz-submit').onclick = async () => {
     avatar: wizardState.avatar,
     birth_date: document.getElementById('wiz-birthdate').value,
     estimated_age: wizardState.estimatedAge,
+    terms_accepted: true,
   };
   await authRequest('/api/register', body);
+};
+
+// Link "Termos de Uso e Diretrizes da Comunidade" no cadastro — quem ainda
+// não tem conta não consegue ver /api/terms (exige login), por isso usa a
+// versão pública /api/terms/public só pra leitura antes de aceitar.
+document.getElementById('wiz-terms-link').onclick = async (e) => {
+  e.preventDefault();
+  let content = 'Não foi possível carregar os Termos agora — verifique sua conexão.';
+  try {
+    const res = await fetch('/api/terms/public');
+    const data = await res.json();
+    content = data.content || content;
+  } catch (_) {}
+  alert(content);
 };
 
 // ---------- Verificação de idade por câmera (opcional, ECA Digital) ----------
@@ -2759,7 +2783,7 @@ async function renderBracket(tournamentId, container, format) {
           <div class="bracket-match" data-match-id="${m.id}">
             <div class="bracket-side ${m.winner_id === m.player_a_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_a_name || 'A definir')} ${m.score_a != null ? `(${m.score_a})` : ''}</div>
             <div class="bracket-side ${m.winner_id === m.player_b_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_b_name || 'A definir')} ${m.score_b != null ? `(${m.score_b})` : ''}</div>
-            ${m.evidence_url && /^(https?:|data:image\/)/i.test(m.evidence_url) ? `<a href="${escapeHtml(m.evidence_url).replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer" class="bracket-evidence-link">📷 Ver evidência</a>` : ''}
+            ${m.evidence_url ? `<a href="${m.evidence_url}" target="_blank" class="bracket-evidence-link">📷 Ver evidência</a>` : ''}
             ${canReport ? '<button type="button" class="bracket-report-btn">Registrar resultado</button>' : ''}
             ${
               canReport

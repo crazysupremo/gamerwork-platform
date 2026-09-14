@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.52.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Termos de Uso agora têm uma caixinha de verdade direto no formulário de cadastro (\"Li e concordo com os Termos de Uso...\", com link pra ler o texto completo) — sem marcar, não cria a conta. Quem se cadastra assim já aceita na hora, sem precisar de mais nenhuma tela depois.",
+      "Contas antigas (de antes dessa caixinha existir) continuam vendo o aviso bloqueante de aceitar os Termos assim que fizerem login de novo, até confirmar."
+    ]
+  },
+  {
+    "version": "0.51.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Polimento visual geral: cartões de torneio/ranking/voz agora \"flutuam\" no hover com sombra, botões com o degradê da marca ganham brilho e leve elevação ao passar o mouse, modais têm uma barrinha do degradê no topo, avatar de quem está online ganha um anel sutil na cor de destaque, e o foco por teclado ficou consistente em todos os campos de formulário dentro de modal — tudo usando as cores e componentes que já existiam, sem mudar nenhuma função."
+    ]
+  },
+  {
     "version": "0.50.1",
     "date": "2026-09-10",
     "changes": [

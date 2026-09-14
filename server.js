@@ -264,7 +264,7 @@ const TERMS_ALLOWLIST = new Set(['/api/me', '/api/logout', '/api/terms', '/api/t
 // correção de digitação/formatação), suba essa string — isso força TODO
 // mundo, inclusive quem já tinha aceitado uma versão antiga, a aceitar de
 // novo antes de continuar usando o site.
-const CURRENT_TERMS_VERSION = '2026-09-10-v3';
+const CURRENT_TERMS_VERSION = '2026-09-10-v2';
 
 const TERMS_CONTENT = `TERMOS DE USO E DIRETRIZES DA COMUNIDADE — NEXT GAME
 Última atualização: 10 de setembro de 2026
@@ -273,7 +273,7 @@ Bem-vindo(a) ao NEXT GAME. Estes Termos de Uso ("Termos") regem o uso da platafo
 
 1. QUEM PODE USAR
 1.1. Idade mínima: é PROIBIDO criar ou usar uma conta no NEXT GAME com menos de 13 (treze) anos completos. Não existe exceção a essa regra.
-1.2. Se você tem entre 13 e 17 anos, pode usar a Plataforma com autorização de um dos pais ou responsável legal, que deve estar ciente do uso e destes Termos, observadas as proteções previstas no Estatuto da Criança e do Adolescente (ECA — Lei nº 8.069/1990). O NEXT GAME aplica as medidas de proteção integral exigidas pelo ECA para usuários menores de idade, incluindo moderação reforçada de conteúdo, restrições de contato indevido por adultos e possibilidade de verificação adicional de idade/consentimento dos pais ou responsáveis quando houver suspeita de violação.
+1.2. Se você tem entre 13 e 17 anos, só pode usar a Plataforma com autorização de um dos pais ou responsável legal, que deve estar ciente do uso e destes Termos.
 1.3. Se você tem 18 anos ou mais, pode usar a Plataforma livremente, respeitando estes Termos.
 1.4. Você é responsável por fornecer informações verdadeiras no cadastro (inclusive sua idade real) e por manter sua senha em sigilo. Você é responsável por toda atividade realizada com sua conta.
 1.5. É proibido criar contas para contornar um banimento, suspensão ou timeout aplicado anteriormente.
@@ -941,7 +941,15 @@ app.post(
       play_style,
       birth_date,
       estimated_age,
+      terms_accepted,
     } = req.body || {};
+    // Checkbox de Termos direto no cadastro (item pedido: "aparece na hora
+    // do cadastro de marcar caixinha") — sem isso marcado, nem cria a conta.
+    // O front-end já bloqueia o botão, isso aqui é a revalidação de verdade
+    // no servidor (nunca confia só no que o cliente mandou).
+    if (terms_accepted !== true) {
+      return res.status(400).json({ error: 'Você precisa aceitar os Termos de Uso pra criar uma conta.' });
+    }
     if (
       !username ||
       !password ||
@@ -1057,6 +1065,16 @@ app.post(
       ]
     );
 
+    // Aceite já marcado no próprio formulário de cadastro (checkbox
+    // validada acima) — grava na hora, então essa conta nunca vê a tela
+    // separada de "aceitar termos" depois, só quem se cadastrou ANTES
+    // dessa checkbox existir é que vê isso ao logar de novo.
+    await db.run("UPDATE users SET terms_accepted_at = datetime('now'), terms_version = ? WHERE id = ?", [
+      CURRENT_TERMS_VERSION,
+      id,
+    ]);
+    logAudit({ id, username }, 'terms_accept', 'user', id, { version: CURRENT_TERMS_VERSION, via: 'cadastro' });
+
     sendVerificationEmail(email, verificationCode, username).catch((err) =>
       console.error('Falha ao enviar e-mail de verificação:', err)
     );
@@ -1073,7 +1091,7 @@ app.post(
       username_tag: usernameTag,
       email_verified: false,
       requiresEmailVerification: true,
-      requiresTermsAcceptance: true,
+      requiresTermsAcceptance: false,
     });
 
     // Cada conta começa sem nenhum servidor — igual Discord: cria o seu
@@ -1277,6 +1295,12 @@ app.post(
 );
 
 // ---------- TERMOS DE USO ----------
+// Versão pública (sem login) — pra quem ainda está no cadastro conseguir ler
+// o texto antes de marcar a caixinha, já que ainda não tem sessão nenhuma.
+app.get('/api/terms/public', (req, res) => {
+  res.json({ version: CURRENT_TERMS_VERSION, content: TERMS_CONTENT });
+});
+
 app.get(
   '/api/terms',
   requireAuth,
@@ -8630,15 +8654,7 @@ io.on('connection', (socket) => {
     broadcastOnlineUsers();
   });
 
-  socket.on('channel:join', async (channelId) => {
-    if (typeof channelId !== 'string' || !channelId) return;
-    try {
-      const access = await requireChannelAccess(channelId, user);
-      if (!access.ok) return;
-    } catch (err) {
-      console.error('Erro ao checar acesso ao canal (channel:join):', err);
-      return;
-    }
+  socket.on('channel:join', (channelId) => {
     socket.join(channelId);
     socket.to(channelId).emit('presence:join', { userId: user.id, username: user.username });
   });

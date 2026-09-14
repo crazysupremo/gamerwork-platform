@@ -1,5 +1,3 @@
-
-
 let me = null;
 let socket = null;
 let currentChannel = null;
@@ -188,10 +186,10 @@ fetch('/api/stats')
 .then((res) => res.json())
 .then((stats) => {
 document.getElementById('landing-stats').innerHTML = `
-      <div class="auth-stat"><span class="auth-stat-icon"><span class="ng-icon-wrap" data-icon="users"></span></span><span class="auth-stat-num">${stats.members}+</span><span class="auth-stat-label">Jogadores Ativos</span></div>
-      <div class="auth-stat"><span class="auth-stat-icon"><span class="ng-icon-wrap" data-icon="gamepad-2"></span></span><span class="auth-stat-num">${stats.servers}+</span><span class="auth-stat-label">Comunidades</span></div>
-      <div class="auth-stat"><span class="auth-stat-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></span><span class="auth-stat-num">${stats.tournaments}+</span><span class="auth-stat-label">Torneios Realizados</span></div>
-    `;
+<div class="auth-stat"><span class="auth-stat-icon"><span class="ng-icon-wrap" data-icon="users"></span></span><span class="auth-stat-num">${stats.members}+</span><span class="auth-stat-label">Jogadores Ativos</span></div>
+<div class="auth-stat"><span class="auth-stat-icon"><span class="ng-icon-wrap" data-icon="gamepad-2"></span></span><span class="auth-stat-num">${stats.servers}+</span><span class="auth-stat-label">Comunidades</span></div>
+<div class="auth-stat"><span class="auth-stat-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></span><span class="auth-stat-num">${stats.tournaments}+</span><span class="auth-stat-label">Torneios Realizados</span></div>
+`;
 document.querySelectorAll('#landing-stats [data-icon]').forEach((el) => {
 el.innerHTML = icon(el.getAttribute('data-icon'));
 });
@@ -587,6 +585,13 @@ document.getElementById('wiz-step2-next').onclick = () => goToWizardStep(3);
 document.getElementById('wiz-step3-back').onclick = () => goToWizardStep(2);
 
 document.getElementById('wiz-submit').onclick = async () => {
+const termsErrorEl = document.getElementById('wiz-terms-error');
+termsErrorEl.textContent = '';
+
+if (!document.getElementById('wiz-terms-checkbox').checked) {
+termsErrorEl.textContent = 'Você precisa marcar que leu e concorda com os Termos de Uso pra continuar.';
+return;
+}
 const body = {
 username: document.getElementById('wiz-username').value.trim(),
 email: document.getElementById('wiz-email').value.trim(),
@@ -601,8 +606,20 @@ play_style: wizardState.playStyle,
 avatar: wizardState.avatar,
 birth_date: document.getElementById('wiz-birthdate').value,
 estimated_age: wizardState.estimatedAge,
+terms_accepted: true,
 };
 await authRequest('/api/register', body);
+};
+
+document.getElementById('wiz-terms-link').onclick = async (e) => {
+e.preventDefault();
+let content = 'Não foi possível carregar os Termos agora — verifique sua conexão.';
+try {
+const res = await fetch('/api/terms/public');
+const data = await res.json();
+content = data.content || content;
+} catch (_) {}
+alert(content);
 };
 
 const FACE_API_CDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js';
@@ -1030,16 +1047,16 @@ const row = document.createElement('div');
 row.className = 'member-row' + (isOffline ? ' offline' : '');
 const presence = presenceStatusMap[u.id] || (isOffline ? 'offline' : 'online');
 row.innerHTML = `
-        <div class="member-avatar-wrap">
-          <div class="member-avatar ${avatarFrameClass(u)}">${renderAvatarHtml(u)}</div>
-          <span class="member-status-dot member-status-${presence}"></span>
-        </div>
-        <div class="member-info">
-          <div class="member-name"${roleColorStyleFor(u)}>${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${userVerifiedBadgeHtml(u)}</div>
-          ${u.roles && u.roles.length ? `<div class="member-role-tag" style="color:${escapeHtml(u.roles[0].color)};">${escapeHtml(u.roles[0].name)}</div>` : ''}
-          ${u.status_message ? `<div class="member-game">🎮 ${escapeHtml(u.status_message)}</div>` : ''}
-        </div>
-      `;
+<div class="member-avatar-wrap">
+<div class="member-avatar ${avatarFrameClass(u)}">${renderAvatarHtml(u)}</div>
+<span class="member-status-dot member-status-${presence}"></span>
+</div>
+<div class="member-info">
+<div class="member-name"${roleColorStyleFor(u)}>${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${userVerifiedBadgeHtml(u)}</div>
+${u.roles && u.roles.length ? `<div class="member-role-tag" style="color:${escapeHtml(u.roles[0].color)};">${escapeHtml(u.roles[0].name)}</div>` : ''}
+${u.status_message ? `<div class="member-game">🎮 ${escapeHtml(u.status_message)}</div>` : ''}
+</div>
+`;
 row.style.cursor = 'pointer';
 row.onclick = () => openProfilePreview(u);
 row.oncontextmenu = (e) => {
@@ -1090,19 +1107,19 @@ return;
 const isOnline = onlineUserIds.has(user.id);
 const memberSince = new Date(user.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 container.innerHTML = `
-    <div class="dm-info-card">
-      <div class="member-avatar-wrap" style="width:64px; height:64px; margin:0 auto 8px;">
-        <div class="member-avatar ${avatarFrameClass(user)}" style="width:64px; height:64px; font-size:24px;">${renderAvatarHtml(user)}</div>
-        <span class="member-status-dot" style="${isOnline ? '' : 'background:#6d7178;'}"></span>
-      </div>
-      <div style="text-align:center; font-weight:700;">${escapeHtml(user.username)}</div>
-      <div style="text-align:center;" class="user-tag-inline">${escapeHtml(userTag(user))}</div>
-      <div style="text-align:center; font-size:12px; color:${isOnline ? '#23a55a' : '#949ba4'}; margin-top:2px;">${isOnline ? 'Online' : 'Offline'}</div>
-      <div class="hint" style="text-align:center; margin-top:8px;">Membro desde ${memberSince}</div>
-      ${user.status_message ? `<div class="hint" style="text-align:center;">🎮 ${escapeHtml(user.status_message)}</div>` : ''}
-      <div id="dm-info-actions" style="margin-top:14px; display:flex; flex-direction:column; gap:6px;"></div>
-    </div>
-  `;
+<div class="dm-info-card">
+<div class="member-avatar-wrap" style="width:64px; height:64px; margin:0 auto 8px;">
+<div class="member-avatar ${avatarFrameClass(user)}" style="width:64px; height:64px; font-size:24px;">${renderAvatarHtml(user)}</div>
+<span class="member-status-dot" style="${isOnline ? '' : 'background:#6d7178;'}"></span>
+</div>
+<div style="text-align:center; font-weight:700;">${escapeHtml(user.username)}</div>
+<div style="text-align:center;" class="user-tag-inline">${escapeHtml(userTag(user))}</div>
+<div style="text-align:center; font-size:12px; color:${isOnline ? '#23a55a' : '#949ba4'}; margin-top:2px;">${isOnline ? 'Online' : 'Offline'}</div>
+<div class="hint" style="text-align:center; margin-top:8px;">Membro desde ${memberSince}</div>
+${user.status_message ? `<div class="hint" style="text-align:center;">🎮 ${escapeHtml(user.status_message)}</div>` : ''}
+<div id="dm-info-actions" style="margin-top:14px; display:flex; flex-direction:column; gap:6px;"></div>
+</div>
+`;
 const actionsEl = document.getElementById('dm-info-actions');
 userActionItems(user).forEach((item) => {
 if (item.separator) return;
@@ -1296,10 +1313,10 @@ btn.className = 'server-row';
 if (isActive) btn.classList.add('active');
 btn.title = category;
 btn.innerHTML = `
-      <span class="server-row-icon">${renderServerIconOnly(category)}</span>
-      <span class="server-row-name">${escapeHtml(category)}${serverVerifiedBadgeHtml(category)}</span>
-      <span class="server-row-dot ${isActive ? 'server-row-dot-on' : ''}"></span>
-    `;
+<span class="server-row-icon">${renderServerIconOnly(category)}</span>
+<span class="server-row-name">${escapeHtml(category)}${serverVerifiedBadgeHtml(category)}</span>
+<span class="server-row-dot ${isActive ? 'server-row-dot-on' : ''}"></span>
+`;
 
 const unread = unreadByCategory[category];
 if (unread) {
@@ -1562,17 +1579,17 @@ Array.isArray(changes) && changes.length
 ? `<ul class="update-banner-changes">${changes.map((c) => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`
 : '';
 banner.innerHTML = `
-    <button type="button" class="update-banner-dismiss" aria-label="Fechar">${icon('x')}</button>
-    <div class="update-banner-header">
-      <div class="update-banner-icon">${icon('sparkles')}</div>
-      <div class="update-banner-body">
-        <strong>Nova versão do NEXT GAME disponível${version ? ` — v${escapeHtml(version)}` : ''}</strong>
-        <span class="update-banner-hint">Fica pra quando você quiser — nada muda até você clicar em atualizar.</span>
-      </div>
-    </div>
-    ${changesHtml}
-    <button type="button" class="update-banner-reload">Atualizar agora</button>
-  `;
+<button type="button" class="update-banner-dismiss" aria-label="Fechar">${icon('x')}</button>
+<div class="update-banner-header">
+<div class="update-banner-icon">${icon('sparkles')}</div>
+<div class="update-banner-body">
+<strong>Nova versão do NEXT GAME disponível${version ? ` — v${escapeHtml(version)}` : ''}</strong>
+<span class="update-banner-hint">Fica pra quando você quiser — nada muda até você clicar em atualizar.</span>
+</div>
+</div>
+${changesHtml}
+<button type="button" class="update-banner-reload">Atualizar agora</button>
+`;
 document.body.appendChild(banner);
 requestAnimationFrame(() => banner.classList.add('update-banner-show'));
 banner.querySelector('.update-banner-reload').onclick = () => {
@@ -2104,11 +2121,11 @@ row.className = 'server-member-row';
 const rolesHtml = m.roles
 .map(
 (r) => `
-      <span class="role-pill" style="background:${r.color}22; color:${r.color}; border-color:${r.color}66;">
-        ${escapeHtml(r.name)}
-        ${canManageRoles ? `<button type="button" class="role-pill-remove" data-role="${r.id}" title="Remover cargo">×</button>` : ''}
-      </span>
-    `
+<span class="role-pill" style="background:${r.color}22; color:${r.color}; border-color:${r.color}66;">
+${escapeHtml(r.name)}
+${canManageRoles ? `<button type="button" class="role-pill-remove" data-role="${r.id}" title="Remover cargo">×</button>` : ''}
+</span>
+`
 )
 .join('');
 
@@ -2116,22 +2133,22 @@ const assignableRoles = manageAvailableRoles.filter((ar) => !m.roles.some((mr) =
 const roleSelectHtml =
 canManageRoles && assignableRoles.length > 0
 ? `<select class="role-assign-select">
-             <option value="">+ Cargo</option>
-             ${assignableRoles.map((ar) => `<option value="${ar.id}">${escapeHtml(ar.name)}</option>`).join('')}
-           </select>`
+<option value="">+ Cargo</option>
+${assignableRoles.map((ar) => `<option value="${ar.id}">${escapeHtml(ar.name)}</option>`).join('')}
+</select>`
 : '';
 
 row.innerHTML = `
-      <div class="member-avatar ${avatarFrameClass(m)}">${renderAvatarHtml(m)}</div>
-      <div class="server-member-info">
-        <div class="server-member-name">${escapeHtml(m.username)}<span class="user-tag-inline">${escapeHtml(userTag(m))}</span>${m.is_owner ? ' 👑' : ''}${userVerifiedBadgeHtml(m)}</div>
-        <div class="server-member-roles">${rolesHtml}</div>
-      </div>
-      <div class="server-member-actions">
-        ${roleSelectHtml}
-        ${canKick && !m.is_owner ? `<button type="button" class="server-kick-btn" title="Expulsar">🚪</button>` : ''}
-      </div>
-    `;
+<div class="member-avatar ${avatarFrameClass(m)}">${renderAvatarHtml(m)}</div>
+<div class="server-member-info">
+<div class="server-member-name">${escapeHtml(m.username)}<span class="user-tag-inline">${escapeHtml(userTag(m))}</span>${m.is_owner ? ' 👑' : ''}${userVerifiedBadgeHtml(m)}</div>
+<div class="server-member-roles">${rolesHtml}</div>
+</div>
+<div class="server-member-actions">
+${roleSelectHtml}
+${canKick && !m.is_owner ? `<button type="button" class="server-kick-btn" title="Expulsar">🚪</button>` : ''}
+</div>
+`;
 
 const select = row.querySelector('.role-assign-select');
 if (select) {
@@ -2187,11 +2204,11 @@ const checkboxesEl = document.getElementById('role-permissions-checkboxes');
 checkboxesEl.innerHTML = data.permissions_catalog
 .map(
 (p) => `
-    <label class="checkbox-row">
-      <input type="checkbox" value="${p.key}" />
-      <span>${escapeHtml(p.label)}</span>
-    </label>
-  `
+<label class="checkbox-row">
+<input type="checkbox" value="${p.key}" />
+<span>${escapeHtml(p.label)}</span>
+</label>
+`
 )
 .join('');
 
@@ -2203,10 +2220,10 @@ manageAvailableRoles.forEach((r) => {
 const row = document.createElement('div');
 row.className = 'server-role-row';
 row.innerHTML = `
-      <span class="role-pill" style="background:${r.color}22; color:${r.color}; border-color:${r.color}66;">${escapeHtml(r.name)}</span>
-      <span class="server-role-perms">${r.permissions.length} permiss${r.permissions.length === 1 ? 'ão' : 'ões'}</span>
-      ${canManageRoles ? `<button type="button" class="server-role-delete-btn" title="Excluir cargo">🗑️</button>` : ''}
-    `;
+<span class="role-pill" style="background:${r.color}22; color:${r.color}; border-color:${r.color}66;">${escapeHtml(r.name)}</span>
+<span class="server-role-perms">${r.permissions.length} permiss${r.permissions.length === 1 ? 'ão' : 'ões'}</span>
+${canManageRoles ? `<button type="button" class="server-role-delete-btn" title="Excluir cargo">🗑️</button>` : ''}
+`;
 const deleteBtn = row.querySelector('.server-role-delete-btn');
 if (deleteBtn) {
 deleteBtn.onclick = async () => {
@@ -2329,32 +2346,32 @@ const card = document.createElement('div');
 card.className = 'tournament-card';
 const dateText = t.event_date ? new Date(t.event_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'Data a definir';
 card.innerHTML = `
-      <div class="tournament-info">
-        <h3>🏆 ${escapeHtml(t.name)}</h3>
-        <div class="tournament-meta">
-          <span>${t.format === 'liga' ? '🔁 Liga' : '⚔️ Eliminação'}</span>
-          <span>🎮 ${escapeHtml(t.game)}</span>
-          <span>📅 ${dateText}</span>
-          ${t.prize ? `<span>💰 ${escapeHtml(t.prize)}</span>` : ''}
-          <span>👥 ${t.registered_count}/${t.max_slots}</span>
-          ${t.registered_count > 0 ? `<span>✅ ${t.checked_in_count} check-in</span>` : ''}
-        </div>
-      </div>
-      <div class="tournament-actions">
-        <button class="${t.is_registered ? 'btn-unregister' : 'btn-register'}">
-          ${t.is_registered ? 'Sair' : 'Participar'}
-        </button>
-        ${
-          t.is_registered && !t.bracket_generated
-            ? `<button class="btn-checkin" ${t.is_checked_in ? 'disabled' : ''}>${t.is_checked_in ? '✅ Check-in feito' : 'Fazer check-in'}</button>`
-            : ''
-        }
-        <button class="btn-view-bracket">🏆 Ver chave</button>
-        ${t.created_by === me.id || me.is_admin ? '<button class="btn-generate-bracket">Gerar chave</button>' : ''}
-        ${me.is_admin ? '<button class="btn-delete-tournament">Excluir</button>' : ''}
-      </div>
-      <div class="tournament-bracket hidden"></div>
-    `;
+<div class="tournament-info">
+<h3>🏆 ${escapeHtml(t.name)}</h3>
+<div class="tournament-meta">
+<span>${t.format === 'liga' ? '🔁 Liga' : '⚔️ Eliminação'}</span>
+<span>🎮 ${escapeHtml(t.game)}</span>
+<span>📅 ${dateText}</span>
+${t.prize ? `<span>💰 ${escapeHtml(t.prize)}</span>` : ''}
+<span>👥 ${t.registered_count}/${t.max_slots}</span>
+${t.registered_count > 0 ? `<span>✅ ${t.checked_in_count} check-in</span>` : ''}
+</div>
+</div>
+<div class="tournament-actions">
+<button class="${t.is_registered ? 'btn-unregister' : 'btn-register'}">
+${t.is_registered ? 'Sair' : 'Participar'}
+</button>
+${
+t.is_registered && !t.bracket_generated
+? `<button class="btn-checkin" ${t.is_checked_in ? 'disabled' : ''}>${t.is_checked_in ? '✅ Check-in feito' : 'Fazer check-in'}</button>`
+: ''
+}
+<button class="btn-view-bracket">🏆 Ver chave</button>
+${t.created_by === me.id || me.is_admin ? '<button class="btn-generate-bracket">Gerar chave</button>' : ''}
+${me.is_admin ? '<button class="btn-delete-tournament">Excluir</button>' : ''}
+</div>
+<div class="tournament-bracket hidden"></div>
+`;
 const checkinBtn = card.querySelector('.btn-checkin');
 if (checkinBtn) {
 checkinBtn.onclick = async () => {
@@ -2410,18 +2427,18 @@ const standingsRes = await fetch(`/api/tournaments/${tournamentId}/standings`, {
 const standings = await standingsRes.json();
 if (standings.length > 0) {
 standingsHtml = `
-        <div class="liga-standings">
-          <div class="liga-standings-header">
-            <span>#</span><span>Jogador</span><span>PJ</span><span>V</span><span>D</span><span>Pts</span>
-          </div>
-          ${standings
-            .map(
-              (s, i) => `<div class="liga-standings-row">
-                <span>${i + 1}</span><span>${escapeHtml(s.name)}</span><span>${s.played}</span><span>${s.wins}</span><span>${s.losses}</span><span><strong>${s.points}</strong></span>
-              </div>`
-            )
-            .join('')}
-        </div>`;
+<div class="liga-standings">
+<div class="liga-standings-header">
+<span>#</span><span>Jogador</span><span>PJ</span><span>V</span><span>D</span><span>Pts</span>
+</div>
+${standings
+.map(
+(s, i) => `<div class="liga-standings-row">
+<span>${i + 1}</span><span>${escapeHtml(s.name)}</span><span>${s.played}</span><span>${s.wins}</span><span>${s.losses}</span><span><strong>${s.points}</strong></span>
+</div>`
+)
+.join('')}
+</div>`;
 }
 }
 
@@ -2446,29 +2463,29 @@ const matchesHtml = rounds[round]
 .map((m) => {
 const canReport = m.player_a_id && m.player_b_id && m.status !== 'concluida';
 return `
-          <div class="bracket-match" data-match-id="${m.id}">
-            <div class="bracket-side ${m.winner_id === m.player_a_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_a_name || 'A definir')} ${m.score_a != null ? `(${m.score_a})` : ''}</div>
-            <div class="bracket-side ${m.winner_id === m.player_b_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_b_name || 'A definir')} ${m.score_b != null ? `(${m.score_b})` : ''}</div>
-            ${m.evidence_url && /^(https?:|data:image\/)/i.test(m.evidence_url) ? `<a href="${escapeHtml(m.evidence_url).replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer" class="bracket-evidence-link">📷 Ver evidência</a>` : ''}
-            ${canReport ? '<button type="button" class="bracket-report-btn">Registrar resultado</button>' : ''}
-            ${
-              canReport
-                ? `<form class="bracket-report-form hidden">
-                     <label class="bracket-report-radio"><input type="radio" name="winner-${m.id}" value="a" checked /> ${escapeHtml(m.player_a_name)} venceu</label>
-                     <label class="bracket-report-radio"><input type="radio" name="winner-${m.id}" value="b" /> ${escapeHtml(m.player_b_name)} venceu</label>
-                     <div class="bracket-report-scores">
-                       <input type="number" min="0" class="bracket-score-a" placeholder="Placar ${escapeHtml(m.player_a_name)}" />
-                       <input type="number" min="0" class="bracket-score-b" placeholder="Placar ${escapeHtml(m.player_b_name)}" />
-                     </div>
-                     <label class="bracket-report-evidence-label">📷 Evidência (print do resultado, opcional)
-                       <input type="file" accept="image/*" class="bracket-evidence-file" />
-                     </label>
-                     <button type="submit" class="bracket-report-submit">Confirmar resultado</button>
-                   </form>`
-                : ''
-            }
-          </div>
-        `;
+<div class="bracket-match" data-match-id="${m.id}">
+<div class="bracket-side ${m.winner_id === m.player_a_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_a_name || 'A definir')} ${m.score_a != null ? `(${m.score_a})` : ''}</div>
+<div class="bracket-side ${m.winner_id === m.player_b_id ? 'bracket-winner' : ''}">${escapeHtml(m.player_b_name || 'A definir')} ${m.score_b != null ? `(${m.score_b})` : ''}</div>
+${m.evidence_url ? `<a href="${m.evidence_url}" target="_blank" class="bracket-evidence-link">📷 Ver evidência</a>` : ''}
+${canReport ? '<button type="button" class="bracket-report-btn">Registrar resultado</button>' : ''}
+${
+canReport
+? `<form class="bracket-report-form hidden">
+<label class="bracket-report-radio"><input type="radio" name="winner-${m.id}" value="a" checked /> ${escapeHtml(m.player_a_name)} venceu</label>
+<label class="bracket-report-radio"><input type="radio" name="winner-${m.id}" value="b" /> ${escapeHtml(m.player_b_name)} venceu</label>
+<div class="bracket-report-scores">
+<input type="number" min="0" class="bracket-score-a" placeholder="Placar ${escapeHtml(m.player_a_name)}" />
+<input type="number" min="0" class="bracket-score-b" placeholder="Placar ${escapeHtml(m.player_b_name)}" />
+</div>
+<label class="bracket-report-evidence-label">📷 Evidência (print do resultado, opcional)
+<input type="file" accept="image/*" class="bracket-evidence-file" />
+</label>
+<button type="submit" class="bracket-report-submit">Confirmar resultado</button>
+</form>`
+: ''
+}
+</div>
+`;
 })
 .join('');
 return `<div class="bracket-round"><div class="bracket-round-label">${label}</div>${matchesHtml}</div>`;
@@ -2632,24 +2649,24 @@ card.className = 'tournament-card';
 const channel = allChannels.find((c) => c.id === ev.channel_id);
 const dateText = new Date(ev.event_date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 card.innerHTML = `
-      ${ev.image ? `<img src="${ev.image}" alt="" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px;" />` : ''}
-      <div class="tournament-info">
-        <h3>📅 ${escapeHtml(ev.name)}</h3>
-        ${ev.description ? `<p class="hint">${escapeHtml(ev.description)}</p>` : ''}
-        <div class="tournament-meta">
-          <span>${EVENT_STATUS_LABEL[ev.status] || ev.status}</span>
-          <span>🕒 ${dateText}</span>
-          ${channel ? `<span>${channelIconPrefix(channel)}${escapeHtml(channel.name)}</span>` : ''}
-          <span>👥 ${ev.participants_count}${ev.max_participants ? '/' + ev.max_participants : ''}</span>
-        </div>
-      </div>
-      <div class="tournament-actions">
-        <button class="btn-event-rsvp">${ev.is_going ? 'Cancelar presença' : 'Confirmar presença'}</button>
-        <button class="btn-event-participants">Ver quem vai</button>
-        ${canManageServerEvents ? '<button class="btn-event-status">Mudar status</button>' : ''}
-        ${canManageServerEvents ? '<button class="btn-event-delete">Excluir</button>' : ''}
-      </div>
-    `;
+${ev.image ? `<img src="${ev.image}" alt="" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px;" />` : ''}
+<div class="tournament-info">
+<h3>📅 ${escapeHtml(ev.name)}</h3>
+${ev.description ? `<p class="hint">${escapeHtml(ev.description)}</p>` : ''}
+<div class="tournament-meta">
+<span>${EVENT_STATUS_LABEL[ev.status] || ev.status}</span>
+<span>🕒 ${dateText}</span>
+${channel ? `<span>${channelIconPrefix(channel)}${escapeHtml(channel.name)}</span>` : ''}
+<span>👥 ${ev.participants_count}${ev.max_participants ? '/' + ev.max_participants : ''}</span>
+</div>
+</div>
+<div class="tournament-actions">
+<button class="btn-event-rsvp">${ev.is_going ? 'Cancelar presença' : 'Confirmar presença'}</button>
+<button class="btn-event-participants">Ver quem vai</button>
+${canManageServerEvents ? '<button class="btn-event-status">Mudar status</button>' : ''}
+${canManageServerEvents ? '<button class="btn-event-delete">Excluir</button>' : ''}
+</div>
+`;
 card.querySelector('.btn-event-rsvp').onclick = async () => {
 const method = ev.is_going ? 'DELETE' : 'POST';
 const r = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/events/${ev.id}/rsvp`, {
@@ -2751,11 +2768,11 @@ ranking.forEach((u, i) => {
 const row = document.createElement('div');
 row.className = 'ranking-row';
 row.innerHTML = `
-      <span class="ranking-position">${medals[i] || i + 1}</span>
-      <div class="member-avatar">${renderAvatarHtml(u)}</div>
-      <span class="ranking-name">${escapeHtml(u.username)}</span>
-      <span class="ranking-points">${u.points} msgs</span>
-    `;
+<span class="ranking-position">${medals[i] || i + 1}</span>
+<div class="member-avatar">${renderAvatarHtml(u)}</div>
+<span class="ranking-name">${escapeHtml(u.username)}</span>
+<span class="ranking-points">${u.points} msgs</span>
+`;
 list.appendChild(row);
 });
 }
@@ -2821,13 +2838,13 @@ const game = u.status_message.trim();
 playingList.innerHTML = Object.entries(byGame)
 .map(
 ([game, users]) => `
-      <div class="tournament-card">
-        <div class="tournament-info">
-          <h3>🎮 ${escapeHtml(game)}</h3>
-          <div class="tournament-meta"><span>👥 ${users.map((u) => escapeHtml(u.username)).join(', ')}</span></div>
-        </div>
-      </div>
-    `
+<div class="tournament-card">
+<div class="tournament-info">
+<h3>🎮 ${escapeHtml(game)}</h3>
+<div class="tournament-meta"><span>👥 ${users.map((u) => escapeHtml(u.username)).join(', ')}</span></div>
+</div>
+</div>
+`
 )
 .join('');
 }
@@ -2844,16 +2861,16 @@ voiceList.innerHTML = '<p class="empty-hint">Nenhuma sala de voz de jogo com gen
 voiceList.innerHTML = active
 .map(
 (r) => `
-      <div class="tournament-card">
-        <div class="tournament-info">
-          <h3>${channelIconPrefix(r.channel)}${escapeHtml(r.channel.name)}${r.channel.voice_game ? ' · 🎮 ' + escapeHtml(r.channel.voice_game) : ''}</h3>
-          <div class="tournament-meta"><span>👥 ${r.participants.map((p) => escapeHtml(p.username)).join(', ')}</span></div>
-        </div>
-        <div class="tournament-actions">
-          <button class="btn-games-join-voice" data-id="${r.channel.id}">Entrar</button>
-        </div>
-      </div>
-    `
+<div class="tournament-card">
+<div class="tournament-info">
+<h3>${channelIconPrefix(r.channel)}${escapeHtml(r.channel.name)}${r.channel.voice_game ? ' · 🎮 ' + escapeHtml(r.channel.voice_game) : ''}</h3>
+<div class="tournament-meta"><span>👥 ${r.participants.map((p) => escapeHtml(p.username)).join(', ')}</span></div>
+</div>
+<div class="tournament-actions">
+<button class="btn-games-join-voice" data-id="${r.channel.id}">Entrar</button>
+</div>
+</div>
+`
 )
 .join('');
 voiceList.querySelectorAll('.btn-games-join-voice').forEach((btn) => {
@@ -2887,27 +2904,27 @@ const channelsInServer = allChannels.filter((c) => c.category === activeServerCa
 list.innerHTML = bots
 .map(
 (bot) => `
-    <div class="tournament-card" style="${bot.ready ? '' : 'opacity:0.6;'}">
-      <div class="tournament-info">
-        <h3>🤖 ${escapeHtml(bot.name)} ${bot.ready ? '' : '<span class="hint">(em breve)</span>'}</h3>
-        <p class="hint">${escapeHtml(bot.description)}</p>
-        ${
-          bot.ready
-            ? `<select class="bot-channel-select" data-key="${bot.key}" ${bot.enabled ? '' : 'disabled'}>
-                <option value="">Canal padrão (#geral)</option>
-                ${channelsInServer.map((c) => `<option value="${c.id}" ${bot.config && bot.config.channel_id === c.id ? 'selected' : ''}>${channelIconPrefix(c)}${escapeHtml(c.name)}</option>`).join('')}
-              </select>`
-            : ''
-        }
-      </div>
-      <div class="tournament-actions">
-        <label class="checkbox-row">
-          <input type="checkbox" class="bot-enabled-toggle" data-key="${bot.key}" ${bot.enabled ? 'checked' : ''} ${bot.ready ? '' : 'disabled'} />
-          ${bot.enabled ? 'Ligado' : 'Desligado'}
-        </label>
-      </div>
-    </div>
-  `
+<div class="tournament-card" style="${bot.ready ? '' : 'opacity:0.6;'}">
+<div class="tournament-info">
+<h3>🤖 ${escapeHtml(bot.name)} ${bot.ready ? '' : '<span class="hint">(em breve)</span>'}</h3>
+<p class="hint">${escapeHtml(bot.description)}</p>
+${
+bot.ready
+? `<select class="bot-channel-select" data-key="${bot.key}" ${bot.enabled ? '' : 'disabled'}>
+<option value="">Canal padrão (#geral)</option>
+${channelsInServer.map((c) => `<option value="${c.id}" ${bot.config && bot.config.channel_id === c.id ? 'selected' : ''}>${channelIconPrefix(c)}${escapeHtml(c.name)}</option>`).join('')}
+</select>`
+: ''
+}
+</div>
+<div class="tournament-actions">
+<label class="checkbox-row">
+<input type="checkbox" class="bot-enabled-toggle" data-key="${bot.key}" ${bot.enabled ? 'checked' : ''} ${bot.ready ? '' : 'disabled'} />
+${bot.enabled ? 'Ligado' : 'Desligado'}
+</label>
+</div>
+</div>
+`
 )
 .join('');
 
@@ -2949,12 +2966,12 @@ if (!res.ok) { panel.classList.add('hidden'); return; }
 const s = await res.json();
 panel.classList.remove('hidden');
 grid.innerHTML = `
-    <span>👥 ${s.member_count} membro(s)</span>
-    <span># ${s.channel_count} canal(is)</span>
-    <span>💬 ${s.messages_7d} mensagens (7 dias)</span>
-    ${s.most_active_channel ? `<span>🔥 Canal mais ativo: ${escapeHtml(s.most_active_channel)}</span>` : ''}
-    ${s.top_games.length > 0 ? `<span>🎮 Jogos: ${s.top_games.map((g) => escapeHtml(g.voice_game)).join(', ')}</span>` : ''}
-  `;
+<span>👥 ${s.member_count} membro(s)</span>
+<span># ${s.channel_count} canal(is)</span>
+<span>💬 ${s.messages_7d} mensagens (7 dias)</span>
+${s.most_active_channel ? `<span>🔥 Canal mais ativo: ${escapeHtml(s.most_active_channel)}</span>` : ''}
+${s.top_games.length > 0 ? `<span>🎮 Jogos: ${s.top_games.map((g) => escapeHtml(g.voice_game)).join(', ')}</span>` : ''}
+`;
 }
 
 const modalRewards = document.getElementById('modal-rewards');
@@ -2975,12 +2992,12 @@ document.getElementById('btn-close-rewards').onclick = () => modalRewards.classL
 function showRewardsUnavailable() {
 document.getElementById('rewards-streak-summary').innerHTML = '';
 document.getElementById('rewards-catalog').innerHTML = `
-    <div class="rewards-unavailable">
-      <span class="ng-icon-wrap" data-icon="settings"></span>
-      <strong>Loja de recompensas temporariamente indisponível</strong>
-      <span>Estamos melhorando essa área — volta em breve.</span>
-    </div>
-  `;
+<div class="rewards-unavailable">
+<span class="ng-icon-wrap" data-icon="settings"></span>
+<strong>Loja de recompensas temporariamente indisponível</strong>
+<span>Estamos melhorando essa área — volta em breve.</span>
+</div>
+`;
 document.querySelectorAll('#rewards-catalog [data-icon]').forEach((el) => {
 el.innerHTML = icon(el.getAttribute('data-icon'));
 });
@@ -3012,12 +3029,12 @@ seal120: 'reward-seal-wide',
 function sealVisualHtml(reward) {
 if (reward.image) {
 return `
-      <div class="reward-seal-wrap ${SEAL_SHAPE_CLASS[reward.key] || 'reward-seal-wide'}">
-        <img src="${reward.image}" alt="${escapeHtml(reward.name)}" class="reward-seal-img" />
-        ${reward.hasName && reward.unlocked ? `<span class="reward-seal-name">${escapeHtml(me.username)}</span>` : ''}
-      </div>
-      ${!reward.hasName && reward.unlocked ? `<div class="reward-seal-caption">🏅 Selo de <strong>${escapeHtml(me.username)}</strong></div>` : ''}
-    `;
+<div class="reward-seal-wrap ${SEAL_SHAPE_CLASS[reward.key] || 'reward-seal-wide'}">
+<img src="${reward.image}" alt="${escapeHtml(reward.name)}" class="reward-seal-img" />
+${reward.hasName && reward.unlocked ? `<span class="reward-seal-name">${escapeHtml(me.username)}</span>` : ''}
+</div>
+${!reward.hasName && reward.unlocked ? `<div class="reward-seal-caption">🏅 Selo de <strong>${escapeHtml(me.username)}</strong></div>` : ''}
+`;
 }
 const previewFrameClass = reward.unlocked && reward.frame ? 'avatar-frame-' + reward.frame : '';
 return `<div class="reward-frame-preview member-avatar-lg ${previewFrameClass}">${renderAvatarHtml(me)}</div>`;
@@ -3036,24 +3053,24 @@ celebrateNewRewards(data, me.id);
 
 const nextStreakGoal = data.rewards.find((r) => r.type === 'streak' && !r.unlocked);
 summaryEl.innerHTML = `
-    <div class="streak-summary-row">
-      <div class="streak-flame-box">
-        <span class="streak-flame">🔥</span>
-        <div>
-          <div class="streak-count">${data.streak} ${data.streak === 1 ? 'dia' : 'dias'} seguidos</div>
-          <div class="streak-best">Recorde: ${data.longest_streak} ${data.longest_streak === 1 ? 'dia' : 'dias'}</div>
-        </div>
-      </div>
-      ${
-        nextStreakGoal
-          ? `<div class="streak-next-goal">
-               <div class="streak-next-label">Próxima recompensa: ${escapeHtml(nextStreakGoal.name)} (${nextStreakGoal.days} dias)</div>
-               <div class="streak-progress-bar"><div class="streak-progress-fill" style="width:${Math.min(100, (data.streak / nextStreakGoal.days) * 100)}%"></div></div>
-             </div>`
-          : `<div class="streak-next-goal"><div class="streak-next-label">🎉 Você desbloqueou todas as recompensas de streak!</div></div>`
-      }
-    </div>
-  `;
+<div class="streak-summary-row">
+<div class="streak-flame-box">
+<span class="streak-flame">🔥</span>
+<div>
+<div class="streak-count">${data.streak} ${data.streak === 1 ? 'dia' : 'dias'} seguidos</div>
+<div class="streak-best">Recorde: ${data.longest_streak} ${data.longest_streak === 1 ? 'dia' : 'dias'}</div>
+</div>
+</div>
+${
+nextStreakGoal
+? `<div class="streak-next-goal">
+<div class="streak-next-label">Próxima recompensa: ${escapeHtml(nextStreakGoal.name)} (${nextStreakGoal.days} dias)</div>
+<div class="streak-progress-bar"><div class="streak-progress-fill" style="width:${Math.min(100, (data.streak / nextStreakGoal.days) * 100)}%"></div></div>
+</div>`
+: `<div class="streak-next-goal"><div class="streak-next-label">🎉 Você desbloqueou todas as recompensas de streak!</div></div>`
+}
+</div>
+`;
 
 data.rewards.forEach((r) => {
 const isBigSeal = !!r.image || r.key === 'founder-eternal';
@@ -3073,18 +3090,18 @@ const slotsBrag = r.slots
 ? `<div class="reward-slots-brag">🏅 Você é 1 de ${r.slots.total} pessoas com esse selo no mundo!</div>`
 : '';
 actionsHtml = `
-        ${slotsBrag}
-        <div class="reward-actions">
-          <button type="button" class="reward-equip-btn" ${isEquipped ? 'disabled' : ''}>
-            ${isEquipped ? '✅ Equipada' : 'Equipar moldura'}
-          </button>
-        </div>
-        <div class="reward-verify">
-          <span class="reward-code">${escapeHtml(r.verification_code)}</span>
-          <button type="button" class="reward-copy-btn" title="Copiar código">📋</button>
-          <button type="button" class="reward-verify-btn" title="Verificar publicamente">🔎 Verificar</button>
-        </div>
-      `;
+${slotsBrag}
+<div class="reward-actions">
+<button type="button" class="reward-equip-btn" ${isEquipped ? 'disabled' : ''}>
+${isEquipped ? '✅ Equipada' : 'Equipar moldura'}
+</button>
+</div>
+<div class="reward-verify">
+<span class="reward-code">${escapeHtml(r.verification_code)}</span>
+<button type="button" class="reward-copy-btn" title="Copiar código">📋</button>
+<button type="button" class="reward-verify-btn" title="Verificar publicamente">🔎 Verificar</button>
+</div>
+`;
 } else {
 const daysHint = r.type === 'streak' ? `${progress}/${r.days} dias de acesso seguido` : 'Ainda não desbloqueado';
 const slotsHint = r.slots ? ` · ${r.slots.taken}/${r.slots.total} vagas preenchidas` : '';
@@ -3092,14 +3109,14 @@ actionsHtml = `<div class="reward-locked-hint">🔒 ${daysHint}${slotsHint}</div
 }
 
 card.innerHTML = `
-      ${r.rare && !isBigSeal ? `<img src="/assets/logo.png" alt="" class="reward-rare-logo" />` : ''}
-      <div class="reward-icon-wrap">${sealVisualHtml(r)}</div>
-      <div class="reward-info">
-        <h3>${r.rare ? '<img src="/assets/kenney-icons/star.png" class="reward-rare-star" alt="raro" /> ' : ''}${escapeHtml(r.name)}</h3>
-        <p>${escapeHtml(r.description)}</p>
-        ${actionsHtml}
-      </div>
-    `;
+${r.rare && !isBigSeal ? `<img src="/assets/logo.png" alt="" class="reward-rare-logo" />` : ''}
+<div class="reward-icon-wrap">${sealVisualHtml(r)}</div>
+<div class="reward-info">
+<h3>${r.rare ? '<img src="/assets/kenney-icons/star.png" class="reward-rare-star" alt="raro" /> ' : ''}${escapeHtml(r.name)}</h3>
+<p>${escapeHtml(r.description)}</p>
+${actionsHtml}
+</div>
+`;
 
 if (r.unlocked) {
 card.querySelector('.reward-equip-btn').onclick = async () => {
@@ -3149,13 +3166,13 @@ resultEl.innerHTML = `<div class="verify-invalid">❌ Código não encontrado ou
 return;
 }
 resultEl.innerHTML = `
-      <div class="verify-valid">
-        <img src="/assets/logo.png" alt="" class="verify-logo" />
-        ✅ Selo autêntico<br />
-        <strong>${escapeHtml(data.username)}</strong> — ${escapeHtml(data.reward_name)}<br />
-        <span class="hint">Desbloqueado em ${new Date(data.unlocked_at).toLocaleString('pt-BR')}</span>
-      </div>
-    `;
+<div class="verify-valid">
+<img src="/assets/logo.png" alt="" class="verify-logo" />
+✅ Selo autêntico<br />
+<strong>${escapeHtml(data.username)}</strong> — ${escapeHtml(data.reward_name)}<br />
+<span class="hint">Desbloqueado em ${new Date(data.unlocked_at).toLocaleString('pt-BR')}</span>
+</div>
+`;
 } catch (_) {
 resultEl.innerHTML = `<div class="verify-invalid">Erro ao verificar. Tente de novo.</div>`;
 }
@@ -3184,35 +3201,35 @@ const data = await res.json();
 missionsCache = data;
 
 summaryEl.innerHTML = `
-    <div class="missions-points-box">
-      <span class="missions-points-icon">🧠</span>
-      <div>
-        <div class="missions-points-total">${data.points} pontos</div>
-        <div class="missions-points-hint">Ganhos respondendo os quizzes certinho</div>
-      </div>
-    </div>
-  `;
+<div class="missions-points-box">
+<span class="missions-points-icon">🧠</span>
+<div>
+<div class="missions-points-total">${data.points} pontos</div>
+<div class="missions-points-hint">Ganhos respondendo os quizzes certinho</div>
+</div>
+</div>
+`;
 
 data.missions.forEach((m) => {
 const card = document.createElement('div');
 card.className =
 'mission-card' + (m.completed ? ' mission-card-done' : !m.available ? ' mission-card-locked' : '');
 card.innerHTML = `
-      <div class="mission-info">
-        <h3>${m.completed ? '✅' : m.available ? '🎯' : '🔒'} ${escapeHtml(m.name)}</h3>
-        <p>${escapeHtml(m.description)}</p>
-        <span class="mission-points-tag">+${m.points} pontos</span>
-      </div>
-      <div class="mission-action">
-        ${
-          m.completed
-            ? `<span class="mission-done-tag">Concluída</span>`
-            : m.available
-              ? `<button type="button" class="mission-start-btn">Responder quiz</button>`
-              : `<span class="mission-locked-tag">${m.unlockDays} dias de sequência</span>`
-        }
-      </div>
-    `;
+<div class="mission-info">
+<h3>${m.completed ? '✅' : m.available ? '🎯' : '🔒'} ${escapeHtml(m.name)}</h3>
+<p>${escapeHtml(m.description)}</p>
+<span class="mission-points-tag">+${m.points} pontos</span>
+</div>
+<div class="mission-action">
+${
+m.completed
+? `<span class="mission-done-tag">Concluída</span>`
+: m.available
+? `<button type="button" class="mission-start-btn">Responder quiz</button>`
+: `<span class="mission-locked-tag">${m.unlockDays} dias de sequência</span>`
+}
+</div>
+`;
 if (m.available && !m.completed) {
 card.querySelector('.mission-start-btn').onclick = () => openQuiz(m);
 }
@@ -3228,22 +3245,22 @@ document.getElementById('quiz-result').innerHTML = '';
 container.innerHTML = mission.questions
 .map(
 (q, qi) => `
-    <div class="quiz-question">
-      <p class="quiz-question-text">${qi + 1}. ${escapeHtml(q.q)}</p>
-      <div class="quiz-options">
-        ${q.options
-          .map(
-            (opt, oi) => `
-          <label class="quiz-option">
-            <input type="radio" name="quiz-q${qi}" value="${oi}" required />
-            <span>${escapeHtml(opt)}</span>
-          </label>
-        `
-          )
-          .join('')}
-      </div>
-    </div>
-  `
+<div class="quiz-question">
+<p class="quiz-question-text">${qi + 1}. ${escapeHtml(q.q)}</p>
+<div class="quiz-options">
+${q.options
+.map(
+(opt, oi) => `
+<label class="quiz-option">
+<input type="radio" name="quiz-q${qi}" value="${oi}" required />
+<span>${escapeHtml(opt)}</span>
+</label>
+`
+)
+.join('')}
+</div>
+</div>
+`
 )
 .join('');
 modalMissions.classList.add('hidden');
@@ -3432,21 +3449,21 @@ row.dataset.searchName = c.other_user.username.toLowerCase();
 row.classList.toggle('friend-row-active', currentChannel && currentChannel.id === c.channel_id);
 row.classList.toggle('friend-row-unread', c.unread_count > 0);
 row.innerHTML = `
-      <div class="member-avatar-wrap">
-        <div class="member-avatar ${avatarFrameClass(c.other_user)}">${renderAvatarHtml(c.other_user)}</div>
-        <span class="member-status-dot" style="${isOnline ? '' : 'background:#6d7178;'}"></span>
-      </div>
-      <span class="friend-name" style="flex:1; min-width:0;">
-        <strong style="${c.unread_count > 0 ? 'color:#fff;' : ''}">${escapeHtml(c.other_user.username)}</strong><span class="user-tag-inline">${escapeHtml(userTag(c.other_user))}</span>
-        ${c.is_pending_for_me ? '<span class="dm-pending-tag">Pedido de mensagem</span>' : ''}
-        <span class="friend-status" style="display:block; ${c.unread_count > 0 ? 'color:#dbdee1; font-weight:600;' : ''}">${preview}</span>
-        <span class="hint" style="font-size:11px;">${when}</span>
-      </span>
-      <div class="friend-actions">
-        ${c.unread_count > 0 ? `<span class="navbar-badge" style="position:static;">${c.unread_count > 99 ? '99+' : c.unread_count}</span>` : ''}
-        <button type="button" class="dm-hide-btn" title="Ocultar conversa">🗑️</button>
-      </div>
-    `;
+<div class="member-avatar-wrap">
+<div class="member-avatar ${avatarFrameClass(c.other_user)}">${renderAvatarHtml(c.other_user)}</div>
+<span class="member-status-dot" style="${isOnline ? '' : 'background:#6d7178;'}"></span>
+</div>
+<span class="friend-name" style="flex:1; min-width:0;">
+<strong style="${c.unread_count > 0 ? 'color:#fff;' : ''}">${escapeHtml(c.other_user.username)}</strong><span class="user-tag-inline">${escapeHtml(userTag(c.other_user))}</span>
+${c.is_pending_for_me ? '<span class="dm-pending-tag">Pedido de mensagem</span>' : ''}
+<span class="friend-status" style="display:block; ${c.unread_count > 0 ? 'color:#dbdee1; font-weight:600;' : ''}">${preview}</span>
+<span class="hint" style="font-size:11px;">${when}</span>
+</span>
+<div class="friend-actions">
+${c.unread_count > 0 ? `<span class="navbar-badge" style="position:static;">${c.unread_count > 99 ? '99+' : c.unread_count}</span>` : ''}
+<button type="button" class="dm-hide-btn" title="Ocultar conversa">🗑️</button>
+</div>
+`;
 row.querySelector('.friend-name').onclick = () => openDmText(c.other_user.id, c.other_user.username);
 row.querySelector('.friend-name').style.cursor = 'pointer';
 row.querySelector('.dm-hide-btn').onclick = async (e) => {
@@ -3489,13 +3506,13 @@ data.incoming.forEach((f) => {
 const row = document.createElement('div');
 row.className = 'friend-row';
 row.innerHTML = `
-      <div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
-      <span class="friend-name">${escapeHtml(f.user.username)}<span class="user-tag-inline">${escapeHtml(userTag(f.user))}</span></span>
-      <div class="friend-actions">
-        <button type="button" class="friend-accept-btn" title="Aceitar">✅</button>
-        <button type="button" class="friend-decline-btn" title="Recusar">❌</button>
-      </div>
-    `;
+<div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
+<span class="friend-name">${escapeHtml(f.user.username)}<span class="user-tag-inline">${escapeHtml(userTag(f.user))}</span></span>
+<div class="friend-actions">
+<button type="button" class="friend-accept-btn" title="Aceitar">✅</button>
+<button type="button" class="friend-decline-btn" title="Recusar">❌</button>
+</div>
+`;
 row.querySelector('.friend-accept-btn').onclick = async () => {
 await fetch(`/api/friends/${f.friendship_id}/accept`, { method: 'POST', credentials: 'include' });
 SFX.streakUp();
@@ -3516,13 +3533,13 @@ data.outgoing.forEach((f) => {
 const row = document.createElement('div');
 row.className = 'friend-row';
 row.innerHTML = `
-      <div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
-      <span class="friend-name">${escapeHtml(f.user.username)}<span class="user-tag-inline">${escapeHtml(userTag(f.user))}</span></span>
-      <div class="friend-actions">
-        <span class="friend-pending-tag">Aguardando...</span>
-        <button type="button" class="friend-cancel-btn" title="Cancelar pedido">✖</button>
-      </div>
-    `;
+<div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
+<span class="friend-name">${escapeHtml(f.user.username)}<span class="user-tag-inline">${escapeHtml(userTag(f.user))}</span></span>
+<div class="friend-actions">
+<span class="friend-pending-tag">Aguardando...</span>
+<button type="button" class="friend-cancel-btn" title="Cancelar pedido">✖</button>
+</div>
+`;
 row.querySelector('.friend-cancel-btn').onclick = async () => {
 await fetch(`/api/friends/${f.friendship_id}`, { method: 'DELETE', credentials: 'include' });
 loadFriends();
@@ -3536,12 +3553,12 @@ friendsList.innerHTML = '';
 const aiRow = document.createElement('div');
 aiRow.className = 'friend-row';
 aiRow.innerHTML = `
-    <div class="member-avatar"><span>🤖</span></div>
-    <span class="friend-name">NEXT GAME IA <span class="friend-status">Assistente</span></span>
-    <div class="friend-actions">
-      <button type="button" class="friend-message-btn" title="Conversar">💬</button>
-    </div>
-  `;
+<div class="member-avatar"><span>🤖</span></div>
+<span class="friend-name">NEXT GAME IA <span class="friend-status">Assistente</span></span>
+<div class="friend-actions">
+<button type="button" class="friend-message-btn" title="Conversar">💬</button>
+</div>
+`;
 aiRow.querySelector('.friend-message-btn').onclick = () => openDmText(AI_BOT_USER_ID, 'NEXT GAME IA');
 friendsList.appendChild(aiRow);
 
@@ -3558,17 +3575,17 @@ const isOnline = onlineUserIds.has(f.user.id);
 row.dataset.online = isOnline ? '1' : '0';
 row.dataset.searchName = f.user.username.toLowerCase();
 row.innerHTML = `
-      <div class="member-avatar-wrap">
-        <div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
-        <span class="member-status-dot" style="${isOnline ? '' : 'background:#6d7178;'}"></span>
-      </div>
-      <span class="friend-name">${escapeHtml(f.user.username)}<span class="user-tag-inline">${escapeHtml(userTag(f.user))}</span>${f.user.status_message ? ` <span class="friend-status">🎮 ${escapeHtml(f.user.status_message)}</span>` : ''}</span>
-      <div class="friend-actions">
-        <button type="button" class="friend-message-btn" title="Conversar">💬</button>
-        <button type="button" class="friend-call-btn" title="Ligar">📞</button>
-        <button type="button" class="friend-remove-btn" title="Desfazer amizade">🗑️</button>
-      </div>
-    `;
+<div class="member-avatar-wrap">
+<div class="member-avatar ${avatarFrameClass(f.user)}">${renderAvatarHtml(f.user)}</div>
+<span class="member-status-dot" style="${isOnline ? '' : 'background:#6d7178;'}"></span>
+</div>
+<span class="friend-name">${escapeHtml(f.user.username)}<span class="user-tag-inline">${escapeHtml(userTag(f.user))}</span>${f.user.status_message ? ` <span class="friend-status">🎮 ${escapeHtml(f.user.status_message)}</span>` : ''}</span>
+<div class="friend-actions">
+<button type="button" class="friend-message-btn" title="Conversar">💬</button>
+<button type="button" class="friend-call-btn" title="Ligar">📞</button>
+<button type="button" class="friend-remove-btn" title="Desfazer amizade">🗑️</button>
+</div>
+`;
 row.querySelector('.friend-message-btn').onclick = () => openDmText(f.user.id, f.user.username);
 row.querySelector('.friend-call-btn').onclick = () => openDmCall(f.user.id, f.user.username);
 row.querySelector('.friend-remove-btn').onclick = async () => {
@@ -3646,12 +3663,12 @@ function showCallToast(fromUsername, channelId) {
 const toast = document.createElement('div');
 toast.className = 'reward-toast reward-toast-rare';
 toast.innerHTML = `
-    <span class="reward-toast-icon">📞</span>
-    <div class="reward-toast-text">
-      <strong>${escapeHtml(fromUsername)} está te ligando</strong>
-      <span>Clique aqui pra atender</span>
-    </div>
-  `;
+<span class="reward-toast-icon">📞</span>
+<div class="reward-toast-text">
+<strong>${escapeHtml(fromUsername)} está te ligando</strong>
+<span>Clique aqui pra atender</span>
+</div>
+`;
 toast.style.cursor = 'pointer';
 toast.onclick = () => {
 toast.remove();
@@ -3669,12 +3686,12 @@ function showMessageToast(fromUsername, channelId, preview) {
 const toast = document.createElement('div');
 toast.className = 'reward-toast';
 toast.innerHTML = `
-    <span class="reward-toast-icon">💬</span>
-    <div class="reward-toast-text">
-      <strong>${escapeHtml(fromUsername)}</strong>
-      <span>${escapeHtml(preview)}</span>
-    </div>
-  `;
+<span class="reward-toast-icon">💬</span>
+<div class="reward-toast-text">
+<strong>${escapeHtml(fromUsername)}</strong>
+<span>${escapeHtml(preview)}</span>
+</div>
+`;
 toast.style.cursor = 'pointer';
 toast.onclick = () => {
 toast.remove();
@@ -4151,11 +4168,11 @@ return;
 listEl.innerHTML = roles
 .map(
 (r) => `
-    <label class="checkbox-row">
-      <input type="checkbox" value="${r.id}" ${allowedIds.has(r.id) ? 'checked' : ''} />
-      <span style="color:${escapeHtml(r.color || '#99aab5')};">●</span> ${escapeHtml(r.name)}
-    </label>
-  `
+<label class="checkbox-row">
+<input type="checkbox" value="${r.id}" ${allowedIds.has(r.id) ? 'checked' : ''} />
+<span style="color:${escapeHtml(r.color || '#99aab5')};">●</span> ${escapeHtml(r.name)}
+</label>
+`
 )
 .join('');
 }
@@ -4257,27 +4274,27 @@ const games = await gamesRes.json();
 if (!profileRes.ok) return;
 
 document.getElementById('profile-stats-row').innerHTML = `
-    <div class="profile-stat"><span class="profile-stat-num">${profile.level}</span><span class="profile-stat-label">Nível</span></div>
-    <div class="profile-stat"><span class="profile-stat-num">${profile.points}</span><span class="profile-stat-label">XP</span></div>
-    <div class="profile-stat"><span class="profile-stat-num">${profile.tournament_wins}</span><span class="profile-stat-label">🏆 Troféus</span></div>
-    <div class="profile-stat"><span class="profile-stat-num">${profile.badge_count}</span><span class="profile-stat-label">🎖️ Conquistas</span></div>
-  `;
+<div class="profile-stat"><span class="profile-stat-num">${profile.level}</span><span class="profile-stat-label">Nível</span></div>
+<div class="profile-stat"><span class="profile-stat-num">${profile.points}</span><span class="profile-stat-label">XP</span></div>
+<div class="profile-stat"><span class="profile-stat-num">${profile.tournament_wins}</span><span class="profile-stat-label">🏆 Troféus</span></div>
+<div class="profile-stat"><span class="profile-stat-num">${profile.badge_count}</span><span class="profile-stat-label">🎖️ Conquistas</span></div>
+`;
 
 const memberSince = new Date(profile.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 document.getElementById('profile-tab-geral').innerHTML = `
-    ${profile.bio ? `<p style="color:#dbdee1; font-size:13px;">${escapeHtml(profile.bio)}</p>` : '<p class="empty-hint">Sem bio ainda.</p>'}
-    <p class="hint">📍 ${profile.country ? escapeHtml(profile.country) : 'País não informado'} · Membro desde ${memberSince}</p>
-    ${profile.favorite_games.length ? `<p class="hint">🎮 Jogos favoritos: ${profile.favorite_games.map(escapeHtml).join(', ')}</p>` : ''}
-  `;
+${profile.bio ? `<p style="color:#dbdee1; font-size:13px;">${escapeHtml(profile.bio)}</p>` : '<p class="empty-hint">Sem bio ainda.</p>'}
+<p class="hint">📍 ${profile.country ? escapeHtml(profile.country) : 'País não informado'} · Membro desde ${memberSince}</p>
+${profile.favorite_games.length ? `<p class="hint">🎮 Jogos favoritos: ${profile.favorite_games.map(escapeHtml).join(', ')}</p>` : ''}
+`;
 
 document.getElementById('profile-tab-estatisticas').innerHTML = `
-    <div class="profile-stats-row" style="margin-bottom:0;">
-      <div class="profile-stat"><span class="profile-stat-num">${profile.message_count}</span><span class="profile-stat-label">Mensagens</span></div>
-      <div class="profile-stat"><span class="profile-stat-num">${profile.login_streak || 0}</span><span class="profile-stat-label">Sequência</span></div>
-      <div class="profile-stat"><span class="profile-stat-num">${profile.longest_streak || 0}</span><span class="profile-stat-label">Recorde</span></div>
-      <div class="profile-stat"><span class="profile-stat-num">${profile.reputation || 0}</span><span class="profile-stat-label">👍 Reputação</span></div>
-    </div>
-  `;
+<div class="profile-stats-row" style="margin-bottom:0;">
+<div class="profile-stat"><span class="profile-stat-num">${profile.message_count}</span><span class="profile-stat-label">Mensagens</span></div>
+<div class="profile-stat"><span class="profile-stat-num">${profile.login_streak || 0}</span><span class="profile-stat-label">Sequência</span></div>
+<div class="profile-stat"><span class="profile-stat-num">${profile.longest_streak || 0}</span><span class="profile-stat-label">Recorde</span></div>
+<div class="profile-stat"><span class="profile-stat-num">${profile.reputation || 0}</span><span class="profile-stat-label">👍 Reputação</span></div>
+</div>
+`;
 
 const gamesTab = document.getElementById('profile-tab-jogos');
 if (games.length === 0) {
@@ -4286,12 +4303,12 @@ gamesTab.innerHTML = '<p class="empty-hint">Nenhum perfil de jogo cadastrado ain
 gamesTab.innerHTML = games
 .map(
 (g) => `
-      <div class="settings-row">
-        <div class="settings-row-info">
-          <span class="settings-row-title">🎮 ${escapeHtml(g.game)} ${g.rank ? '— ' + escapeHtml(g.rank) : ''}</span>
-          <span class="settings-row-meta">${g.role ? escapeHtml(g.role) + ' · ' : ''}${g.hours}h · ${g.wins}V/${g.losses}D</span>
-        </div>
-      </div>`
+<div class="settings-row">
+<div class="settings-row-info">
+<span class="settings-row-title">🎮 ${escapeHtml(g.game)} ${g.rank ? '— ' + escapeHtml(g.rank) : ''}</span>
+<span class="settings-row-meta">${g.role ? escapeHtml(g.role) + ' · ' : ''}${g.hours}h · ${g.wins}V/${g.losses}D</span>
+</div>
+</div>`
 )
 .join('');
 }
@@ -4764,12 +4781,12 @@ const row = document.createElement('div');
 row.className = 'settings-row';
 const when = new Date(s.last_seen_at).toLocaleString('pt-BR');
 row.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">${escapeHtml((s.user_agent || 'Dispositivo desconhecido').slice(0, 60))}</span>
-        <span class="settings-row-meta">Visto por último: ${when}${s.is_current ? ' — este dispositivo' : ''}</span>
-      </div>
-      ${s.is_current ? '<span class="settings-row-badge">ATUAL</span>' : '<button type="button" class="session-revoke-btn">Encerrar</button>'}
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">${escapeHtml((s.user_agent || 'Dispositivo desconhecido').slice(0, 60))}</span>
+<span class="settings-row-meta">Visto por último: ${when}${s.is_current ? ' — este dispositivo' : ''}</span>
+</div>
+${s.is_current ? '<span class="settings-row-badge">ATUAL</span>' : '<button type="button" class="session-revoke-btn">Encerrar</button>'}
+`;
 const revokeBtn = row.querySelector('.session-revoke-btn');
 if (revokeBtn) {
 revokeBtn.onclick = async () => {
@@ -4894,11 +4911,11 @@ rows.forEach((u) => {
 const row = document.createElement('div');
 row.className = 'settings-row';
 row.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">${escapeHtml(u.username)}</span>
-      </div>
-      <button type="button" class="unblock-btn">Desbloquear</button>
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">${escapeHtml(u.username)}</span>
+</div>
+<button type="button" class="unblock-btn">Desbloquear</button>
+`;
 row.querySelector('.unblock-btn').onclick = async () => {
 await fetch(`/api/blocked-users/${u.id}`, { method: 'DELETE', credentials: 'include' });
 loadBlockedUsers();
@@ -4930,14 +4947,14 @@ Object.keys(NOTIFICATION_PREF_LABELS).forEach((key) => {
 const row = document.createElement('div');
 row.className = 'settings-row';
 row.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">${NOTIFICATION_PREF_LABELS[key]}</span>
-      </div>
-      <label class="toggle-switch">
-        <input type="checkbox" ${prefs[key] ? 'checked' : ''} />
-        <span class="toggle-switch-track"></span>
-      </label>
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">${NOTIFICATION_PREF_LABELS[key]}</span>
+</div>
+<label class="toggle-switch">
+<input type="checkbox" ${prefs[key] ? 'checked' : ''} />
+<span class="toggle-switch-track"></span>
+</label>
+`;
 row.querySelector('input').onchange = async (e) => {
 const updated = { ...prefs, [key]: e.target.checked };
 await fetch('/api/notification-prefs', {
@@ -4968,12 +4985,12 @@ const row = document.createElement('div');
 row.className = 'settings-row';
 const when = new Date(m.created_at).toLocaleString('pt-BR');
 row.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">${escapeHtml(m.username)}</span>
-        <span class="settings-row-meta">${escapeHtml(m.content).slice(0, 140)}</span>
-        <span class="settings-row-meta">${when}</span>
-      </div>
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">${escapeHtml(m.username)}</span>
+<span class="settings-row-meta">${escapeHtml(m.content).slice(0, 140)}</span>
+<span class="settings-row-meta">${when}</span>
+</div>
+`;
 listEl.appendChild(row);
 });
 }
@@ -5288,12 +5305,12 @@ const row = document.createElement('div');
 row.className = 'settings-row';
 const when = new Date(m.created_at).toLocaleString('pt-BR');
 row.innerHTML = `
-        <div class="settings-row-info">
-          <span class="settings-row-title">${escapeHtml(m.username)}</span>
-          <span class="settings-row-meta">${escapeHtml(m.content).slice(0, 140)}</span>
-          <span class="settings-row-meta">${when}</span>
-        </div>
-      `;
+<div class="settings-row-info">
+<span class="settings-row-title">${escapeHtml(m.username)}</span>
+<span class="settings-row-meta">${escapeHtml(m.content).slice(0, 140)}</span>
+<span class="settings-row-meta">${when}</span>
+</div>
+`;
 resultsEl.appendChild(row);
 });
 }, 300);
@@ -5421,8 +5438,8 @@ participants.forEach((p) => {
 const chip = document.createElement('div');
 chip.className = 'voice-preview-participant';
 chip.innerHTML = `<span class="participant-avatar">${escapeHtml(
-        (p.username || '?')[0].toUpperCase()
-      )}</span>${escapeHtml(p.username)}`;
+(p.username || '?')[0].toUpperCase()
+)}</span>${escapeHtml(p.username)}`;
 listEl.appendChild(chip);
 });
 }
@@ -5545,14 +5562,14 @@ servers.forEach((s) => {
 const card = document.createElement('div');
 card.className = 'explore-card';
 card.innerHTML = `
-      <div class="explore-card-icon">${s.icon && (s.icon.startsWith('/') || s.icon.startsWith('data:')) ? `<img src="${escapeHtml(s.icon)}" alt="" class="server-icon-logo-img" />` : escapeHtml(s.icon || serverInitials(s.category))}</div>
-      <div class="explore-card-info">
-        <strong>${escapeHtml(s.category)}${s.is_official ? ' <span class="verified-badge" title="Servidor oficial NEXT GAME">' + icon('badge-check') + '</span>' : ''}</strong>
-        <p>${s.description ? escapeHtml(s.description) : 'Sem descrição ainda.'}</p>
-        <span class="explore-card-meta"># ${s.text_channels} texto · 🔊 ${s.voice_channels} voz · 👥 ${s.member_count} membros</span>
-      </div>
-      <button type="button" class="home-btn-primary explore-card-btn">${s.is_member ? 'Acessar' : 'Entrar'}</button>
-    `;
+<div class="explore-card-icon">${s.icon && (s.icon.startsWith('/') || s.icon.startsWith('data:')) ? `<img src="${escapeHtml(s.icon)}" alt="" class="server-icon-logo-img" />` : escapeHtml(s.icon || serverInitials(s.category))}</div>
+<div class="explore-card-info">
+<strong>${escapeHtml(s.category)}${s.is_official ? ' <span class="verified-badge" title="Servidor oficial NEXT GAME">' + icon('badge-check') + '</span>' : ''}</strong>
+<p>${s.description ? escapeHtml(s.description) : 'Sem descrição ainda.'}</p>
+<span class="explore-card-meta"># ${s.text_channels} texto · 🔊 ${s.voice_channels} voz · 👥 ${s.member_count} membros</span>
+</div>
+<button type="button" class="home-btn-primary explore-card-btn">${s.is_member ? 'Acessar' : 'Entrar'}</button>
+`;
 card.querySelector('.explore-card-btn').onclick = async () => {
 if (!s.is_member) {
 const r = await fetch(`/api/servers/discover/${encodeURIComponent(s.category)}/join`, {
@@ -5616,13 +5633,13 @@ const card = document.createElement('div');
 card.className = 'settings-row';
 const authorName = p.author ? p.author.username : '?';
 card.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">🎮 ${escapeHtml(p.game)} — ${p.players_needed} jogador(es) · <span style="color:#23a55a;">${p.compatibility}% compatível</span></span>
-        <span class="settings-row-meta">Por ${escapeHtml(authorName)} ${p.region ? '· região ' + escapeHtml(p.region) : ''} ${p.language ? '· ' + escapeHtml(p.language) : ''} ${p.role ? '· função ' + escapeHtml(p.role) : ''} · mic ${p.mic_required} · ${p.member_count} no grupo</span>
-        ${p.note ? `<span class="settings-row-meta">"${escapeHtml(p.note)}"</span>` : ''}
-      </div>
-      ${p.user_id !== me.id ? '<button type="button" class="lfg-join-btn">Entrar</button>' : '<button type="button" class="lfg-close-btn">Fechar post</button>'}
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">🎮 ${escapeHtml(p.game)} — ${p.players_needed} jogador(es) · <span style="color:#23a55a;">${p.compatibility}% compatível</span></span>
+<span class="settings-row-meta">Por ${escapeHtml(authorName)} ${p.region ? '· região ' + escapeHtml(p.region) : ''} ${p.language ? '· ' + escapeHtml(p.language) : ''} ${p.role ? '· função ' + escapeHtml(p.role) : ''} · mic ${p.mic_required} · ${p.member_count} no grupo</span>
+${p.note ? `<span class="settings-row-meta">"${escapeHtml(p.note)}"</span>` : ''}
+</div>
+${p.user_id !== me.id ? '<button type="button" class="lfg-join-btn">Entrar</button>' : '<button type="button" class="lfg-close-btn">Fechar post</button>'}
+`;
 const joinBtn = card.querySelector('.lfg-join-btn');
 if (joinBtn) {
 joinBtn.onclick = async () => {
@@ -5689,12 +5706,12 @@ rows.forEach((p) => {
 const row = document.createElement('div');
 row.className = 'settings-row';
 row.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">🎮 ${escapeHtml(p.game)} ${p.rank ? '— ' + escapeHtml(p.rank) : ''}</span>
-        <span class="settings-row-meta">${p.role ? escapeHtml(p.role) + ' · ' : ''}${p.hours}h · ${p.wins}V/${p.losses}D</span>
-      </div>
-      <button type="button" class="gp-delete-btn">Remover</button>
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">🎮 ${escapeHtml(p.game)} ${p.rank ? '— ' + escapeHtml(p.rank) : ''}</span>
+<span class="settings-row-meta">${p.role ? escapeHtml(p.role) + ' · ' : ''}${p.hours}h · ${p.wins}V/${p.losses}D</span>
+</div>
+<button type="button" class="gp-delete-btn">Remover</button>
+`;
 row.querySelector('.gp-delete-btn').onclick = async () => {
 await fetch(`/api/me/game-profiles/${encodeURIComponent(p.game)}`, { method: 'DELETE', credentials: 'include' });
 loadGameProfiles();
@@ -5737,12 +5754,12 @@ rows.forEach((t) => {
 const row = document.createElement('div');
 row.className = 'settings-row';
 row.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">🛡️ ${escapeHtml(t.name)} ${t.game ? '— ' + escapeHtml(t.game) : ''}</span>
-        <span class="settings-row-meta">Seu cargo: ${escapeHtml(t.my_role)}</span>
-      </div>
-      ${t.my_role === 'lider' ? '<button type="button" class="team-invite-btn">Convidar</button>' : ''}
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">🛡️ ${escapeHtml(t.name)} ${t.game ? '— ' + escapeHtml(t.game) : ''}</span>
+<span class="settings-row-meta">Seu cargo: ${escapeHtml(t.my_role)}</span>
+</div>
+${t.my_role === 'lider' ? '<button type="button" class="team-invite-btn">Convidar</button>' : ''}
+`;
 const inviteBtn = row.querySelector('.team-invite-btn');
 if (inviteBtn) {
 inviteBtn.onclick = async () => {
@@ -5806,12 +5823,12 @@ const row = document.createElement('div');
 row.className = 'settings-row';
 const isMember = mineIds.has(c.id);
 row.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">⚔️ ${escapeHtml(c.name)} — nível ${c.level}</span>
-        <span class="settings-row-meta">${c.member_count} membro(s)${c.description ? ' · ' + escapeHtml(c.description) : ''}</span>
-      </div>
-      ${isMember ? '<span class="settings-row-badge">MEMBRO</span>' : '<button type="button" class="clan-join-btn">Entrar</button>'}
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">⚔️ ${escapeHtml(c.name)} — nível ${c.level}</span>
+<span class="settings-row-meta">${c.member_count} membro(s)${c.description ? ' · ' + escapeHtml(c.description) : ''}</span>
+</div>
+${isMember ? '<span class="settings-row-badge">MEMBRO</span>' : '<button type="button" class="clan-join-btn">Entrar</button>'}
+`;
 const joinBtn = row.querySelector('.clan-join-btn');
 if (joinBtn) {
 joinBtn.onclick = async () => {
@@ -5859,11 +5876,11 @@ orgs.forEach((o) => {
 const row = document.createElement('div');
 row.className = 'settings-row';
 row.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">🏢 ${escapeHtml(o.name)}</span>
-        <span class="settings-row-meta">${o.description ? escapeHtml(o.description) : 'Organização de esports'}</span>
-      </div>
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">🏢 ${escapeHtml(o.name)}</span>
+<span class="settings-row-meta">${o.description ? escapeHtml(o.description) : 'Organização de esports'}</span>
+</div>
+`;
 listEl.appendChild(row);
 });
 }
@@ -5915,13 +5932,13 @@ const row = document.createElement('div');
 row.className = 'settings-row';
 const rating = p.avg_rating ? `⭐ ${Number(p.avg_rating).toFixed(1)} (${p.review_count})` : 'sem avaliações ainda';
 row.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">${escapeHtml(p.title)} — ${MARKET_CATEGORY_LABELS[p.category] || p.category}</span>
-        <span class="settings-row-meta">${escapeHtml(p.username)} · ${rating} ${p.rate_display ? '· ' + escapeHtml(p.rate_display) : ''}</span>
-        ${p.description ? `<span class="settings-row-meta">${escapeHtml(p.description)}</span>` : ''}
-      </div>
-      ${p.user_id !== me.id ? '<button type="button" class="market-contact-btn">💬 Contatar</button>' : ''}
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">${escapeHtml(p.title)} — ${MARKET_CATEGORY_LABELS[p.category] || p.category}</span>
+<span class="settings-row-meta">${escapeHtml(p.username)} · ${rating} ${p.rate_display ? '· ' + escapeHtml(p.rate_display) : ''}</span>
+${p.description ? `<span class="settings-row-meta">${escapeHtml(p.description)}</span>` : ''}
+</div>
+${p.user_id !== me.id ? '<button type="button" class="market-contact-btn">💬 Contatar</button>' : ''}
+`;
 const contactBtn = row.querySelector('.market-contact-btn');
 if (contactBtn) {
 contactBtn.onclick = () => {
@@ -5978,12 +5995,12 @@ items.forEach((item) => {
 const row = document.createElement('div');
 row.className = 'settings-row';
 row.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">${escapeHtml(item.name)} — 🪙 ${item.cost}</span>
-        <span class="settings-row-meta">${item.description ? escapeHtml(item.description) : ''}</span>
-      </div>
-      ${item.owned ? '<span class="settings-row-badge">JÁ TENHO</span>' : `<button type="button" class="shop-buy-btn" ${coinsData.balance < item.cost ? 'disabled' : ''}>Comprar</button>`}
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">${escapeHtml(item.name)} — 🪙 ${item.cost}</span>
+<span class="settings-row-meta">${item.description ? escapeHtml(item.description) : ''}</span>
+</div>
+${item.owned ? '<span class="settings-row-badge">JÁ TENHO</span>' : `<button type="button" class="shop-buy-btn" ${coinsData.balance < item.cost ? 'disabled' : ''}>Comprar</button>`}
+`;
 const buyBtn = row.querySelector('.shop-buy-btn');
 if (buyBtn) {
 buyBtn.onclick = async () => {
@@ -6020,12 +6037,12 @@ rows.forEach((r) => {
 const row = document.createElement('div');
 row.className = 'settings-row';
 row.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">${INTEGRATION_LABELS[r.provider] || r.provider}</span>
-        <span class="settings-row-meta">${r.connected ? 'Conectado: ' + escapeHtml(r.external_username) : 'Não conectado'}</span>
-      </div>
-      <button type="button" class="integration-toggle-btn">${r.connected ? 'Desconectar' : 'Conectar'}</button>
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">${INTEGRATION_LABELS[r.provider] || r.provider}</span>
+<span class="settings-row-meta">${r.connected ? 'Conectado: ' + escapeHtml(r.external_username) : 'Não conectado'}</span>
+</div>
+<button type="button" class="integration-toggle-btn">${r.connected ? 'Desconectar' : 'Conectar'}</button>
+`;
 row.querySelector('.integration-toggle-btn').onclick = async () => {
 if (r.connected) {
 await fetch(`/api/integrations/${r.provider}`, { method: 'DELETE', credentials: 'include' });
@@ -6094,17 +6111,17 @@ card.className = 'settings-row';
 const icon = FEED_TYPE_LABELS[p.type] || '';
 const when = new Date(p.created_at).toLocaleString('pt-BR');
 card.innerHTML = `
-      <div class="settings-row-info" style="flex:1;">
-        <span class="settings-row-title">${icon} ${escapeHtml(p.username)} ${escapeHtml(p.text || '')}</span>
-        <span class="settings-row-meta">${when}</span>
-        <div style="display:flex; gap:10px; margin-top:4px;">
-          <button type="button" class="feed-like-btn" style="background:none; border:none; color:${p.liked_by_me ? '#f23f42' : '#949ba4'}; cursor:pointer; font-size:12px;">
-            ${p.liked_by_me ? '❤️' : '🤍'} ${p.like_count}
-          </button>
-          <span style="font-size:12px; color:#949ba4;">💬 ${p.comment_count}</span>
-        </div>
-      </div>
-    `;
+<div class="settings-row-info" style="flex:1;">
+<span class="settings-row-title">${icon} ${escapeHtml(p.username)} ${escapeHtml(p.text || '')}</span>
+<span class="settings-row-meta">${when}</span>
+<div style="display:flex; gap:10px; margin-top:4px;">
+<button type="button" class="feed-like-btn" style="background:none; border:none; color:${p.liked_by_me ? '#f23f42' : '#949ba4'}; cursor:pointer; font-size:12px;">
+${p.liked_by_me ? '❤️' : '🤍'} ${p.like_count}
+</button>
+<span style="font-size:12px; color:#949ba4;">💬 ${p.comment_count}</span>
+</div>
+</div>
+`;
 card.querySelector('.feed-like-btn').onclick = async (e) => {
 e.stopPropagation();
 const method = p.liked_by_me ? 'DELETE' : 'POST';
@@ -6144,12 +6161,12 @@ clips.forEach((c) => {
 const card = document.createElement('div');
 card.className = 'settings-row';
 card.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">🎬 <a href="${escapeHtml(c.video_url)}" target="_blank" rel="noopener" style="color:#e6e6e6;">${escapeHtml(c.title)}</a></span>
-        <span class="settings-row-meta">Por ${escapeHtml(c.username)} ${c.game ? '· ' + escapeHtml(c.game) : ''} · 👁️ ${c.views} views</span>
-        ${c.description ? `<span class="settings-row-meta">${escapeHtml(c.description)}</span>` : ''}
-      </div>
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">🎬 <a href="${escapeHtml(c.video_url)}" target="_blank" rel="noopener" style="color:#e6e6e6;">${escapeHtml(c.title)}</a></span>
+<span class="settings-row-meta">Por ${escapeHtml(c.username)} ${c.game ? '· ' + escapeHtml(c.game) : ''} · 👁️ ${c.views} views</span>
+${c.description ? `<span class="settings-row-meta">${escapeHtml(c.description)}</span>` : ''}
+</div>
+`;
 const link = card.querySelector('a');
 link.addEventListener('click', () => {
 fetch(`/api/clips/${c.id}/view`, { method: 'POST', credentials: 'include' }).catch(() => {});
@@ -6196,12 +6213,12 @@ streams.forEach((s) => {
 const card = document.createElement('div');
 card.className = 'settings-row';
 card.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">🔴 <a href="${escapeHtml(s.external_url)}" target="_blank" rel="noopener" style="color:#e6e6e6;">${escapeHtml(s.title)}</a></span>
-        <span class="settings-row-meta">${escapeHtml(s.username)} ${s.game ? '· ' + escapeHtml(s.game) : ''}</span>
-      </div>
-      ${s.user_id !== me.id ? '<button type="button" class="stream-follow-btn">Seguir</button>' : ''}
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">🔴 <a href="${escapeHtml(s.external_url)}" target="_blank" rel="noopener" style="color:#e6e6e6;">${escapeHtml(s.title)}</a></span>
+<span class="settings-row-meta">${escapeHtml(s.username)} ${s.game ? '· ' + escapeHtml(s.game) : ''}</span>
+</div>
+${s.user_id !== me.id ? '<button type="button" class="stream-follow-btn">Seguir</button>' : ''}
+`;
 const followBtn = card.querySelector('.stream-follow-btn');
 if (followBtn) {
 followBtn.onclick = async () => {
@@ -6256,12 +6273,12 @@ const card = document.createElement('div');
 card.className = 'settings-row';
 const dateText = ev.event_date ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'Data a definir';
 card.innerHTML = `
-      <div class="settings-row-info">
-        <span class="settings-row-title">📅 ${escapeHtml(ev.name)} ${ev.game ? '— ' + escapeHtml(ev.game) : ''}</span>
-        <span class="settings-row-meta">${dateText} · ${ev.participant_count}${ev.max_participants ? '/' + ev.max_participants : ''} participante(s)</span>
-      </div>
-      <button type="button" class="event-toggle-btn">${ev.is_registered ? 'Sair' : 'Participar'}</button>
-    `;
+<div class="settings-row-info">
+<span class="settings-row-title">📅 ${escapeHtml(ev.name)} ${ev.game ? '— ' + escapeHtml(ev.game) : ''}</span>
+<span class="settings-row-meta">${dateText} · ${ev.participant_count}${ev.max_participants ? '/' + ev.max_participants : ''} participante(s)</span>
+</div>
+<button type="button" class="event-toggle-btn">${ev.is_registered ? 'Sair' : 'Participar'}</button>
+`;
 card.querySelector('.event-toggle-btn').onclick = async () => {
 const method = ev.is_registered ? 'DELETE' : 'POST';
 await fetch(`/api/events/${ev.id}/register`, { method, credentials: 'include' });
@@ -6424,43 +6441,43 @@ return;
 let html = '';
 if (data.players.length) {
 html += `<div class="search-group"><div class="search-group-label">Jogadores</div>${data.players
-      .map(
-        (u) => `<div class="search-result-item" data-kind="player" data-id="${u.id}">
-          <div class="search-result-icon round">${renderAvatarHtml(u)}</div>
-          <div class="search-result-text"><span class="search-result-title">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${userVerifiedBadgeHtml(u)}</span><span class="search-result-meta">${escapeHtml(userTag(u))}${u.status_message ? ' · 🎮 ' + escapeHtml(u.status_message) : ''}</span></div>
-        </div>`
-      )
-      .join('')}</div>`;
+.map(
+(u) => `<div class="search-result-item" data-kind="player" data-id="${u.id}">
+<div class="search-result-icon round">${renderAvatarHtml(u)}</div>
+<div class="search-result-text"><span class="search-result-title">${escapeHtml(u.username)}${u.is_admin ? ' 👑' : ''}${userVerifiedBadgeHtml(u)}</span><span class="search-result-meta">${escapeHtml(userTag(u))}${u.status_message ? ' · 🎮 ' + escapeHtml(u.status_message) : ''}</span></div>
+</div>`
+)
+.join('')}</div>`;
 }
 if (data.servers.length) {
 html += `<div class="search-group"><div class="search-group-label">Servidores</div>${data.servers
-      .map(
-        (s) => `<div class="search-result-item" data-kind="server" data-category="${escapeHtml(s.category)}" data-member="${s.is_member ? '1' : '0'}">
-          <div class="search-result-icon">${s.icon || serverInitials(s.category)}</div>
-          <div class="search-result-text"><span class="search-result-title">${escapeHtml(s.category)}</span><span class="search-result-meta">👥 ${s.member_count} membros</span></div>
-        </div>`
-      )
-      .join('')}</div>`;
+.map(
+(s) => `<div class="search-result-item" data-kind="server" data-category="${escapeHtml(s.category)}" data-member="${s.is_member ? '1' : '0'}">
+<div class="search-result-icon">${s.icon || serverInitials(s.category)}</div>
+<div class="search-result-text"><span class="search-result-title">${escapeHtml(s.category)}</span><span class="search-result-meta">👥 ${s.member_count} membros</span></div>
+</div>`
+)
+.join('')}</div>`;
 }
 if (data.tournaments.length) {
 html += `<div class="search-group"><div class="search-group-label">Torneios</div>${data.tournaments
-      .map(
-        (t) => `<div class="search-result-item" data-kind="tournament" data-category="${escapeHtml(t.category)}">
-          <div class="search-result-icon">🏆</div>
-          <div class="search-result-text"><span class="search-result-title">${escapeHtml(t.name)}</span><span class="search-result-meta">${escapeHtml(t.game)} · ${t.registered} inscritos</span></div>
-        </div>`
-      )
-      .join('')}</div>`;
+.map(
+(t) => `<div class="search-result-item" data-kind="tournament" data-category="${escapeHtml(t.category)}">
+<div class="search-result-icon">🏆</div>
+<div class="search-result-text"><span class="search-result-title">${escapeHtml(t.name)}</span><span class="search-result-meta">${escapeHtml(t.game)} · ${t.registered} inscritos</span></div>
+</div>`
+)
+.join('')}</div>`;
 }
 if (data.clips.length) {
 html += `<div class="search-group"><div class="search-group-label">Clipes</div>${data.clips
-      .map(
-        (c) => `<div class="search-result-item" data-kind="clip">
-          <div class="search-result-icon">🎬</div>
-          <div class="search-result-text"><span class="search-result-title">${escapeHtml(c.title)}</span><span class="search-result-meta">${escapeHtml(c.username)} · 👁️ ${c.views}</span></div>
-        </div>`
-      )
-      .join('')}</div>`;
+.map(
+(c) => `<div class="search-result-item" data-kind="clip">
+<div class="search-result-icon">🎬</div>
+<div class="search-result-text"><span class="search-result-title">${escapeHtml(c.title)}</span><span class="search-result-meta">${escapeHtml(c.username)} · 👁️ ${c.views}</span></div>
+</div>`
+)
+.join('')}</div>`;
 }
 
 navbarSearchDropdown.innerHTML = html;
@@ -6543,14 +6560,14 @@ const statusLabel = isToday ? 'EM ANDAMENTO' : isFull ? 'LOTADO' : 'INSCRIÇÕES
 const statusClass = isToday ? 'home-event-status-live' : isFull ? 'home-event-status-full' : 'home-event-status-open';
 const dateText = e.event_date ? new Date(e.event_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'Data a definir';
 return `
-      <div class="home-event-row" data-id="${e.id}">
-        <div class="home-event-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></div>
-        <div class="home-event-info">
-          <strong>${escapeHtml(e.name)}</strong>
-          <span>${escapeHtml(e.game || 'Geral')} · ${dateText}</span>
-        </div>
-        <span class="home-event-status ${statusClass}">${statusLabel}</span>
-      </div>`;
+<div class="home-event-row" data-id="${e.id}">
+<div class="home-event-icon"><span class="ng-icon-wrap" data-icon="trophy"></span></div>
+<div class="home-event-info">
+<strong>${escapeHtml(e.name)}</strong>
+<span>${escapeHtml(e.game || 'Geral')} · ${dateText}</span>
+</div>
+<span class="home-event-status ${statusClass}">${statusLabel}</span>
+</div>`;
 })
 .join('');
 document.querySelectorAll('#home-events [data-icon]').forEach((elIcon) => {
@@ -6571,10 +6588,10 @@ listEl.innerHTML = '<p class="empty-hint">Nenhum jogo salvo ainda.</p>';
 listEl.innerHTML = games
 .map(
 (g) => `
-      <div class="saved-game-row" data-id="${g.id}">
-        <span><span class="ng-icon-wrap" data-icon="gamepad-2"></span> ${escapeHtml(g.game_name)}</span>
-        <button type="button" class="saved-game-remove" data-id="${g.id}" aria-label="Remover"><span class="ng-icon-wrap" data-icon="x"></span></button>
-      </div>`
+<div class="saved-game-row" data-id="${g.id}">
+<span><span class="ng-icon-wrap" data-icon="gamepad-2"></span> ${escapeHtml(g.game_name)}</span>
+<button type="button" class="saved-game-remove" data-id="${g.id}" aria-label="Remover"><span class="ng-icon-wrap" data-icon="x"></span></button>
+</div>`
 )
 .join('');
 document.querySelectorAll('#saved-games-list [data-icon]').forEach((elIcon) => {
@@ -6672,13 +6689,13 @@ el.innerHTML = conversations
 .map((c) => {
 const preview = c.last_message ? escapeHtml(messagePreviewText(c.last_message)).slice(0, 42) : 'Sem mensagens ainda';
 return `
-      <div class="home-conversation-row" data-user-id="${c.other_user.id}" data-username="${escapeHtml(c.other_user.username)}">
-        <div class="member-avatar ${avatarFrameClass(c.other_user)}">${renderAvatarHtml(c.other_user)}</div>
-        <div class="home-conversation-info">
-          <strong>${escapeHtml(c.other_user.username)}</strong>
-          <span>${preview}</span>
-        </div>
-      </div>`;
+<div class="home-conversation-row" data-user-id="${c.other_user.id}" data-username="${escapeHtml(c.other_user.username)}">
+<div class="member-avatar ${avatarFrameClass(c.other_user)}">${renderAvatarHtml(c.other_user)}</div>
+<div class="home-conversation-info">
+<strong>${escapeHtml(c.other_user.username)}</strong>
+<span>${preview}</span>
+</div>
+</div>`;
 })
 .join('');
 el.querySelectorAll('.home-conversation-row').forEach((row) => {
@@ -6697,14 +6714,14 @@ return;
 el.innerHTML = playing
 .map(
 (u) => `
-    <div class="playing-now-card">
-      <div class="member-avatar ${avatarFrameClass(u)}">${renderAvatarHtml(u)}</div>
-      <div class="playing-now-info">
-        <strong>${escapeHtml(u.username)}</strong>
-        <span>🎮 ${escapeHtml(u.status_message)}</span>
-      </div>
-    </div>
-  `
+<div class="playing-now-card">
+<div class="member-avatar ${avatarFrameClass(u)}">${renderAvatarHtml(u)}</div>
+<div class="playing-now-info">
+<strong>${escapeHtml(u.username)}</strong>
+<span>🎮 ${escapeHtml(u.status_message)}</span>
+</div>
+</div>
+`
 )
 .join('');
 }
@@ -6722,26 +6739,26 @@ return;
 }
 const nextGoal = rewardsCache.rewards.find((r) => r.type === 'streak' && !r.unlocked);
 el.innerHTML = `
-    <div class="home-section-title">🔥 Sua Sequência</div>
-    <div class="streak-summary-row" style="background:transparent;border:none;padding:0;">
-      <div class="streak-flame-box">
-        <span class="streak-flame">🔥</span>
-        <div>
-          <div class="streak-count">${rewardsCache.streak} ${rewardsCache.streak === 1 ? 'dia' : 'dias'} seguidos</div>
-          <div class="streak-best">Recorde: ${rewardsCache.longest_streak} ${rewardsCache.longest_streak === 1 ? 'dia' : 'dias'}</div>
-        </div>
-      </div>
-      ${
-        nextGoal
-          ? `<div class="streak-next-goal">
-               <div class="streak-next-label">${escapeHtml(nextGoal.name)} em ${nextGoal.days} dias</div>
-               <div class="streak-progress-bar"><div class="streak-progress-fill" style="width:${Math.min(100, (rewardsCache.streak / nextGoal.days) * 100)}%"></div></div>
-             </div>`
-          : ''
-      }
-    </div>
-    <button type="button" class="home-btn-secondary" id="home-open-rewards" style="width:100%; margin-top:10px;">🎁 Ver loja de recompensas</button>
-  `;
+<div class="home-section-title">🔥 Sua Sequência</div>
+<div class="streak-summary-row" style="background:transparent;border:none;padding:0;">
+<div class="streak-flame-box">
+<span class="streak-flame">🔥</span>
+<div>
+<div class="streak-count">${rewardsCache.streak} ${rewardsCache.streak === 1 ? 'dia' : 'dias'} seguidos</div>
+<div class="streak-best">Recorde: ${rewardsCache.longest_streak} ${rewardsCache.longest_streak === 1 ? 'dia' : 'dias'}</div>
+</div>
+</div>
+${
+nextGoal
+? `<div class="streak-next-goal">
+<div class="streak-next-label">${escapeHtml(nextGoal.name)} em ${nextGoal.days} dias</div>
+<div class="streak-progress-bar"><div class="streak-progress-fill" style="width:${Math.min(100, (rewardsCache.streak / nextGoal.days) * 100)}%"></div></div>
+</div>`
+: ''
+}
+</div>
+<button type="button" class="home-btn-secondary" id="home-open-rewards" style="width:100%; margin-top:10px;">🎁 Ver loja de recompensas</button>
+`;
 document.getElementById('home-open-rewards').onclick = () => document.getElementById('nav-rewards').click();
 }
 
@@ -6750,14 +6767,14 @@ const res = await fetch('/api/stats', { credentials: 'include' });
 const stats = await res.json();
 const el = document.getElementById('home-header-stats');
 const chip = (iconName, num, label) => `
-    <div class="home-header-stat" title="${label}">
-      <span class="home-header-stat-icon">${icon(iconName)}</span>
-      <span class="home-header-stat-text">
-        <span class="home-header-stat-num">${num}</span>
-        <span class="home-header-stat-label">${label}</span>
-      </span>
-    </div>
-  `;
+<div class="home-header-stat" title="${label}">
+<span class="home-header-stat-icon">${icon(iconName)}</span>
+<span class="home-header-stat-text">
+<span class="home-header-stat-num">${num}</span>
+<span class="home-header-stat-label">${label}</span>
+</span>
+</div>
+`;
 el.innerHTML =
 chip('users', stats.members, 'Membros') +
 chip('gamepad-2', stats.servers, 'Servidores') +
@@ -6819,12 +6836,12 @@ card.className = 'home-server-card';
 card.dataset.name = category.toLowerCase();
 const voiceCount = allChannels.filter((c) => c.category === category && c.type === 'voz').length;
 card.innerHTML = `
-      <div class="home-server-banner" style="background:${gradientForName(category)};">
-        <div class="home-server-icon">${renderServerIconOnly(category)}</div>
-      </div>
-      <div class="home-server-name">${escapeHtml(category)}${serverVerifiedBadgeHtml(category)}</div>
-      <div class="home-server-meta">${channelCount} sala${channelCount === 1 ? '' : 's'}${voiceCount > 0 ? ` · 🎙️ ${voiceCount} de voz` : ''}</div>
-    `;
+<div class="home-server-banner" style="background:${gradientForName(category)};">
+<div class="home-server-icon">${renderServerIconOnly(category)}</div>
+</div>
+<div class="home-server-name">${escapeHtml(category)}${serverVerifiedBadgeHtml(category)}</div>
+<div class="home-server-meta">${channelCount} sala${channelCount === 1 ? '' : 's'}${voiceCount > 0 ? ` · 🎙️ ${voiceCount} de voz` : ''}</div>
+`;
 card.onclick = () => {
 activeServerCategory = category;
 renderServerRail([...new Set(allChannels.map((c) => c.category))]);
@@ -6842,15 +6859,15 @@ const card = document.createElement('div');
 card.className = 'home-server-card home-server-card-joinable';
 card.dataset.name = s.category.toLowerCase();
 card.innerHTML = `
-      <div class="home-server-banner" style="background:${gradientForName(s.category)};">
-        <div class="home-server-icon">${
-          s.icon && (s.icon.startsWith('/') || s.icon.startsWith('data:')) ? `<img src="${escapeHtml(s.icon)}" alt="" class="server-icon-logo-img" />` : escapeHtml(s.icon || serverInitials(s.category))
-        }</div>
-      </div>
-      <div class="home-server-name">${escapeHtml(s.category)} <span class="verified-badge" title="Servidor oficial NEXT GAME">${icon('badge-check')}</span></div>
-      <div class="home-server-meta">${s.text_channels} sala${s.text_channels === 1 ? '' : 's'} · 👥 ${s.member_count} membros</div>
-      <button type="button" class="home-server-join-btn">Entrar</button>
-    `;
+<div class="home-server-banner" style="background:${gradientForName(s.category)};">
+<div class="home-server-icon">${
+s.icon && (s.icon.startsWith('/') || s.icon.startsWith('data:')) ? `<img src="${escapeHtml(s.icon)}" alt="" class="server-icon-logo-img" />` : escapeHtml(s.icon || serverInitials(s.category))
+}</div>
+</div>
+<div class="home-server-name">${escapeHtml(s.category)} <span class="verified-badge" title="Servidor oficial NEXT GAME">${icon('badge-check')}</span></div>
+<div class="home-server-meta">${s.text_channels} sala${s.text_channels === 1 ? '' : 's'} · 👥 ${s.member_count} membros</div>
+<button type="button" class="home-server-join-btn">Entrar</button>
+`;
 card.querySelector('.home-server-join-btn').onclick = async (e) => {
 e.stopPropagation();
 const r = await fetch(`/api/servers/discover/${encodeURIComponent(s.category)}/join`, {
@@ -6885,13 +6902,13 @@ const row = document.createElement('div');
 row.className = 'activity-row';
 const time = timeAgo(a.created_at);
 row.innerHTML = `
-      <div class="message-avatar">${renderAvatarHtml({ username: a.username })}</div>
-      <div class="activity-text">
-        <strong>${escapeHtml(a.username)}</strong> em <span class="activity-channel">#${escapeHtml(a.channel_name)}</span>
-        <div class="activity-content">${escapeHtml(a.content.slice(0, 80))}</div>
-      </div>
-      <span class="activity-time">${time}</span>
-    `;
+<div class="message-avatar">${renderAvatarHtml({ username: a.username })}</div>
+<div class="activity-text">
+<strong>${escapeHtml(a.username)}</strong> em <span class="activity-channel">#${escapeHtml(a.channel_name)}</span>
+<div class="activity-content">${escapeHtml(a.content.slice(0, 80))}</div>
+</div>
+<span class="activity-time">${time}</span>
+`;
 el.appendChild(row);
 });
 }
@@ -6913,28 +6930,28 @@ const tournaments = await res.json();
 const upcoming = tournaments.filter((t) => !t.event_date || new Date(t.event_date) >= new Date()).slice(0, 1)[0];
 
 const secondaryActionsHtml = `
-    <div class="home-hero-secondary-actions">
-      <button type="button" class="home-btn-primary" id="home-hero-explore-btn">
-        <span class="ng-icon-wrap" data-icon="play"></span> Explorar Comunidade
-      </button>
-      <button type="button" class="home-btn-secondary" id="home-hero-watch-btn">
-        <span class="ng-icon-wrap" data-icon="play"></span> Assistir vídeo
-      </button>
-    </div>
-  `;
+<div class="home-hero-secondary-actions">
+<button type="button" class="home-btn-primary" id="home-hero-explore-btn">
+<span class="ng-icon-wrap" data-icon="play"></span> Explorar Comunidade
+</button>
+<button type="button" class="home-btn-secondary" id="home-hero-watch-btn">
+<span class="ng-icon-wrap" data-icon="play"></span> Assistir vídeo
+</button>
+</div>
+`;
 
 if (!upcoming) {
 el.innerHTML = `
-      <div class="home-tournament-banner-inner">
-        <div class="home-tournament-banner-icon">🏆</div>
-        <div class="home-tournament-banner-text">
-          <span class="home-tournament-banner-kicker">FAÇA PARTE DA NOVA GERAÇÃO GAMER</span>
-          <h2>Conecte-se. Jogue junto. Vença.</h2>
-        </div>
-        <button class="home-btn-primary" id="home-tournament-banner-cta">Ver Torneios</button>
-      </div>
-      ${secondaryActionsHtml}
-    `;
+<div class="home-tournament-banner-inner">
+<div class="home-tournament-banner-icon">🏆</div>
+<div class="home-tournament-banner-text">
+<span class="home-tournament-banner-kicker">FAÇA PARTE DA NOVA GERAÇÃO GAMER</span>
+<h2>Conecte-se. Jogue junto. Vença.</h2>
+</div>
+<button class="home-btn-primary" id="home-tournament-banner-cta">Ver Torneios</button>
+</div>
+${secondaryActionsHtml}
+`;
 document.getElementById('home-tournament-banner-cta').onclick = goToTournamentsFromHome;
 wireHomeHeroSecondaryActions();
 return;
@@ -6944,20 +6961,20 @@ const dateText = upcoming.event_date
 ? new Date(upcoming.event_date + 'T00:00:00').toLocaleDateString('pt-BR')
 : 'Data a definir';
 el.innerHTML = `
-    <div class="home-tournament-banner-inner">
-      <div class="home-tournament-banner-icon">🏆</div>
-      <div class="home-tournament-banner-text">
-        <span class="home-tournament-banner-kicker">${escapeHtml(upcoming.game.toUpperCase())} · ${dateText}</span>
-        <h2>${escapeHtml(upcoming.name)}</h2>
-        ${upcoming.prize ? `<p class="home-tournament-banner-prize">Premiação total <strong>${escapeHtml(upcoming.prize)}</strong></p>` : ''}
-        <span class="home-tournament-banner-slots">👥 ${upcoming.registered_count}/${upcoming.max_slots} inscritos</span>
-      </div>
-      <button class="home-btn-primary" id="home-tournament-banner-join">
-        ${upcoming.is_registered ? 'Você já está inscrito ✅' : 'PARTICIPAR'}
-      </button>
-    </div>
-    ${secondaryActionsHtml}
-  `;
+<div class="home-tournament-banner-inner">
+<div class="home-tournament-banner-icon">🏆</div>
+<div class="home-tournament-banner-text">
+<span class="home-tournament-banner-kicker">${escapeHtml(upcoming.game.toUpperCase())} · ${dateText}</span>
+<h2>${escapeHtml(upcoming.name)}</h2>
+${upcoming.prize ? `<p class="home-tournament-banner-prize">Premiação total <strong>${escapeHtml(upcoming.prize)}</strong></p>` : ''}
+<span class="home-tournament-banner-slots">👥 ${upcoming.registered_count}/${upcoming.max_slots} inscritos</span>
+</div>
+<button class="home-btn-primary" id="home-tournament-banner-join">
+${upcoming.is_registered ? 'Você já está inscrito ✅' : 'PARTICIPAR'}
+</button>
+</div>
+${secondaryActionsHtml}
+`;
 if (!upcoming.is_registered) {
 document.getElementById('home-tournament-banner-join').onclick = async () => {
 const res2 = await fetch(`/api/tournaments/${upcoming.id}/register`, { method: 'POST', credentials: 'include' });
@@ -7000,11 +7017,11 @@ ranking.slice(0, 5).forEach((u, i) => {
 const row = document.createElement('div');
 row.className = 'ranking-row';
 row.innerHTML = `
-      <span class="ranking-position">${medals[i] || i + 1}</span>
-      <div class="member-avatar">${renderAvatarHtml(u)}</div>
-      <span class="ranking-name">${escapeHtml(u.username)}</span>
-      <span class="ranking-points">${u.points} msgs</span>
-    `;
+<span class="ranking-position">${medals[i] || i + 1}</span>
+<div class="member-avatar">${renderAvatarHtml(u)}</div>
+<span class="ranking-name">${escapeHtml(u.username)}</span>
+<span class="ranking-points">${u.points} msgs</span>
+`;
 el.appendChild(row);
 });
 }
@@ -7091,19 +7108,19 @@ payload = null;
 if (payload && payload.game) {
 const isFromMe = msg.user_id === me.id;
 return `
-        <div class="content game-invite-card">
-          <div class="game-invite-header"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> CONVITE PARA JOGAR</div>
-          <div class="game-invite-body">${isFromMe ? 'Você convidou pra jogar' : escapeHtml(payload.from || msg.username) + ' te convidou pra jogar'} <strong>${escapeHtml(payload.game)}</strong>.</div>
-          ${
-            isFromMe
-              ? '<div class="game-invite-waiting">Aguardando resposta...</div>'
-              : `<div class="game-invite-actions">
-                   <button type="button" class="game-invite-accept" data-game="${escapeHtml(payload.game)}">✅ Aceitar</button>
-                   <button type="button" class="game-invite-decline" data-game="${escapeHtml(payload.game)}">❌ Recusar</button>
-                 </div>`
-          }
-        </div>
-      `;
+<div class="content game-invite-card">
+<div class="game-invite-header"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> CONVITE PARA JOGAR</div>
+<div class="game-invite-body">${isFromMe ? 'Você convidou pra jogar' : escapeHtml(payload.from || msg.username) + ' te convidou pra jogar'} <strong>${escapeHtml(payload.game)}</strong>.</div>
+${
+isFromMe
+? '<div class="game-invite-waiting">Aguardando resposta...</div>'
+: `<div class="game-invite-actions">
+<button type="button" class="game-invite-accept" data-game="${escapeHtml(payload.game)}">✅ Aceitar</button>
+<button type="button" class="game-invite-decline" data-game="${escapeHtml(payload.game)}">❌ Recusar</button>
+</div>`
+}
+</div>
+`;
 }
 }
 const textHtml = msg.content ? `<div class="content">${linkifyHtml(highlightMentionsHtml(escapeHtml(msg.content)))}</div>` : '';
@@ -7117,23 +7134,23 @@ if (!src) return '';
 const safeName = escapeHtml(attachment.name || 'arquivo');
 if ((attachment.type || '').startsWith('image/')) {
 return `
-      <div class="message-attachment-image-wrap">
-        <img class="message-attachment-image" src="${src}" alt="${safeName}" loading="lazy" />
-        <a class="message-attachment-download-btn" href="${src}" download="${safeName}" title="Baixar imagem" onclick="event.stopPropagation()">
-          <span class="ng-icon-wrap" data-icon="download"></span>
-        </a>
-      </div>
-    `;
+<div class="message-attachment-image-wrap">
+<img class="message-attachment-image" src="${src}" alt="${safeName}" loading="lazy" />
+<a class="message-attachment-download-btn" href="${src}" download="${safeName}" title="Baixar imagem" onclick="event.stopPropagation()">
+<span class="ng-icon-wrap" data-icon="download"></span>
+</a>
+</div>
+`;
 }
 return `
-    <a class="message-attachment-card" href="${src}" download="${safeName}" target="_blank" rel="noopener">
-      <span class="ng-icon-wrap" data-icon="upload"></span>
-      <div style="min-width:0;">
-        <div class="attachment-name">${safeName}</div>
-        <div class="attachment-size">${formatFileSize(attachment.size || 0)}</div>
-      </div>
-    </a>
-  `;
+<a class="message-attachment-card" href="${src}" download="${safeName}" target="_blank" rel="noopener">
+<span class="ng-icon-wrap" data-icon="upload"></span>
+<div style="min-width:0;">
+<div class="attachment-name">${safeName}</div>
+<div class="attachment-size">${formatFileSize(attachment.size || 0)}</div>
+</div>
+</a>
+`;
 }
 
 function formatDateDividerLabel(date) {
@@ -7207,35 +7224,35 @@ const pv2BadgeHtml = (isOwn && pv2 && pv2.badge)
 : '';
 
 el.innerHTML = `
-    <div class="message-row">
-      <div class="message-avatar ${avatarFrameCls}">${avatarHtml}</div>
-      <div class="message-body">
-        <div class="meta">
-          <strong>${escapeHtml(msg.username)}</strong>
-          ${pv2BadgeHtml}
-          ${userVerifiedBadgeHtml(author)}
-          ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
-          · <span class="pv2-live-time">${time}</span>
-          ${msg.edited ? '<span class="edited-tag">(editado)</span>' : ''}
-          ${msg.pinned ? '<span class="pinned-tag">📌 fixada</span>' : ''}
-        </div>
-        ${msg.thread_parent_id ? '<div class="thread-reply-tag">↪ resposta numa thread</div>' : ''}
-        ${renderMessageContentHtml(msg)}
-        <div class="message-reactions" id="reactions-${msg.id}"></div>
-      </div>
-    </div>
-    <div class="message-actions">
-      ${isBot ? '' : '<button class="act-react" title="Reagir">😀</button>'}
-      ${isBot ? '' : '<button class="act-reply" title="Responder em thread">↩️</button>'}
-      <button class="act-pin" title="${msg.pinned ? 'Desafixar' : 'Fixar'}">📌</button>
-      ${isOwn && !isBot ? '<button class="act-edit" title="Editar">✏️</button>' : ''}
-      ${canDelete ? '<button class="act-delete" title="Apagar">🗑️</button>' : ''}
-      ${isBot ? '' : '<button class="act-report" title="Denunciar">🚩</button>'}
-    </div>
-    <div class="reaction-picker" id="picker-${msg.id}">
-      ${REACTION_EMOJIS.map((e) => `<button data-emoji="${e}">${e}</button>`).join('')}
-    </div>
-  `;
+<div class="message-row">
+<div class="message-avatar ${avatarFrameCls}">${avatarHtml}</div>
+<div class="message-body">
+<div class="meta">
+<strong>${escapeHtml(msg.username)}</strong>
+${pv2BadgeHtml}
+${userVerifiedBadgeHtml(author)}
+${isBot ? '<span class="bot-tag">BOT</span>' : ''}
+· <span class="pv2-live-time">${time}</span>
+${msg.edited ? '<span class="edited-tag">(editado)</span>' : ''}
+${msg.pinned ? '<span class="pinned-tag">📌 fixada</span>' : ''}
+</div>
+${msg.thread_parent_id ? '<div class="thread-reply-tag">↪ resposta numa thread</div>' : ''}
+${renderMessageContentHtml(msg)}
+<div class="message-reactions" id="reactions-${msg.id}"></div>
+</div>
+</div>
+<div class="message-actions">
+${isBot ? '' : '<button class="act-react" title="Reagir">😀</button>'}
+${isBot ? '' : '<button class="act-reply" title="Responder em thread">↩️</button>'}
+<button class="act-pin" title="${msg.pinned ? 'Desafixar' : 'Fixar'}">📌</button>
+${isOwn && !isBot ? '<button class="act-edit" title="Editar">✏️</button>' : ''}
+${canDelete ? '<button class="act-delete" title="Apagar">🗑️</button>' : ''}
+${isBot ? '' : '<button class="act-report" title="Denunciar">🚩</button>'}
+</div>
+<div class="reaction-picker" id="picker-${msg.id}">
+${REACTION_EMOJIS.map((e) => `<button data-emoji="${e}">${e}</button>`).join('')}
+</div>
+`;
 
 if (pv2Chat && pv2Chat.mentionEffect && pv2Chat.mentionEffect !== 'none' && el.querySelector('.mention-me')) {
 el.classList.add('pv2-mention-' + pv2Chat.mentionEffect);
@@ -8172,14 +8189,14 @@ return;
 queueEl.innerHTML = upcoming
 .map(
 (track, i) => `
-    <div class="music-queue-item ${i === state.currentIndex ? 'current' : ''}">
-      <div class="music-queue-item-info">
-        <span class="music-queue-item-title">${i === state.currentIndex ? '▶ ' : ''}${escapeHtml(track.title)}</span>
-        <span class="music-queue-item-by">${escapeHtml(track.addedByUsername)}</span>
-      </div>
-      <button type="button" class="music-queue-item-remove" data-queue-id="${track.id}" title="Remover">${icon('x')}</button>
-    </div>
-  `
+<div class="music-queue-item ${i === state.currentIndex ? 'current' : ''}">
+<div class="music-queue-item-info">
+<span class="music-queue-item-title">${i === state.currentIndex ? '▶ ' : ''}${escapeHtml(track.title)}</span>
+<span class="music-queue-item-by">${escapeHtml(track.addedByUsername)}</span>
+</div>
+<button type="button" class="music-queue-item-remove" data-queue-id="${track.id}" title="Remover">${icon('x')}</button>
+</div>
+`
 )
 .join('');
 queueEl.querySelectorAll('.music-queue-item-remove').forEach((btn) => {
@@ -8356,9 +8373,9 @@ label = 'Boa';
 cls = 'q-medium';
 }
 el.innerHTML = `
-    <div class="voice-quality-badge ${cls}">📶 ${label}</div>
-    <div class="voice-quality-ping">Baseado na conexão com ${dots.length} participante${dots.length === 1 ? '' : 's'}</div>
-  `;
+<div class="voice-quality-badge ${cls}">📶 ${label}</div>
+<div class="voice-quality-ping">Baseado na conexão com ${dots.length} participante${dots.length === 1 ? '' : 's'}</div>
+`;
 }
 setInterval(updateVoiceQualitySummary, 3500);
 
@@ -8561,18 +8578,18 @@ tile.id = 'tile-' + peerId;
 
 const avatarUser = userInfo || { username };
 tile.innerHTML = `
-      <video autoplay playsinline></video>
-      <div class="tile-avatar ${avatarFrameClass(avatarUser)}">${renderAvatarHtml(avatarUser)}</div>
-      <div class="tile-waveform"><span></span><span></span><span></span><span></span></div>
-      ${isRemote ? '<span class="quality-dot quality-good" title="Qualidade da conexão"></span>' : ''}
-      <span class="label">${escapeHtml(username || 'Participante')}</span>
-      <div class="tile-controls">
-        ${isRemote ? '<input type="range" class="tile-volume" min="0" max="100" value="100" title="Volume" />' : ''}
-        <button type="button" class="tile-btn tile-size-btn" title="Mudar tamanho">⬜</button>
-        <button type="button" class="tile-btn tile-expand-btn" title="Ampliar">⤢</button>
-        <button type="button" class="tile-btn tile-fullscreen-btn" title="Tela cheia">⛶</button>
-      </div>
-    `;
+<video autoplay playsinline></video>
+<div class="tile-avatar ${avatarFrameClass(avatarUser)}">${renderAvatarHtml(avatarUser)}</div>
+<div class="tile-waveform"><span></span><span></span><span></span><span></span></div>
+${isRemote ? '<span class="quality-dot quality-good" title="Qualidade da conexão"></span>' : ''}
+<span class="label">${escapeHtml(username || 'Participante')}</span>
+<div class="tile-controls">
+${isRemote ? '<input type="range" class="tile-volume" min="0" max="100" value="100" title="Volume" />' : ''}
+<button type="button" class="tile-btn tile-size-btn" title="Mudar tamanho">⬜</button>
+<button type="button" class="tile-btn tile-expand-btn" title="Ampliar">⤢</button>
+<button type="button" class="tile-btn tile-fullscreen-btn" title="Tela cheia">⛶</button>
+</div>
+`;
 document.getElementById('video-grid').appendChild(tile);
 
 setTimeout(() => tile.classList.remove('tile-enter'), 260);

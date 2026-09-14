@@ -289,11 +289,15 @@
           <button type="button" class="wizard-choice-btn" data-value="casual">Casual</button>
           <button type="button" class="wizard-choice-btn" data-value="ambos">Ambos</button>
         </div>
+        <label class="checkbox-row wizard-consent">
+          <input type="checkbox" id="wiz-terms-checkbox" />
+          Li e concordo com os <a href="#" id="wiz-terms-link">Termos de Uso e Diretrizes da Comunidade</a> — inclusive a parte sobre proteção de crianças e adolescentes.
+        </label>
+        <p id="wiz-terms-error" class="auth-error"></p>
         <div class="wizard-actions">
           <button type="button" id="wiz-step3-back" class="wizard-back-btn">Voltar</button>
           <button type="button" id="wiz-submit" class="wizard-next-btn">CRIAR CONTA</button>
         </div>
-        <p class="wizard-consent">Ao criar conta, você concorda com os Termos de Uso e a Política de Privacidade.</p>
       </div>
 
       <p id="register-error" class="auth-error"></p>
