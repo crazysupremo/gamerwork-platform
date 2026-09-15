@@ -937,9 +937,30 @@ bootLoading.classList.add('hidden');
 document.getElementById('auth-screen').classList.remove('hidden');
 }
 
+function requestDesktopNotificationPermission() {
+if (!('Notification' in window)) return;
+if (Notification.permission === 'default') {
+Notification.requestPermission().catch(() => {});
+}
+}
+
+function notifyDesktop(title, body, onClick) {
+if (!('Notification' in window) || Notification.permission !== 'granted') return;
+if (document.hasFocus()) return;
+try {
+const n = new Notification(title, { body, icon: '/assets/logo.png', tag: 'next-game' });
+n.onclick = () => {
+window.focus();
+if (onClick) onClick();
+n.close();
+};
+} catch (_) {}
+}
+
 function startApp() {
 document.getElementById('auth-screen').classList.add('hidden');
 document.getElementById('app').classList.remove('hidden');
+requestDesktopNotificationPermission();
 
 document.getElementById('me-username').textContent = me.username;
 renderAvatarInto(document.getElementById('me-avatar'), me);
@@ -5269,6 +5290,14 @@ const targetUsername = (currentChannel.name || '').replace(/^💬\s*/, '');
 pickMyServerAndRun(e, (category) => sendInviteMessage({ id: targetId, username: targetUsername }, category));
 };
 
+document.getElementById('btn-dm-call').onclick = () => {
+if (!currentChannel) return;
+const targetId = otherUserIdFromDmChannel(currentChannel.id);
+if (!targetId) return;
+const targetUsername = (currentChannel.name || '').replace(/^💬\s*/, '');
+openDmCall(targetId, targetUsername);
+};
+
 let searchDebounceTimer = null;
 
 document.getElementById('btn-search-messages').onclick = () => {
@@ -5407,6 +5436,8 @@ updateClearChannelButton();
 
 document.getElementById('btn-invite-to-play').classList.toggle('hidden', !isDm);
 document.getElementById('btn-invite-to-server').classList.toggle('hidden', !isDm);
+
+document.getElementById('btn-dm-call').classList.toggle('hidden', !isDm);
 
 document.getElementById('btn-search-messages').classList.remove('hidden');
 document.getElementById('btn-pinned-messages').classList.remove('hidden');
@@ -7782,6 +7813,19 @@ if (msg.user_id !== me.id) {
 const mentioned = msg.content && msg.content.toLowerCase().includes('@' + me.username.toLowerCase());
 if (mentioned) SFX.mention();
 else SFX.message();
+
+const isViewingThisChannel = currentChannel && msg.channel_id === currentChannel.id;
+if (!isViewingThisChannel || !document.hasFocus()) {
+notifyDesktop(
+mentioned ? `${msg.username} te mencionou` : msg.username,
+(msg.content || '📎 anexo').slice(0, 120),
+() => {
+const ch = allChannels.find((c) => c.id === msg.channel_id);
+if (ch) selectChannel(ch);
+else if (msg.channel_id.startsWith('dm::')) openDmText(msg.user_id, msg.username);
+}
+);
+}
 }
 });
 
@@ -7965,6 +8009,9 @@ syncMusicPlayer(state);
 socket.on('dm:ring', ({ fromUsername, channelId }) => {
 SFX.join();
 showCallToast(fromUsername, channelId);
+notifyDesktop(`${fromUsername} está te ligando`, 'Clique aqui pra atender', () => {
+selectChannel({ id: channelId, type: 'voz', name: '📞 ' + fromUsername }, { autoConnect: true });
+});
 });
 
 socket.on('dm:notify', ({ fromUsername, channelId, preview }) => {

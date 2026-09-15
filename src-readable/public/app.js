@@ -1064,9 +1064,38 @@ async function tryResumeSession() {
 // Vídeo de abertura da logo removido a pedido (deixava a transição entre
 // login/recarregamento e a Início mais pesada e travada).
 
+// ---------- NOTIFICAÇÕES DE DESKTOP (item pedido: "coloca pra aparecer
+// notificação") ----------
+// Diferente do toast dentro do site (que só aparece com a aba aberta), isso
+// usa a API de Notification do navegador — aparece mesmo com o NEXT GAME em
+// segundo plano ou minimizado, como qualquer notificação de app de verdade.
+function requestDesktopNotificationPermission() {
+  if (!('Notification' in window)) return; // navegador sem suporte (raro) — ignora silenciosamente
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+// Só dispara a notificação de verdade quando a aba não está em foco — se a
+// pessoa já está olhando o NEXT GAME, o toast/som de dentro do site já
+// avisam, notificação do sistema em cima seria redundante/chata.
+function notifyDesktop(title, body, onClick) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (document.hasFocus()) return;
+  try {
+    const n = new Notification(title, { body, icon: '/assets/logo.png', tag: 'next-game' });
+    n.onclick = () => {
+      window.focus();
+      if (onClick) onClick();
+      n.close();
+    };
+  } catch (_) {}
+}
+
 function startApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
+  requestDesktopNotificationPermission();
   // Vídeo de abertura removido a pedido — deixava o login/recarregamento
   // mais lento e travava a transição entre a tela de login e a Início.
   document.getElementById('me-username').textContent = me.username;
@@ -5783,6 +5812,18 @@ document.getElementById('btn-invite-to-server').onclick = (e) => {
   pickMyServerAndRun(e, (category) => sendInviteMessage({ id: targetId, username: targetUsername }, category));
 };
 
+// Botão de ligar direto no cabeçalho da conversa (item pedido: "faz a
+// possibilidade de ligar pra um usuário") — antes só existia o botão 📞 na
+// lista de Amigos; agora também dá pra ligar de dentro da própria conversa,
+// sem precisar voltar pra lista de amigos.
+document.getElementById('btn-dm-call').onclick = () => {
+  if (!currentChannel) return;
+  const targetId = otherUserIdFromDmChannel(currentChannel.id);
+  if (!targetId) return;
+  const targetUsername = (currentChannel.name || '').replace(/^💬\s*/, '');
+  openDmCall(targetId, targetUsername);
+};
+
 let searchDebounceTimer = null;
 
 document.getElementById('btn-search-messages').onclick = () => {
@@ -5944,6 +5985,10 @@ function selectChannel(channel, options = {}) {
   // em canal de servidor, onde já tem outros jeitos de convidar gente.
   document.getElementById('btn-invite-to-play').classList.toggle('hidden', !isDm);
   document.getElementById('btn-invite-to-server').classList.toggle('hidden', !isDm);
+  // Botão de ligar: só faz sentido numa conversa de TEXTO com outra pessoa —
+  // não mostra dentro da própria call de voz (channel.type === 'voz'), nem
+  // fora de uma DM.
+  document.getElementById('btn-dm-call').classList.toggle('hidden', !isDm);
   // Um canal de verdade está selecionado agora (servidor ou DM) — os ícones
   // de busca/fixados/membros voltam a fazer sentido no cabeçalho.
   document.getElementById('btn-search-messages').classList.remove('hidden');
@@ -8522,6 +8567,20 @@ function registerSocketHandlers() {
       const mentioned = msg.content && msg.content.toLowerCase().includes('@' + me.username.toLowerCase());
       if (mentioned) SFX.mention();
       else SFX.message();
+      // Notificação de desktop só quando a aba não está em foco — evita
+      // notificar em cima de uma mensagem que a pessoa já está vendo.
+      const isViewingThisChannel = currentChannel && msg.channel_id === currentChannel.id;
+      if (!isViewingThisChannel || !document.hasFocus()) {
+        notifyDesktop(
+          mentioned ? `${msg.username} te mencionou` : msg.username,
+          (msg.content || '📎 anexo').slice(0, 120),
+          () => {
+            const ch = allChannels.find((c) => c.id === msg.channel_id);
+            if (ch) selectChannel(ch);
+            else if (msg.channel_id.startsWith('dm::')) openDmText(msg.user_id, msg.username);
+          }
+        );
+      }
     }
   });
 
@@ -8742,10 +8801,15 @@ function registerSocketHandlers() {
     syncMusicPlayer(state);
   });
 
-  // Alguém te ligou diretamente (DM) — mostra um toast com som pra atender.
+  // Alguém te ligou diretamente (DM) — mostra um toast com som pra atender,
+  // mais notificação de desktop (chamada é o caso onde isso importa mais —
+  // a pessoa pode estar com o NEXT GAME minimizado).
   socket.on('dm:ring', ({ fromUsername, channelId }) => {
     SFX.join();
     showCallToast(fromUsername, channelId);
+    notifyDesktop(`${fromUsername} está te ligando`, 'Clique aqui pra atender', () => {
+      selectChannel({ id: channelId, type: 'voz', name: '📞 ' + fromUsername }, { autoConnect: true });
+    });
   });
 
   // Mensagem de DM chegou e a pessoa não está com essa conversa aberta —

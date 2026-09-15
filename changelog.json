@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.53.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Ligar pra um usuário agora também tem um botão direto no cabeçalho da conversa (📞), não só na lista de Amigos — abre a chamada de voz na hora, com aviso pra quem recebe.",
+      "Notificações de desktop: mensagem nova, menção (@você) e chamada recebida agora aparecem como notificação do sistema quando o NEXT GAME está minimizado ou em outra aba, além do som e do toast que já existiam."
+    ]
+  },
+  {
     "version": "0.52.1",
     "date": "2026-09-10",
     "changes": [
