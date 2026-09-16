@@ -195,6 +195,23 @@ async function initDb() {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Monitor inteligente de saúde técnica do sistema (item pedido: "sistema
+    -- inteligente... análise de tudo a cada 10 min... testes periódicos...
+    -- coloca o Groq") — diferente de ai_alerts (que é sobre COMPORTAMENTO de
+    -- usuário: denúncias, conteúdo, regras), essa tabela é sobre a SAÚDE
+    -- TÉCNICA da plataforma em si (banco, BLUEX, Groq, erros, memória, lag).
+    -- Guarda no banco (ao contrário do resto do painel de monitoramento, que
+    -- é só em memória) porque aqui o histórico entre execuções importa —
+    -- dá pra ver a tendência ao longo de horas/dias, não só o instante atual.
+    CREATE TABLE IF NOT EXISTS health_checks (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      status TEXT NOT NULL,
+      checks TEXT NOT NULL,
+      summary TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_health_checks_created ON health_checks(created_at);
+
     -- Canal privado por cargo (item 5 do plano): se um canal tem QUALQUER
     -- linha aqui, só quem tem um desses cargos (ou é dono/admin) o vê e
     -- acessa. Sem nenhuma linha = visível pra todo mundo do servidor, igual

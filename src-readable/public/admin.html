@@ -8,80 +8,128 @@
 <link rel="stylesheet" href="/style.css" />
 <link rel="stylesheet" href="/plus2-admin.css" />
 <style>
-  html, body { height: 100%; margin: 0; }
+  /* ==========================================================================
+     REDESIGN VISUAL DO ADMIN (a pedido — "deixa mais redondo, remodele tudo
+     lá pra ficar mais bonito") — cantos mais arredondados em tudo, cards com
+     sombra sutil e leve elevação no hover, mais respiro. Cores e estrutura
+     continuam as mesmas (mesmas classes/ids), só o acabamento mudou.
+     ========================================================================== */
+  html, body { height: 100%; margin: 0; background: #16171b; }
+  * { box-sizing: border-box; }
   .admin-topbar {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 14px 20px; border-bottom: 1px solid #2b2d31; background: #1e1f22;
+    padding: 16px 24px; border-bottom: 1px solid #26272e; background: #1c1d22;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
   }
-  .admin-topbar h1 { color: #5865f2; font-size: 18px; margin: 0; }
-  .admin-topbar .back-link { color: #949ba4; text-decoration: none; font-size: 13px; }
-  .admin-layout { display: flex; min-height: calc(100% - 54px); }
+  .admin-topbar h1 { color: #7c86f7; font-size: 18px; margin: 0; font-weight: 700; letter-spacing: 0.2px; }
+  .admin-topbar .back-link {
+    color: #949ba4; text-decoration: none; font-size: 13px; padding: 6px 12px;
+    border-radius: 20px; transition: background 0.15s ease, color 0.15s ease;
+  }
+  .admin-topbar .back-link:hover { background: #26272e; color: #e6e6e6; }
+  .admin-layout { display: flex; min-height: calc(100% - 58px); }
   .admin-sidebar {
-    width: 210px; flex-shrink: 0; background: #1e1f22; border-right: 1px solid #2b2d31;
-    padding: 14px 10px; display: flex; flex-direction: column; gap: 2px;
+    width: 220px; flex-shrink: 0; background: #1c1d22; border-right: 1px solid #26272e;
+    padding: 16px 12px; display: flex; flex-direction: column; gap: 4px;
   }
   .admin-nav-btn {
-    display: flex; align-items: center; gap: 8px; text-align: left; background: none; border: none;
-    color: #b5bac1; padding: 9px 10px; border-radius: 6px; cursor: pointer; font-size: 13.5px; font-weight: 600;
+    display: flex; align-items: center; gap: 9px; text-align: left; background: none; border: none;
+    color: #b5bac1; padding: 10px 12px; border-radius: 12px; cursor: pointer; font-size: 13.5px; font-weight: 600;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
   }
-  .admin-nav-btn:hover { background: #2b2d31; color: #e6e6e6; }
-  .admin-nav-btn.active { background: #5865f2; color: white; }
+  .admin-nav-btn:hover { background: #26272e; color: #e6e6e6; }
+  .admin-nav-btn.active { background: #5865f2; color: white; box-shadow: 0 4px 14px rgba(88,101,242,0.35); }
+  .admin-nav-btn:active { transform: scale(0.98); }
   .admin-nav-btn .badge {
     margin-left: auto; background: #f23f42; color: white; font-size: 10.5px; font-weight: 800;
-    border-radius: 10px; padding: 1px 6px; min-width: 16px; text-align: center;
+    border-radius: 20px; padding: 2px 7px; min-width: 16px; text-align: center;
   }
   .admin-nav-btn .badge.hidden { display: none; }
   /* Toast de aviso (ex: ticket de suporte novo) — canto inferior direito,
      some sozinho depois de alguns segundos. */
   .admin-toast {
     position: fixed; bottom: 24px; right: 24px; z-index: 500; max-width: 320px;
-    background: #1e1f22; border: 1px solid #5865f2; border-radius: 10px; padding: 12px 16px;
-    color: #e6e6e6; font-size: 13px; font-weight: 600; box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    background: #1e1f22; border: 1px solid #5865f2; border-radius: 16px; padding: 14px 18px;
+    color: #e6e6e6; font-size: 13px; font-weight: 600; box-shadow: 0 16px 40px rgba(0,0,0,0.5);
     opacity: 0; transform: translateY(12px); pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease;
   }
   .admin-toast.show { opacity: 1; transform: translateY(0); }
-  .admin-content { flex: 1; padding: 22px 26px; max-width: 980px; }
-  .admin-tab-panel h2 { margin-top: 0; border-bottom: 1px solid #3a3c42; padding-bottom: 6px; }
-  .admin-tab-panel h2:not(:first-child) { margin-top: 32px; }
+  .admin-content { flex: 1; padding: 26px 30px; max-width: 1040px; }
+  .admin-tab-panel h2 { margin-top: 0; border-bottom: 1px solid #2b2d31; padding-bottom: 10px; font-weight: 700; }
+  .admin-tab-panel h2:not(:first-child) { margin-top: 34px; }
+  .admin-tab-panel h3 { font-weight: 700; }
   .admin-tab-panel.hidden { display: none; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #2b2d31; }
-  th { color: #949ba4; }
-  button.action { background: #404249; border: none; color: #e6e6e6; padding: 4px 10px; border-radius: 4px; cursor: pointer; margin-right: 4px; }
-  button.action:hover { background: #4a4d55; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; background: #1e1f22; border-radius: 14px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #26272e; }
+  th { color: #949ba4; background: #232429; font-weight: 700; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; }
+  tbody tr { transition: background 0.12s ease; }
+  tbody tr:hover { background: #24252b; }
+  button.action { background: #35373f; border: none; color: #e6e6e6; padding: 6px 12px; border-radius: 20px; cursor: pointer; margin-right: 4px; font-size: 12px; transition: background 0.12s ease, transform 0.1s ease; }
+  button.action:hover { background: #40434c; }
+  button.action:active { transform: scale(0.95); }
   button.danger { background: #f23f42; color: white; }
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 14px; }
-  .stat-card { background: #2b2d31; border-radius: 8px; padding: 12px; }
-  .stat-card .num { font-size: 22px; font-weight: 800; color: #5865f2; }
-  .stat-card .label { font-size: 11px; color: #949ba4; text-transform: uppercase; }
+  button.danger:hover { background: #d3373a; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 14px; }
+  .stat-card {
+    background: #1e1f22; border: 1px solid #26272e; border-radius: 16px; padding: 14px 16px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,0.3); border-color: rgba(88,101,242,0.4); }
+  .stat-card .num { font-size: 23px; font-weight: 800; color: #7c86f7; }
+  .stat-card .label { font-size: 11px; color: #949ba4; text-transform: uppercase; letter-spacing: 0.3px; }
   .admin-form-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-  .admin-form-row input { flex: 1; min-width: 100px; padding: 6px; border-radius: 4px; border: 1px solid #3a3c42; background: #1e1f22; color: #e6e6e6; }
+  .admin-form-row input { flex: 1; min-width: 100px; padding: 8px 12px; border-radius: 20px; border: 1px solid #35373f; background: #1e1f22; color: #e6e6e6; }
   .admin-2fa-card {
-    max-width: 520px; margin: 60px auto; background: #2b2d31; border: 1px solid #f23f42;
-    border-radius: 10px; padding: 22px 24px;
+    max-width: 520px; margin: 60px auto; background: #1e1f22; border: 1px solid #f23f42;
+    border-radius: 20px; padding: 26px 28px; box-shadow: 0 16px 40px rgba(0,0,0,0.4);
   }
   .admin-2fa-card h2 { color: #f23f42; margin-top: 0; font-size: 16px; }
   .admin-2fa-card p { color: #dbdee1; font-size: 13.5px; line-height: 1.5; }
   .admin-2fa-card a.button-link {
     display: inline-block; margin-top: 10px; background: #5865f2; color: white; text-decoration: none;
-    padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 700;
+    padding: 9px 18px; border-radius: 20px; font-size: 13px; font-weight: 700;
   }
   @media (max-width: 760px) {
     .admin-layout { flex-direction: column; }
-    .admin-sidebar { width: 100%; flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid #2b2d31; }
+    .admin-sidebar { width: 100%; flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid #26272e; }
     .admin-content { padding: 16px; }
   }
   /* Painel de diagnóstico de erro por IA — abre embaixo da tabela de erros. */
   .error-diagnosis-panel {
-    margin-top: 12px; background: #1e1f22; border: 1px solid #5865f2; border-radius: 10px; padding: 14px 16px;
+    margin-top: 12px; background: #1e1f22; border: 1px solid #5865f2; border-radius: 16px; padding: 16px 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
   }
   .error-diagnosis-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .error-diagnosis-header strong { color: #5865f2; font-size: 13.5px; }
+  .error-diagnosis-header strong { color: #7c86f7; font-size: 13.5px; }
   #btn-close-diagnosis { background: none; border: none; color: #949ba4; cursor: pointer; font-size: 14px; }
   #btn-close-diagnosis:hover { color: #e6e6e6; }
   .error-diagnosis-text {
     white-space: pre-wrap; font-family: inherit; font-size: 13px; color: #dbdee1; line-height: 1.6; margin: 0;
   }
+
+  /* ---------- Cartões de saúde do sistema + gráficos (item pedido) ---------- */
+  .health-status-badge {
+    display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 20px;
+    font-size: 13px; font-weight: 700;
+  }
+  .health-status-badge.status-saudavel { background: rgba(35,165,90,0.15); color: #3fd17d; }
+  .health-status-badge.status-atencao { background: rgba(240,178,50,0.15); color: #f2c34f; }
+  .health-status-badge.status-critico { background: rgba(242,63,66,0.15); color: #f2696c; }
+  .health-check-row {
+    display: flex; align-items: flex-start; gap: 10px; background: #1e1f22; border: 1px solid #26272e;
+    border-radius: 14px; padding: 12px 14px; margin-bottom: 8px;
+  }
+  .health-check-row .health-check-icon { font-size: 16px; flex-shrink: 0; }
+  .health-check-row .health-check-name { font-weight: 700; font-size: 13px; color: #e6e6e6; }
+  .health-check-row .health-check-detail { font-size: 12px; color: #949ba4; margin-top: 2px; }
+  .health-summary-box {
+    background: #1e1f22; border: 1px solid #35373f; border-radius: 16px; padding: 16px 18px;
+    font-size: 13px; line-height: 1.6; color: #dbdee1; white-space: pre-wrap; margin-top: 10px;
+  }
+  .chart-card {
+    background: #1e1f22; border: 1px solid #26272e; border-radius: 16px; padding: 14px 16px; margin-top: 14px;
+  }
+  .chart-card canvas { max-height: 220px; }
 </style>
 </head>
 <body>
@@ -204,6 +252,55 @@
         <div id="monitoring-grid" class="stats-grid"></div>
 
         <div id="monitoring-env-warning" class="hidden" style="background:#f23f4222; border:1px solid #f23f42; border-radius:8px; padding:10px 14px; margin-top:12px; font-size:13px;"></div>
+
+        <!-- Gráficos ao vivo (item pedido: "sistema de gráficos... atualizando
+             a cada 10s") — mesma fonte de dados do monitoramento acima, só que
+             mostrando a tendência ao longo do tempo em vez de só o número
+             atual. Histórico guardado no navegador (últimos ~10min de pontos),
+             some ao recarregar a página — é só pra acompanhar ao vivo. -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:14px;">
+          <div class="chart-card">
+            <h3 style="margin:0 0 8px; font-size:13px; color:#949ba4;">Online / em chamada</h3>
+            <canvas id="chart-online"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3 style="margin:0 0 8px; font-size:13px; color:#949ba4;">Requisições por minuto</h3>
+            <canvas id="chart-requests"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3 style="margin:0 0 8px; font-size:13px; color:#949ba4;">Memória usada (MB)</h3>
+            <canvas id="chart-memory"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3 style="margin:0 0 8px; font-size:13px; color:#949ba4;">Erros acumulados na sessão</h3>
+            <canvas id="chart-errors"></canvas>
+          </div>
+        </div>
+
+        <!-- Monitor inteligente (item pedido: "sistema inteligente... análise
+             de tudo a cada 10 min... testes periódicos... coloca o Groq") —
+             roda no servidor a cada 10 minutos, testa conexões de verdade
+             (banco, BLUEX, Groq), olha taxa de erro/memória/lag, e manda o
+             resultado pro Groq resumir em português. Fica salvo no banco (ver
+             tabela health_checks), então o histórico sobrevive a recarregar a
+             página — diferente dos gráficos acima, que são só desta sessão. -->
+        <h2 style="margin-top:28px;">🩺 Monitor inteligente (a cada 10 min)</h2>
+        <p style="color:#949ba4; font-size:13px;">
+          Testa banco de dados, BLUEX e Groq de verdade, olha taxa de erro/memória/lag, e pede pro Groq
+          resumir o que encontrou. Só analisa e avisa — nenhuma ação é aplicada sozinha.
+        </p>
+        <div style="display:flex; align-items:center; gap:10px; margin:10px 0;">
+          <span id="health-status-badge" class="health-status-badge status-saudavel">Carregando...</span>
+          <button type="button" id="btn-health-check-now">🔄 Analisar agora</button>
+          <span id="health-last-run" style="font-size:12px; color:#6d7178;"></span>
+        </div>
+        <div id="health-checks-list"></div>
+        <div id="health-summary-box" class="health-summary-box hidden"></div>
+        <h3 style="margin-top:18px; font-size:14px; color:#949ba4;">Histórico de análises</h3>
+        <table id="health-history-table">
+          <thead><tr><th>Quando</th><th>Status</th><th>Resumo</th></tr></thead>
+          <tbody></tbody>
+        </table>
 
         <h3 style="margin-top:20px; font-size:14px; color:#949ba4;">Salas de voz ativas agora</h3>
         <table id="monitoring-rooms-table">
@@ -444,6 +541,7 @@
     </div>
   </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="/plus2-admin.js"></script>
 <script src="/admin.js"></script>
 </body>

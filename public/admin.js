@@ -1,5 +1,3 @@
-
-
 const MODERATOR_ALLOWED_TABS = ['seguranca', 'moderacao'];
 let isFullAdmin = false;
 
@@ -41,8 +39,10 @@ loadFlagged();
 return;
 }
 
+initMonitoringCharts();
 loadMonitoring();
 setInterval(loadMonitoring, 10000);
+loadHealthChecks();
 loadBluexPanel();
 setInterval(loadBluexPanel, 10000);
 loadAnalytics();
@@ -202,19 +202,148 @@ errorsBody.innerHTML = m.recent_errors.length
 ? m.recent_errors
 .map(
 (e) => `
-        <tr>
-          <td>${new Date(e.time).toLocaleTimeString('pt-BR')}</td>
-          <td>${escapeHtml(e.source)}</td>
-          <td>${escapeHtml(e.message)}</td>
-          <td><button type="button" class="action" data-action="diagnose" data-id="${e.id}">${e.diagnosis ? '🤖 Ver diagnóstico' : '🤖 Perguntar à IA'}</button></td>
-        </tr>`
+<tr>
+<td>${new Date(e.time).toLocaleTimeString('pt-BR')}</td>
+<td>${escapeHtml(e.source)}</td>
+<td>${escapeHtml(e.message)}</td>
+<td><button type="button" class="action" data-action="diagnose" data-id="${e.id}">${e.diagnosis ? '🤖 Ver diagnóstico' : '🤖 Perguntar à IA'}</button></td>
+</tr>`
 )
 .join('')
 : '<tr><td colspan="4" style="color:#949ba4;">Nenhum erro recente. 🎉</td></tr>';
 errorsBody.querySelectorAll('button[data-action="diagnose"]').forEach((btn) => {
 btn.onclick = () => diagnoseError(btn.dataset.id, btn);
 });
+
+updateMonitoringCharts(m, ramPct);
 }
+
+const MONITORING_HISTORY_MAX_POINTS = 60;
+let monitoringHistory = { labels: [], online: [], calls: [], requests: [], memory: [], errors: [] };
+let monitoringCharts = {};
+
+function pushHistoryPoint(arr, value) {
+arr.push(value);
+if (arr.length > MONITORING_HISTORY_MAX_POINTS) arr.shift();
+}
+
+function initMonitoringCharts() {
+if (typeof Chart === 'undefined') return;
+const commonOptions = {
+responsive: true,
+animation: false,
+plugins: { legend: { display: false } },
+scales: {
+x: { ticks: { color: '#6d7178', maxTicksLimit: 6 }, grid: { color: '#26272e' } },
+y: { ticks: { color: '#6d7178' }, grid: { color: '#26272e' }, beginAtZero: true },
+},
+};
+const dataset = (label, color) => ({ label, data: [], borderColor: color, backgroundColor: color + '22', fill: true, tension: 0.3, pointRadius: 0 });
+const make = (canvasId, datasets) => {
+const canvas = document.getElementById(canvasId);
+if (!canvas) return null;
+return new Chart(canvas, { type: 'line', data: { labels: [], datasets }, options: commonOptions });
+};
+monitoringCharts.online = make('chart-online', [dataset('Online', '#5865f2'), dataset('Em chamada', '#00d9c0')]);
+monitoringCharts.requests = make('chart-requests', [dataset('Requisições/min', '#00d9c0')]);
+monitoringCharts.memory = make('chart-memory', [dataset('Memória (MB)', '#f2c34f')]);
+monitoringCharts.errors = make('chart-errors', [dataset('Erros', '#f23f42')]);
+}
+
+function updateMonitoringCharts(m) {
+if (typeof Chart === 'undefined') return;
+if (!monitoringCharts.online) initMonitoringCharts();
+const label = new Date().toLocaleTimeString('pt-BR', { minute: '2-digit', second: '2-digit' });
+pushHistoryPoint(monitoringHistory.labels, label);
+pushHistoryPoint(monitoringHistory.online, m.realtime.users_online);
+pushHistoryPoint(monitoringHistory.calls, m.realtime.people_in_calls);
+pushHistoryPoint(monitoringHistory.requests, m.requests.last_minute);
+pushHistoryPoint(monitoringHistory.memory, m.server.memory_rss_mb);
+pushHistoryPoint(monitoringHistory.errors, m.recent_errors.length);
+
+const apply = (chart, ...datasetsData) => {
+if (!chart) return;
+chart.data.labels = monitoringHistory.labels;
+datasetsData.forEach((data, i) => { chart.data.datasets[i].data = data; });
+chart.update('none');
+};
+apply(monitoringCharts.online, monitoringHistory.online, monitoringHistory.calls);
+apply(monitoringCharts.requests, monitoringHistory.requests);
+apply(monitoringCharts.memory, monitoringHistory.memory);
+apply(monitoringCharts.errors, monitoringHistory.errors);
+}
+
+const HEALTH_STATUS_LABEL = { saudavel: '✅ Saudável', atencao: '⚠️ Atenção', critico: '🔴 Crítico' };
+
+function renderHealthResult(result) {
+document.getElementById('health-last-run').textContent = 'Última análise: ' + new Date().toLocaleString('pt-BR');
+const badge = document.getElementById('health-status-badge');
+badge.className = 'health-status-badge status-' + result.status;
+badge.textContent = HEALTH_STATUS_LABEL[result.status] || result.status;
+
+const listEl = document.getElementById('health-checks-list');
+listEl.innerHTML = result.checks
+.map(
+(c) => `
+<div class="health-check-row">
+<span class="health-check-icon">${c.ok ? '✅' : '⚠️'}</span>
+<div>
+<div class="health-check-name">${escapeHtml(c.name)}</div>
+<div class="health-check-detail">${escapeHtml(c.detail)}</div>
+</div>
+</div>
+`
+)
+.join('');
+
+const summaryBox = document.getElementById('health-summary-box');
+if (result.summary) {
+summaryBox.textContent = '🤖 ' + result.summary;
+summaryBox.classList.remove('hidden');
+} else {
+summaryBox.classList.add('hidden');
+}
+}
+
+async function loadHealthChecks() {
+const res = await fetch('/api/admin/health-checks', { credentials: 'include' });
+if (!res.ok) return;
+const rows = await res.json();
+if (rows.length > 0) {
+renderHealthResult(rows[0]);
+} else {
+document.getElementById('health-status-badge').textContent = 'Ainda sem análises — clique em "Analisar agora"';
+}
+const historyBody = document.querySelector('#health-history-table tbody');
+historyBody.innerHTML = rows.length
+? rows
+.map(
+(r) => `
+<tr>
+<td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
+<td>${HEALTH_STATUS_LABEL[r.status] || r.status}</td>
+<td>${escapeHtml((r.summary || '').slice(0, 140))}</td>
+</tr>`
+)
+.join('')
+: '<tr><td colspan="3" style="color:#949ba4;">Nenhuma análise ainda.</td></tr>';
+}
+
+document.getElementById('btn-health-check-now').onclick = async () => {
+const btn = document.getElementById('btn-health-check-now');
+btn.disabled = true;
+btn.textContent = '🔄 Analisando...';
+try {
+const res = await fetch('/api/admin/health-checks/run-now', { method: 'POST', credentials: 'include' });
+if (res.ok) {
+renderHealthResult(await res.json());
+loadHealthChecks();
+}
+} finally {
+btn.disabled = false;
+btn.textContent = '🔄 Analisar agora';
+}
+};
 
 async function diagnoseError(id, btn) {
 const panel = document.getElementById('error-diagnosis-panel');
@@ -281,10 +410,10 @@ offText: 'Configurado mas NÃO CONECTA' + (status.bluex_error ? ': ' + status.bl
 statusRow.innerHTML = statusCards
 .map(
 (c) => `
-        <div class="stat-card" style="background:${c.ok ? '#23a55a22' : '#f23f4222'};">
-          <div class="num" style="font-size:15px; color:${c.ok ? '#23a55a' : '#f23f42'};">${c.ok ? '✅ ' + c.okText : '⚠️ ' + c.offText}</div>
-          <div class="label">${c.label}</div>
-        </div>`
+<div class="stat-card" style="background:${c.ok ? '#23a55a22' : '#f23f4222'};">
+<div class="num" style="font-size:15px; color:${c.ok ? '#23a55a' : '#f23f42'};">${c.ok ? '✅ ' + c.okText : '⚠️ ' + c.offText}</div>
+<div class="label">${c.label}</div>
+</div>`
 )
 .join('');
 
@@ -292,11 +421,11 @@ const suspTbody = document.querySelector('#bluex-suspended-table tbody');
 suspTbody.innerHTML = suspended
 .map(
 (u) => `
-        <tr>
-          <td>${escapeHtml(u.username)}</td>
-          <td>${escapeHtml(u.ban_reason || '—')}</td>
-          <td><button class="action" data-action="unban" data-id="${u.id}">Revisei — desbanir</button></td>
-        </tr>`
+<tr>
+<td>${escapeHtml(u.username)}</td>
+<td>${escapeHtml(u.ban_reason || '—')}</td>
+<td><button class="action" data-action="unban" data-id="${u.id}">Revisei — desbanir</button></td>
+</tr>`
 )
 .join('');
 document.getElementById('bluex-suspended-empty').classList.toggle('hidden', suspended.length > 0);
@@ -369,12 +498,12 @@ tbody.innerHTML = '';
 rows.forEach((c) => {
 const tr = document.createElement('tr');
 tr.innerHTML = `
-      <td>${new Date(c.created_at).toLocaleString('pt-BR')}</td>
-      <td>${escapeHtml(c.username)}</td>
-      <td>${escapeHtml(c.title)}</td>
-      <td>${c.views}</td>
-      <td><button class="action danger" data-action="delete-clip" data-id="${c.id}">Excluir</button></td>
-    `;
+<td>${new Date(c.created_at).toLocaleString('pt-BR')}</td>
+<td>${escapeHtml(c.username)}</td>
+<td>${escapeHtml(c.title)}</td>
+<td>${c.views}</td>
+<td><button class="action danger" data-action="delete-clip" data-id="${c.id}">Excluir</button></td>
+`;
 tbody.appendChild(tr);
 });
 tbody.querySelectorAll('button[data-action="delete-clip"]').forEach((btn) =>
@@ -396,10 +525,10 @@ rows
 .forEach((i) => {
 const tr = document.createElement('tr');
 tr.innerHTML = `
-        <td>${escapeHtml(i.name)}</td>
-        <td>🪙 ${i.cost}</td>
-        <td><button class="action danger" data-action="delete-item" data-id="${i.id}">Remover</button></td>
-      `;
+<td>${escapeHtml(i.name)}</td>
+<td>🪙 ${i.cost}</td>
+<td><button class="action danger" data-action="delete-item" data-id="${i.id}">Remover</button></td>
+`;
 tbody.appendChild(tr);
 });
 tbody.querySelectorAll('button[data-action="delete-item"]').forEach((btn) =>
@@ -435,21 +564,21 @@ tbody.innerHTML = '';
 rows.forEach((c) => {
 const tr = document.createElement('tr');
 tr.innerHTML = `
-      <td style="font-family:monospace; font-weight:700;">${escapeHtml(c.code)}</td>
-      <td>${c.days > 0 ? c.days + ' dias' : 'sem prazo'}</td>
-      <td>${escapeHtml(c.note || '—')}</td>
-      <td>${
-        c.used_by
-          ? `<span style="color:#949ba4;">Resgatado por ${escapeHtml(c.used_by_username || '?')}</span>`
-          : '<span style="color:#23a55a; font-weight:700;">Disponível</span>'
-      }</td>
-      <td>${escapeHtml(c.created_by || '—')}</td>
-      <td>${
-        c.used_by
-          ? '—'
-          : `<button class="action danger" data-action="delete-redeem" data-id="${c.id}">Apagar</button>`
-      }</td>
-    `;
+<td style="font-family:monospace; font-weight:700;">${escapeHtml(c.code)}</td>
+<td>${c.days > 0 ? c.days + ' dias' : 'sem prazo'}</td>
+<td>${escapeHtml(c.note || '—')}</td>
+<td>${
+c.used_by
+? `<span style="color:#949ba4;">Resgatado por ${escapeHtml(c.used_by_username || '?')}</span>`
+: '<span style="color:#23a55a; font-weight:700;">Disponível</span>'
+}</td>
+<td>${escapeHtml(c.created_by || '—')}</td>
+<td>${
+c.used_by
+? '—'
+: `<button class="action danger" data-action="delete-redeem" data-id="${c.id}">Apagar</button>`
+}</td>
+`;
 tbody.appendChild(tr);
 });
 tbody.querySelectorAll('button[data-action="delete-redeem"]').forEach((btn) =>
@@ -510,19 +639,19 @@ return;
 rows.forEach((s) => {
 const tr = document.createElement('tr');
 tr.innerHTML = `
-      <td>${escapeHtml(s.category)}</td>
-      <td>${s.member_count}</td>
-      <td>${
-        s.is_official
-          ? '<span style="color:#3897f0; font-weight:700;">✔️ Oficial</span>'
-          : '<span style="color:#949ba4;">Comum</span>'
-      }</td>
-      <td>
-        <button class="action ${s.is_official ? 'danger' : ''}" data-action="toggle-official" data-category="${escapeHtml(s.category)}">
-          ${s.is_official ? 'Remover selo' : 'Marcar oficial'}
-        </button>
-      </td>
-    `;
+<td>${escapeHtml(s.category)}</td>
+<td>${s.member_count}</td>
+<td>${
+s.is_official
+? '<span style="color:#3897f0; font-weight:700;">✔️ Oficial</span>'
+: '<span style="color:#949ba4;">Comum</span>'
+}</td>
+<td>
+<button class="action ${s.is_official ? 'danger' : ''}" data-action="toggle-official" data-category="${escapeHtml(s.category)}">
+${s.is_official ? 'Remover selo' : 'Marcar oficial'}
+</button>
+</td>
+`;
 tbody.appendChild(tr);
 });
 tbody.querySelectorAll('button[data-action="toggle-official"]').forEach((btn) =>
@@ -560,17 +689,17 @@ tbody.innerHTML = '';
 reports.forEach((r) => {
 const tr = document.createElement('tr');
 tr.innerHTML = `
-      <td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
-      <td>${escapeHtml(r.reason)}</td>
-      <td>${escapeHtml(r.reporter_user_id)}</td>
-      <td>${escapeHtml(r.reported_user_id || '-')}</td>
-      <td>${escapeHtml(r.status)}</td>
-      <td>
-        <button class="action" data-action="resolve" data-id="${r.id}">Resolver</button>
-        <button class="action" data-action="dismiss" data-id="${r.id}">Descartar</button>
-        ${r.reported_user_id ? `<button class="action danger" data-action="ban" data-id="${r.reported_user_id}">Banir usuário</button>` : ''}
-      </td>
-    `;
+<td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
+<td>${escapeHtml(r.reason)}</td>
+<td>${escapeHtml(r.reporter_user_id)}</td>
+<td>${escapeHtml(r.reported_user_id || '-')}</td>
+<td>${escapeHtml(r.status)}</td>
+<td>
+<button class="action" data-action="resolve" data-id="${r.id}">Resolver</button>
+<button class="action" data-action="dismiss" data-id="${r.id}">Descartar</button>
+${r.reported_user_id ? `<button class="action danger" data-action="ban" data-id="${r.reported_user_id}">Banir usuário</button>` : ''}
+</td>
+`;
 tbody.appendChild(tr);
 });
 
@@ -635,16 +764,16 @@ tickets.forEach((t) => {
 const tr = document.createElement('tr');
 const statusColor = t.status === 'aberto' ? '#f23f42' : t.status === 'respondido' ? '#faa61a' : '#3ba55c';
 tr.innerHTML = `
-      <td>${new Date(t.created_at).toLocaleString('pt-BR')}</td>
-      <td>${escapeHtml(t.username || t.name || '-')}<br><span style="color:#949ba4; font-size:11px;">${escapeHtml(t.email)}</span></td>
-      <td>${escapeHtml(SUPPORT_CATEGORY_LABELS[t.category] || t.category)}</td>
-      <td>${escapeHtml(t.subject)}</td>
-      <td style="max-width:260px; white-space:pre-wrap;">${escapeHtml(t.message)}</td>
-      <td style="color:${statusColor}; font-weight:700;">${escapeHtml(t.status)}</td>
-      <td>
-        <button class="action" data-action="support-respond" data-id="${t.id}">Responder/Fechar</button>
-      </td>
-    `;
+<td>${new Date(t.created_at).toLocaleString('pt-BR')}</td>
+<td>${escapeHtml(t.username || t.name || '-')}<br><span style="color:#949ba4; font-size:11px;">${escapeHtml(t.email)}</span></td>
+<td>${escapeHtml(SUPPORT_CATEGORY_LABELS[t.category] || t.category)}</td>
+<td>${escapeHtml(t.subject)}</td>
+<td style="max-width:260px; white-space:pre-wrap;">${escapeHtml(t.message)}</td>
+<td style="color:${statusColor}; font-weight:700;">${escapeHtml(t.status)}</td>
+<td>
+<button class="action" data-action="support-respond" data-id="${t.id}">Responder/Fechar</button>
+</td>
+`;
 tbody.appendChild(tr);
 });
 
@@ -681,12 +810,12 @@ return '';
 })();
 const tr = document.createElement('tr');
 tr.innerHTML = `
-      <td>${new Date(m.created_at).toLocaleString('pt-BR')}</td>
-      <td>${escapeHtml(m.username)}</td>
-      <td>${escapeHtml(m.content)}</td>
-      <td>${escapeHtml(categories)}</td>
-      <td><button class="action danger" data-action="ban" data-id="${m.user_id}">Banir usuário</button></td>
-    `;
+<td>${new Date(m.created_at).toLocaleString('pt-BR')}</td>
+<td>${escapeHtml(m.username)}</td>
+<td>${escapeHtml(m.content)}</td>
+<td>${escapeHtml(categories)}</td>
+<td><button class="action danger" data-action="ban" data-id="${m.user_id}">Banir usuário</button></td>
+`;
 tbody.appendChild(tr);
 });
 tbody.querySelectorAll('button[data-action="ban"]').forEach((btn) =>
@@ -699,19 +828,19 @@ const res = await fetch('/api/admin/minors', { credentials: 'include' });
 const data = await res.json();
 const summaryEl = document.getElementById('minors-summary');
 summaryEl.innerHTML = `
-    <div class="stat-card"><div class="num">${data.total_minors}</div><div class="label">Contas de menores</div></div>
-    <div class="stat-card"><div class="num">${data.total_with_birth_date}</div><div class="label">Total com data informada</div></div>
-  `;
+<div class="stat-card"><div class="num">${data.total_minors}</div><div class="label">Contas de menores</div></div>
+<div class="stat-card"><div class="num">${data.total_with_birth_date}</div><div class="label">Total com data informada</div></div>
+`;
 const tbody = document.querySelector('#minors-table tbody');
 tbody.innerHTML = '';
 data.minors.forEach((u) => {
 const tr = document.createElement('tr');
 tr.innerHTML = `
-      <td>${escapeHtml(u.username_tag || u.username)}</td>
-      <td>${u.age} anos</td>
-      <td>${escapeHtml(u.email || '-')}</td>
-      <td>${u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '-'}</td>
-    `;
+<td>${escapeHtml(u.username_tag || u.username)}</td>
+<td>${u.age} anos</td>
+<td>${escapeHtml(u.email || '-')}</td>
+<td>${u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '-'}</td>
+`;
 tbody.appendChild(tr);
 });
 
@@ -720,11 +849,11 @@ mismatchTbody.innerHTML = '';
 (data.age_mismatches || []).forEach((u) => {
 const tr = document.createElement('tr');
 tr.innerHTML = `
-      <td>${escapeHtml(u.username_tag || u.username)}</td>
-      <td>${u.declared_age} anos</td>
-      <td>~${u.estimated_age} anos</td>
-      <td>${escapeHtml(u.email || '-')}</td>
-    `;
+<td>${escapeHtml(u.username_tag || u.username)}</td>
+<td>${u.declared_age} anos</td>
+<td>~${u.estimated_age} anos</td>
+<td>${escapeHtml(u.email || '-')}</td>
+`;
 mismatchTbody.appendChild(tr);
 });
 }
@@ -745,15 +874,15 @@ return '';
 const tr = document.createElement('tr');
 if (f.reviewed) tr.style.opacity = '0.5';
 tr.innerHTML = `
-      <td>${new Date(f.created_at).toLocaleString('pt-BR')}</td>
-      <td>${escapeHtml(f.username)}</td>
-      <td>${escapeHtml(f.reason || '-')}</td>
-      <td>${escapeHtml(categories)}</td>
-      <td>
-        ${f.reviewed ? 'Revisado' : `<button class="action" data-action="review" data-id="${f.id}">Marcar revisado</button>`}
-        <button class="action danger" data-action="ban" data-id="${f.user_id}">Banir usuário</button>
-      </td>
-    `;
+<td>${new Date(f.created_at).toLocaleString('pt-BR')}</td>
+<td>${escapeHtml(f.username)}</td>
+<td>${escapeHtml(f.reason || '-')}</td>
+<td>${escapeHtml(categories)}</td>
+<td>
+${f.reviewed ? 'Revisado' : `<button class="action" data-action="review" data-id="${f.id}">Marcar revisado</button>`}
+<button class="action danger" data-action="ban" data-id="${f.user_id}">Banir usuário</button>
+</td>
+`;
 tbody.appendChild(tr);
 });
 tbody.querySelectorAll('button[data-action="review"]').forEach((btn) =>
@@ -787,11 +916,11 @@ return '';
 })();
 const tr = document.createElement('tr');
 tr.innerHTML = `
-      <td>${new Date(m.created_at).toLocaleString('pt-BR')}</td>
-      <td>${escapeHtml(m.username)}</td>
-      <td>${escapeHtml(m.content)}</td>
-      <td>${escapeHtml(categories)}</td>
-    `;
+<td>${new Date(m.created_at).toLocaleString('pt-BR')}</td>
+<td>${escapeHtml(m.username)}</td>
+<td>${escapeHtml(m.content)}</td>
+<td>${escapeHtml(categories)}</td>
+`;
 tbody.appendChild(tr);
 });
 }
@@ -821,32 +950,32 @@ tbody.innerHTML = '';
 users.forEach((u) => {
 const tr = document.createElement('tr');
 tr.innerHTML = `
-      <td>${escapeHtml(u.username)}</td>
-      <td>${escapeHtml(u.email || '—')}</td>
-      <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
-      <td>${u.is_root ? '<span style="color:#f2c94c;font-weight:700;" title="Proprietário — autoridade máxima da plataforma">👑 ROOT</span>' : u.is_admin ? 'Sim' : u.is_moderator ? '<span style="color:#faa61a;" title="Acesso parcial: só Segurança/BLUEX e Moderação">🛡️ Moderador</span>' : 'Não'}</td>
-      <td>${u.verified_gold ? '🥇 Verificado (dourado)' : u.is_verified ? '✔️ Verificado' : '—'}</td>
-      <td>${planLabelHtml(u)}</td>
-      <td>${
-        u.auto_suspended
-          ? `<span title="${escapeHtml(u.ban_reason || '')}" style="color:#f23f42;font-weight:700;">⚠️ Suspensão automática — revisar</span>`
-          : u.is_banned
-          ? 'Banido'
-          : 'Ativo'
-      }</td>
-      <td>
-        ${u.is_banned
-          ? `<button class="action" data-action="unban" data-id="${u.id}">Desbanir</button>`
-          : `<button class="action danger" data-action="ban" data-id="${u.id}">Banir</button>`}
-        <button class="action" data-action="timeout" data-id="${u.id}">Timeout 10min</button>
-        ${u.plan === 'plus'
-          ? `<button class="action" data-action="revoke-plan" data-id="${u.id}">Remover Plus</button>`
-          : `<button class="action" data-action="grant-plan" data-id="${u.id}">Conceder Plus</button>`}
-        <button class="action" data-action="toggle-verify" data-id="${u.id}">${u.is_verified ? 'Remover selo' : '✔️ Verificar'}</button>
-        <button class="action" data-action="toggle-verify-gold" data-id="${u.id}">${u.verified_gold ? 'Remover dourado' : '🥇 Verificar (dourado, parceiro)'}</button>
-        ${isRootUser ? `<button class="action" data-action="toggle-root" data-id="${u.id}" data-current="${u.is_root ? '1' : '0'}">${u.is_root ? '👑 Remover ROOT' : '👑 Tornar ROOT'}</button>` : ''}
-      </td>
-    `;
+<td>${escapeHtml(u.username)}</td>
+<td>${escapeHtml(u.email || '—')}</td>
+<td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
+<td>${u.is_root ? '<span style="color:#f2c94c;font-weight:700;" title="Proprietário — autoridade máxima da plataforma">👑 ROOT</span>' : u.is_admin ? 'Sim' : u.is_moderator ? '<span style="color:#faa61a;" title="Acesso parcial: só Segurança/BLUEX e Moderação">🛡️ Moderador</span>' : 'Não'}</td>
+<td>${u.verified_gold ? '🥇 Verificado (dourado)' : u.is_verified ? '✔️ Verificado' : '—'}</td>
+<td>${planLabelHtml(u)}</td>
+<td>${
+u.auto_suspended
+? `<span title="${escapeHtml(u.ban_reason || '')}" style="color:#f23f42;font-weight:700;">⚠️ Suspensão automática — revisar</span>`
+: u.is_banned
+? 'Banido'
+: 'Ativo'
+}</td>
+<td>
+${u.is_banned
+? `<button class="action" data-action="unban" data-id="${u.id}">Desbanir</button>`
+: `<button class="action danger" data-action="ban" data-id="${u.id}">Banir</button>`}
+<button class="action" data-action="timeout" data-id="${u.id}">Timeout 10min</button>
+${u.plan === 'plus'
+? `<button class="action" data-action="revoke-plan" data-id="${u.id}">Remover Plus</button>`
+: `<button class="action" data-action="grant-plan" data-id="${u.id}">Conceder Plus</button>`}
+<button class="action" data-action="toggle-verify" data-id="${u.id}">${u.is_verified ? 'Remover selo' : '✔️ Verificar'}</button>
+<button class="action" data-action="toggle-verify-gold" data-id="${u.id}">${u.verified_gold ? 'Remover dourado' : '🥇 Verificar (dourado, parceiro)'}</button>
+${isRootUser ? `<button class="action" data-action="toggle-root" data-id="${u.id}" data-current="${u.is_root ? '1' : '0'}">${u.is_root ? '👑 Remover ROOT' : '👑 Tornar ROOT'}</button>` : ''}
+</td>
+`;
 tbody.appendChild(tr);
 });
 
@@ -967,10 +1096,10 @@ tbody.innerHTML = '';
 data.messages.forEach((m) => {
 const tr = document.createElement('tr');
 tr.innerHTML = `
-      <td>${new Date(m.created_at).toLocaleString('pt-BR')}</td>
-      <td class="mono">${escapeHtml(m.channel_id)}</td>
-      <td>${escapeHtml(m.content || '(sem texto/só anexo)')}${m.deleted ? ' <span class="tag tag-inactive">apagada</span>' : ''}${m.flagged ? ' <span class="tag tag-flagged">sinalizada</span>' : ''}</td>
-    `;
+<td>${new Date(m.created_at).toLocaleString('pt-BR')}</td>
+<td class="mono">${escapeHtml(m.channel_id)}</td>
+<td>${escapeHtml(m.content || '(sem texto/só anexo)')}${m.deleted ? ' <span class="tag tag-inactive">apagada</span>' : ''}${m.flagged ? ' <span class="tag tag-flagged">sinalizada</span>' : ''}</td>
+`;
 tbody.appendChild(tr);
 });
 document.getElementById('investigate-result').classList.remove('hidden');
@@ -1002,11 +1131,11 @@ el.innerHTML = '';
 rows.forEach((r) => {
 const tr = document.createElement('tr');
 tr.innerHTML = `
-      <td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
-      <td>${escapeHtml(r.admin_username)}</td>
-      <td>${escapeHtml(r.target_username)}</td>
-      <td>${escapeHtml(r.reason)}</td>
-    `;
+<td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
+<td>${escapeHtml(r.admin_username)}</td>
+<td>${escapeHtml(r.target_username)}</td>
+<td>${escapeHtml(r.reason)}</td>
+`;
 el.appendChild(tr);
 });
 }
@@ -1097,20 +1226,20 @@ return;
 el.innerHTML = pending
 .map(
 (a) => `
-    <div class="alert-card" data-id="${a.id}" style="border:1px solid #3a3c42; border-radius:8px; padding:12px; margin-bottom:10px;">
-      <div style="display:flex; justify-content:space-between; gap:8px;">
-        <strong>${AI_ALERT_SEVERITY_LABEL[a.severity] || a.severity} — ${escapeHtml(a.title)}</strong>
-        <span class="hint">${new Date(a.created_at).toLocaleString('pt-BR')}</span>
-      </div>
-      <p style="margin:6px 0;">${escapeHtml(a.description)}</p>
-      ${a.suggested_action ? `<p class="hint">💡 Sugestão: ${escapeHtml(a.suggested_action)}</p>` : ''}
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <button type="button" class="btn-ai-alert-resolve" data-id="${a.id}" data-status="acao_preparada">Preparar ação</button>
-        <button type="button" class="btn-ai-alert-resolve" data-id="${a.id}" data-status="revisado">Marcar como revisado</button>
-        <button type="button" class="btn-ai-alert-resolve" data-id="${a.id}" data-status="ignorado">Ignorar</button>
-      </div>
-    </div>
-  `
+<div class="alert-card" data-id="${a.id}" style="border:1px solid #3a3c42; border-radius:8px; padding:12px; margin-bottom:10px;">
+<div style="display:flex; justify-content:space-between; gap:8px;">
+<strong>${AI_ALERT_SEVERITY_LABEL[a.severity] || a.severity} — ${escapeHtml(a.title)}</strong>
+<span class="hint">${new Date(a.created_at).toLocaleString('pt-BR')}</span>
+</div>
+<p style="margin:6px 0;">${escapeHtml(a.description)}</p>
+${a.suggested_action ? `<p class="hint">💡 Sugestão: ${escapeHtml(a.suggested_action)}</p>` : ''}
+<div style="display:flex; gap:8px; margin-top:8px;">
+<button type="button" class="btn-ai-alert-resolve" data-id="${a.id}" data-status="acao_preparada">Preparar ação</button>
+<button type="button" class="btn-ai-alert-resolve" data-id="${a.id}" data-status="revisado">Marcar como revisado</button>
+<button type="button" class="btn-ai-alert-resolve" data-id="${a.id}" data-status="ignorado">Ignorar</button>
+</div>
+</div>
+`
 )
 .join('');
 document.querySelectorAll('.btn-ai-alert-resolve').forEach((btn) => {
@@ -1168,11 +1297,11 @@ const perms = await res.json();
 el.innerHTML = Object.keys(AI_PERMISSION_LABELS)
 .map(
 (key) => `
-    <label class="checkbox-row">
-      <input type="checkbox" class="ai-permission-toggle" data-key="${key}" ${perms[key] ? 'checked' : ''} />
-      ${AI_PERMISSION_LABELS[key]}
-    </label>
-  `
+<label class="checkbox-row">
+<input type="checkbox" class="ai-permission-toggle" data-key="${key}" ${perms[key] ? 'checked' : ''} />
+${AI_PERMISSION_LABELS[key]}
+</label>
+`
 )
 .join('');
 document.querySelectorAll('.ai-permission-toggle').forEach((cb) => {
@@ -1197,23 +1326,23 @@ el.innerHTML = '<p class="hint">Nenhuma ação registrada ainda.</p>';
 return;
 }
 el.innerHTML = `
-    <table><thead><tr>
-      <th>Quando</th><th>Problema detectado</th><th>Recomendação</th><th>Ação</th><th>Autorizado por</th><th>Resultado</th>
-    </tr></thead><tbody>
-      ${rows
-        .map(
-          (r) => `<tr>
-            <td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
-            <td>${escapeHtml(r.problem_detected || '')}</td>
-            <td>${escapeHtml(r.recommendation || '')}</td>
-            <td>${escapeHtml(r.action_executed || '(nenhuma)')}</td>
-            <td>${escapeHtml(r.authorized_by_username || '')}</td>
-            <td>${escapeHtml(r.result || '')}</td>
-          </tr>`
-        )
-        .join('')}
-    </tbody></table>
-  `;
+<table><thead><tr>
+<th>Quando</th><th>Problema detectado</th><th>Recomendação</th><th>Ação</th><th>Autorizado por</th><th>Resultado</th>
+</tr></thead><tbody>
+${rows
+.map(
+(r) => `<tr>
+<td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
+<td>${escapeHtml(r.problem_detected || '')}</td>
+<td>${escapeHtml(r.recommendation || '')}</td>
+<td>${escapeHtml(r.action_executed || '(nenhuma)')}</td>
+<td>${escapeHtml(r.authorized_by_username || '')}</td>
+<td>${escapeHtml(r.result || '')}</td>
+</tr>`
+)
+.join('')}
+</tbody></table>
+`;
 }
 
 async function loadAuditLogs() {
@@ -1235,13 +1364,13 @@ details = r.details ? JSON.stringify(JSON.parse(r.details)) : '';
 details = r.details || '';
 }
 tr.innerHTML = `
-      <td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
-      <td>${escapeHtml(r.actor_username || '-')}</td>
-      <td>${escapeHtml(r.action)}</td>
-      <td>${escapeHtml(r.target_type || '-')}</td>
-      <td>${escapeHtml(r.target_id || '-')}</td>
-      <td>${escapeHtml(details)}</td>
-    `;
+<td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
+<td>${escapeHtml(r.actor_username || '-')}</td>
+<td>${escapeHtml(r.action)}</td>
+<td>${escapeHtml(r.target_type || '-')}</td>
+<td>${escapeHtml(r.target_id || '-')}</td>
+<td>${escapeHtml(details)}</td>
+`;
 tbody.appendChild(tr);
 });
 }

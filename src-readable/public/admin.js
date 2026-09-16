@@ -53,8 +53,10 @@ async function init() {
     return;
   }
 
+  initMonitoringCharts();
   loadMonitoring();
   setInterval(loadMonitoring, 10000);
+  loadHealthChecks();
   loadBluexPanel();
   setInterval(loadBluexPanel, 10000);
   loadAnalytics();
@@ -242,7 +244,145 @@ async function loadMonitoring() {
   errorsBody.querySelectorAll('button[data-action="diagnose"]').forEach((btn) => {
     btn.onclick = () => diagnoseError(btn.dataset.id, btn);
   });
+
+  updateMonitoringCharts(m, ramPct);
 }
+
+// ---------- GRÁFICOS AO VIVO (item pedido: "sistema de gráficos... a cada
+// 10s") — mesma fonte de dado do monitoramento acima (loadMonitoring, já
+// chamado a cada 10s), só que guarda um histórico curto no navegador pra
+// desenhar a tendência em vez de só o número do instante. Zera ao recarregar
+// a página de propósito — não é histórico permanente (isso quem guarda é o
+// monitor inteligente de saúde, no banco).
+const MONITORING_HISTORY_MAX_POINTS = 60; // ~10 minutos de pontos a cada 10s
+let monitoringHistory = { labels: [], online: [], calls: [], requests: [], memory: [], errors: [] };
+let monitoringCharts = {};
+
+function pushHistoryPoint(arr, value) {
+  arr.push(value);
+  if (arr.length > MONITORING_HISTORY_MAX_POINTS) arr.shift();
+}
+
+function initMonitoringCharts() {
+  if (typeof Chart === 'undefined') return; // CDN não carregou — painel de números continua funcionando normal
+  const commonOptions = {
+    responsive: true,
+    animation: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#6d7178', maxTicksLimit: 6 }, grid: { color: '#26272e' } },
+      y: { ticks: { color: '#6d7178' }, grid: { color: '#26272e' }, beginAtZero: true },
+    },
+  };
+  const dataset = (label, color) => ({ label, data: [], borderColor: color, backgroundColor: color + '22', fill: true, tension: 0.3, pointRadius: 0 });
+  const make = (canvasId, datasets) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+    return new Chart(canvas, { type: 'line', data: { labels: [], datasets }, options: commonOptions });
+  };
+  monitoringCharts.online = make('chart-online', [dataset('Online', '#5865f2'), dataset('Em chamada', '#00d9c0')]);
+  monitoringCharts.requests = make('chart-requests', [dataset('Requisições/min', '#00d9c0')]);
+  monitoringCharts.memory = make('chart-memory', [dataset('Memória (MB)', '#f2c34f')]);
+  monitoringCharts.errors = make('chart-errors', [dataset('Erros', '#f23f42')]);
+}
+
+function updateMonitoringCharts(m) {
+  if (typeof Chart === 'undefined') return;
+  if (!monitoringCharts.online) initMonitoringCharts();
+  const label = new Date().toLocaleTimeString('pt-BR', { minute: '2-digit', second: '2-digit' });
+  pushHistoryPoint(monitoringHistory.labels, label);
+  pushHistoryPoint(monitoringHistory.online, m.realtime.users_online);
+  pushHistoryPoint(monitoringHistory.calls, m.realtime.people_in_calls);
+  pushHistoryPoint(monitoringHistory.requests, m.requests.last_minute);
+  pushHistoryPoint(monitoringHistory.memory, m.server.memory_rss_mb);
+  pushHistoryPoint(monitoringHistory.errors, m.recent_errors.length);
+
+  const apply = (chart, ...datasetsData) => {
+    if (!chart) return;
+    chart.data.labels = monitoringHistory.labels;
+    datasetsData.forEach((data, i) => { chart.data.datasets[i].data = data; });
+    chart.update('none');
+  };
+  apply(monitoringCharts.online, monitoringHistory.online, monitoringHistory.calls);
+  apply(monitoringCharts.requests, monitoringHistory.requests);
+  apply(monitoringCharts.memory, monitoringHistory.memory);
+  apply(monitoringCharts.errors, monitoringHistory.errors);
+}
+
+// ---------- MONITOR INTELIGENTE DE SAÚDE TÉCNICA (item pedido: "sistema
+// inteligente... análise de tudo a cada 10 min... testes periódicos...
+// coloca o Groq") ----------
+const HEALTH_STATUS_LABEL = { saudavel: '✅ Saudável', atencao: '⚠️ Atenção', critico: '🔴 Crítico' };
+
+function renderHealthResult(result) {
+  document.getElementById('health-last-run').textContent = 'Última análise: ' + new Date().toLocaleString('pt-BR');
+  const badge = document.getElementById('health-status-badge');
+  badge.className = 'health-status-badge status-' + result.status;
+  badge.textContent = HEALTH_STATUS_LABEL[result.status] || result.status;
+
+  const listEl = document.getElementById('health-checks-list');
+  listEl.innerHTML = result.checks
+    .map(
+      (c) => `
+    <div class="health-check-row">
+      <span class="health-check-icon">${c.ok ? '✅' : '⚠️'}</span>
+      <div>
+        <div class="health-check-name">${escapeHtml(c.name)}</div>
+        <div class="health-check-detail">${escapeHtml(c.detail)}</div>
+      </div>
+    </div>
+  `
+    )
+    .join('');
+
+  const summaryBox = document.getElementById('health-summary-box');
+  if (result.summary) {
+    summaryBox.textContent = '🤖 ' + result.summary;
+    summaryBox.classList.remove('hidden');
+  } else {
+    summaryBox.classList.add('hidden');
+  }
+}
+
+async function loadHealthChecks() {
+  const res = await fetch('/api/admin/health-checks', { credentials: 'include' });
+  if (!res.ok) return;
+  const rows = await res.json();
+  if (rows.length > 0) {
+    renderHealthResult(rows[0]);
+  } else {
+    document.getElementById('health-status-badge').textContent = 'Ainda sem análises — clique em "Analisar agora"';
+  }
+  const historyBody = document.querySelector('#health-history-table tbody');
+  historyBody.innerHTML = rows.length
+    ? rows
+        .map(
+          (r) => `
+      <tr>
+        <td>${new Date(r.created_at).toLocaleString('pt-BR')}</td>
+        <td>${HEALTH_STATUS_LABEL[r.status] || r.status}</td>
+        <td>${escapeHtml((r.summary || '').slice(0, 140))}</td>
+      </tr>`
+        )
+        .join('')
+    : '<tr><td colspan="3" style="color:#949ba4;">Nenhuma análise ainda.</td></tr>';
+}
+
+document.getElementById('btn-health-check-now').onclick = async () => {
+  const btn = document.getElementById('btn-health-check-now');
+  btn.disabled = true;
+  btn.textContent = '🔄 Analisando...';
+  try {
+    const res = await fetch('/api/admin/health-checks/run-now', { method: 'POST', credentials: 'include' });
+    if (res.ok) {
+      renderHealthResult(await res.json());
+      loadHealthChecks();
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 Analisar agora';
+  }
+};
 
 // ---------- Diagnóstico de erro por IA ----------
 // Só explica/sugere — quem aplica qualquer correção é uma pessoa (você, ou

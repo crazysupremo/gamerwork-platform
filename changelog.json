@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.54.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Admin remodelado: cantos mais arredondados, cards com sombra e leve elevação no hover, tabelas e barra lateral com acabamento mais moderno — mesma estrutura de sempre, só mais bonito.",
+      "Gráficos ao vivo na aba Visão Geral: online/em chamada, requisições por minuto, memória e erros acumulados, atualizando a cada 10s junto com o resto do monitoramento.",
+      "Monitor inteligente de saúde técnica: a cada 10 minutos, testa de verdade o banco de dados, o Groq e o BLUEX, olha taxa de erro/memória/lag e pede pro Groq resumir o que encontrou em português. Fica salvo com histórico, tem botão \"Analisar agora\", e nunca aplica nada sozinho — só analisa e avisa."
+    ]
+  },
+  {
     "version": "0.53.0",
     "date": "2026-09-10",
     "changes": [

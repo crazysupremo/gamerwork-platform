@@ -7723,6 +7723,162 @@ async function runAiAnalysis() {
   }
 }
 
+// ---------- MONITOR INTELIGENTE DE SAÚDE TÉCNICA (item pedido: "sistema
+// inteligente... análise de tudo a cada 10 min... testes periódicos...
+// coloca o Groq") ----------
+// Diferente de runAiAnalysis (que olha COMPORTAMENTO: denúncias, conteúdo) —
+// isso testa a SAÚDE TÉCNICA de verdade: banco, BLUEX, Groq, memória, taxa
+// de erro e lag. Cada teste é uma chamada real, não estimativa. O Groq só
+// RESUME o que os testes encontraram em português — ele não decide o status
+// (isso é calculado por regra fixa, sempre confiável mesmo se o Groq falhar).
+async function runTechnicalHealthCheck() {
+  const checks = [];
+  let overallStatus = 'saudavel';
+  const bump = (level) => {
+    if (level === 'critico') overallStatus = 'critico';
+    else if (level === 'atencao' && overallStatus !== 'critico') overallStatus = 'atencao';
+  };
+
+  try {
+    const t0 = Date.now();
+    await db.get('SELECT 1 as ok');
+    const ms = Date.now() - t0;
+    checks.push({ name: 'Banco de dados', ok: true, detail: `Respondeu em ${ms}ms` });
+    if (ms > 1000) bump('atencao');
+  } catch (err) {
+    checks.push({ name: 'Banco de dados', ok: false, detail: err.message });
+    bump('critico');
+  }
+
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const t0 = Date.now();
+      const r = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { Authorization: 'Bearer ' + process.env.GROQ_API_KEY },
+      });
+      const ms = Date.now() - t0;
+      if (r.ok) {
+        checks.push({ name: 'Groq (IA)', ok: true, detail: `Respondeu em ${ms}ms` });
+      } else {
+        checks.push({ name: 'Groq (IA)', ok: false, detail: `HTTP ${r.status}` });
+        bump('atencao');
+      }
+    } catch (err) {
+      checks.push({ name: 'Groq (IA)', ok: false, detail: err.message });
+      bump('atencao');
+    }
+  } else {
+    checks.push({ name: 'Groq (IA)', ok: false, detail: 'GROQ_API_KEY não configurada' });
+  }
+
+  if (isBluexConfigured()) {
+    try {
+      const t0 = Date.now();
+      await bluexRequest('/v1/analyze-text', { text: 'teste automático de saúde do sistema' });
+      const ms = Date.now() - t0;
+      checks.push({ name: 'BLUEX (moderação externa)', ok: true, detail: `Respondeu em ${ms}ms` });
+    } catch (err) {
+      checks.push({ name: 'BLUEX (moderação externa)', ok: false, detail: err.message });
+      bump('atencao'); // tem fallback pro Groq direto, por isso não é crítico
+    }
+  } else {
+    checks.push({ name: 'BLUEX (moderação externa)', ok: true, detail: 'Não configurado — moderação usa Groq direto' });
+  }
+
+  const mem = process.memoryUsage();
+  const rssMb = Math.round(mem.rss / 1024 / 1024);
+  const pct = Math.round((rssMb / 512) * 100);
+  checks.push({ name: 'Memória', ok: pct < 85, detail: `${rssMb}MB (${pct}% do limite do free tier do Render)` });
+  if (pct >= 95) bump('critico');
+  else if (pct >= 80) bump('atencao');
+
+  const tenMinAgo = Date.now() - 10 * 60 * 1000;
+  const recentErrCount = recentErrors.filter((e) => new Date(e.time).getTime() >= tenMinAgo).length;
+  checks.push({ name: 'Erros recentes (10 min)', ok: recentErrCount < 5, detail: `${recentErrCount} erro(s) registrados` });
+  if (recentErrCount >= 15) bump('critico');
+  else if (recentErrCount >= 5) bump('atencao');
+
+  const recentSlowCount = recentSlowRequests.filter((r) => new Date(r.time).getTime() >= tenMinAgo).length;
+  checks.push({
+    name: 'Requisições lentas (10 min)',
+    ok: recentSlowCount < 10,
+    detail: `${recentSlowCount} requisição(ões) acima de ${SLOW_REQUEST_MS}ms`,
+  });
+  if (recentSlowCount >= 30) bump('atencao');
+
+  const voiceRoomsSnapshot = [...voiceRooms.entries()].filter(([, p]) => p.size > 0);
+  checks.push({
+    name: 'Salas de voz e canais',
+    ok: true,
+    detail: `${voiceRoomsSnapshot.length} sala(s) de voz ativa(s), ${voiceRoomsSnapshot.reduce((s, [, p]) => s + p.size, 0)} pessoa(s) conectada(s)`,
+  });
+
+  checks.push({ name: 'Conexões em tempo real', ok: true, detail: `${io.engine.clientsCount} socket(s) conectado(s) agora` });
+
+  let summary = null;
+  const apiKey = process.env.GROQ_API_KEY;
+  if (apiKey) {
+    const checksText = checks.map((c) => `- ${c.name}: ${c.ok ? 'OK' : 'PROBLEMA'} — ${c.detail}`).join('\n');
+    const prompt =
+      'Você é um assistente técnico monitorando a plataforma NEXT GAME. Analise os resultados dos testes ' +
+      'automáticos abaixo e escreva um resumo curto (3 a 5 frases) em português, tom direto e técnico, dizendo ' +
+      'se está tudo bem ou o que precisa de atenção, com uma sugestão prática se houver problema. Não invente ' +
+      'nada além do que está listado.\n\n' +
+      `Resultados dos testes:\n${checksText}\n\nStatus geral calculado por regra fixa: ${overallStatus}`;
+    try {
+      const textModel = process.env.GROQ_TEXT_MODEL || 'llama-3.3-70b-versatile';
+      const apiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+        body: JSON.stringify({ model: textModel, max_tokens: 300, messages: [{ role: 'user', content: prompt }] }),
+      });
+      if (apiRes.ok) {
+        const data = await apiRes.json();
+        summary = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || null;
+      }
+    } catch (_) {}
+  }
+  if (!summary) {
+    summary =
+      overallStatus === 'saudavel'
+        ? 'Tudo funcionando normalmente nos testes automáticos.'
+        : 'Foram encontrados pontos de atenção — veja a lista de testes acima.';
+  }
+
+  await db.run('INSERT INTO health_checks (id, status, checks, summary) VALUES (?, ?, ?, ?)', [
+    uuidv4(),
+    overallStatus,
+    JSON.stringify(checks),
+    summary,
+  ]);
+  // Mantém só os últimos 500 registros — histórico útil sem crescer pra sempre.
+  await db.run(
+    'DELETE FROM health_checks WHERE id NOT IN (SELECT id FROM health_checks ORDER BY created_at DESC LIMIT 500)'
+  );
+
+  return { status: overallStatus, checks, summary };
+}
+
+app.get(
+  '/api/admin/health-checks',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all('SELECT * FROM health_checks ORDER BY created_at DESC LIMIT 50');
+    res.json(rows.map((r) => ({ ...r, checks: JSON.parse(r.checks) })));
+  })
+);
+
+app.post(
+  '/api/admin/health-checks/run-now',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const result = await runTechnicalHealthCheck();
+    res.json(result);
+  })
+);
+
 app.get(
   '/api/root/ai/alerts',
   requireAuth,
@@ -9366,6 +9522,16 @@ async function main() {
   // Primeira rodada logo na subida do servidor, sem esperar 30min pra ter
   // dado no painel.
   setTimeout(() => runAiAnalysis(), 15 * 1000);
+
+  // Monitor inteligente de saúde técnica (item pedido: "análise de tudo a
+  // cada 10 min... testes periódicos") — testa banco/BLUEX/Groq de verdade e
+  // guarda o resultado no banco (ver runTechnicalHealthCheck()).
+  setInterval(() => {
+    runTechnicalHealthCheck().catch((err) => console.error('Erro no monitor de saúde técnica:', err.message));
+  }, 10 * 60 * 1000);
+  setTimeout(() => {
+    runTechnicalHealthCheck().catch((err) => console.error('Erro no monitor de saúde técnica:', err.message));
+  }, 20 * 1000);
 }
 
 main().catch((err) => {
