@@ -146,6 +146,18 @@
   }
   .chart-card, .health-summary-box { transition: box-shadow 0.15s ease; }
   .chart-card:hover, .health-summary-box:hover { box-shadow: 0 8px 22px rgba(0,0,0,0.3); }
+
+  /* Correção: coluna de AÇÕES da tabela de Usuários estava empurrando cada
+     botão pra sua própria linha (coluna estreita demais pra tantos botões
+     de texto longo), deixando a tabela gigante e feia. Os botões viram uma
+     grade compacta que quebra linha de forma organizada, bem menores. */
+  #users-table td:last-child, table td:has(button.action) {
+    display: flex; flex-wrap: wrap; gap: 5px; align-items: flex-start; min-width: 300px;
+  }
+  #users-table button.action, table button.action {
+    margin-right: 0; padding: 4px 9px; font-size: 10.5px; white-space: nowrap; border-radius: 12px;
+  }
+  #users-table, table { table-layout: auto; }
 </style>
 </head>
 <body>

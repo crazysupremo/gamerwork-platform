@@ -3099,6 +3099,41 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
    texto, mais chamativo. */
 #home-streak-card strong, .home-header-stat-num { text-shadow: 0 0 12px rgba(88,101,242,0.35); }
 
+/* Correção: menu do chip de perfil (canto superior direito) abrindo por
+   BAIXO de alguma imagem da tela em vez de por cima. Reforça o menu bem
+   acima de tudo e garante que a barra de topo tem prioridade de camada. */
+.footer-more-menu { z-index: 500 !important; }
+.top-navbar { position: relative; z-index: 30; }
+.navbar-profile-chip-wrap { z-index: 31; }
+
+/* Coluna de canais (esquerda, dentro do servidor) e painel de membros
+   (direita) — mesmo tratamento de profundidade do resto do app, hoje eram
+   as únicas colunas ainda 100% chapadas. */
+.sidebar {
+  background: linear-gradient(180deg, var(--bg-sidebar) 0%, #16171c 100%);
+  border-right: 1px solid #26272e;
+}
+.members-panel {
+  background: linear-gradient(180deg, var(--bg-sidebar) 0%, #16171c 100%) !important;
+  border-left: 1px solid #26272e;
+}
+
+/* Barra de escrever mensagem — hoje era só uma borda fina em cima; ganha
+   fundo levemente diferente do resto do chat + input mais definido, pra
+   ficar claro onde termina a conversa e começa a área de digitar. */
+.message-form {
+  background: linear-gradient(180deg, #1a1b20 0%, #17181d 100%);
+  border-top-color: #2a2b33;
+}
+.message-form input[type="text"] {
+  background: #232429 !important; border: 1px solid #2e2f38 !important; border-radius: 20px !important;
+  padding: 9px 16px !important;
+}
+.message-form button[type="submit"] {
+  background: var(--gradient-brand); border-radius: 50%; width: 36px; height: 36px; color: white;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(88,101,242,0.3);
+}
+
 /* ==========================================================================
    RESPONSIVO — CELULAR (sem precisar instalar nada, direto pelo navegador)
    ==========================================================================
