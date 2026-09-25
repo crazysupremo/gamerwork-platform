@@ -954,6 +954,11 @@ async function initDb() {
   // priorizar revisão, nunca pra bloquear cadastro sozinho.
   await ensureColumn('users', 'estimated_age INTEGER');
 
+  // ECA Digital — registro de quando a pessoa confirmou, no próprio
+  // cadastro, que um responsável está ciente do uso (só preenchido quando a
+  // conta é de menor de 18 anos). NULL = não se aplica ou não confirmado.
+  await ensureColumn('users', 'guardian_ack_at TEXT');
+
   // Admin (dono/moderador da plataforma) sempre tem acesso Plus completo,
   // sem precisar assinar — grava isso de verdade no banco (não só calcula
   // na hora) pra ficar consistente em qualquer lugar que leia o usuário

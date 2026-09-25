@@ -625,6 +625,8 @@ function resetWizard() {
   wizardState.avatar = undefined;
   wizardState.estimatedAge = null;
   document.getElementById('age-camera-status').textContent = 'Carregando verificação...';
+  document.getElementById('wiz-minor-notice').classList.add('hidden');
+  document.getElementById('wiz-minor-guardian-ack').checked = false;
   document.querySelectorAll('.wizard-tag-chip.active, .wizard-choice-btn.active').forEach((el) => el.classList.remove('active'));
   document.getElementById('wiz-avatar-preview').innerHTML = '📷';
   ['wiz-fullname', 'wiz-username', 'wiz-email', 'wiz-password', 'wiz-password-confirm', 'wiz-rank', 'wiz-birthdate'].forEach((id) => {
@@ -634,6 +636,23 @@ function resetWizard() {
 }
 
 document.getElementById('wiz-goto-login').onclick = () => switchTab('login');
+
+// ECA Digital — calcula a idade a partir da data digitada e mostra/esconde
+// o aviso + checkbox extra de responsável quando dá menos de 18 anos.
+function wizIsBirthdateMinor(birthdateStr) {
+  if (!birthdateStr) return false;
+  const birth = new Date(birthdateStr + 'T00:00:00');
+  if (isNaN(birth.getTime())) return false;
+  const ageYears = (Date.now() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+  return ageYears < 18 && ageYears >= 0;
+}
+document.getElementById('wiz-birthdate').addEventListener('change', () => {
+  const birthdate = document.getElementById('wiz-birthdate').value;
+  const notice = document.getElementById('wiz-minor-notice');
+  const isMinor = wizIsBirthdateMinor(birthdate);
+  notice.classList.toggle('hidden', !isMinor);
+  if (!isMinor) document.getElementById('wiz-minor-guardian-ack').checked = false;
+});
 
 document.getElementById('wiz-step1-next').onclick = () => {
   const errorEl = document.getElementById('register-error');
@@ -651,6 +670,11 @@ document.getElementById('wiz-step1-next').onclick = () => {
   // obrigatória no cadastro (ver nota completa no servidor).
   if (!birthdate) return (errorEl.textContent = 'Preencha sua data de nascimento.');
   if (new Date(birthdate) > new Date()) return (errorEl.textContent = 'Data de nascimento inválida.');
+  // Reforço sem custo (ECA Digital): menor de 18 precisa confirmar que um
+  // responsável está ciente antes de seguir no cadastro.
+  if (wizIsBirthdateMinor(birthdate) && !document.getElementById('wiz-minor-guardian-ack').checked) {
+    return (errorEl.textContent = 'Confirme que um responsável está ciente do seu uso da plataforma pra continuar.');
+  }
   goToWizardStep(2);
 };
 
@@ -682,6 +706,7 @@ document.getElementById('wiz-submit').onclick = async () => {
     avatar: wizardState.avatar,
     birth_date: document.getElementById('wiz-birthdate').value,
     estimated_age: wizardState.estimatedAge,
+    guardian_ack: document.getElementById('wiz-minor-guardian-ack').checked,
     terms_accepted: true,
   };
   await authRequest('/api/register', body);

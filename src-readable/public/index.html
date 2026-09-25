@@ -230,6 +230,21 @@
         <label class="wizard-label">Data de nascimento</label>
         <input type="date" id="wiz-birthdate" required />
 
+        <!-- ECA Digital — reforço no próprio cadastro (sem depender de
+             serviço pago de terceiros): se a data informada indica menos de
+             18 anos, mostra aviso + exige confirmação extra antes de deixar
+             continuar, além do aceite geral dos Termos no passo 3. -->
+        <div id="wiz-minor-notice" class="age-camera-check hidden">
+          <p class="hint" style="color: var(--warning, #f0b429); margin-bottom: 8px;">
+            ⚠️ Pela sua data de nascimento, você tem menos de 18 anos. Pela Lei do ECA Digital (Lei 15.211/2025),
+            é necessário que um dos pais ou responsável legal esteja ciente de que você vai usar o NEXT GAME.
+          </p>
+          <label class="checkbox-row wizard-consent">
+            <input type="checkbox" id="wiz-minor-guardian-ack" />
+            Confirmo que um dos meus pais ou responsável legal está ciente do meu uso da plataforma.
+          </label>
+        </div>
+
         <!-- ECA Digital — verificação de idade por câmera, 100% OPCIONAL e
              processada no navegador (nada é enviado pra nenhum servidor,
              nem a imagem nem qualquer dado do rosto — só um número estimado

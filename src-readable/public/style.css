@@ -2927,6 +2927,115 @@ video:fullscreen { background: #000; object-fit: contain; }
 .server-icon { transition: border-radius 0.18s ease, transform 0.15s ease, background 0.15s ease; }
 
 /* ==========================================================================
+   REMODELAMENTO VISUAL v2 — "mais bonito", estilo Discord/Steam premium
+   (a pedido: "remodele toda a aplicação visual para ficar mais bonita").
+   Evolução do que já existe (mesma paleta azul→verde-água da marca), não
+   uma virada de mesa: profundidade sutil (gradientes/sombras em camadas),
+   glow nos elementos de destaque, hover mais vivo, foco consistente.
+   Fica DEPOIS de tudo de propósito, pra sobrepor sem precisar caçar/editar
+   cada regra antiga uma por uma.
+   ========================================================================== */
+:root {
+  --elev-1: 0 2px 8px rgba(0,0,0,0.28);
+  --elev-2: 0 8px 24px rgba(0,0,0,0.38);
+  --elev-3: 0 20px 50px rgba(0,0,0,0.5);
+  --glow-accent: 0 0 0 1px rgba(88,101,242,0.4), 0 6px 20px rgba(88,101,242,0.3);
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+}
+
+/* Fundo geral com leve profundidade em vez de cor plana — quase imperceptível,
+   só dá "textura" ao painel principal sem distrair da conversa. */
+.app-main {
+  background: radial-gradient(circle at 15% 0%, rgba(88,101,242,0.05), transparent 40%),
+              radial-gradient(circle at 85% 100%, rgba(0,217,192,0.04), transparent 40%),
+              var(--bg-app);
+}
+
+/* Sidebar de navegação com leve gradiente vertical + sombra própria,
+   separando melhor das colunas ao lado (hoje só tinha uma borda de 1px). */
+.app-sidebar {
+  background: linear-gradient(180deg, var(--bg-rail) 0%, #101116 100%);
+  box-shadow: var(--elev-1);
+}
+.app-sidebar-logo-img { filter: drop-shadow(0 2px 6px rgba(88,101,242,0.35)); }
+
+/* Barra de topo com leve blur + sombra pra "flutuar" sobre o conteúdo. */
+.top-navbar {
+  backdrop-filter: blur(10px);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04), var(--elev-1);
+}
+
+/* Ícones de servidor — glow mais vivo no selecionado, leve elevação no
+   hover (além da mudança quadrado→arredondado que já existia). */
+.server-icon:hover { box-shadow: var(--elev-2); }
+.server-icon.active { box-shadow: 0 4px 14px rgba(88,101,242,0.45); }
+.server-icon-add:hover { box-shadow: 0 4px 14px rgba(0,217,192,0.35); }
+
+/* Itens de canal — barrinha de acento à esquerda no ativo, em vez de só
+   trocar a cor de fundo, fica mais parecido com apps premium de verdade. */
+.channel-item { position: relative; border-radius: var(--radius-sm); }
+.channel-item.active {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.channel-item:hover { transform: translateX(1px); }
+
+/* Cards de conteúdo (torneios, explorar, etc.) — elevação real no hover
+   em vez de só trocar a cor de fundo, com leve zoom pra dar vida. */
+.tournament-card, .explore-card, .message-attachment-card {
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.tournament-card:hover, .explore-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--elev-2);
+  border-color: rgba(88,101,242,0.4);
+}
+
+/* Linha de mensagem — destaque sutil ao passar o mouse, ajuda a ler qual
+   mensagem está "em foco" numa conversa longa (comportamento do Discord). */
+.message-row { border-radius: var(--radius-sm); transition: background 0.1s ease; }
+.message-row:hover { background: rgba(255,255,255,0.028); }
+
+/* Botões de destaque (registrar, criar, enviar, confirmar) ganham um glow
+   consistente no hover — hoje só alguns tinham esse tratamento. */
+.navbar-create-btn:hover,
+.wizard-next-btn:hover,
+.btn-register:hover,
+.modal-actions button[type="submit"]:hover,
+.modal-actions button.primary:hover {
+  box-shadow: var(--glow-accent);
+}
+
+/* Campos de formulário — anel de foco consistente em QUALQUER input do
+   site (antes só cobria os de dentro de modal), com transição suave. */
+input, select, textarea {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(88,101,242,0.22);
+}
+
+/* Avatares — anel mais nítido pra quem está online, sombra suave em todo
+   avatar pra "descolar" um pouco do fundo. */
+.member-avatar, .navbar-profile-chip .member-avatar {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+/* Spinner de carregamento inicial com anel gradiente em vez de cor sólida,
+   combinando com o resto da identidade visual azul→verde-água. */
+.boot-loading-spinner {
+  border-top-color: var(--accent-2);
+  box-shadow: 0 0 16px rgba(2,132,237,0.35);
+}
+
+/* Modal — sombra em camadas mais rica (hoje só tinha uma sombra simples
+   por trás), reforçando a hierarquia por cima do resto da tela. */
+.modal-card { box-shadow: var(--elev-3); }
+
+/* ==========================================================================
    RESPONSIVO — CELULAR (sem precisar instalar nada, direto pelo navegador)
    ==========================================================================
    O app inteiro (fora a tela de login, que já tinha um breakpoint próprio)

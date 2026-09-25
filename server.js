@@ -961,6 +961,7 @@ app.post(
       play_style,
       birth_date,
       estimated_age,
+      guardian_ack,
       terms_accepted,
     } = req.body || {};
     // Checkbox de Termos direto no cadastro (item pedido: "aparece na hora
@@ -1000,6 +1001,12 @@ app.post(
     const ageYears = (now - birthDateObj) / (365.25 * 24 * 60 * 60 * 1000);
     if (isNaN(birthDateObj.getTime()) || birthDateObj > now || ageYears > 120) {
       return res.status(400).json({ error: 'Data de nascimento inválida' });
+    }
+    // Reforço sem custo (ECA Digital) — menor de 18 precisa confirmar que um
+    // responsável está ciente. O front-end já bloqueia isso, aqui é a
+    // revalidação de verdade no servidor.
+    if (ageYears < 18 && guardian_ack !== true) {
+      return res.status(400).json({ error: 'Confirme que um responsável está ciente do seu uso da plataforma pra continuar.' });
     }
     const existingUsername = await db.get('SELECT id FROM users WHERE username = ?', [username]);
     if (existingUsername) return res.status(409).json({ error: 'Usuário já existe' });
@@ -1055,13 +1062,14 @@ app.post(
     const verificationCode = generateEmailVerificationCode();
     const verificationExpires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
+    const guardianAckValue = ageYears < 18 && guardian_ack === true ? new Date().toISOString() : null;
     await db.run(
       `INSERT INTO users (
         id, username, password_hash, email, email_verified, verification_code, verification_expires,
         is_admin, avatar, full_name,
         country, language, favorite_games, platforms, preferred_rank, play_style,
-        discriminator, username_tag, birth_date, estimated_age
-      ) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        discriminator, username_tag, birth_date, estimated_age, guardian_ack_at
+      ) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         username,
@@ -1082,6 +1090,7 @@ app.post(
         usernameTag,
         birth_date,
         estimatedAgeValue,
+        guardianAckValue,
       ]
     );
 
