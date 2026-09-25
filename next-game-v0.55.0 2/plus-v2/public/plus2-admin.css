@@ -1,0 +1,62 @@
+/* ============================================================================
+   PLUS-V2 ADMIN — estilos do painel de gerenciamento (MÓDULO SEPARADO).
+============================================================================ */
+.pv2a-root { color: #e6e6e6; font-family: inherit; }
+.pv2a-tabs { display: flex; gap: 6px; margin-bottom: 16px; border-bottom: 1px solid #2a2b32; flex-wrap: wrap; }
+.pv2a-tab {
+  background: none; border: none; color: #8b909a; font-size: 13px; font-weight: 700; cursor: pointer;
+  padding: 9px 13px; border-bottom: 2px solid transparent;
+}
+.pv2a-tab.active { color: #fff; border-bottom-color: #5865f2; }
+.pv2a-panel { display: none; }
+.pv2a-panel.active { display: block; }
+
+.pv2a-section-title { font-size: 15px; font-weight: 800; color: #fff; margin: 0 0 4px; }
+.pv2a-section-hint { font-size: 12.5px; color: #9aa0ab; margin: 0 0 14px; }
+
+.pv2a-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.pv2a-table th {
+  text-align: left; color: #9aa0ab; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 6px 8px; border-bottom: 1px solid #2a2b32;
+}
+.pv2a-table td { padding: 6px 8px; border-bottom: 1px solid #1e1f26; vertical-align: middle; }
+.pv2a-row-actions { display: flex; gap: 6px; white-space: nowrap; }
+
+.pv2a-input {
+  background: #14151a; border: 1px solid #35373c; border-radius: 6px; color: #e6e6e6;
+  padding: 6px 8px; font-size: 12px; width: 100%; min-width: 90px;
+}
+.pv2a-color-input { width: 34px; height: 28px; border: none; border-radius: 6px; padding: 0; cursor: pointer; }
+
+.pv2a-btn {
+  background: #5865f2; color: #fff; border: none; border-radius: 7px; padding: 7px 12px;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.pv2a-btn:hover { filter: brightness(1.1); }
+.pv2a-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pv2a-btn-small { padding: 5px 10px; font-size: 11.5px; }
+.pv2a-btn-danger { background: #3a1f22; color: #ff8a8a; }
+.pv2a-btn-danger:hover { background: #4a2529; }
+
+.pv2a-create-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-top: 8px; }
+.pv2a-create-field { display: flex; flex-direction: column; gap: 4px; min-width: 100px; }
+.pv2a-create-field label { font-size: 10.5px; color: #8b909a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+
+.pv2a-pack-card { background: #17181d; border: 1px solid #24252c; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+.pv2a-pack-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.pv2a-sticker-admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.pv2a-sticker-admin-item {
+  position: relative; width: 44px; height: 44px; border-radius: 8px; background: #1a1b20;
+  display: flex; align-items: center; justify-content: center;
+}
+.pv2a-mini-x {
+  position: absolute; top: -5px; right: -5px; width: 16px; height: 16px; border-radius: 50%;
+  background: #3a1f22; color: #ff8a8a; border: none; font-size: 11px; line-height: 1; cursor: pointer;
+}
+
+.pv2a-toast {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0;
+  background: #202127; border: 1px solid #35373c; color: #e6e6e6; padding: 10px 18px; border-radius: 30px;
+  font-size: 12.5px; font-weight: 600; transition: all 0.2s ease; pointer-events: none; z-index: 999;
+}
+.pv2a-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }

@@ -1,0 +1,905 @@
+[
+  {
+    "version": "0.55.0",
+    "date": "2026-09-25",
+    "changes": [
+      "Remodelamento visual em todo o app (login, chat, servidores, perfil e admin): profundidade e sombras em camadas, glow nos botões de destaque, cards com elevação real no hover, barrinha de acento nos canais ativos, foco consistente em todo campo de formulário, avatares com sombra própria — mesma paleta azul→verde-água de sempre, evolução do visual e não uma virada de mesa.",
+      "Reforço gratuito de verificação de idade (ECA Digital) no próprio cadastro: quem informa data de nascimento indicando menos de 18 anos vê um aviso e precisa confirmar que um responsável está ciente antes de continuar — sem depender de nenhum serviço pago de terceiros. Fica registrado no perfil da conta."
+    ]
+  },
+  {
+    "version": "0.54.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Admin remodelado: cantos mais arredondados, cards com sombra e leve elevação no hover, tabelas e barra lateral com acabamento mais moderno — mesma estrutura de sempre, só mais bonito.",
+      "Gráficos ao vivo na aba Visão Geral: online/em chamada, requisições por minuto, memória e erros acumulados, atualizando a cada 10s junto com o resto do monitoramento.",
+      "Monitor inteligente de saúde técnica: a cada 10 minutos, testa de verdade o banco de dados, o Groq e o BLUEX, olha taxa de erro/memória/lag e pede pro Groq resumir o que encontrou em português. Fica salvo com histórico, tem botão \"Analisar agora\", e nunca aplica nada sozinho — só analisa e avisa."
+    ]
+  },
+  {
+    "version": "0.53.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Ligar pra um usuário agora também tem um botão direto no cabeçalho da conversa (📞), não só na lista de Amigos — abre a chamada de voz na hora, com aviso pra quem recebe.",
+      "Notificações de desktop: mensagem nova, menção (@você) e chamada recebida agora aparecem como notificação do sistema quando o NEXT GAME está minimizado ou em outra aba, além do som e do toast que já existiam."
+    ]
+  },
+  {
+    "version": "0.52.1",
+    "date": "2026-09-10",
+    "changes": [
+      "Corrigido bug real: contas antigas (de antes da caixinha de Termos existir) que ainda não tinham confirmado o e-mail ficavam travadas sem conseguir nem reenviar o código de confirmação — a trava dos Termos de Uso estava bloqueando essa rota por engano, mesmo pra quem só precisava confirmar o e-mail primeiro. Reenviar código volta a funcionar normalmente pra essas contas."
+    ]
+  },
+  {
+    "version": "0.52.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Termos de Uso agora têm uma caixinha de verdade direto no formulário de cadastro (\"Li e concordo com os Termos de Uso...\", com link pra ler o texto completo) — sem marcar, não cria a conta. Quem se cadastra assim já aceita na hora, sem precisar de mais nenhuma tela depois.",
+      "Contas antigas (de antes dessa caixinha existir) continuam vendo o aviso bloqueante de aceitar os Termos assim que fizerem login de novo, até confirmar."
+    ]
+  },
+  {
+    "version": "0.51.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Polimento visual geral: cartões de torneio/ranking/voz agora \"flutuam\" no hover com sombra, botões com o degradê da marca ganham brilho e leve elevação ao passar o mouse, modais têm uma barrinha do degradê no topo, avatar de quem está online ganha um anel sutil na cor de destaque, e o foco por teclado ficou consistente em todos os campos de formulário dentro de modal — tudo usando as cores e componentes que já existiam, sem mudar nenhuma função."
+    ]
+  },
+  {
+    "version": "0.50.1",
+    "date": "2026-09-10",
+    "changes": [
+      "Termos de Uso: reescrita a parte de idade mínima, que estava confusa — agora deixa explícito que é proibido usar o site com menos de 13 anos, separado em itens curtos (13-17 precisa de autorização dos pais, 18+ usa livre). Como o texto mudou de verdade, todo mundo (mesmo quem já tinha aceitado antes) precisa aceitar de novo."
+    ]
+  },
+  {
+    "version": "0.50.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Termos de Uso: toda conta nova (e conta antiga que ainda não aceitou) precisa ler e aceitar os Termos de Uso e Diretrizes da Comunidade antes de usar o site — igual a confirmação de e-mail, é bloqueante.",
+      "Regras de servidor com aceite obrigatório: quando o dono escreve regras em 'Informações e regras', cada membro precisa aceitar antes de conseguir mandar mensagem nesse servidor. Se as regras mudarem, todo mundo precisa aceitar de novo.",
+      "Regras por canal: além das regras gerais do servidor, agora dá pra definir uma regra específica de um canal (menu de contexto → Configurar regras do canal) — aparece um ícone 📋 no topo do canal quando ele tem regra própria.",
+      "Corrigido: salvar só o banner ou só o ícone do servidor podia apagar description/rules sem querer (o PATCH sobrescrevia esses campos mesmo quando não vinham no pedido) — agora só troca o que realmente foi enviado."
+    ]
+  },
+  {
+    "version": "0.49.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Canal de vídeo: marca qualquer sala de voz como 'canal de vídeo' (ícone 🎥 próprio) pelo menu de contexto ou ao criar a sala.",
+      "Canal de anúncios: ao criar uma sala de texto, dá pra marcar como 'somente admin/gerente posta' direto (📢), sem precisar configurar depois.",
+      "Eventos do servidor: crie eventos com nome, descrição, imagem, data/hora, canal e limite de vagas — membros confirmam presença, veem quem vai, e o dono pode marcar como ao vivo/encerrado/cancelado.",
+      "Jogos do servidor: novo hub que reúne torneios, ranking e eventos num só lugar, com visão ao vivo de quem tá jogando o quê agora e quais salas de voz de jogo estão ativas.",
+      "Bots do servidor: área nova com Boas-vindas (posta mensagem automática quando alguém entra) e Anúncios de eventos (avisa quando um evento é criado) — ambos funcionando de verdade, com canal configurável. Música fica marcado 'em breve'. Estatísticas do servidor (membros, canais, mensagens dos últimos 7 dias, canal mais ativo, jogos mais usados) também nessa área."
+    ]
+  },
+  {
+    "version": "0.48.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Nova hierarquia PROPRIETÁRIO/ROOT: acima de administrador geral, é quem tem autoridade máxima sobre a plataforma. Quem já é admin pode se tornar o primeiro ROOT direto no painel (aba Proprietário).",
+      "IA copiloto administrativa: analisa denúncias, mensagens sinalizadas e configurações arriscadas a cada 30 minutos (ou sob demanda em 'Analisar agora'), e gera alertas com sugestão de ação — ela NUNCA executa nada sozinha, só sugere e aguarda o proprietário decidir (revisar, ignorar ou preparar ação).",
+      "Copiloto conversacional: o proprietário pode perguntar em linguagem natural sobre a plataforma ('quais servidores tiveram mais denúncias hoje') e a IA responde com base em dados reais do banco.",
+      "Painel de permissões da IA (o que ela pode ler/analisar/sugerir) e registro permanente de todo alerta e decisão tomada (log de ações da IA).",
+      "NextGame Control Center: visão geral da plataforma pro proprietário — usuários, servidores, mensagens, denúncias e chamadas de voz em tempo real."
+    ]
+  },
+  {
+    "version": "0.47.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Cargos com cor: o nome de quem tem um cargo colorido agora aparece na cor do cargo na lista de membros (igual Discord), com o nome do cargo embaixo.",
+      "Categorias de canal: dá pra criar pastas customizadas (ex: GERAL, ANÚNCIOS, JOGOS) pra organizar os canais de um servidor, misturando texto e voz na mesma pasta — em '⋯ → Nova categoria de canal', e mover um canal existente pra qualquer pasta pelo menu de contexto dele.",
+      "Banner do servidor: em Gerenciar Servidor → Geral, dá pra enviar uma imagem de capa larga que aparece no topo da sidebar do servidor."
+    ]
+  },
+  {
+    "version": "0.46.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Nova aba Admin > Investigação: admin geral pode ver o histórico de mensagens de qualquer usuário, mas só digitando um motivo (denúncia, suspeita etc.) — cada acesso fica registrado pra sempre no log de auditoria (quem viu, de quem, quando, por quê). Tem botão de resumo por IA pra não precisar ler tudo cru."
+    ]
+  },
+  {
+    "version": "0.45.0",
+    "date": "2026-09-10",
+    "changes": [
+      "Todo o código que roda no navegador (HTML, CSS e JavaScript) agora vai pro ar comprimido/minificado — igual sites grandes fazem. Ctrl+U mostra uma parede de texto ilegível em vez do código organizado com comentários. O código original comentado ficou guardado à parte (pasta src-readable/) pra eu continuar editando."
+    ]
+  },
+  {
+    "version": "0.44.0",
+    "date": "2026-09-09",
+    "changes": [
+      "Painel Admin > Segurança/BLUEX agora testa a conexão de verdade com o BLUEX (não só se a chave existe) — mostra \"Configurado mas NÃO CONECTA\" com o motivo se a chave estiver errada/expirada.",
+      "Bloqueado menu de botão direito e seleção/cópia de texto da tela (campos de digitar continuam funcionando normal). Atalhos de DevTools do próprio navegador (Ctrl+U, F12) não têm como ser bloqueados por nenhum site — isso é uma proteção do próprio Chrome."
+    ]
+  },
+  {
+    "version": "0.43.4",
+    "date": "2026-09-07",
+    "changes": [
+      "Verificação de imagem alinhada com o Protection BLUEX: o filtro reserva (usado quando o BLUEX está fora do ar) agora também pega drogas, símbolos/discurso de ódio e automutilação/suicídio — antes só o BLUEX tinha essas categorias, o reserva ficava mais fraco."
+    ]
+  },
+  {
+    "version": "0.43.3",
+    "date": "2026-09-04",
+    "changes": [
+      "Ao mandar uma foto no chat, aparece um aviso \"🔍 Analisando imagem antes de enviar...\" enquanto a verificação roda no servidor (some sozinho quando a imagem aparece ou é bloqueada)."
+    ]
+  },
+  {
+    "version": "0.43.2",
+    "date": "2026-09-04",
+    "changes": [
+      "Corrigida a verificação de armas (BLUEX/IA em anexo de chat e print de tela): antes só sinalizava arma de fogo real anunciada pra venda — agora pega arma de fogo/faca real usada de forma ameaçadora ou em contexto de crime também, não só à venda.",
+      "Conferidas as outras categorias de verificação (nudez, violência, maus-tratos a animais, crime, conteúdo com menor) — já estavam com definição ampla, sem o mesmo problema."
+    ]
+  },
+  {
+    "version": "0.43.1",
+    "date": "2026-09-04",
+    "changes": [
+      "Corrigido: editar e apagar mensagem não refletia na tela (o servidor salvava certinho, mas faltava uma marcação na mensagem que o site usa pra achar ela de novo e atualizar/sumir). Agora atualiza na hora, sem precisar recarregar a página."
+    ]
+  },
+  {
+    "version": "0.43.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Servidor com selo oficial agora aparece sempre primeiro em \"Servidores em Destaque\" na Início — o admin pode ligar/desligar esse comportamento em Admin > Conteúdo/Loja.",
+      "Chat de texto mais rápido pra enviar: a checagem de segurança BLUEX deixou de travar a mensagem antes dela aparecer — agora ela aparece na hora e a checagem roda por baixo dos panos (some depois se for sinalizada, igual antes).",
+      "Removida uma busca duplicada no banco que rodava em toda mensagem enviada em canal de servidor."
+    ]
+  },
+  {
+    "version": "0.42.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Arma 3 adicionado na lista de jogos favoritos do cadastro.",
+      "Agora dá pra enviar uma FOTO de verdade como ícone do servidor (na hora de criar e também depois, em Informações e regras), não só emoji.",
+      "Novo painel de Admin (Conteúdo/Loja): marcar/desmarcar QUALQUER servidor como oficial (selo azul), na hora, quantos servidores quiser — só admin de verdade tem acesso, moderador não vê essa opção."
+    ]
+  },
+  {
+    "version": "0.41.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Botão de mostrar/esconder senha (o \"olhinho\") agora aparece em todo campo de senha do site — cadastro, trocar senha, 2FA, recuperação de conta e senha de servidor — não só na tela de login."
+    ]
+  },
+  {
+    "version": "0.40.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Removida a barrinha de voz que ficava dentro de Amigos/Mensagens — ficou redundante já que a barra \"Voltar para\" da lateral esquerda tem os mesmos botões de mutar, ensurdecer e desconectar."
+    ]
+  },
+  {
+    "version": "0.39.2",
+    "date": "2026-09-04",
+    "changes": [
+      "Revertida a otimização de compressão/cache do servidor e a redução das imagens (fundo do login e selos) a pedido — voltaram ao estado original. Só ficou a remoção do vídeo de abertura entre login e Início."
+    ]
+  },
+  {
+    "version": "0.39.1",
+    "date": "2026-09-04",
+    "changes": [
+      "Removido o vídeo de abertura que tocava entre a tela de login/recarregamento e a Início — deixava a transição mais lenta e travada."
+    ]
+  },
+  {
+    "version": "0.39.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Otimização de performance: servidor agora comprime as respostas (gzip) e o navegador guarda em cache arquivos que não mudaram — o site deve carregar bem mais rápido, principalmente em conexões mais lentas.",
+      "Imagens pesadas de fundo do login e dos selos de recompensa reduzidas de tamanho sem perder qualidade visível (a de fundo do login caiu de quase 2MB pra ~170KB).",
+      "Corrigido o vídeo de abertura da logo que apontava pra um arquivo com nome errado (não carregava)."
+    ]
+  },
+  {
+    "version": "0.38.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Barra \"voltar pra sala de voz\" na lateral agora também mostra claramente pra qual sala você está voltando, e ganhou botões de mutar microfone e ensurdecer direto ali, sem precisar voltar pra sala primeiro."
+    ]
+  },
+  {
+    "version": "0.37.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Link do Admin agora abre numa aba nova em vez de navegar pra fora da página — isso é o que te mantinha desconectado da call/transmissão ao abrir o painel de administração.",
+      "Conferido: áudio da transmissão de tela (quando o navegador permite) e volume individual por participante já estavam funcionando corretamente, sem necessidade de mudança."
+    ]
+  },
+  {
+    "version": "0.36.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Nova barra \"voltar pra sala de voz\" fixa no rodapé da barra lateral esquerda (igual Discord) — aparece sempre que você está numa call, mesmo navegando por outras telas do site, com o nome da sala e um botão de desconectar rápido.",
+      "Logo voltada pra versão anterior (com \"NEXT GAME\" escrito), agora recolorida de roxo pra azul (a mesma cor da marca nova) e aumentada dentro do círculo da tela de login, preenchendo melhor o anel giratório."
+    ]
+  },
+  {
+    "version": "0.35.0",
+    "date": "2026-09-04",
+    "changes": [
+      "Roxo trocado pelo azul da logo nova em todo o app (degradê da marca, botões, badges, anel da logo do login, aba NEXTGAME PLUS, pílulas de premium na Personalização) — extraído da cor exata do novo ícone (#0284ED), misturado com o azul e o verde-água que já existiam pra ficar tudo na mesma família de cor."
+    ]
+  },
+  {
+    "version": "0.34.2",
+    "date": "2026-09-04",
+    "changes": [
+      "Corrigido um risco/risquinho tracejado que aparecia embaixo do ícone da logo nova — o recorte anterior pegava a pontinha de cima do texto \"NEXT\" por engano. Recortado mais justo, sem nenhum resquício de texto."
+    ]
+  },
+  {
+    "version": "0.34.1",
+    "date": "2026-09-04",
+    "changes": [
+      "Logo trocada em todo lugar (tela de login, favicon da aba do navegador, apple-touch-icon, barra lateral) pela nova arte enviada — recortado só o ícone \"N1\", sem o texto \"NEXT GAME\" embaixo, com fundo transparente."
+    ]
+  },
+  {
+    "version": "0.34.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Investigado a fundo o erro de não ver a tela/perfil de quem já estava transmitindo, ao sair e voltar pra sala de voz. Causa provável: quem já estava na sala adicionava a própria tela/câmera na conexão ANTES de processar o pedido de quem estava reentrando, o que podia disparar uma renegociação no meio da hora errada e gerar uma resposta sem as tracks certas. Corrigido: agora primeiro processa o pedido de quem reentrou, DEPOIS adiciona a própria transmissão, DEPOIS responde — garantindo que a resposta sempre leva tudo que está sendo transmitido no momento."
+    ]
+  },
+  {
+    "version": "0.33.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Adicionados mais dois parágrafos na cláusula de doação: manutenções/instabilidades do serviço não geram reembolso, e declaração explícita de renúncia ao direito de arrependimento (Art. 49 do CDC) pra esse tipo de contribuição."
+    ]
+  },
+  {
+    "version": "0.33.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Suporte: quando alguém manda uma mensagem pelo \"Fale com o suporte\", agora também chega um e-mail com os detalhes do ticket (além do aviso ao vivo no painel admin) — precisa configurar a variável SUPPORT_NOTIFY_EMAIL no Render com o endereço de destino.",
+      "Nova: cláusula de doação na aba NEXTGAME PLUS, visível antes do botão de pagamento — deixa claro que valores pagos (assinatura, coins, itens) são doação voluntária, sem estorno/reembolso/chargeback."
+    ]
+  },
+  {
+    "version": "0.32.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Ajustado o texto da tela \"Ative o 2FA pra acessar o painel\" pra deixar claro que vale tanto pra admin quanto pra moderador (a mensagem antes só falava \"conta de administrador\", confuso pra quem tem só o acesso parcial)."
+    ]
+  },
+  {
+    "version": "0.32.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Corrigido: dar o selo dourado (parceiro, ex: dono do Magic Tank) pra uma conta agora também dá acesso de MODERADOR ao painel /admin.html automaticamente (só Segurança/BLUEX e Moderação — igual a conta @moderador_bluex). Antes o selo era só cosmético.",
+      "Corrigido: o link \"Admin\" no menu do perfil só aparecia pra admin de verdade — quem tinha só acesso de moderador (incluindo parceiro com selo dourado) não tinha como achar o painel. Agora aparece pros dois.",
+      "Painel de admin > Usuários: coluna \"Admin\" agora mostra \"🛡️ Moderador\" pra quem tem acesso parcial, além de Sim/Não."
+    ]
+  },
+  {
+    "version": "0.31.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Botões \"Fechar\"/\"Salvar\" das Configurações repaginados: \"Fechar\" virou um botão discreto (só contorno, sem fundo), \"Salvar\" fica em destaque numa pílula com o degradê da marca — visual mais minimalista, só uma ação chamando atenção por vez."
+    ]
+  },
+  {
+    "version": "0.31.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Corrigido o chat e o NEXT Music da sala de voz: o botão de anexar arquivo do chat da sala não tinha o estilo compacto certo (caía num botão \"pílula\" enorme), sobrando quase nada de espaço lateral pro campo de escrever. Toda a coluna (chat + música) repaginada com botões redondos compactos e respiro nas laterais.",
+      "Configurações: os botões \"Fechar\"/\"Salvar\" agora ficam numa barra fixa embaixo do modal inteiro, sempre visíveis — não precisa mais rolar até o fim de uma aba comprida (Conta, por exemplo) pra encontrar eles."
+    ]
+  },
+  {
+    "version": "0.30.3",
+    "date": "2026-09-03",
+    "changes": [
+      "Painel de admin > Usuários: a coluna \"Plano\" agora mostra a ORIGEM de cada PLUS (pago via PayPal / concedido por admin / cupom resgatado), em vez de só \"✨ PLUS\" sem explicação. Qualquer PLUS fora dessas 3 fontes (ex: prêmio de streak de 365 dias) aparece com aviso ⚠️ pra você revisar e remover se quiser — o botão \"Remover Plus\" já existia, agora fica claro em quem usar."
+    ]
+  },
+  {
+    "version": "0.30.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Gerado um lote de 100 cupons prontos pra entregar ao Magic Tank (30 dias de PLUS cada, uso único) — já cadastrados no banco assim que essa versão subir, sem precisar gerar pelo admin."
+    ]
+  },
+  {
+    "version": "0.30.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Loja NEXT Coins: adicionado aviso da promoção com o Magic Tank — \"Fez a recarga full no Magic Tank? Resgate seu código\" — com botão que já leva direto pro campo de resgate em Configurações > NEXTGAME PLUS."
+    ]
+  },
+  {
+    "version": "0.30.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Auditoria de segurança do NEXTGAME PLUS: confirmado que temas, banners, badges, fundos, efeitos visuais e limite de anexo já são bloqueados no SERVIDOR pra quem não é Plus (não só escondidos na tela) — ninguém consegue burlar isso mesmo mexendo direto na API.",
+      "Reforçada a nitidez da transmissão de tela: além do bitrate (já corrigido antes), agora também trava a resolução real do encoder (sem reduzir sozinho) e pede resolução máxima já na captura, não só a ideal.",
+      "Nova: cupons de resgate — o admin gera um código em /admin.html > Conteúdo/Loja (ex: \"recarga full no Magic Tank\") e a pessoa digita em Configurações > NEXTGAME PLUS pra liberar o plano por um tempo, sem passar nenhum pagamento pelo NEXT GAME.",
+      "Corrigidos os botões de tocar/pular do NEXT Music (painel de música da sala de voz) — estavam grandes demais pro espaço e pareciam sobrepostos; agora no tamanho certo, com respiro."
+    ]
+  },
+  {
+    "version": "0.29.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Servidores oficiais (NEXT GAME, Magic Tank) agora aparecem em \"Servidores em Destaque\" na Início pra TODO MUNDO, mesmo quem ainda não é membro — com um botão \"Entrar\" no card, em vez de só ficar escondido na aba Explorar."
+    ]
+  },
+  {
+    "version": "0.29.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Tela de login: adicionada a menção de parceria oficial com o Magic Tank (logo + texto), no painel esquerdo.",
+      "Logo redonda em cima do formulário de login repaginada: anel giratório com degradê da marca e brilho mais encorpado, em vez do círculo liso de antes."
+    ]
+  },
+  {
+    "version": "0.29.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Nova conta de staff (@moderador_bluex) com acesso PARCIAL ao painel /admin.html — só as abas Segurança/BLUEX e Moderação (denúncias, contas suspeitas/menores, mensagens bloqueadas/sinalizadas, banir/suspender conta flagrada). Sem acesso a Usuários, Loja, Personalização, Suporte ou Audit Log.",
+      "Nova: selo de verificado DOURADO, pra diferenciar conta de parceiro oficial (ex: dono do jogo parceiro) do selo azul da própria NEXT GAME. Liga pelo painel /admin.html > Usuários > \"🥇 Verificar (dourado, parceiro)\"."
+    ]
+  },
+  {
+    "version": "0.28.4",
+    "date": "2026-09-03",
+    "changes": [
+      "Corrigido: nos servidores oficiais (NEXT GAME e Magic Tank), o caminho da logo aparecia como texto bagunçado do lado do nome no topo da coluna de canais em vez de virar imagem.",
+      "Servidores oficiais agora também vêm com uma sala de voz oficial (\"Sala Oficial\"), além do canal de texto #geral."
+    ]
+  },
+  {
+    "version": "0.28.3",
+    "date": "2026-09-03",
+    "changes": [
+      "Loja de recompensas pausada temporariamente (a pedido, pra melhorar essa área) — quem clica vê um aviso \"temporariamente indisponível\" em vez do catálogo. Nada foi apagado: é só uma chave (REWARDS_SHOP_DISABLED em app.js) fácil de desligar quando quiser reativar."
+    ]
+  },
+  {
+    "version": "0.28.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Servidores oficiais (NEXT GAME e Magic Tank) agora usam a logo de verdade como ícone (em vez de emoji) e mostram o selo de verificado ao lado do nome em todo lugar que aparecem: trilho lateral, \"Servidores em Destaque\" na Início, e Explorar. Todo admin entra automaticamente como membro dos dois.",
+      "Corrigido o anel azul do navegador que ficava \"cortado\"/esquisito em volta de \"SERVIDORES\" e das outras seções colapsáveis da barra lateral (Explorar/Competitivo/Sua Biblioteca) ao clicar — mesma correção já feita no menu \"⋯\" da coluna de canais."
+    ]
+  },
+  {
+    "version": "0.28.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Corrigida a nitidez da transmissão de tela: até agora a resolução escolhida (720p/1080p/1440p/4K) era só um pedido de captura — o WebRTC aplicava um teto de bitrate baixo por padrão, então mesmo em 1080p/1440p/4K a imagem saía borrada. Agora cada opção de qualidade também define um bitrate-alvo de verdade (2.5Mbps a 15Mbps), e a tela é marcada como conteúdo \"de detalhe\" (texto/UI) pro navegador priorizar nitidez em vez de fluidez. Se a rede de quem está assistindo não aguentar, ainda reduz sozinho — isso só tira o teto baixo demais do padrão."
+    ]
+  },
+  {
+    "version": "0.28.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Início: estatísticas da comunidade (Membros/Servidores/Torneios/Online agora) saíram dos cards grandes no meio da página e viraram uma fileira pequena e minimalista, centralizada no cabeçalho de cima, ao lado de \"Início\" — sem alargar a coluna.",
+      "IA do NEXT GAME agora também ajuda dentro de salas de servidor/grupo (não só nas DMs) — é só chamar com \"@ia\" (ou \"@bot\"/\"@NEXT GAME IA\") em qualquer mensagem do bate-papo.",
+      "Criados 2 servidores oficiais com selo de verificado: \"NEXT GAME\" (oficial da plataforma) e \"Magic Tank\" (jogo parceiro oficial) — aparecem com o selo azul de verificado na aba Explorar."
+    ]
+  },
+  {
+    "version": "0.27.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Selo de \"conta oficial verificada\" repaginado: era um emoji ✔️ genérico, agora é um selo azul com check branco (visual estilo Instagram/TikTok), mais fácil de reconhecer. Aparece em toda parte que já mostrava o selo antes (lista de membros, busca, chat, perfil). O admin continua controlando quem tem o selo pelo painel /admin.html > Usuários."
+    ]
+  },
+  {
+    "version": "0.27.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Corrigido o anel azul que ficava \"cortado\" em cima do menu \"⋯\" da coluna de canais ao abrir — agora o botão só fica destacado (mesmo estilo do resto do app) enquanto o menu está aberto.",
+      "Trocado o ícone da opção \"Membros, cargos e convite\" (agora um ícone de pessoas, mais legível em tamanho pequeno)."
+    ]
+  },
+  {
+    "version": "0.27.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Início: removida a seção \"Atividades rápidas\" (a pedido).",
+      "Suporte: agora dá pra ver os tickets direto no painel de admin com aviso — contador de tickets abertos na barra lateral (📨 Suporte) e um aviso na tela quando chega ticket novo, sem precisar ficar recarregando a página.",
+      "Nova: e-mail alternativo (recuperação) — em Configurações > Segurança, dá pra cadastrar um segundo e-mail (com confirmação por código) pra usar caso um dia perca acesso ao e-mail principal.",
+      "Nova: recuperação de conta via e-mail alternativo — link \"Perdeu acesso a esse e-mail também?\" na tela de troca de senha, pra quando a pessoa não consegue mais nem receber o link de troca de senha comum.",
+      "Nova: banner (dispensável, não obrigatório) recomendando ativar a verificação em duas etapas (2FA) pra quem ainda não ativou."
+    ]
+  },
+  {
+    "version": "0.26.3",
+    "date": "2026-09-03",
+    "changes": [
+      "Cabeçalho de cima da conversa (busca, fixados, membros etc.) repaginado: botões viraram círculos discretos (transparentes até passar o mouse) em vez de quadrados cinza cheios.",
+      "Trocado o ícone de balão de chat ao lado do nome da conversa por um ícone de menu, mais neutro/minimalista."
+    ]
+  },
+  {
+    "version": "0.26.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Corrigido o menu \"⋯\" da coluna de canais ficando bagunçado (texto quebrando em 2 linhas nos itens mais compridos) — menu ficou um pouco mais largo e o texto não quebra mais linha."
+    ]
+  },
+  {
+    "version": "0.26.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Refinado o visual da coluna de canais (mais minimalista): bolinha do servidor mais discreta, sem linha divisória dura no topo, itens de canal viraram \"pílulas\" flat sem barrinha lateral, e rótulos das categorias (CANAIS DE TEXTO/VOZ) mais sutis."
+    ]
+  },
+  {
+    "version": "0.26.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Repaginada a coluna de canais do servidor (a do meio, onde fica o nome do servidor e a lista de canais/salas de voz) — estava tumultuada, com 6 botõezinhos espremidos numa linha só. Agora só os mais usados (Criar sala, Fechar) ficam visíveis; o resto (loja, informações, gerenciar, sala rápida) entra num menu \"⋯\" discreto. Nome do servidor ganhou um ícone em bolinha ao lado, e a lista de canais ficou com mais espaço/respiro entre os itens."
+    ]
+  },
+  {
+    "version": "0.25.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Agora dá pra arrastar e soltar um arquivo direto em cima da conversa (chat de texto e chat da sala de voz) pra anexar, sem precisar clicar no clipe.",
+      "O botão de anexar mostra o limite de tamanho de verdade da sua conta (antes tinha \"até 5MB\" fixo, mesmo pra quem tem NEXTGAME PLUS com limite maior)."
+    ]
+  },
+  {
+    "version": "0.24.2",
+    "date": "2026-09-03",
+    "changes": [
+      "O card do jogo parceiro Magic Tank na tela de Início agora tem um botão \"Jogar agora\", que leva pro site oficial (redemagictank.com.br) numa aba nova."
+    ]
+  },
+  {
+    "version": "0.24.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Tema \"Magic Tank\" (jogo parceiro) reativado — de volta na galeria de temas do NEXTGAME PLUS."
+    ]
+  },
+  {
+    "version": "0.24.0",
+    "date": "2026-09-03",
+    "changes": [
+      "URGENTE: corrigido o bug de sala de voz onde, ao sair e entrar de novo, você continuava ouvindo alguém mas não via o vídeo/avatar dela (ou o contrário) — a causa era que quem entra numa sala nunca sabia quem já estava lá, dependendo 100% de cada pessoa já presente reagir sozinha e iniciar a chamada; se essa reação falhasse silenciosamente em alguém, não tinha jeito de perceber ou tentar de novo. Agora é sempre quem entra que inicia a conexão com todo mundo que já está na sala, usando a lista que o servidor manda na hora de entrar — muito mais confiável, principalmente ao sair e voltar rápido.",
+      "Tema \"Magic Tank\" (jogo parceiro) pausado por enquanto, a pedido — a paleta já está pronta no código, é só reativar quando for a hora certa."
+    ]
+  },
+  {
+    "version": "0.23.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Novo tema exclusivo NEXTGAME PLUS: Magic Tank — paleta tirada da arte VIP do jogo parceiro (azul neon + dourado sobre fundo escuro), com efeito de brilho."
+    ]
+  },
+  {
+    "version": "0.23.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Tela de Início ganhou um card de \"Jogo Parceiro\" em destaque, com o jogo Magic Tank (ainda sem link clicável — fica só a divulgação por enquanto)."
+    ]
+  },
+  {
+    "version": "0.23.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Sidebar: as seções Explorar, Competitivo e Sua Biblioteca agora ocultam/desocultam clicando na setinha, igual Servidores já fazia — antes eram só rótulos fixos.",
+      "A tag \"BETA\" ao lado do logo virou o número da versão atual do site (ex: v0.23.0), atualizado sozinho a cada nova versão.",
+      "URGENTE: corrigido o upload de foto no banner do perfil (Configurações → NEXTGAME PLUS → Perfil) que sempre falhava com \"Upload de imagem não está configurado no servidor\" — agora, pra imagens pequenas (até ~250KB), guarda a foto direto no banco em vez de exigir um storage externo configurado."
+    ]
+  },
+  {
+    "version": "0.22.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Recuperação de senha agora é em 2 passos: primeiro digita seu usuário (mesmo dado do login) e vê uma prévia do e-mail cadastrado (ex: \"re***@gmail.com\") — se o usuário não existir, avisa na hora — só depois confirma o envio do link de verdade. Evita o erro comum de digitar o e-mail errado sem perceber.",
+      "Painel de admin → Usuários: adicionada a coluna E-mail na lista, mostrando o e-mail cadastrado de cada conta."
+    ]
+  },
+  {
+    "version": "0.21.2",
+    "date": "2026-09-03",
+    "changes": [
+      "Ao pedir troca de senha (\"Esqueceu a senha?\"), a mensagem de confirmação agora mostra o e-mail exato que foi digitado — ajuda a perceber na hora se teve erro de digitação, motivo comum de \"não chegou nada\"."
+    ]
+  },
+  {
+    "version": "0.21.1",
+    "date": "2026-09-03",
+    "changes": [
+      "URGENTE: corrigido o modal \"Trocar senha\" (Esqueceu a senha?) e o de \"Escolher nova senha\" ficando travados na tela sem jeito de fechar depois de enviar o pedido — o botão \"Fechar\" ficava dentro do mesmo bloco que era escondido junto com o formulário, então sumia e só dava pra sair atualizando a página."
+    ]
+  },
+  {
+    "version": "0.21.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Confirmação de e-mail no cadastro reativada: todo cadastro novo agora recebe um código de 6 dígitos por e-mail e precisa confirmar antes de usar o site (recurso já existia pronto, estava só desligado até o domínio de e-mail ficar verificado).",
+      "Recuperação de senha (\"Esqueceu a senha?\") passa a mandar e-mail de verdade pra qualquer usuário, não só pra quem configurou a conta de e-mail — agora que o domínio nextgameblue.stream está verificado no Resend.",
+      "Contas já existentes não são afetadas — continuam com acesso normal, sem precisar confirmar nada retroativamente."
+    ]
+  },
+  {
+    "version": "0.20.2",
+    "date": "2026-09-03",
+    "changes": [
+      "IMPORTANTE: agora o tema realmente colore TUDO, incluindo as colunas de fundo (barra de servidores, barra de canais, painel principal, topo e pop-ups/modais) — antes trocar de tema só mudava botões e detalhes, o fundo das colunas ficava sempre no mesmo cinza fixo pra qualquer tema.",
+      "Cada tema agora deriva automaticamente um fundo bem escuro só que tingido com a cor dele (ex: GAMEX fica preto-esverdeado, Diamond preto-azulado, Eclipse preto-arroxeado, Crimson preto-avermelhado) — funciona pra qualquer tema, incluindo os que forem criados na aba \"Criar tema\" no futuro.",
+      "Também estendido pra dezenas de cards, menus e telas espalhados pelo site (Início, chamada de voz, dropdowns, cartões de amigo/servidor etc.) que antes usavam a mesma cor cinza fixa direto no código."
+    ]
+  },
+  {
+    "version": "0.20.1",
+    "date": "2026-09-03",
+    "changes": [
+      "Novo tema exclusivo NEXTGAME PLUS: GAMEX — paleta própria (verde elétrico + violeta + dourado), com efeito de brilho. Como todo tema, ao ser escolhido personaliza a cor de praticamente tudo no site: sidebar, topo, botões, cards, chat, avatar/badge, scrollbar e seleção de texto."
+    ]
+  },
+  {
+    "version": "0.20.0",
+    "date": "2026-09-03",
+    "changes": [
+      "Personalização (NEXTGAME PLUS) — Fase 1 do projeto de temas: galeria de temas ganhou prévia real em miniatura (barra de servidores, topo, bolhas de chat e campo de mensagem coloridos com a paleta de cada tema) no lugar das duas linhas de cor genéricas de antes.",
+      "Catálogo de temas ampliado com os temas oficiais do novo projeto de personalização: Next Blue, Midnight, Ocean, Crimson e Sunset (prontos/gratuitos e premium simples) e os 7 temas NEXTGAME PLUS: Galaxy, Aurora, Cyberpunk, Inferno, Royal, Diamond e Eclipse — nenhum tema que já existia foi removido, só reorganizado e ampliado.",
+      "Trocar de tema agora também muda a cor da barra de rolagem e da seleção de texto (antes ficavam sempre cinza neutro, mesmo com um tema colorido ativo)."
+    ]
+  },
+  {
+    "version": "0.19.8",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido divergência de cor ao trocar de tema: vários elementos (link de mensagem, cartão de convite de jogo, avatar de participante, botão de mensagem no perfil, ícones de anexo/segurança, código de recompensa) tinham cor fixa no código em vez de seguir o tema escolhido — agora todos acompanham",
+      "Corrigido um bug antigo (não relacionado à Personalização): o destaque de amigo ativo usava uma variável de cor com nome errado no CSS e nunca funcionou de verdade, sempre caía na cor fixa"
+    ]
+  },
+  {
+    "version": "0.19.7",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido: o pacote \"NEXTGAME Oficial\" tinha 99 arquivos de imagem separados, e o GitHub recusa subir mais de 100 arquivos de uma vez pela tela do site. Agora as 99 figurinhas ficam embutidas dentro de um único arquivo de código (plus-v2/sticker-assets.js) — resolve o limite sem precisar mudar o jeito de subir pro GitHub."
+    ]
+  },
+  {
+    "version": "0.19.6",
+    "date": "2026-09-01",
+    "changes": [
+      "Novo pacote de figurinhas \"NEXTGAME Oficial\" com 99 figurinhas de verdade, já incluídas direto no site (não depende de upload/R2 configurado no servidor) — pode remover o pacote antigo \"Marca NEXTGAME\" (ficou vazio) no admin, em Personalização → Figurinhas → Remover pacote"
+    ]
+  },
+  {
+    "version": "0.19.5",
+    "date": "2026-09-01",
+    "changes": [
+      "Figurinhas agora podem ser enviadas de verdade no chat! Antes só dava pra escolher pacotes em Configurações → NEXTGAME PLUS → Figurinhas — faltava o botão de enviar dentro da própria conversa. Adicionado um botão de figurinha ao lado do anexo de arquivo, na caixa de mensagem, com os mesmos pacotes configurados no admin."
+    ]
+  },
+  {
+    "version": "0.19.4",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido: botão \"Enviar várias figurinhas de uma vez\" (admin) e \"Enviar minha foto\" (banner de perfil) não abriam o seletor de arquivo em alguns navegadores — trocado o jeito de abrir o seletor por um mais confiável",
+      "Se o envio de figurinhas falhar por completo, agora mostra um aviso claro explicando o motivo mais provável (upload de imagem não configurado no servidor)"
+    ]
+  },
+  {
+    "version": "0.19.3",
+    "date": "2026-09-01",
+    "changes": [
+      "Painel de admin → Personalização → Figurinhas: agora dá pra enviar várias figurinhas de uma vez só (escolhe todas as imagens no seletor de arquivo) em vez de adicionar uma por uma"
+    ]
+  },
+  {
+    "version": "0.19.2",
+    "date": "2026-09-01",
+    "changes": [
+      "URGENTE: desliguei o fundo personalizado (Configurações → NEXTGAME PLUS → Fundos) aparecer no site — estava renderizando como um bloco duro cobrindo parte da tela em vez de ficar sutil atrás do conteúdo. A escolha continua salva, só não é mais desenhada até isso ser refeito com mais cuidado. Tema, efeitos (brilho/glow/gradiente na barra lateral/transições), badge, banner e personalização do chat continuam funcionando normalmente."
+    ]
+  },
+  {
+    "version": "0.19.1",
+    "date": "2026-09-01",
+    "changes": [
+      "URGENTE: corrigido o menu do seu nome (chip de perfil no topo) ficando impossível de clicar — acontecia quando um fundo personalizado diferente do padrão estava ativo em Configurações → NEXTGAME PLUS → Fundos. Era o efeito de desfoque no fundo do menu criando um bug de sobreposição que escondia o menu atrás do resto da página."
+    ]
+  },
+  {
+    "version": "0.19.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido: a personalização (tema, fundo, efeitos, chat, badge, banner) agora realmente aparece no site — antes só ficava salva, sem afetar a página de verdade",
+      "Tema escolhido muda as cores reais do site (botões, destaques, badges)",
+      "Fundo personalizado (cor/gradiente/partículas/ondas) aparece atrás do app de verdade, com opacidade e desfoque",
+      "Efeitos (brilho nos botões, glow no avatar, gradiente animado na barra lateral, animação ao receber mensagem, aro ao entrar na call, transições) agora funcionam nas telas reais",
+      "Personalização do chat (formato da bolha, avatares, cor por usuário/neutra, tamanho da fonte, espaçamento, horário, efeito de menção) aplicada nas mensagens de verdade",
+      "Seu badge e banner escolhidos aparecem no seu perfil e (o badge) do lado do seu nome no chat"
+    ]
+  },
+  {
+    "version": "0.18.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Novo sistema de personalização do NEXTGAME PLUS (substitui o antigo tema de cor simples): temas prontos, criador de tema com cores próprias, fundos personalizados (cor/gradiente/imagem/GIF/efeito), efeitos e animações, personalização do chat, figurinhas (vários pacotes) e personalização de perfil com banner (incluindo upload de imagem própria) e badge",
+      "Novo painel de administração em /admin.html (aba \"Personalização\") pra gerenciar temas, fundos, banners, badges e pacotes de figurinha sem precisar mexer em código"
+    ]
+  },
+  {
+    "version": "0.17.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Beta de teste: removido o sistema de tema de cor do NEXTGAME PLUS e o sistema de figurinhas, como medida pra investigar o bug de servidores/canais sumindo depois de um deploy"
+    ]
+  },
+  {
+    "version": "0.16.3",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido a lista de Servidores ficando vazia logo após um deploy novo, só resolvendo com relogin — agora tenta carregar de novo automaticamente antes de desistir"
+    ]
+  },
+  {
+    "version": "0.16.2",
+    "date": "2026-09-01",
+    "changes": [
+      "Chamada de voz agora pode usar um servidor TURN próprio de verdade (metered.ca) em vez do relay público compartilhado — configure METERED_DOMAIN e METERED_API_KEY no Render"
+    ]
+  },
+  {
+    "version": "0.16.1",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido a tela ficando meio apagada/estranha logo após conectar, precisando relogar pra normalizar — o vídeo de abertura da logo podia rodar duas vezes e travar num meio-termo de opacidade"
+    ]
+  },
+  {
+    "version": "0.16.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Revertido o sistema de voz/vídeo/tela pro modelo anterior (P2P direto entre participantes) — voltou como estava antes da tentativa com o LiveKit"
+    ]
+  },
+  {
+    "version": "0.15.2",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido a chamada de voz conectando e caindo na hora: o token de acesso expirava em 10 minutos (curto demais), e uma conexão anterior mal-fechada podia derrubar a nova tentativa por identidade duplicada — agora limpa qualquer conexão presa antes de tentar de novo, e o token dura 24h"
+    ]
+  },
+  {
+    "version": "0.15.1",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido de vez a tela presa no logo carregando: as travas de segurança escondiam o spinner só quando iam mostrar a tela de login — se o app já tivesse carregado mas algo pequeno travasse logo depois, o spinner ficava preso tampando o app pronto por baixo. Agora o spinner sempre some, não importa o que aconteça"
+    ]
+  },
+  {
+    "version": "0.15.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Sistema de voz/vídeo/tela reconstruído do zero em cima do LiveKit (servidor de mídia profissional) — substitui o P2P direto antigo, que só aguentava poucas pessoas por sala. Agora aguenta até 40 pessoas na mesma sala de voz, com reconexão automática de verdade e sem o bug de \"não me ouve\" ao entrar numa call em andamento",
+      "Precisa configurar LIVEKIT_URL, LIVEKIT_API_KEY e LIVEKIT_API_SECRET nas variáveis de ambiente do Render (conta grátis em livekit.io) pra voz funcionar"
+    ]
+  },
+  {
+    "version": "0.14.2",
+    "date": "2026-09-01",
+    "changes": [
+      "Trava de segurança extra contra a tela de carregamento presa, direto no HTML — funciona mesmo que algum script trave em algum outro lugar do app",
+      "Teste de microfone agora sempre libera o dispositivo antes de entrar numa chamada de voz de verdade, mesmo se o teste tiver ficado aberto"
+    ]
+  },
+  {
+    "version": "0.14.1",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido chamada de voz sem áudio ao entrar numa sala que já tem gente: o microfone agora é pedido antes de qualquer outra coisa, e quem já está na sala espera seu mic ficar pronto antes de montar a conexão — antes, às vezes a primeira negociação saía sem áudio dos dois lados"
+    ]
+  },
+  {
+    "version": "0.14.0",
+    "date": "2026-09-01",
+    "changes": [
+      "Corrigido o bug de verdade do login: um erro secundário (qualquer coisa, mesmo sem relação com sessão) que acontecesse LOGO DEPOIS de entrar reexibia a tela de login por cima do app já carregado — empilhava as duas telas (por isso precisava rolar pra baixo) e parecia ter deslogado, mesmo com a sessão ainda válida"
+    ]
+  },
+  {
+    "version": "0.13.1",
+    "date": "2026-08-31",
+    "changes": [
+      "Revertido os banners de seção (Início, Servidores, Amigos, Jogar, NEXTGAME PLUS) — voltou pro visual de antes"
+    ]
+  },
+  {
+    "version": "0.13.0",
+    "date": "2026-08-31",
+    "changes": [
+      "Banner do pacote de marca NEXTGAME agora é o hero da tela de Início, com os selos de confiança (BlueX, monitoramento, IA) igual a tela de login",
+      "Banners de seção adicionados: Servidores em Destaque, Amigos e o modal Jogar",
+      "NEXTGAME PLUS ganhou a arte do banner oficial no fundo do card de assinatura"
+    ]
+  },
+  {
+    "version": "0.12.0",
+    "date": "2026-08-31",
+    "changes": [
+      "Corrigido as figurinhas recortadas — estavam com fundo preto quadrado em vez de transparente, agora aparecem soltas igual figurinha de verdade",
+      "Nova recuperação de senha: 'Esqueceu a senha?' agora manda um link de troca por e-mail (usa a mesma infraestrutura de e-mail da confirmação de cadastro — sem domínio verificado configurado, o link fica registrado no servidor em vez de chegar por e-mail)"
+    ]
+  },
+  {
+    "version": "0.11.1",
+    "date": "2026-08-31",
+    "changes": [
+      "Trava de segurança contra tela presa no logo carregando pra sempre: requisição de sessão agora tem limite de 8s (não fica esperando sem fim se o servidor engasgar) e, no pior caso, depois de 12s o site força a tela de login a aparecer em vez de travar"
+    ]
+  },
+  {
+    "version": "0.11.0",
+    "date": "2026-08-31",
+    "changes": [
+      "Novo tema \"NEXTGAME Oficial\" no PLUS — o mais completo: além da cor da marca (azul/branco), tem efeito animado de brilho no nome, moldura do avatar, bolha de DM e banner do perfil",
+      "Figurinhas de verdade (PNG) adicionadas ao chat — recortadas do pacote de marca NEXTGAME (GG, Nice!, Fogo, Let's Go, coração, joinha, LOL, troféu, logo)",
+      "Corrigido bug de logout indevido: 'Continuar conectado' não apagava mais a sessão à toa quando o servidor demorava a responder (ex: acordando do modo economia do Render) — agora só desloga de verdade numa sessão realmente expirada"
+    ]
+  },
+  {
+    "version": "0.10.0",
+    "date": "2026-08-31",
+    "changes": [
+      "NEXTGAME PLUS ganhou 9 temas de cor prontos — muda de uma vez o nome no chat, a moldura do avatar, a bolha das DMs, o banner do perfil e os detalhes do próprio app",
+      "Banner do perfil agora reflete o tema escolhido pra quem é PLUS",
+      "Pacote de figurinhas extra (💎🚀⚡🐐🫡🎯🥇💪) exclusivo de quem tem PLUS"
+    ]
+  },
+  {
+    "version": "0.9.1",
+    "date": "2026-08-31",
+    "changes": [
+      "NEXTGAME PLUS agora mora dentro de Configurações, com banner de destaque e cards de vantagens (igual a área de assinatura do Discord)",
+      "Removido o modal separado antigo do NEXTGAME PLUS — todo mundo que clicava nele agora cai direto na aba nova"
+    ]
+  },
+  {
+    "version": "0.9.0",
+    "date": "2026-08-31",
+    "changes": [
+      "Corrigido os quadrados brancos ao lado do seu nome no topo do chat (ícone de servidor que faltava)",
+      "IA do chat agora mostra \"digitando...\" enquanto pensa na resposta",
+      "Conversa com a IA ganhou sugestões rápidas (mudar status, ver recompensas, procurar jogadores, criar evento)",
+      "Novo botão de figurinhas no chat — igual WhatsApp, com pacote de emojis grandes para mandar na conversa"
+    ]
+  },
+  {
+    "version": "0.8.1",
+    "date": "2026-08-30",
+    "changes": [
+      "Amigos e Mensagens remodelado: cards mais arredondados, com sombra/destaque ao passar o mouse",
+      "Botões de ação (mensagem, ligar, aceitar, recusar) viraram círculos que reagem ao interagir",
+      "Abas de Amigos (Todos/Online/Pendentes) ganharam visual em pílula, mais claro qual está selecionada"
+    ]
+  },
+  {
+    "version": "0.8.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Painel admin: erros agora podem ser diagnosticados por IA (causa provável + sugestão de correção) — a IA só sugere, ninguém aplica nada sozinho em produção",
+      "Tela de login mostra selos de confiança (Proteção BlueX, Monitoramento de erros, Suporte com IA)"
+    ]
+  },
+  {
+    "version": "0.7.1",
+    "date": "2026-08-30",
+    "changes": [
+      "Confirmação de e-mail desligada de novo por enquanto (ainda sem domínio configurado no Resend para enviar de verdade)"
+    ]
+  },
+  {
+    "version": "0.7.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Confirmação de e-mail no cadastro reativada — conta nova recebe um código de 6 dígitos e fica bloqueada até confirmar"
+    ]
+  },
+  {
+    "version": "0.6.5",
+    "date": "2026-08-30",
+    "changes": [
+      "Corrigido campos de busca (Amigos, Conversas, Adicionar amigo) que apareciam como quadrado branco padrão do navegador — agora seguem o mesmo visual escuro arredondado da busca do topo"
+    ]
+  },
+  {
+    "version": "0.6.4",
+    "date": "2026-08-30",
+    "changes": [
+      "Conversas diretas (DM) agora aparecem em balõezinho — sua mensagem à direita em roxo, da outra pessoa à esquerda em cinza",
+      "Campo de digitar e botão de enviar mais arredondados e modernos",
+      "Corrigido nome duplicado no topo da conversa (\"# 💬 nome\" virou só o nome)"
+    ]
+  },
+  {
+    "version": "0.6.3",
+    "date": "2026-08-30",
+    "changes": [
+      "Espaço da lista de Servidores na barra lateral aumentado",
+      "Amigos remodelado: abas Todos/Online/Pendentes com contagem real e busca"
+    ]
+  },
+  {
+    "version": "0.6.2",
+    "date": "2026-08-30",
+    "changes": [
+      "Corrigido o menu do chip de perfil (topo direito) — abria e fechava no mesmo clique, agora funciona"
+    ]
+  },
+  {
+    "version": "0.6.1",
+    "date": "2026-08-30",
+    "changes": [
+      "Corrigido bug que fazia Membros/Servidores/Torneios aparecerem como \"undefined\" na Início",
+      "Servidores movido pra logo abaixo do Chat na barra lateral, em vez de ficar escondido no fim",
+      "Menu de perfil (editar perfil, NEXTGAME PLUS, admin, sair) consolidado no chip do topo — removido do canto inferior esquerdo"
+    ]
+  },
+  {
+    "version": "0.6.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Início remodelada: banner principal maior com a arte do NEXT GAME, botão \"+ Criar\" na barra de topo, estatísticas com tendência real da semana",
+      "Nova seção \"Eventos em Destaque\" na Início",
+      "Novo recurso: Jogos Salvos — sua biblioteca pessoal de jogos favoritos",
+      "Cards de servidor e \"Jogando Agora\" com visual mais rico",
+      "Sala de voz ganhou um cartão de destaque no topo com o nome e as tags da sala",
+      "Chip de perfil também no topo da tela, além do rodapé da barra lateral"
+    ]
+  },
+  {
+    "version": "0.5.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Tela de login remodelada, com a arte nova do NEXT GAME",
+      "Sino de novidades no topo — mostra a lista de mudanças da atualização quando você quiser, não só no popup",
+      "Lista de novidades do popup de atualização agora tem rolagem própria em vez de estourar a tela",
+      "Campo de senha do login ganhou botão de mostrar/esconder"
+    ]
+  },
+  {
+    "version": "0.4.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Corrigido bug que travava a tela ao sair de uma chamada de voz",
+      "Painel de membros agora mostra seus amigos, não mais todo mundo da plataforma",
+      "Pedido de mensagem: dá pra chamar quem não é seu amigo, mas só vira conversa normal se a pessoa aceitar",
+      "Botão de mensagem direto no perfil de qualquer usuário",
+      "Novo selo de verificado ✔️ pra contas oficiais do NEXT GAME",
+      "Painel admin mais seguro (2FA obrigatório) e reorganizado em abas",
+      "Logo nova",
+      "Removido o balão de chat flutuante — já tem o Chat fixo no menu"
+    ]
+  },
+  {
+    "version": "0.3.0",
+    "date": "2026-08-30",
+    "changes": [
+      "Cadastro não pede mais confirmação por e-mail (temporário)",
+      "Corrigido bug que empurrava a barra de digitar pra fora da tela",
+      "Atividade Recente agora tem rolagem própria, sem deixar a página gigante",
+      "Novo aviso automático quando sai uma atualização do site"
+    ]
+  },
+  {
+    "version": "0.2.0",
+    "date": "2026-08-01",
+    "changes": [
+      "Versão anterior do NEXT GAME"
+    ]
+  }
+]
