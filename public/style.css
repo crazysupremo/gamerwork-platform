@@ -3102,9 +3102,15 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 /* Correção: menu do chip de perfil (canto superior direito) abrindo por
    BAIXO de alguma imagem da tela em vez de por cima. Reforça o menu bem
    acima de tudo e garante que a barra de topo tem prioridade de camada. */
-.footer-more-menu { z-index: 500 !important; }
+.footer-more-menu {
+  z-index: 500 !important;
+  background: #26272e !important;
+  border: 1px solid #3a3c44 !important;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,0,0,0.4) !important;
+  backdrop-filter: none !important;
+}
 .top-navbar { position: relative; z-index: 30; }
-.navbar-profile-chip-wrap { z-index: 31; }
+.navbar-profile-chip-wrap { position: relative; z-index: 31; }
 
 /* Coluna de canais (esquerda, dentro do servidor) e painel de membros
    (direita) — mesmo tratamento de profundidade do resto do app, hoje eram
