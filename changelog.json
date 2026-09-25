@@ -4,6 +4,7 @@
     "date": "2026-09-25",
     "changes": [
       "Remodelamento visual em todo o app (login, chat, servidores, perfil e admin): profundidade e sombras em camadas, glow nos botões de destaque, cards com elevação real no hover, barrinha de acento nos canais ativos, foco consistente em todo campo de formulário, avatares com sombra própria — mesma paleta azul→verde-água de sempre, evolução do visual e não uma virada de mesa.",
+      "Correção: style.css, app.js e os outros arquivos estáticos agora carregam com um parâmetro de versão (?v=0.55.0) no link — sem isso, navegadores (e às vezes o CDN) continuavam servindo a versão em cache mesmo depois do deploy novo, fazendo parecer que nada tinha mudado ou misturando HTML novo com CSS antigo (era isso que estava causando os ícones desalinhados no menu de perfil).",
       "Reforço gratuito de verificação de idade (ECA Digital) no próprio cadastro: quem informa data de nascimento indicando menos de 18 anos vê um aviso e precisa confirmar que um responsável está ciente antes de continuar — sem depender de nenhum serviço pago de terceiros. Fica registrado no perfil da conta."
     ]
   },

@@ -3036,6 +3036,70 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .modal-card { box-shadow: var(--elev-3); }
 
 /* ==========================================================================
+   REMODELAMENTO VISUAL v3 — mudanças VISÍVEIS sem precisar passar o mouse
+   (a v2 acima era em boa parte hover/foco, que não aparece num print parado
+   — esta aqui muda o estado normal dos cards/menus pra ficar claramente
+   diferente já na primeira olhada, sem mexer em layout/estrutura). */
+
+/* Cards que hoje são um retângulo cinza chapado (fundo sólido + borda 1px)
+   ganham um gradiente sutil + sombra permanente, não só no hover. */
+.home-side-card, .home-partner-game-card, .home-server-card, .explore-card,
+.home-quick-action, .tournament-card {
+  background: linear-gradient(155deg, #232429 0%, #1a1b20 100%) !important;
+  border-color: #2e2f38 !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--elev-1);
+}
+.home-tournament-banner { border-radius: var(--radius-lg) !important; box-shadow: var(--elev-2); }
+
+/* Título de seção ganha uma barrinha vertical do gradiente da marca do
+   lado, em vez de só o texto maiúsculo — reforça a identidade visual em
+   toda tela de Início/Explorar sem mudar a hierarquia. */
+.home-section-title {
+  padding-left: 10px; border-left: 3px solid transparent;
+  border-image: var(--gradient-brand) 1; border-image-slice: 1;
+}
+
+/* Ícones dentro dos cards (jogo parceiro, ações rápidas, destaque de
+   servidor) ganham fundo em degradê em vez de rgba chapado. */
+.home-quick-action-icon, .explore-card-icon, .home-tournament-banner-icon {
+  background: linear-gradient(135deg, rgba(88,101,242,0.28) 0%, rgba(0,217,192,0.2) 100%) !important;
+}
+
+/* Item de navegação da sidebar (Início/Amigos/Chat) — mesmo inativo, ganha
+   um fundo bem sutil pra não ficar "invisível" ao lado dos ativos. */
+.sidebar-nav-item { background: rgba(255,255,255,0.02); margin-bottom: 1px; }
+.sidebar-nav-item:hover { background: rgba(255,255,255,0.06); }
+
+/* Chip de perfil no topo (onde estava o bug de ícones bagunçados) — borda
+   mais visível + fundo em degradê, reforça que é clicável/importante. */
+.navbar-profile-chip {
+  background: linear-gradient(135deg, #202127 0%, #1a1b20 100%) !important;
+  border-color: #34353e !important;
+}
+.navbar-create-menu, .navbar-search-dropdown {
+  border-radius: var(--radius-md) !important;
+  background: linear-gradient(155deg, #232429 0%, #1c1d22 100%) !important;
+}
+
+/* Botão "+ Criar" com leve profundidade permanente (hoje só glow no hover). */
+.navbar-create-btn { box-shadow: 0 3px 10px rgba(88,101,242,0.3); }
+
+/* Ícone de servidor na sidebar — cantos levemente arredondados mesmo
+   parado (hoje só virava arredondado no hover), fica mais "app premium"
+   e menos "quadrado cru" o tempo todo. */
+.server-icon { border-radius: 34% !important; }
+.server-icon:hover, .server-icon.active { border-radius: 30% !important; }
+
+/* Barra lateral principal com borda direita mais nítida, separando melhor
+   do conteúdo (a v2 só deu gradiente de fundo, que é sutil demais). */
+.app-sidebar { border-right-color: #26272e !important; }
+
+/* Contador de streak / número de destaque nos side cards com leve glow no
+   texto, mais chamativo. */
+#home-streak-card strong, .home-header-stat-num { text-shadow: 0 0 12px rgba(88,101,242,0.35); }
+
+/* ==========================================================================
    RESPONSIVO — CELULAR (sem precisar instalar nada, direto pelo navegador)
    ==========================================================================
    O app inteiro (fora a tela de login, que já tinha um breakpoint próprio)
