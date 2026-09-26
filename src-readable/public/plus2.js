@@ -399,7 +399,7 @@
 
       const draft = {
         name: 'Meu tema',
-        primary: '#5865f2', secondary: '#9147ff', highlight: '#00d4ff', text: '#e6e6e6', button: '#1e1e2f',
+        primary: '#00ff9d', secondary: '#00e5ff', highlight: '#00d4ff', text: '#e6e6e6', button: '#1e1e2f',
         darkMode: true, effect: 'none',
       };
 
@@ -1101,8 +1101,8 @@
 
       const colorFor = (isOwn) => {
         if (chat.colorMode === 'mono') return '#2a2b32';
-        if (chat.colorMode === 'theme') return isOwn ? '#5865f2' : '#35373c';
-        return isOwn ? '#5865f2' : '#00c896';
+        if (chat.colorMode === 'theme') return isOwn ? '#00ff9d' : '#35373c';
+        return isOwn ? '#00ff9d' : '#00c896';
       };
       previewChat.appendChild(bubble('João', 'Bora jogar hoje à noite?', false, false, colorFor(false)));
       previewChat.appendChild(bubble('Você', 'Bora sim! 🔥', true, false, colorFor(true)));

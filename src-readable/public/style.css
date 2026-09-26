@@ -3502,6 +3502,16 @@ body, input, textarea, button, .message-content, .home-partner-game-info span {
   border-radius: 0 !important;
 }
 
+/* Correção: os botões circulares dos seletores de emoji (escolher ícone do
+   servidor e escolher avatar de emoji) têm a cor de fundo aplicada direto
+   por JavaScript (#5865f2, o azul antigo) — isso não é lido do CSS, por
+   isso ficaram destoando do resto do tema mesmo depois de eu trocar tudo
+   o mais. Como não vou mexer no .js, forço a cor aqui com !important, que
+   tem prioridade sobre o style inline definido pelo JavaScript. */
+#server-icon-row button, #server-info-icon-row button, #avatar-emoji-row button {
+  background: var(--gradient-brand) !important;
+}
+
 /* Menus flutuantes — corte de canto também, consistência com o resto. */
 .footer-more-menu, .navbar-create-menu, .navbar-search-dropdown, .sidebar-more-menu, .modal-card {
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px)) !important;

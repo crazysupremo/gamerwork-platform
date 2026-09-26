@@ -50,7 +50,7 @@ function buildIconRow(rowId, hiddenInputId, selectedIcon) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = icon;
-    btn.style.background = '#5865f2';
+    btn.style.background = '#00ff9d';
     if (icon === initial && (!selectedIcon || !selectedIcon.startsWith('data:'))) btn.classList.add('avatar-emoji-selected');
     btn.onclick = () => {
       hiddenInput.value = icon;
@@ -116,7 +116,7 @@ function renderAvatarHtml(user, sizeClass) {
     return `<img src="${avatar}" alt="" />`;
   }
   if (avatar && avatar.startsWith('emoji:')) {
-    const parts = avatar.split(':'); // emoji:🎮:#5865f2
+    const parts = avatar.split(':'); // emoji:🎮:#00ff9d
     return `<span style="font-size:1.1em">${escapeHtml(parts[1] || '🎮')}</span>`;
   }
   const initial = escapeHtml(((user && user.username) || '?')[0].toUpperCase());
@@ -2609,7 +2609,7 @@ async function loadManageRoles() {
 document.getElementById('btn-new-role').onclick = () => {
   document.getElementById('form-new-role').classList.remove('hidden');
   document.getElementById('role-name-input').value = '';
-  document.getElementById('role-color-input').value = '#5865f2';
+  document.getElementById('role-color-input').value = '#00ff9d';
 };
 document.getElementById('btn-cancel-role').onclick = () => {
   document.getElementById('form-new-role').classList.add('hidden');
@@ -5057,9 +5057,9 @@ AVATAR_EMOJIS.forEach((emoji) => {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.textContent = emoji;
-  btn.style.background = '#5865f2';
+  btn.style.background = '#00ff9d';
   btn.onclick = () => {
-    pendingAvatar = 'emoji:' + emoji + ':#5865f2';
+    pendingAvatar = 'emoji:' + emoji + ':#00ff9d';
     updateAvatarPreview();
   };
   emojiRow.appendChild(btn);
@@ -8132,7 +8132,7 @@ function startEditMessage(el, msg) {
   input.type = 'text';
   input.value = original;
   input.className = 'edit-inline-input';
-  input.style.cssText = 'width:100%;padding:6px;border-radius:4px;border:1px solid #5865f2;background:#26272e;color:#e6e6e6;';
+  input.style.cssText = 'width:100%;padding:6px;border-radius:4px;border:1px solid #00ff9d;background:#26272e;color:#e6e6e6;';
   contentEl.appendChild(input);
   input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
