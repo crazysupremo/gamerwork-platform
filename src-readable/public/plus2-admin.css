@@ -7,7 +7,7 @@
   background: none; border: none; color: #8b909a; font-size: 13px; font-weight: 700; cursor: pointer;
   padding: 9px 13px; border-bottom: 2px solid transparent;
 }
-.pv2a-tab.active { color: #fff; border-bottom-color: #5865f2; }
+.pv2a-tab.active { color: #fff; border-bottom-color: #00ff9d; }
 .pv2a-panel { display: none; }
 .pv2a-panel.active { display: block; }
 
@@ -29,7 +29,7 @@
 .pv2a-color-input { width: 34px; height: 28px; border: none; border-radius: 6px; padding: 0; cursor: pointer; }
 
 .pv2a-btn {
-  background: #5865f2; color: #fff; border: none; border-radius: 7px; padding: 7px 12px;
+  background: #00ff9d; color: #fff; border: none; border-radius: 7px; padding: 7px 12px;
   font-size: 12px; font-weight: 700; cursor: pointer;
 }
 .pv2a-btn:hover { filter: brightness(1.1); }

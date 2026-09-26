@@ -1,3 +1,7 @@
+/* Fontes novas (só CSS, nenhum HTML/JS tocado) — "Rajdhani" pros títulos
+   (condensada, técnica, cara de HUD de jogo) e "Inter" pro corpo do texto
+   (mais legível que a fonte de sistema padrão). */
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap');
 * { box-sizing: border-box; }
 /* Dificulta selecionar/copiar texto da tela casualmente — campos de digitar
    (input, textarea, contenteditable) continuam selecionáveis normal, senão
@@ -20,16 +24,16 @@ button:active { transform: scale(0.94); }
 .ng-icon-sm { width: 0.85em; height: 0.85em; }
 [data-icon] { display: inline-flex; align-items: center; justify-content: center; }
 :root {
-  --accent: #5865f2;
+  --accent: #00ff9d;
   /* Repaginado (a pedido — "troca o roxo pelo azul da logo") — era roxo
-     puro (#9146ff), agora é o azul de verdade extraído da logo nova
+     puro (#00ff9d), agora é o azul de verdade extraído da logo nova
      (#0284ED), pra combinar com a marca em vez de destoar dela. O degradê
      da marca inteiro foi recalculado em torno desse azul, pra tudo ficar
      na mesma família de cor (azul → azul da logo → verde-água) em vez de
      pular pro roxo no meio do caminho. */
-  --accent-2: #0284ed;
-  --accent-3: #00d9c0;
-  --gradient-brand: linear-gradient(135deg, #5865f2 0%, #0284ed 55%, #00d9c0 100%);
+  --accent-2: #00e5ff;
+  --accent-3: #00e5ff;
+  --gradient-brand: linear-gradient(135deg, #00ff9d 0%, #00e5ff 55%, #00e5ff 100%);
   --bg-app: #14151a;
   --bg-rail: #0e0f13;
   --bg-sidebar: #1a1b20;
@@ -86,7 +90,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   overflow-x: hidden;
   padding: 40px 24px;
   background:
-    radial-gradient(circle at 12% 15%, rgba(88, 101, 242, 0.12), transparent 42%),
+    radial-gradient(circle at 12% 15%, rgba(0,255,157, 0.12), transparent 42%),
     radial-gradient(circle at 88% 85%, rgba(145, 70, 255, 0.12), transparent 42%),
     linear-gradient(180deg, rgba(6,7,10,0.55) 0%, rgba(6,7,10,0.4) 45%, rgba(6,7,10,0.85) 100%),
     url('/assets/auth-banner.png');
@@ -110,7 +114,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   justify-content: center; cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 .auth-music-toggle:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
-.auth-music-toggle.active { color: var(--accent-3); border-color: var(--accent-3); background: rgba(0,217,192,0.12); }
+.auth-music-toggle.active { color: var(--accent-3); border-color: var(--accent-3); background: rgba(0,229,255,0.12); }
 
 /* Layout dividido: branding + destaques à esquerda, formulário à direita —
    as duas colunas ficam sempre visíveis juntas, sem precisar rolar a página. */
@@ -154,7 +158,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   gap: 12px; padding: 28px 32px 0;
 }
 .auth-hero-brand { display: flex; align-items: center; gap: 10px; }
-.auth-hero-brand-logo { height: 34px; width: auto; filter: drop-shadow(0 4px 12px rgba(88,101,242,0.5)); }
+.auth-hero-brand-logo { height: 34px; width: auto; filter: drop-shadow(0 4px 12px rgba(0,255,157,0.5)); }
 .auth-hero-brand-text { display: flex; flex-direction: column; line-height: 1.15; }
 .auth-hero-brand-name { font-size: 16px; font-weight: 900; color: #f2f3f5; letter-spacing: 0.02em; }
 .auth-hero-brand-name strong { background: var(--gradient-brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -194,7 +198,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   font-weight: 700; font-size: 13.5px; cursor: pointer; transition: filter 0.15s ease, transform 0.1s ease, background 0.15s ease;
 }
 .auth-hero-cta-primary {
-  border: none; background: var(--gradient-brand); color: white; box-shadow: 0 8px 22px rgba(88,101,242,0.4);
+  border: none; background: var(--gradient-brand); color: white; box-shadow: 0 8px 22px rgba(0,255,157,0.4);
 }
 .auth-hero-cta-primary:hover { filter: brightness(1.1); }
 .auth-hero-cta-secondary {
@@ -218,7 +222,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .auth-feature-icon {
   flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px;
-  background: rgba(88,101,242,0.18); border: 1px solid rgba(88,101,242,0.4); color: var(--accent-3);
+  background: rgba(0,255,157,0.18); border: 1px solid rgba(0,255,157,0.4); color: var(--accent-3);
   display: flex; align-items: center; justify-content: center;
 }
 .auth-feature-icon .ng-icon { width: 18px; height: 18px; }
@@ -231,7 +235,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   padding: 12px 14px; border-radius: 12px; background: rgba(20,21,28,0.5); border: 1px solid rgba(255,255,255,0.07);
 }
 .auth-stat-icon {
-  width: 30px; height: 30px; border-radius: 8px; background: rgba(88,101,242,0.18); color: var(--accent-3);
+  width: 30px; height: 30px; border-radius: 8px; background: rgba(0,255,157,0.18); color: var(--accent-3);
   display: flex; align-items: center; justify-content: center; margin-bottom: 2px;
 }
 .auth-stat-icon .ng-icon { width: 15px; height: 15px; }
@@ -283,15 +287,15 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .auth-logo-badge {
   width: 116px; height: 116px; border-radius: 50%; margin: 0 auto 20px; position: relative;
   display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(circle, rgba(88,101,242,0.26) 0%, rgba(16,17,23,0.55) 72%);
+  background: radial-gradient(circle, rgba(0,255,157,0.26) 0%, rgba(16,17,23,0.55) 72%);
   border: 1px solid rgba(255,255,255,0.1);
-  box-shadow: 0 0 0 1px rgba(88,101,242,0.2), 0 0 46px rgba(88,101,242,0.4), 0 0 84px rgba(145,70,255,0.22),
+  box-shadow: 0 0 0 1px rgba(0,255,157,0.2), 0 0 46px rgba(0,255,157,0.4), 0 0 84px rgba(0,255,157,0.22),
     inset 0 1px 0 rgba(255,255,255,0.08);
   animation: authLogoFloat 3.6s ease-in-out infinite;
 }
 .auth-logo-badge::before {
   content: ''; position: absolute; inset: -3px; border-radius: 50%; padding: 2px;
-  background: conic-gradient(from 0deg, #5865f2, #0284ed, #00d9c0, #5865f2);
+  background: conic-gradient(from 0deg, #00ff9d, #00e5ff, #00e5ff, #00ff9d);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
   opacity: 0.8; animation: authLogoRingSpin 7s linear infinite;
@@ -323,7 +327,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   flex: 1; padding: 9px; background: transparent; color: #8b909a; border: none; cursor: pointer;
   font-weight: 700; font-size: 13px; border-radius: 8px; transition: background 0.15s ease, color 0.15s ease;
 }
-.auth-tab.active { background: var(--gradient-brand); color: white; box-shadow: 0 4px 12px rgba(88,101,242,0.4); }
+.auth-tab.active { background: var(--gradient-brand); color: white; box-shadow: 0 4px 12px rgba(0,255,157,0.4); }
 .auth-form { display: flex; flex-direction: column; gap: 11px; }
 /* Campo com ícone, estilo "pill" escura — mesma linguagem visual da busca
    grande do topo (.navbar-search), só menor. Usado em qualquer input com
@@ -376,19 +380,19 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   padding: 12px; border-radius: 8px; border: none; background: var(--gradient-brand); color: white;
   font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 6px;
   transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
-  box-shadow: 0 6px 18px rgba(88,101,242,0.35);
+  box-shadow: 0 6px 18px rgba(0,255,157,0.35);
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
 }
 .auth-form button .ng-icon { width: 16px; height: 16px; }
-.auth-form button:hover { filter: brightness(1.12); box-shadow: 0 8px 22px rgba(88,101,242,0.5); }
+.auth-form button:hover { filter: brightness(1.12); box-shadow: 0 8px 22px rgba(0,255,157,0.5); }
 .auth-form button:active { transform: scale(0.98); }
 .auth-error { color: #f23f42; font-size: 13px; min-height: 18px; margin-top: 6px; }
 .auth-promo-card {
   display: flex; align-items: center; gap: 12px; margin-top: 20px; padding: 14px 16px; text-align: left;
-  border-radius: 12px; background: rgba(88,101,242,0.08); border: 1px solid rgba(88,101,242,0.25);
+  border-radius: 12px; background: rgba(0,255,157,0.08); border: 1px solid rgba(0,255,157,0.25);
 }
 .auth-promo-icon {
-  flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px; background: rgba(88,101,242,0.2);
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px; background: rgba(0,255,157,0.2);
   color: var(--accent-3); display: flex; align-items: center; justify-content: center;
 }
 .auth-promo-icon .ng-icon { width: 18px; height: 18px; }
@@ -425,7 +429,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .wizard-next-btn {
   width: 100%; padding: 12px; border-radius: 8px; border: none; background: var(--gradient-brand); color: white;
   font-weight: 800; font-size: 13px; cursor: pointer; margin-top: 18px; letter-spacing: 0.03em;
-  box-shadow: 0 6px 18px rgba(88,101,242,0.35); transition: filter 0.15s ease;
+  box-shadow: 0 6px 18px rgba(0,255,157,0.35); transition: filter 0.15s ease;
 }
 .wizard-next-btn:hover { filter: brightness(1.1); }
 .wizard-back-btn {
@@ -508,7 +512,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .navbar-create-btn {
   display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: none;
   background: var(--gradient-brand); color: white; font-weight: 700; font-size: 13px; cursor: pointer;
-  box-shadow: 0 4px 14px rgba(88,101,242,0.35); transition: filter 0.15s ease;
+  box-shadow: 0 4px 14px rgba(0,255,157,0.35); transition: filter 0.15s ease;
 }
 .navbar-create-btn:hover { filter: brightness(1.1); }
 .navbar-create-btn .ng-icon { width: 15px; height: 15px; }
@@ -593,7 +597,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 
 .beta-tag {
-  background: rgba(88,101,242,0.18); color: #a7b0ff; border: 1px solid rgba(88,101,242,0.4);
+  background: rgba(0,255,157,0.18); color: #a7b0ff; border: 1px solid rgba(0,255,157,0.4);
   font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 5px;
   cursor: default;
 }
@@ -610,7 +614,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .sidebar-nav-item:hover { color: #e6e6e6; background: var(--bg-sidebar); }
 .sidebar-nav-item.active {
-  color: white; background: var(--gradient-brand); box-shadow: 0 4px 14px rgba(88,101,242,0.35);
+  color: white; background: var(--gradient-brand); box-shadow: 0 4px 14px rgba(0,255,157,0.35);
 }
 .sidebar-nav-item-solo { margin-bottom: 4px; }
 
@@ -728,7 +732,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .search-result-item:hover { background: rgba(255,255,255,0.05); }
 .search-result-icon {
   width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center;
-  justify-content: center; font-size: 15px; background: rgba(88,101,242,0.15); overflow: hidden;
+  justify-content: center; font-size: 15px; background: rgba(0,255,157,0.15); overflow: hidden;
 }
 .search-result-icon img, .search-result-icon.round { border-radius: 50%; }
 .search-result-text { min-width: 0; flex: 1; }
@@ -756,7 +760,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 /* Trilho de servidores, igual Discord */
 .server-rail {
   width: 72px; background:
-    radial-gradient(circle at 50% 0%, rgba(88,101,242,0.15), transparent 60%),
+    radial-gradient(circle at 50% 0%, rgba(0,255,157,0.15), transparent 60%),
     var(--bg-rail);
   display: flex; flex-direction: column;
   align-items: center; gap: 8px; padding: 12px 0; flex-shrink: 0; overflow-y: auto;
@@ -772,12 +776,12 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .server-icon:hover { border-radius: 30%; background: var(--gradient-brand); transform: translateY(-1px); }
 .server-icon.active {
   border-radius: 30%; background: var(--gradient-brand);
-  box-shadow: 0 0 0 2px rgba(255,255,255,0.08), 0 0 16px rgba(88,101,242,0.55);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.08), 0 0 16px rgba(0,255,157,0.55);
   animation: serverGlow 2.4s ease-in-out infinite;
 }
 @keyframes serverGlow {
-  0%, 100% { box-shadow: 0 0 0 2px rgba(255,255,255,0.08), 0 0 16px rgba(88,101,242,0.5); }
-  50% { box-shadow: 0 0 0 2px rgba(255,255,255,0.1), 0 0 22px rgba(145,70,255,0.65); }
+  0%, 100% { box-shadow: 0 0 0 2px rgba(255,255,255,0.08), 0 0 16px rgba(0,255,157,0.5); }
+  50% { box-shadow: 0 0 0 2px rgba(255,255,255,0.1), 0 0 22px rgba(0,255,157,0.65); }
 }
 .server-icon.active::before {
   content: ''; position: absolute; left: -12px; top: 50%; transform: translateY(-50%);
@@ -834,12 +838,12 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .sidebar-header button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* "⋯" fica destacado enquanto o menu dele está aberto — mesma cor do resto
    dos estados "ativo" do app, só que sem o anel de foco brigando com o menu. */
-.sidebar-header button.active-state { background: rgba(88,101,242,0.16); color: var(--accent-3); }
+.sidebar-header button.active-state { background: rgba(0,255,157,0.16); color: var(--accent-3); }
 
 /* "Criar sala" ainda se destaca (é a ação mais usada), mas com uma cor
    suave em vez do degradê chapado — mais elegante, menos "gritando". */
 .sidebar-header-btn-primary {
-  background: rgba(88,101,242,0.16) !important; color: var(--accent-3) !important;
+  background: rgba(0,255,157,0.16) !important; color: var(--accent-3) !important;
 }
 .sidebar-header-btn-primary:hover { background: var(--accent) !important; color: white !important; }
 
@@ -889,7 +893,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
 }
 .channel-item:hover { background: rgba(255,255,255,0.045); color: #dbdee1; }
-.channel-item.active { background: rgba(88,101,242,0.15); color: #c7cdff; }
+.channel-item.active { background: rgba(0,255,157,0.15); color: #b8ffe0; }
 .channel-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Ícones de ação que só aparecem passando o mouse por cima do canal — igual Discord. */
@@ -930,7 +934,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   transition: background 0.15s ease, color 0.15s ease;
 }
 .header-icon-btn:hover { background: rgba(255,255,255,0.07); color: #f2f3f5; }
-.header-icon-btn.active-state { background: rgba(88,101,242,0.16); color: var(--accent-3); }
+.header-icon-btn.active-state { background: rgba(0,255,157,0.16); color: var(--accent-3); }
 
 .text-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
 /* Arrastar e soltar arquivo pra anexar — cobre a conversa inteira enquanto
@@ -938,7 +942,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
    "solte aqui". Não intercepta clique nenhum quando escondido. */
 .chat-dropzone-overlay {
   position: absolute; inset: 8px; z-index: 50; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 10px; background: rgba(88,101,242,0.14); backdrop-filter: blur(2px);
+  justify-content: center; gap: 10px; background: rgba(0,255,157,0.14); backdrop-filter: blur(2px);
   border: 2px dashed var(--accent); border-radius: 14px; color: #fff; font-size: 14px; font-weight: 700;
   pointer-events: none;
 }
@@ -950,8 +954,8 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .home-hero {
   border-radius: 16px; padding: 40px 32px; margin-bottom: 24px;
   background:
-    radial-gradient(circle at 20% 20%, rgba(88,101,242,0.35), transparent 55%),
-    radial-gradient(circle at 85% 60%, rgba(0,217,192,0.22), transparent 50%),
+    radial-gradient(circle at 20% 20%, rgba(0,255,157,0.35), transparent 55%),
+    radial-gradient(circle at 85% 60%, rgba(0,229,255,0.22), transparent 50%),
     linear-gradient(135deg, var(--bg-sidebar), #101116);
   position: relative; overflow: hidden;
 }
@@ -963,7 +967,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   padding: 11px 20px; border-radius: 8px; border: none; font-weight: 700; font-size: 13px; cursor: pointer;
   transition: filter 0.15s ease, transform 0.1s ease;
 }
-.home-btn-primary { background: var(--gradient-brand); color: white; box-shadow: 0 6px 18px rgba(88,101,242,0.4); }
+.home-btn-primary { background: var(--gradient-brand); color: white; box-shadow: 0 6px 18px rgba(0,255,157,0.4); }
 .home-btn-secondary { background: rgba(255,255,255,0.06); color: #e6e6e6; border: 1px solid rgba(255,255,255,0.1); }
 .home-btn-primary:hover, .home-btn-secondary:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
@@ -1011,7 +1015,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   background: var(--bg-sidebar); border: 1px solid #26272e;
 }
 .explore-card-icon {
-  flex-shrink: 0; width: 48px; height: 48px; border-radius: 12px; background: rgba(88,101,242,0.15);
+  flex-shrink: 0; width: 48px; height: 48px; border-radius: 12px; background: rgba(0,255,157,0.15);
   display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800;
 }
 .explore-card-info { flex: 1; min-width: 0; }
@@ -1028,11 +1032,11 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .home-quick-action:hover {
   border-color: var(--accent); transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(88,101,242,0.2); background: #1e1f26;
+  box-shadow: 0 8px 18px rgba(0,255,157,0.2); background: #1e1f26;
 }
 .home-quick-action:active { transform: translateY(-1px) scale(0.98); }
 .home-quick-action-icon {
-  flex-shrink: 0; width: 30px; height: 30px; border-radius: 8px; background: rgba(88,101,242,0.14);
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 8px; background: rgba(0,255,157,0.14);
   display: flex; align-items: center; justify-content: center; font-size: 14px;
 }
 .home-quick-action-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
@@ -1050,7 +1054,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .home-header-stat { display: flex; align-items: center; gap: 7px; }
 .home-header-stat-icon {
-  width: 20px; height: 20px; border-radius: 50%; background: rgba(88,101,242,0.14); color: var(--accent-3);
+  width: 20px; height: 20px; border-radius: 50%; background: rgba(0,255,157,0.14); color: var(--accent-3);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .home-header-stat-icon .ng-icon { width: 11px; height: 11px; }
@@ -1092,7 +1096,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .home-server-card:hover {
   transform: translateY(-3px) scale(1.02); border-color: var(--accent);
-  box-shadow: 0 10px 20px rgba(88,101,242,0.22);
+  box-shadow: 0 10px 20px rgba(0,255,157,0.22);
 }
 .home-server-card:active { transform: translateY(-1px) scale(0.99); }
 /* Servidor oficial que a pessoa ainda não é membro — aparece pra todo mundo
@@ -1132,7 +1136,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 7px; cursor: pointer;
   transition: background 0.15s ease, transform 0.15s ease;
 }
-.home-conversation-row:hover { background: rgba(88,101,242,0.1); transform: translateX(2px); }
+.home-conversation-row:hover { background: rgba(0,255,157,0.1); transform: translateX(2px); }
 .home-conversation-info { display: flex; flex-direction: column; min-width: 0; font-size: 11px; line-height: 1.3; }
 .home-conversation-info strong { color: #e6e6e6; font-size: 12px; }
 .home-conversation-info span { color: #9aa0ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1221,7 +1225,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 .reply-banner button:hover { color: #f2f3f5; }
 .message.bot-message { background: rgba(0, 217, 192, 0.05); border-left: 2px solid var(--accent-3); padding-left: 8px; }
-.message.bot-message .message-avatar { background: linear-gradient(135deg, #00d9c0, #00a3ff); }
+.message.bot-message .message-avatar { background: linear-gradient(135deg, #00e5ff, #00a3ff); }
 .bot-tag {
   background: var(--accent-3); color: #0e0f13; font-size: 9px; font-weight: 800;
   padding: 1px 5px; border-radius: 3px; letter-spacing: 0.03em;
@@ -1234,10 +1238,10 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 /* Menção @usuário — pill roxo-claro, igual Discord. Fica mais forte quando
    é uma menção a você mesmo (mesma lógica de destaque de SFX.mention). */
 .mention {
-  background: rgba(88,101,242,0.15); color: #c9cdfb; border-radius: 4px;
+  background: rgba(0,255,157,0.15); color: #c9cdfb; border-radius: 4px;
   padding: 0 3px; font-weight: 600; cursor: default;
 }
-.mention-me { background: rgba(88,101,242,0.35); color: #e8e9fd; }
+.mention-me { background: rgba(0,255,157,0.35); color: #e8e9fd; }
 
 /* Divisor de data entre mensagens de dias diferentes — igual Discord. */
 .message-date-divider {
@@ -1330,7 +1334,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   border-radius: 10px; padding: 1px 7px; font-size: 12px; cursor: pointer; color: #dbdee1;
 }
 .reaction-chip:hover { border-color: var(--accent); }
-.reaction-chip.reacted { background: rgba(88, 101, 242, 0.2); border-color: var(--accent); color: #c7cdff; }
+.reaction-chip.reacted { background: rgba(0,255,157, 0.2); border-color: var(--accent); color: #b8ffe0; }
 
 .typing-indicator { min-height: 18px; padding: 0 16px; font-size: 12px; color: #949ba4; font-style: italic; }
 
@@ -1359,7 +1363,7 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .verified-badge-gold .ng-icon path:first-child { fill: #d4a017; }
 .verified-badge-gold .ng-icon path:last-child { stroke: #1a1400; }
 .dm-pending-tag {
-  display: inline-block; margin-left: 6px; background: rgba(88,101,242,0.2); color: #c7cdff;
+  display: inline-block; margin-left: 6px; background: rgba(0,255,157,0.2); color: #b8ffe0;
   font-size: 9.5px; font-weight: 800; text-transform: uppercase; padding: 1px 6px; border-radius: 8px;
   vertical-align: middle;
 }
@@ -1468,13 +1472,13 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   position: relative; overflow: hidden;
   background:
     linear-gradient(100deg, rgba(8,8,14,0.9) 0%, rgba(8,8,14,0.55) 55%, rgba(8,8,14,0.2) 100%),
-    radial-gradient(circle at 85% 30%, rgba(88,101,242,0.35), transparent 55%),
+    radial-gradient(circle at 85% 30%, rgba(0,255,157,0.35), transparent 55%),
     linear-gradient(135deg, var(--bg-sidebar), #101116);
   border: 1px solid rgba(255,255,255,0.07);
 }
 .voice-room-hero-icon {
-  flex-shrink: 0; width: 56px; height: 56px; border-radius: 16px; background: rgba(88,101,242,0.18);
-  border: 1px solid rgba(88,101,242,0.4); color: var(--accent-3); display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; width: 56px; height: 56px; border-radius: 16px; background: rgba(0,255,157,0.18);
+  border: 1px solid rgba(0,255,157,0.4); color: var(--accent-3); display: flex; align-items: center; justify-content: center;
 }
 .voice-room-hero-icon .ng-icon { width: 26px; height: 26px; }
 .voice-room-hero-text { min-width: 0; }
@@ -1670,7 +1674,7 @@ video:fullscreen { background: #000; object-fit: contain; }
   display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px; background: var(--bg-sidebar);
   font-size: 12px;
 }
-.music-queue-item.current { background: rgba(88,101,242,0.15); border: 1px solid var(--accent); }
+.music-queue-item.current { background: rgba(0,255,157,0.15); border: 1px solid var(--accent); }
 .music-queue-item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .music-queue-item-title { color: #dbdee1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .music-queue-item-by { color: #6d7178; font-size: 10px; }
@@ -1906,7 +1910,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 .mission-info h3 { margin: 0 0 3px; font-size: 14px; color: #e6e6e6; }
 .mission-info p { margin: 0 0 6px; font-size: 12px; color: #949ba4; }
 .mission-points-tag {
-  font-size: 11px; font-weight: 700; color: var(--accent-3); background: rgba(0,217,192,0.12);
+  font-size: 11px; font-weight: 700; color: var(--accent-3); background: rgba(0,229,255,0.12);
   padding: 2px 8px; border-radius: 10px;
 }
 .mission-action { flex-shrink: 0; }
@@ -2034,7 +2038,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 
 .share-picker-audio-note {
   display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: #dbdee1;
-  background: rgba(88,101,242,0.1); border: 1px solid rgba(88,101,242,0.3); border-radius: 8px;
+  background: rgba(0,255,157,0.1); border: 1px solid rgba(0,255,157,0.3); border-radius: 8px;
   padding: 10px; margin-top: 12px; line-height: 1.5;
 }
 .share-picker-audio-note .ng-icon-wrap { flex-shrink: 0; margin-top: 1px; }
@@ -2047,8 +2051,8 @@ video:fullscreen { background: #000; object-fit: contain; }
 
 /* Banner de recomendação de 2FA — não bloqueia nada, só sugere. */
 .twofa-recommend-banner {
-  display: flex; align-items: flex-start; gap: 12px; background: rgba(88,101,242,0.1);
-  border: 1px solid rgba(88,101,242,0.25); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
+  display: flex; align-items: flex-start; gap: 12px; background: rgba(0,255,157,0.1);
+  border: 1px solid rgba(0,255,157,0.25); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
 }
 .twofa-recommend-banner > .ng-icon-wrap { width: 20px; height: 20px; color: var(--accent-3); flex-shrink: 0; margin-top: 1px; }
 .twofa-recommend-text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
@@ -2298,7 +2302,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 }
 @keyframes frameSparkle {
   0%, 100% { box-shadow: 0 0 0 2px #fff, 0 0 12px rgba(255,255,255,0.55); }
-  50%      { box-shadow: 0 0 0 2px #00d9c0, 0 0 18px rgba(0,217,192,0.85); }
+  50%      { box-shadow: 0 0 0 2px #00e5ff, 0 0 18px rgba(0,229,255,0.85); }
 }
 .avatar-frame-fire {
   animation: frameFire 1s ease-in-out infinite;
@@ -2378,7 +2382,7 @@ video:fullscreen { background: #000; object-fit: contain; }
   background: transparent; color: #9aa0ab; border: 1px solid rgba(255,255,255,0.12) !important;
 }
 #btn-cancel-profile:hover { background: rgba(255,255,255,0.06); color: #dbdee1; }
-#btn-save-profile { background: var(--gradient-brand); color: white; box-shadow: 0 4px 14px rgba(88,101,242,0.35); }
+#btn-save-profile { background: var(--gradient-brand); color: white; box-shadow: 0 4px 14px rgba(0,255,157,0.35); }
 #btn-save-profile:hover { filter: brightness(1.08); }
 #btn-save-profile.hidden { display: none; }
 .settings-sidebar {
@@ -2405,7 +2409,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 @media (max-width: 640px) {
   .settings-sidebar-divider { padding: 0 8px; display: flex; align-items: center; }
 }
-.settings-sidebar-item-plus.active { background: linear-gradient(135deg, #0284ed 0%, #00d9c0 100%); }
+.settings-sidebar-item-plus.active { background: linear-gradient(135deg, #00e5ff 0%, #00e5ff 100%); }
 
 .plus-promo-banner {
   position: relative; overflow: hidden; border-radius: 14px; padding: 30px 24px; text-align: center;
@@ -2566,7 +2570,7 @@ video:fullscreen { background: #000; object-fit: contain; }
   transition: background 0.15s ease, color 0.15s ease;
 }
 .friends-tab:hover { color: #dbdee1; background: rgba(255,255,255,0.04); }
-.friends-tab.active { color: white; background: var(--gradient-brand); box-shadow: 0 4px 12px rgba(88,101,242,0.35); }
+.friends-tab.active { color: white; background: var(--gradient-brand); box-shadow: 0 4px 12px rgba(0,255,157,0.35); }
 .friends-tab-count {
   font-size: 10.5px; font-weight: 800; background: rgba(255,255,255,0.1); color: #cfd2d8; padding: 1px 7px; border-radius: 10px;
 }
@@ -2586,7 +2590,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 .friend-row:hover {
   background: #24252b; transform: translateY(-2px);
   box-shadow: 0 10px 24px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.03) inset;
-  border-color: rgba(88,101,242,0.25);
+  border-color: rgba(0,255,157,0.25);
 }
 .friend-row .member-avatar-wrap .member-avatar, .friend-row > .member-avatar {
   width: 44px; height: 44px; box-shadow: 0 0 0 2px rgba(255,255,255,0.06);
@@ -2634,8 +2638,8 @@ video:fullscreen { background: #000; object-fit: contain; }
   height: 100px; border-radius: 14px; position: relative; margin: -8px -8px 0;
   background:
     radial-gradient(circle at 15% 15%, rgba(255,255,255,0.14), transparent 45%),
-    radial-gradient(circle at 20% 20%, rgba(88,101,242,0.6), transparent 55%),
-    radial-gradient(circle at 85% 70%, rgba(0,217,192,0.4), transparent 50%),
+    radial-gradient(circle at 20% 20%, rgba(0,255,157,0.6), transparent 55%),
+    radial-gradient(circle at 85% 70%, rgba(0,229,255,0.4), transparent 50%),
     linear-gradient(135deg, #2b2160 0%, var(--bg-sidebar) 70%);
 }
 .profile-preview-avatar {
@@ -2718,7 +2722,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 .game-invite-actions button, .bracket-report-submit, .profile-preview-action-btn {
   border-radius: 12px !important;
 }
-.home-btn-primary:hover, .btn-register:hover { box-shadow: 0 4px 16px rgba(88,101,242,0.45); transform: translateY(-1px); }
+.home-btn-primary:hover, .btn-register:hover { box-shadow: 0 4px 16px rgba(0,255,157,0.45); transform: translateY(-1px); }
 
 .sidebar-nav-item, .header-icon-btn, .server-icon-wrap, .home-quick-action-icon,
 .settings-sidebar-item, .dm-friends-shortcut-btn {
@@ -2773,7 +2777,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 }
 .message-form input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(88,101,242,0.18);
+  box-shadow: 0 0 0 3px rgba(0,255,157,0.18);
 }
 .message-form button {
   border-radius: 50% !important;
@@ -2781,9 +2785,9 @@ video:fullscreen { background: #000; object-fit: contain; }
   padding: 0;
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 3px 10px rgba(88,101,242,0.35);
+  box-shadow: 0 3px 10px rgba(0,255,157,0.35);
 }
-.message-form button:hover { box-shadow: 0 5px 16px rgba(88,101,242,0.5); transform: translateY(-1px) scale(1.02); }
+.message-form button:hover { box-shadow: 0 5px 16px rgba(0,255,157,0.5); transform: translateY(-1px) scale(1.02); }
 
 .reaction-chip { border-radius: 14px !important; }
 .typing-indicator { padding: 2px 20px 4px; }
@@ -2798,8 +2802,8 @@ video:fullscreen { background: #000; object-fit: contain; }
 .safety-info-item span { display: block; font-size: 12.5px; color: #9aa0ab; line-height: 1.45; }
 
 .minor-safety-banner {
-  display: flex; align-items: center; gap: 8px; background: rgba(88,101,242,0.12);
-  border-bottom: 1px solid rgba(88,101,242,0.3); padding: 8px 16px; font-size: 12.5px; color: #c7cdff;
+  display: flex; align-items: center; gap: 8px; background: rgba(0,255,157,0.12);
+  border-bottom: 1px solid rgba(0,255,157,0.3); padding: 8px 16px; font-size: 12.5px; color: #b8ffe0;
 }
 .minor-safety-banner a { color: #fff; text-decoration: underline; cursor: pointer; }
 .minor-safety-banner button {
@@ -2876,7 +2880,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 .tournament-card:hover, .ranking-row:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 18px rgba(0,0,0,0.28);
-  border-color: rgba(88,101,242,0.35);
+  border-color: rgba(0,255,157,0.35);
 }
 
 /* Botões com o degradê da marca (torneios, modais, "criar/salvar") ganham o
@@ -2891,7 +2895,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 .modal-actions button.primary:hover,
 .btn-register:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(88,101,242,0.4);
+  box-shadow: 0 6px 16px rgba(0,255,157,0.4);
   filter: brightness(1.08);
 }
 .modal-actions button[type="button"] { transition: background 0.12s ease; }
@@ -2907,7 +2911,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 /* Anel sutil no avatar de quem está online — hoje só a bolinha de status
    avisava; um anel fininho na cor do acento reforça isso sem poluir. */
 .member-row:not(.offline) .member-avatar {
-  box-shadow: 0 0 0 2px rgba(0,217,192,0.35);
+  box-shadow: 0 0 0 2px rgba(0,229,255,0.35);
 }
 
 /* Cabeçalho de categoria de canal com uma transição mais suave ao
@@ -2939,7 +2943,7 @@ video:fullscreen { background: #000; object-fit: contain; }
   --elev-1: 0 2px 8px rgba(0,0,0,0.28);
   --elev-2: 0 8px 24px rgba(0,0,0,0.38);
   --elev-3: 0 20px 50px rgba(0,0,0,0.5);
-  --glow-accent: 0 0 0 1px rgba(88,101,242,0.4), 0 6px 20px rgba(88,101,242,0.3);
+  --glow-accent: 0 0 0 1px rgba(0,255,157,0.4), 0 6px 20px rgba(0,255,157,0.3);
   --radius-lg: 16px;
   --radius-md: 12px;
   --radius-sm: 8px;
@@ -2948,8 +2952,8 @@ video:fullscreen { background: #000; object-fit: contain; }
 /* Fundo geral com leve profundidade em vez de cor plana — quase imperceptível,
    só dá "textura" ao painel principal sem distrair da conversa. */
 .app-main {
-  background: radial-gradient(circle at 15% 0%, rgba(88,101,242,0.05), transparent 40%),
-              radial-gradient(circle at 85% 100%, rgba(0,217,192,0.04), transparent 40%),
+  background: radial-gradient(circle at 15% 0%, rgba(0,255,157,0.05), transparent 40%),
+              radial-gradient(circle at 85% 100%, rgba(0,229,255,0.04), transparent 40%),
               var(--bg-app);
 }
 
@@ -2959,7 +2963,7 @@ video:fullscreen { background: #000; object-fit: contain; }
   background: linear-gradient(180deg, var(--bg-rail) 0%, #101116 100%);
   box-shadow: var(--elev-1);
 }
-.app-sidebar-logo-img { filter: drop-shadow(0 2px 6px rgba(88,101,242,0.35)); }
+.app-sidebar-logo-img { filter: drop-shadow(0 2px 6px rgba(0,255,157,0.35)); }
 
 /* Barra de topo com leve blur + sombra pra "flutuar" sobre o conteúdo. */
 .top-navbar {
@@ -2970,8 +2974,8 @@ video:fullscreen { background: #000; object-fit: contain; }
 /* Ícones de servidor — glow mais vivo no selecionado, leve elevação no
    hover (além da mudança quadrado→arredondado que já existia). */
 .server-icon:hover { box-shadow: var(--elev-2); }
-.server-icon.active { box-shadow: 0 4px 14px rgba(88,101,242,0.45); }
-.server-icon-add:hover { box-shadow: 0 4px 14px rgba(0,217,192,0.35); }
+.server-icon.active { box-shadow: 0 4px 14px rgba(0,255,157,0.45); }
+.server-icon-add:hover { box-shadow: 0 4px 14px rgba(0,229,255,0.35); }
 
 /* Itens de canal — barrinha de acento à esquerda no ativo, em vez de só
    trocar a cor de fundo, fica mais parecido com apps premium de verdade. */
@@ -2989,7 +2993,7 @@ video:fullscreen { background: #000; object-fit: contain; }
 .tournament-card:hover, .explore-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--elev-2);
-  border-color: rgba(88,101,242,0.4);
+  border-color: rgba(0,255,157,0.4);
 }
 
 /* Linha de mensagem — destaque sutil ao passar o mouse, ajuda a ler qual
@@ -3015,7 +3019,7 @@ input, select, textarea {
 input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(88,101,242,0.22);
+  box-shadow: 0 0 0 3px rgba(0,255,157,0.22);
 }
 
 /* Avatares — anel mais nítido pra quem está online, sombra suave em todo
@@ -3028,7 +3032,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
    combinando com o resto da identidade visual azul→verde-água. */
 .boot-loading-spinner {
   border-top-color: var(--accent-2);
-  box-shadow: 0 0 16px rgba(2,132,237,0.35);
+  box-shadow: 0 0 16px rgba(0,229,255,0.35);
 }
 
 /* Modal — sombra em camadas mais rica (hoje só tinha uma sombra simples
@@ -3063,7 +3067,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 /* Ícones dentro dos cards (jogo parceiro, ações rápidas, destaque de
    servidor) ganham fundo em degradê em vez de rgba chapado. */
 .home-quick-action-icon, .explore-card-icon, .home-tournament-banner-icon {
-  background: linear-gradient(135deg, rgba(88,101,242,0.28) 0%, rgba(0,217,192,0.2) 100%) !important;
+  background: linear-gradient(135deg, rgba(0,255,157,0.28) 0%, rgba(0,229,255,0.2) 100%) !important;
 }
 
 /* Item de navegação da sidebar (Início/Amigos/Chat) — mesmo inativo, ganha
@@ -3083,7 +3087,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 /* Botão "+ Criar" com leve profundidade permanente (hoje só glow no hover). */
-.navbar-create-btn { box-shadow: 0 3px 10px rgba(88,101,242,0.3); }
+.navbar-create-btn { box-shadow: 0 3px 10px rgba(0,255,157,0.3); }
 
 /* Ícone de servidor na sidebar — cantos levemente arredondados mesmo
    parado (hoje só virava arredondado no hover), fica mais "app premium"
@@ -3097,7 +3101,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 /* Contador de streak / número de destaque nos side cards com leve glow no
    texto, mais chamativo. */
-#home-streak-card strong, .home-header-stat-num { text-shadow: 0 0 12px rgba(88,101,242,0.35); }
+#home-streak-card strong, .home-header-stat-num { text-shadow: 0 0 12px rgba(0,255,157,0.35); }
 
 /* Correção: menu do chip de perfil (canto superior direito) abrindo por
    BAIXO de alguma imagem da tela em vez de por cima. Reforça o menu bem
@@ -3137,8 +3141,212 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 .message-form button[type="submit"] {
   background: var(--gradient-brand); border-radius: 50%; width: 36px; height: 36px; color: white;
-  display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(88,101,242,0.3);
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(0,255,157,0.3);
 }
+
+/* ==========================================================================
+   ESTILO DISCORD — a pedido ("quero algo igual o Discord"). O Discord de
+   verdade é bem mais PLANO e sóbrio do que o v2/v3 acima (que tinham
+   gradiente e glow em tudo) — cores exatas do tema escuro oficial deles,
+   cantos moderados (8-12px, não 16-20px), sombra só onde faz sentido
+   (menus flutuantes), sem degradê nos cards. Isso aqui pega prioridade
+   por vir por último, sem apagar as regras de cima (só sobrepõe). */
+:root {
+  --bg-app: #313338;      /* área principal de chat (Discord: quase preto-azulado) */
+  --bg-rail: #1e1f22;     /* trilho de servidores, o mais escuro de todos */
+  --bg-sidebar: #2b2d31;  /* coluna de canais / painel de membros */
+  --bg-panel: #2b2d31;
+  --bg-modal: #313338;
+}
+body { background: var(--bg-app); }
+.app-main { background: var(--bg-app); } /* remove o gradiente radial sutil do v3 */
+
+/* Cards voltam a ser lisos (sem degradê), igual ao Discord — cantos menores. */
+.home-side-card, .home-partner-game-card, .home-server-card, .explore-card,
+.home-quick-action, .tournament-card {
+  background: var(--bg-sidebar) !important;
+  border-color: #1e1f22 !important;
+  border-radius: 8px !important;
+  box-shadow: none;
+}
+.tournament-card:hover, .explore-card:hover { box-shadow: none; transform: none; }
+.home-quick-action-icon, .explore-card-icon, .home-tournament-banner-icon {
+  background: rgba(0,255,157,0.15) !important;
+}
+
+/* Sidebar de navegação e coluna de canais — fundo liso, sem gradiente. */
+.app-sidebar { background: var(--bg-rail) !important; box-shadow: none; }
+.sidebar { background: var(--bg-sidebar) !important; box-shadow: none; }
+.members-panel { background: var(--bg-sidebar) !important; box-shadow: none; }
+.top-navbar { background: var(--bg-app); backdrop-filter: none; box-shadow: none; border-bottom: 1px solid #1f2023; }
+
+/* Ícone de servidor — círculo que vira "squircle" arredondado só no hover/
+   ativo, exatamente como no Discord (isso já existia, só reforça o visual
+   sem glow colorido por baixo). */
+.server-icon { border-radius: 50% !important; box-shadow: none !important; }
+.server-icon:hover, .server-icon.active { border-radius: 34% !important; box-shadow: none !important; }
+.server-icon.active::before { background: white; }
+
+/* Item de canal — pílula lisa, sem barrinha lateral (Discord usa só cor de
+   fundo + texto branco no ativo, nada de acento na borda). */
+.channel-item { box-shadow: none !important; border-radius: 4px; }
+.channel-item.active { background: #404249 !important; color: white !important; }
+.channel-item:hover { background: rgba(255,255,255,0.04) !important; transform: none; }
+
+/* Botões de destaque sem glow — Discord usa cor sólida (blurple) com leve
+   escurecer/clarear no hover, não sombra colorida. */
+.navbar-create-btn, .wizard-next-btn, .btn-register,
+.modal-actions button[type="submit"], .modal-actions button.primary {
+  box-shadow: none !important;
+}
+.navbar-create-btn:hover, .wizard-next-btn:hover, .btn-register:hover,
+.modal-actions button[type="submit"]:hover, .modal-actions button.primary:hover {
+  box-shadow: none !important; filter: brightness(1.1);
+}
+
+/* Mensagens — sem destaque de hover em bloco colorido, só um leve realce
+   (Discord faz exatamente isso: quase imperceptível). */
+.message-row:hover { background: rgba(255,255,255,0.02) !important; }
+
+/* Menu de perfil / dropdowns — cinza sólido Discord (#111214 é o tom real
+   deles pros menus flutuantes), sem gradiente. */
+.footer-more-menu, .navbar-create-menu, .navbar-search-dropdown, .sidebar-more-menu {
+  background: #111214 !important; border-color: #1e1f22 !important; border-radius: 8px !important;
+}
+
+/* Barra de escrever mensagem — cinza sólido igual o resto, sem degradê. */
+.message-form { background: var(--bg-app) !important; border-top-color: #26272b; }
+.message-form input[type="text"] {
+  background: #383a40 !important; border: none !important; border-radius: 8px !important;
+}
+.message-form button[type="submit"] { box-shadow: none; }
+
+/* Título de seção sem barrinha colorida — Discord usa só maiúsculas cinza. */
+.home-section-title { border-left: none; padding-left: 0; }
+
+/* Avatares/spinner sem glow. */
+.member-avatar, .navbar-profile-chip .member-avatar { box-shadow: none; }
+.boot-loading-spinner { box-shadow: none; }
+#home-streak-card strong, .home-header-stat-num { text-shadow: none; }
+.modal-card { box-shadow: 0 8px 16px rgba(0,0,0,0.24); }
+.modal-card::before { display: none; } /* remove a barrinha degradê no topo do modal */
+
+/* ==========================================================================
+   ESTILO CYBERPUNK/NEON — a pedido ("escuro + verde neon", cards/botões
+   redesenhados, tipografia com mais presença, espaçamento revisado). Esta
+   é a direção final, pega prioridade sobre tudo que veio antes (Discord
+   flat e gamer-gradiente ficam pra trás — só essa fica valendo). Fundo
+   praticamente preto, acento verde-neon/ciano brilhante, bordas com glow
+   fino em vez de sombra cinza, cantos mais retos (visual "painel de
+   terminal"), texto maior e com mais espaço entre letras nos títulos. */
+:root {
+  --accent: #00ff9d;
+  --accent-2: #00e5ff;
+  --accent-3: #00ff9d;
+  --gradient-brand: linear-gradient(135deg, #00ff9d 0%, #00e5ff 100%);
+  --bg-app: #0a0b0d;
+  --bg-rail: #060708;
+  --bg-sidebar: #0e1012;
+  --bg-panel: #101214;
+  --bg-modal: #101416;
+  --radius-lg: 8px; --radius-md: 6px; --radius-sm: 4px;
+}
+body { background: var(--bg-app); color: #d8fff0; }
+.app-main { background: var(--bg-app); }
+.app-sidebar, .sidebar, .members-panel, .top-navbar { background: var(--bg-rail) !important; }
+
+/* Tipografia com mais presença — títulos maiores, mais espaçados, com leve
+   brilho verde (efeito "tela de terminal"), texto de corpo levemente maior. */
+h1, h2, .home-tournament-banner-text h2 { letter-spacing: 0.02em; text-shadow: 0 0 14px rgba(0,255,157,0.25); }
+.home-section-title {
+  font-size: 13.5px; letter-spacing: 0.08em; color: #00ff9d;
+  text-shadow: 0 0 10px rgba(0,255,157,0.4);
+}
+.member-name, .navbar-chip-username, #navbar-chip-username { letter-spacing: 0.01em; }
+body, input, textarea, button { font-size: 14px; }
+
+/* Cards — fundo quase preto com BORDA NEON fina em vez de sombra cinza;
+   cantos retos (6-8px), mais respiro interno (padding maior). */
+.home-side-card, .home-partner-game-card, .home-server-card, .explore-card,
+.home-quick-action, .tournament-card, .modal-card {
+  background: #0d0f10 !important;
+  border: 1px solid rgba(0,255,157,0.25) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 0 0 1px rgba(0,255,157,0.05), 0 4px 20px rgba(0,0,0,0.5) !important;
+  padding: 14px !important;
+}
+.home-side-card { padding: 14px 16px !important; }
+.tournament-card:hover, .explore-card:hover, .home-server-card:hover {
+  border-color: rgba(0,255,157,0.6) !important;
+  box-shadow: 0 0 20px rgba(0,255,157,0.25), 0 4px 20px rgba(0,0,0,0.5) !important;
+  transform: translateY(-2px);
+}
+.home-quick-action-icon, .explore-card-icon, .home-tournament-banner-icon {
+  background: rgba(0,255,157,0.1) !important; border: 1px solid rgba(0,255,157,0.3);
+  color: #00ff9d;
+}
+
+/* Botões de destaque — preenchimento sólido neon com glow real no hover
+   (não só sombra cinza), texto preto pra contrastar com o verde vivo. */
+.navbar-create-btn, .wizard-next-btn, .btn-register,
+.modal-actions button[type="submit"], .modal-actions button.primary, .home-btn-primary {
+  background: var(--gradient-brand) !important; color: #05100a !important; font-weight: 800 !important;
+  border-radius: var(--radius-sm) !important; border: none !important;
+  box-shadow: 0 0 16px rgba(0,255,157,0.35) !important;
+}
+.navbar-create-btn:hover, .wizard-next-btn:hover, .btn-register:hover,
+.modal-actions button[type="submit"]:hover, .modal-actions button.primary:hover, .home-btn-primary:hover {
+  box-shadow: 0 0 28px rgba(0,255,157,0.55) !important; filter: brightness(1.08);
+}
+.home-btn-secondary {
+  background: transparent !important; border: 1px solid rgba(0,255,157,0.4) !important; color: #00ff9d !important;
+}
+
+/* Ícone de servidor — anel neon fino em vez de fundo colorido chapado. */
+.server-icon { border: 1px solid rgba(0,255,157,0.2); border-radius: 50% !important; }
+.server-icon:hover, .server-icon.active {
+  border-radius: 30% !important; border-color: #00ff9d;
+  box-shadow: 0 0 14px rgba(0,255,157,0.5) !important;
+}
+
+/* Canal ativo — texto neon + fundo escuro, sem pílula cinza. */
+.channel-item { border-radius: var(--radius-sm); padding: 8px 10px; }
+.channel-item.active {
+  background: rgba(0,255,157,0.08) !important; color: #00ff9d !important;
+  box-shadow: inset 2px 0 0 #00ff9d !important;
+}
+.channel-item:hover { background: rgba(0,255,157,0.04) !important; }
+
+/* Menus flutuantes — mesma linguagem de borda neon fina. */
+.footer-more-menu, .navbar-create-menu, .navbar-search-dropdown, .sidebar-more-menu {
+  background: #0d0f10 !important; border: 1px solid rgba(0,255,157,0.25) !important;
+  border-radius: var(--radius-md) !important; box-shadow: 0 0 24px rgba(0,255,157,0.15), 0 20px 50px rgba(0,0,0,0.6) !important;
+}
+
+/* Campo de mensagem — borda neon fina no foco em vez de azul. */
+.message-form { background: var(--bg-app) !important; border-top: 1px solid rgba(0,255,157,0.15); }
+.message-form input[type="text"] {
+  background: #0d0f10 !important; border: 1px solid rgba(0,255,157,0.2) !important; border-radius: var(--radius-sm) !important;
+}
+.message-form input[type="text"]:focus { border-color: #00ff9d !important; box-shadow: 0 0 10px rgba(0,255,157,0.3); }
+.message-form button[type="submit"] {
+  background: var(--gradient-brand) !important; border-radius: var(--radius-sm) !important; color: #05100a;
+  box-shadow: 0 0 14px rgba(0,255,157,0.4) !important;
+}
+
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  border-color: #00ff9d !important; box-shadow: 0 0 0 3px rgba(0,255,157,0.18) !important;
+}
+
+/* Espaçamento — mais respiro entre seções da Início (estava denso demais),
+   e menos espaço morto entre cards vizinhos (estava vazio demais). */
+.home-grid { gap: 20px !important; }
+.home-servers-grid { gap: 12px !important; }
+.home-col-side > * + * { margin-top: 12px !important; }
+
+/* Avatares e status com contorno neon fino. */
+.member-avatar { box-shadow: 0 0 0 1px rgba(0,255,157,0.25) !important; }
+.member-status-dot.member-status-online { background: #00ff9d; box-shadow: 0 0 6px rgba(0,255,157,0.6); }
 
 /* ==========================================================================
    RESPONSIVO — CELULAR (sem precisar instalar nada, direto pelo navegador)
@@ -3206,4 +3414,96 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   .top-navbar { gap: 6px; }
   .navbar-search input { font-size: 12px; }
   .video-grid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); grid-auto-rows: 100px; }
+}
+
+/* ==========================================================================
+   MUDANÇA ESTRUTURAL DE VERDADE — não é só cor. Formato de card diferente
+   (canto cortado, tipo HUD de jogo, não retângulo arredondado comum),
+   fonte diferente de verdade nos títulos, botões com outro formato
+   (também cantos cortados, maiúsculo, mais peso). Fica por último de
+   propósito — é a versão que vale. Nenhum HTML/JS foi tocado, só isso aqui. */
+
+h1, h2, h3, .home-tournament-banner-text h2, .home-section-title,
+.sidebar-header-identity, #active-server-name, .modal-card h2,
+.auth-brand h1, .navbar-chip-username, #navbar-chip-username {
+  font-family: 'Rajdhani', -apple-system, sans-serif !important;
+  font-weight: 700 !important;
+}
+body, input, textarea, button, .message-content, .home-partner-game-info span {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.home-tournament-banner-text h2 { font-size: 32px !important; letter-spacing: 0.01em; }
+.home-section-title {
+  font-family: 'Rajdhani', sans-serif !important; font-size: 15px !important; font-weight: 700 !important;
+  letter-spacing: 0.12em !important; text-transform: uppercase;
+}
+
+/* Cards com canto cortado (clip-path) em vez de border-radius comum — dá
+   uma "cara" de painel de jogo/HUD, bem diferente de um retângulo liso. */
+.home-side-card, .home-partner-game-card, .home-server-card, .explore-card,
+.home-quick-action, .tournament-card {
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  border-radius: 0 !important;
+  position: relative;
+}
+/* Cantos cortados ganham uma linha neon fina, reforçando o corte (sem isso
+   o clip-path sozinho fica com uma quina "crua"). */
+.home-side-card::after, .home-partner-game-card::after, .home-server-card::after,
+.explore-card::after, .home-quick-action::after, .tournament-card::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  box-shadow: inset 0 0 0 1px rgba(0,255,157,0.35);
+}
+
+/* Botões de destaque — mesmo corte de canto, maiúsculo, mais peso e
+   espaçamento entre letras (em vez de pílula arredondada comum). */
+.navbar-create-btn, .wizard-next-btn, .btn-register,
+.modal-actions button[type="submit"], .modal-actions button.primary, .home-btn-primary {
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px) !important;
+  border-radius: 0 !important;
+  text-transform: uppercase !important; letter-spacing: 0.06em !important; font-family: 'Rajdhani', sans-serif !important;
+  font-weight: 700 !important; font-size: 13.5px !important;
+}
+.home-btn-secondary {
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px) !important;
+  border-radius: 0 !important; text-transform: uppercase !important; letter-spacing: 0.06em !important;
+  font-family: 'Rajdhani', sans-serif !important; font-weight: 700 !important;
+}
+
+/* Ícone de servidor — anel duplo (linha fina por fora, espaço, ícone
+   dentro) em vez do círculo/squircle liso comum. */
+.server-icon {
+  box-shadow: 0 0 0 2px var(--bg-rail), 0 0 0 3px rgba(0,255,157,0.4) !important;
+}
+.server-icon.active, .server-icon:hover {
+  box-shadow: 0 0 0 2px var(--bg-rail), 0 0 0 3px #00ff9d, 0 0 16px rgba(0,255,157,0.5) !important;
+}
+
+/* Canal ativo — colchete nos dois lados do texto em vez de barra lateral
+   ou fundo cheio (referência HUD: "[ geral ]"). */
+.channel-item.active {
+  background: transparent !important; box-shadow: none !important;
+  position: relative; padding-left: 14px !important; padding-right: 14px !important;
+}
+.channel-item.active::before {
+  content: '['; position: absolute; left: 2px; color: #00ff9d; font-weight: 700; font-family: monospace;
+}
+.channel-item.active::after {
+  content: ']'; position: absolute; right: 2px; color: #00ff9d; font-weight: 700; font-family: monospace;
+}
+
+/* Barra de escrever mensagem — mesmo corte de canto no input, moldura fina. */
+.message-form input[type="text"] {
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px) !important;
+  border-radius: 0 !important;
+}
+.message-form button[type="submit"] {
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px) !important;
+  border-radius: 0 !important;
+}
+
+/* Menus flutuantes — corte de canto também, consistência com o resto. */
+.footer-more-menu, .navbar-create-menu, .navbar-search-dropdown, .sidebar-more-menu, .modal-card {
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px)) !important;
+  border-radius: 0 !important;
 }

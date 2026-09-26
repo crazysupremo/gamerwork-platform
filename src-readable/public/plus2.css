@@ -7,7 +7,7 @@
 ============================================================================ */
 
 .pv2-root {
-  --pv2-accent: #5865f2;
+  --pv2-accent: #00ff9d;
   color: #e6e6e6;
   font-family: inherit;
 }
@@ -76,7 +76,7 @@
 }
 .pv2-premium-pill {
   font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.04em;
-  background: linear-gradient(90deg, #0284ed, #5865f2); color: #fff;
+  background: linear-gradient(90deg, #00e5ff, #00ff9d); color: #fff;
 }
 
 /* ---------- efeitos visuais dos temas premium ---------- */
@@ -203,7 +203,7 @@
 .pv2-badge-chip .pv2-mini-lock { position: absolute; bottom: 2px; right: 2px; font-size: 9px; }
 
 .pv2-plus-cta {
-  margin-top: 18px; background: linear-gradient(135deg, rgba(145,70,255,0.16), rgba(88,101,242,0.16));
+  margin-top: 18px; background: linear-gradient(135deg, rgba(145,70,255,0.16), rgba(0,255,157,0.16));
   border: 1px solid rgba(145,70,255,0.35); border-radius: 12px; padding: 14px 16px;
 }
 .pv2-plus-cta-title { font-weight: 800; font-size: 13px; color: #fff; margin-bottom: 4px; }
@@ -277,7 +277,7 @@
 .pv2-fx-button-glow { animation: pv2ButtonGlow 1.8s ease-in-out infinite; }
 @keyframes pv2ButtonGlow {
   0%, 100% { box-shadow: 0 0 4px rgba(255,255,255,0.15); }
-  50% { box-shadow: 0 0 14px 2px var(--pv2-mini-primary, #5865f2); }
+  50% { box-shadow: 0 0 14px 2px var(--pv2-mini-primary, #00ff9d); }
 }
 .pv2-fx-avatar-glow { animation: pv2AvatarGlow 1.6s ease-in-out infinite; }
 @keyframes pv2AvatarGlow {
@@ -285,7 +285,7 @@
   50% { box-shadow: 0 0 10px 3px var(--pv2-mini-highlight, #00d4ff); }
 }
 .pv2-fx-gradient-anim {
-  background-image: linear-gradient(120deg, var(--pv2-mini-primary, #5865f2), var(--pv2-mini-secondary, #0284ed), var(--pv2-mini-primary, #5865f2));
+  background-image: linear-gradient(120deg, var(--pv2-mini-primary, #00ff9d), var(--pv2-mini-secondary, #00e5ff), var(--pv2-mini-primary, #00ff9d));
   background-size: 220% 220%; animation: pv2GradAnim 4s ease infinite;
 }
 @keyframes pv2GradAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
@@ -330,7 +330,7 @@
 .pv2-chat-bubble { padding: 8px 12px; font-size: 12.5px; line-height: 1.4; color: #f1f1f4; }
 .pv2-chat-bubble.pv2-bubble-rounded { border-radius: 14px; }
 .pv2-chat-bubble.pv2-bubble-square { border-radius: 4px; }
-.pv2-chat-bubble.pv2-bubble-minimal { border-radius: 0; background: transparent !important; border-left: 3px solid var(--pv2-chat-color, #5865f2); padding-left: 10px; }
+.pv2-chat-bubble.pv2-bubble-minimal { border-radius: 0; background: transparent !important; border-left: 3px solid var(--pv2-chat-color, #00ff9d); padding-left: 10px; }
 .pv2-chat-reactions { display: flex; gap: 4px; margin-top: 3px; }
 .pv2-chat-reaction { background: #26272e; border-radius: 10px; padding: 1px 6px; font-size: 10.5px; }
 .pv2-chat-mention.pv2-mention-highlight { background: rgba(255,217,61,0.18); border: 1px solid rgba(255,217,61,0.5); border-radius: 8px; }
