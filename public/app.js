@@ -625,6 +625,9 @@ function resetWizard() {
   wizardState.avatar = undefined;
   wizardState.estimatedAge = null;
   document.getElementById('age-camera-status').textContent = 'Carregando verificação...';
+  stopAgeCameraPairPolling();
+  ageCameraPairToken = null;
+  document.getElementById('age-camera-qr-wrap').classList.add('hidden');
   document.getElementById('wiz-minor-notice').classList.add('hidden');
   document.getElementById('wiz-minor-guardian-ack').checked = false;
   document.querySelectorAll('.wizard-tag-chip.active, .wizard-choice-btn.active').forEach((el) => el.classList.remove('active'));
@@ -795,6 +798,73 @@ document.getElementById('btn-age-camera-capture').onclick = async () => {
 document.getElementById('btn-age-camera-cancel').onclick = () => {
   stopAgeCamera();
   document.getElementById('age-camera-wrap').classList.add('hidden');
+};
+
+// ---------- QR Code pra verificar idade pelo celular (item pedido: "nem
+// todo computador tem câmera") ----------
+let ageCameraPairPollTimer = null;
+let ageCameraPairToken = null;
+
+document.getElementById('btn-age-camera-qr').onclick = async () => {
+  document.getElementById('age-camera-wrap').classList.add('hidden');
+  stopAgeCamera();
+  const qrWrap = document.getElementById('age-camera-qr-wrap');
+  const qrStatus = document.getElementById('age-camera-qr-status');
+  const qrImg = document.getElementById('age-camera-qr-img');
+  qrWrap.classList.remove('hidden');
+  qrStatus.textContent = 'Gerando código...';
+  qrImg.style.visibility = 'hidden';
+  try {
+    const res = await fetch('/api/age-camera-pair', { method: 'POST' });
+    const data = await res.json();
+    ageCameraPairToken = data.token;
+    const mobileUrl = `${location.origin}/age-camera-mobile.html?token=${encodeURIComponent(data.token)}`;
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(mobileUrl)}`;
+    qrImg.style.visibility = 'visible';
+    qrStatus.textContent = 'Escaneie com a câmera do celular:';
+    startAgeCameraPairPolling();
+  } catch (err) {
+    qrStatus.textContent = 'Não deu pra gerar o código agora — tenta de novo.';
+  }
+};
+
+function startAgeCameraPairPolling() {
+  stopAgeCameraPairPolling();
+  const qrStatus = document.getElementById('age-camera-qr-status');
+  const startedAt = Date.now();
+  ageCameraPairPollTimer = setInterval(async () => {
+    if (!ageCameraPairToken) return;
+    if (Date.now() - startedAt > 9 * 60 * 1000) {
+      qrStatus.textContent = 'Código expirado — feche e gere um novo.';
+      stopAgeCameraPairPolling();
+      return;
+    }
+    try {
+      const res = await fetch(`/api/age-camera-pair/${encodeURIComponent(ageCameraPairToken)}/result`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.age) {
+        wizardState.estimatedAge = data.age;
+        qrStatus.textContent = `Prontinho! Idade estimada pelo celular: ~${data.age} anos.`;
+        document.getElementById('age-camera-qr-img').style.display = 'none';
+        stopAgeCameraPairPolling();
+      }
+    } catch (err) {
+      // rede instável — só tenta de novo no próximo tick, sem travar a tela
+    }
+  }, 2000);
+}
+function stopAgeCameraPairPolling() {
+  if (ageCameraPairPollTimer) {
+    clearInterval(ageCameraPairPollTimer);
+    ageCameraPairPollTimer = null;
+  }
+}
+document.getElementById('btn-age-camera-qr-cancel').onclick = () => {
+  stopAgeCameraPairPolling();
+  ageCameraPairToken = null;
+  document.getElementById('age-camera-qr-wrap').classList.add('hidden');
+  document.getElementById('age-camera-qr-img').style.display = '';
 };
 
 function stopAgeCamera() {
@@ -1186,9 +1256,23 @@ function startApp() {
       }
     }
 
+    // "Usar câmera do celular" — o celular acabou de logar via QR Code e
+    // precisa cair direto na mesma sala de voz + ligar a câmera sozinho,
+    // sem a pessoa precisar procurar o canal de novo.
+    const autoJoinVoiceId = params.get('autoJoinVoice');
+    const autoJoinTarget = autoJoinVoiceId && allChannels.find((c) => c.id === autoJoinVoiceId);
+    if (autoJoinTarget) {
+      selectChannel(autoJoinTarget);
+      connectVoice(autoJoinTarget.id).then(() => {
+        setTimeout(() => toggleCamera(), 800);
+      });
+    }
+
     const inviteChannelId = params.get('channel');
     const target = inviteChannelId && allChannels.find((c) => c.id === inviteChannelId);
-    if (target) {
+    if (autoJoinTarget) {
+      // já tratado acima — não faz nada extra aqui.
+    } else if (target) {
       selectChannel(target);
     } else if (inviteChannelId) {
       // Tinha "?channel=" mas o canal continua fora do alcance (ex: convite
@@ -9955,6 +10039,43 @@ function updateCameraButton() {
 }
 
 document.getElementById('btn-toggle-camera').onclick = toggleCamera;
+
+// ---------- Usar câmera do celular na chamada (QR Code) ----------
+document.getElementById('btn-camera-from-phone').onclick = async () => {
+  const modal = document.getElementById('modal-camera-from-phone');
+  const statusEl = document.getElementById('camera-from-phone-status');
+  const qrImg = document.getElementById('camera-from-phone-qr');
+  if (!connectedVoiceRoomId) {
+    alert('Entre numa sala de voz primeiro pra poder usar a câmera do celular nela.');
+    return;
+  }
+  modal.classList.remove('hidden');
+  statusEl.textContent = 'Gerando código...';
+  qrImg.style.visibility = 'hidden';
+  try {
+    const res = await fetch('/api/voice-camera-pair', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ channelId: connectedVoiceRoomId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      statusEl.textContent = data.error || 'Não deu pra gerar o código agora.';
+      return;
+    }
+    const redeemUrl = `${location.origin}/api/voice-camera-pair/${encodeURIComponent(data.token)}/redeem`;
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(redeemUrl)}`;
+    qrImg.style.visibility = 'visible';
+    statusEl.textContent = 'Escaneie com a câmera do celular:';
+  } catch (err) {
+    statusEl.textContent = 'Não deu pra gerar o código agora — tenta de novo.';
+  }
+};
+document.getElementById('btn-camera-from-phone-close').onclick = () => {
+  document.getElementById('modal-camera-from-phone').classList.add('hidden');
+};
+
 document.getElementById('btn-mic-options').onclick = () => {
   toggleDeafen();
   document.getElementById('btn-mic-options').textContent = isDeafened ? '🔇' : '🔊';

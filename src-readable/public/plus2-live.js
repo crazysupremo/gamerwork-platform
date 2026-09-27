@@ -139,20 +139,68 @@
   }
 
   // ---------------- Fundo personalizado ----------------
-  // DESLIGADO por enquanto (v0.19.2) — a camada de fundo cheia da página
-  // causou dois bugs visuais reais seguidos em produção (menu ficando preso
-  // atrás da página, e o fundo aparecendo como um bloco duro em vez de algo
-  // sutil por trás do conteúdo) e, sem conseguir testar num navegador de
-  // verdade, o risco de continuar iterando às cegas é maior que o ganho.
-  // A escolha de fundo continua sendo salva normalmente (nada se perde), só
-  // não é mais desenhada na página até isso ser revisado com calma.
+  // REATIVADO (a pedido, depois de entender a causa dos 2 bugs de 2026-09):
+  // 1) o menu do chip de perfil ficava preso atrás da página — vinha do
+  //    backdrop-filter na camada de fundo, que cria um stacking context novo
+  //    e prende qualquer coisa com position:fixed sem z-index alto o
+  //    bastante. Essa versão NÃO usa backdrop-filter em lugar nenhum, e o
+  //    #footer-more-menu já ganhou z-index bem alto (ver style.css) — a
+  //    combinação das duas coisas deve evitar o problema de novo.
+  // 2) o fundo aparecia "em bloco duro" — a camada agora fica com z-index
+  //    bem baixo (fixed, atrás de tudo) e os painéis (sidebar/topo/main)
+  //    ficam translúcidos só quando tem fundo custom ativo (ver
+  //    body.pv2-custom-bg-active no plus2.css), deixando o fundo aparecer
+  //    de forma sutil por trás, em vez de cobrir a tela toda.
+  // Só cores sólidas/gradiente/efeitos (partículas/ondas) são aplicados de
+  // verdade — "Imagens"/"GIFs" no catálogo atual são só exemplos de
+  // ilustração (sem arquivo real por trás ainda), então continuam só
+  // salvando a escolha sem desenhar nada, pra não mostrar imagem quebrada.
+  function ensureBgLayer() {
+    let layer = document.getElementById('plus2-bg-layer');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = 'plus2-bg-layer';
+      document.body.insertBefore(layer, document.body.firstChild);
+    }
+    return layer;
+  }
   function applyBackground(bg, prefs) {
     state.background = bg;
-    document.body.classList.remove('pv2-custom-bg-active');
-    const layer = document.getElementById('plus2-bg-layer');
-    if (layer) layer.remove();
+    const layer = ensureBgLayer();
+    const opacity = prefs && typeof prefs.opacity === 'number' ? prefs.opacity : 100;
+    const blur = prefs && typeof prefs.blur === 'number' ? prefs.blur : 0;
+    layer.style.opacity = String(Math.max(0, Math.min(100, opacity)) / 100);
+    layer.style.filter = blur > 0 ? `blur(${blur}px)` : 'none';
+    layer.style.background = '';
+    layer.classList.remove('pv2-bg-waves');
     stopParticles();
     state._bgParticlesRequested = false;
+
+    const isDefault = !bg || bg.key === 'bg-solid-dark';
+    document.body.classList.toggle('pv2-custom-bg-active', !isDefault);
+    if (isDefault) return;
+
+    if (bg.type === 'solid') {
+      layer.style.background = bg.value;
+    } else if (bg.type === 'gradient') {
+      const parts = String(bg.value).split(',');
+      const angle = parts[2] ? Number(parts[2]) || 135 : 135;
+      layer.style.background = `linear-gradient(${angle}deg, ${parts[0]}, ${parts[1]})`;
+    } else if (bg.type === 'effect') {
+      layer.style.background = '#0a0b0d';
+      if (bg.value === 'waves') {
+        layer.classList.add('pv2-bg-waves');
+      } else if (bg.value === 'particles') {
+        state._bgParticlesRequested = true;
+      }
+    } else {
+      // image/gif ainda são só exemplos no catálogo (sem arquivo real) —
+      // não desenha nada pra não mostrar um placeholder quebrado; a escolha
+      // continua salva normalmente.
+      document.body.classList.remove('pv2-custom-bg-active');
+      return;
+    }
+    refreshParticleLayer(layer);
   }
 
   function refreshParticleLayer(layer) {

@@ -736,7 +736,7 @@
         'Escolha o fundo do app inteiro: cor sólida, gradiente, imagem, GIF animado ou um efeito ao vivo (partículas, ondas).',
       ]));
       panelBackgrounds.appendChild(el('div', { class: 'pv2-locked-note' }, [
-        '🚧 Sua escolha fica salva, mas por enquanto ainda não muda o fundo do site — estamos ajustando essa parte com mais cuidado antes de ligar de novo.',
+        '✅ Cor sólida, gradiente e efeitos (partículas/ondas) já aplicam de verdade no fundo do app. Imagem e GIF ainda são só exemplos de ilustração no catálogo — a escolha fica salva, mas não desenha nada até ter um arquivo de verdade por trás.',
       ]));
 
       const layout = el('div', { class: 'pv2-bg-layout' });

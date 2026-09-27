@@ -75,6 +75,8 @@ const NG_ICONS = {
   // Usados na repaginada do cabeçalho da coluna de canais (menu "mais opções").
   'info': "<circle cx='12' cy='12' r='10' /> <path d='M12 16v-4' /> <path d='M12 8h.01' />",
   'more-horizontal': "<circle cx='12' cy='12' r='1' /> <circle cx='19' cy='12' r='1' /> <circle cx='5' cy='12' r='1' />",
+  // Usado no botão "usar câmera do celular" (QR Code na chamada de voz).
+  'smartphone': "<rect width='14' height='20' x='5' y='2' rx='2' ry='2' /> <path d='M12 18h.01' />",
 };
 
 // Retorna o <svg> completo, pronto pra injetar via innerHTML/template string.

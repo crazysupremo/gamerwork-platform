@@ -158,6 +158,55 @@
     margin-right: 0; padding: 4px 9px; font-size: 10.5px; white-space: nowrap; border-radius: 12px;
   }
   #users-table, table { table-layout: auto; }
+
+  /* ==========================================================================
+     ESTILO CYBERPUNK/NEON — pra bater com o remodelamento do site principal
+     (fundo quase preto, verde-neon, cantos cortados, fonte "Rajdhani" nos
+     títulos). Fica por último de propósito pra sobrepor os estilos redondos
+     de antes sem precisar apagar linha por linha. Nenhum JS foi tocado. */
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;600;700&display=swap');
+  body { background: #0a0b0d !important; color: #d8fff0; font-family: 'Inter', -apple-system, sans-serif; }
+  .admin-topbar, .admin-sidebar, .admin-content { background: transparent; }
+  .admin-topbar { background: #0d0f10 !important; border-bottom: 1px solid rgba(0,255,157,0.2) !important; box-shadow: none !important; }
+  .admin-topbar h1 { font-family: 'Rajdhani', sans-serif; letter-spacing: 0.08em; text-shadow: 0 0 10px rgba(0,255,157,0.4); }
+  .admin-sidebar { background: #060708 !important; border-right: 1px solid rgba(0,255,157,0.15) !important; box-shadow: none !important; }
+  .admin-tab-panel h2, .admin-tab-panel h3 { font-family: 'Rajdhani', sans-serif; letter-spacing: 0.03em; }
+
+  .admin-nav-btn {
+    border-radius: 4px !important;
+    font-family: 'Rajdhani', sans-serif; letter-spacing: 0.04em; text-transform: uppercase; font-size: 12.5px !important;
+  }
+  .admin-nav-btn.active {
+    background: linear-gradient(135deg, #00ff9d 0%, #00e5ff 100%) !important; color: #05100a !important;
+    box-shadow: 0 0 16px rgba(0,255,157,0.4) !important;
+  }
+
+  /* Cards/tabelas/caixas — borda neon fina + canto cortado em vez de
+     arredondado/sombra cinza, igual ao resto do site agora. */
+  .stat-card, table, .admin-toast, .admin-2fa-card, .error-diagnosis-panel,
+  .health-check-row, .health-summary-box, .chart-card, .admin-form-row input {
+    background: #0d0f10 !important;
+    border: 1px solid rgba(0,255,157,0.25) !important;
+    border-radius: 4px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  }
+  .stat-card:hover { border-color: rgba(0,255,157,0.6) !important; box-shadow: 0 0 18px rgba(0,255,157,0.25) !important; }
+  th { background: #0a0b0d !important; color: #00ff9d !important; }
+  .stat-card .num { font-family: 'Rajdhani', sans-serif; text-shadow: 0 0 10px rgba(0,255,157,0.4); }
+
+  /* Botões — maiúsculo, cantos cortados, preenchimento neon sólido nos de
+     destaque (Confirmar/Salvar), cinza escuro com borda fina nos comuns. */
+  button.action, .admin-2fa-card a.button-link {
+    font-family: 'Rajdhani', sans-serif; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700 !important;
+    border-radius: 0 !important; background: #16181a !important; border: 1px solid rgba(0,255,157,0.25) !important;
+    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  }
+  button.action:hover { border-color: #00ff9d !important; }
+  button.danger { background: #2a1214 !important; border-color: rgba(242,63,66,0.4) !important; color: #ff8a8c !important; }
+  .admin-2fa-card a.button-link {
+    background: linear-gradient(135deg, #00ff9d 0%, #00e5ff 100%) !important; color: #05100a !important; border: none !important;
+  }
 </style>
 </head>
 <body>

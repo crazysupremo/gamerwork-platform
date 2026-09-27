@@ -1330,6 +1330,108 @@ app.get('/api/terms/public', (req, res) => {
   res.json({ version: CURRENT_TERMS_VERSION, content: TERMS_CONTENT });
 });
 
+// ---------- VERIFICAÇÃO DE IDADE POR CÂMERA — HANDOFF PELO CELULAR ----------
+// Pedido: nem todo computador tem câmera, então a pessoa pode escanear um QR
+// Code e fazer a verificação (rosto → idade estimada) direto pelo celular. Só
+// funciona ANTES do cadastro (sem conta/sessão ainda), por isso não usa
+// Socket.io (que exige userId autenticado no handshake) — é um pareamento
+// simples por token efêmero, guardado só em memória (nunca no banco), com
+// expiração curta. A foto em si NUNCA passa pelo servidor em nenhum dos dois
+// lados — o rosto é analisado no navegador (computador OU celular, via
+// face-api.js), só o número da idade estimada atravessa essa ponte.
+const ageCameraPairings = new Map(); // token -> { result: number|null, createdAt }
+const AGE_CAMERA_PAIR_TTL_MS = 10 * 60 * 1000; // 10 minutos é bastante pra escanear e tirar a foto
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, entry] of ageCameraPairings) {
+    if (now - entry.createdAt > AGE_CAMERA_PAIR_TTL_MS) ageCameraPairings.delete(token);
+  }
+}, 60 * 1000).unref();
+
+app.post('/api/age-camera-pair', (req, res) => {
+  const token = uuidv4();
+  ageCameraPairings.set(token, { result: null, createdAt: Date.now() });
+  res.json({ token, expiresInMs: AGE_CAMERA_PAIR_TTL_MS });
+});
+
+app.post('/api/age-camera-pair/:token/submit', (req, res) => {
+  const entry = ageCameraPairings.get(req.params.token);
+  if (!entry) return res.status(404).json({ error: 'Código expirado ou inválido — gere um novo QR Code.' });
+  const age = Number((req.body || {}).age);
+  if (!Number.isFinite(age) || age < 1 || age > 100) {
+    return res.status(400).json({ error: 'Idade estimada inválida' });
+  }
+  entry.result = Math.round(age);
+  res.json({ ok: true });
+});
+
+app.get('/api/age-camera-pair/:token/result', (req, res) => {
+  const entry = ageCameraPairings.get(req.params.token);
+  if (!entry) return res.status(404).json({ error: 'Código expirado ou inválido' });
+  res.json({ age: entry.result });
+});
+
+// ---------- USAR CÂMERA DO CELULAR NUMA CHAMADA DE VOZ (QR Code) ----------
+// Pedido: quem está numa chamada e o computador não tem câmera pode escanear
+// um QR Code — o celular entra na MESMA sala de voz, com a MESMA conta, como
+// uma segunda conexão (aparece como uma janelinha extra ao lado da pessoa).
+// Decisão de segurança/estabilidade: em vez de tentar "injetar" o vídeo do
+// celular na conexão WebRTC já existente do computador (mexeria no motor de
+// chamada ao vivo, arriscado e impossível de testar aqui), o link do QR faz
+// um login de verdade (reaproveitando createUserSession, o mesmo caminho já
+// usado e testado no /api/login) e cai direto na sala — o celular vira só
+// mais um participante normal, sem nenhum código novo de WebRTC.
+const cameraFromPhonePairings = new Map(); // token -> { userId, channelId, used, createdAt }
+const CAMERA_FROM_PHONE_TTL_MS = 5 * 60 * 1000; // 5 min — é só pra dar tempo de escanear
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, entry] of cameraFromPhonePairings) {
+    if (now - entry.createdAt > CAMERA_FROM_PHONE_TTL_MS) cameraFromPhonePairings.delete(token);
+  }
+}, 60 * 1000).unref();
+
+app.post(
+  '/api/voice-camera-pair',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { channelId } = req.body || {};
+    if (!channelId || typeof channelId !== 'string') {
+      return res.status(400).json({ error: 'channelId é obrigatório' });
+    }
+    const token = uuidv4();
+    cameraFromPhonePairings.set(token, { userId: req.user.id, channelId, used: false, createdAt: Date.now() });
+    res.json({ token, expiresInMs: CAMERA_FROM_PHONE_TTL_MS });
+  })
+);
+
+// Rota de uso único, sem exigir login — é o próprio QR Code, então quem abre
+// o link JÁ é a pessoa que gerou o código no computador (ela escaneou com o
+// celular dela). Consome o token na hora (não dá pra reusar o mesmo QR).
+app.get(
+  '/api/voice-camera-pair/:token/redeem',
+  asyncHandler(async (req, res) => {
+    const entry = cameraFromPhonePairings.get(req.params.token);
+    if (!entry || entry.used) {
+      return res.status(410).send('Este QR Code expirou ou já foi usado. Volte pro computador e gere um novo.');
+    }
+    if (Date.now() - entry.createdAt > CAMERA_FROM_PHONE_TTL_MS) {
+      cameraFromPhonePairings.delete(req.params.token);
+      return res.status(410).send('Este QR Code expirou. Volte pro computador e gere um novo.');
+    }
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [entry.userId]);
+    if (!user || user.is_banned) {
+      return res.status(403).send('Não foi possível entrar com essa conta.');
+    }
+    entry.used = true;
+    applySessionDuration(req, true);
+    req.session.userId = user.id;
+    req.session.sessionId = await createUserSession(user.id, req);
+    res.redirect('/?autoJoinVoice=' + encodeURIComponent(entry.channelId));
+  })
+);
+
 app.get(
   '/api/terms',
   requireAuth,

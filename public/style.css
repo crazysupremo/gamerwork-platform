@@ -2820,6 +2820,10 @@ video:fullscreen { background: #000; object-fit: contain; }
   transform: scaleX(-1);
 }
 .age-camera-wrap .modal-actions { justify-content: center !important; }
+.link-btn-inline {
+  display: block; background: none; border: none; color: var(--accent); font-size: 12px;
+  font-weight: 700; text-decoration: underline; cursor: pointer; padding: 4px 0 0; margin: 0;
+}
 
 .plus-badge {
   display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: 0.04em;

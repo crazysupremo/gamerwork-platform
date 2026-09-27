@@ -256,6 +256,7 @@
           <p class="hint" style="margin-top:6px;">
             100% no seu navegador — a imagem nunca sai do seu dispositivo, só usamos pra reforçar a
             segurança de contas de menores de idade (ECA Digital).
+            <button type="button" id="btn-age-camera-qr" class="link-btn-inline">Meu computador não tem câmera — usar o celular</button>
           </p>
           <div id="age-camera-wrap" class="age-camera-wrap hidden">
             <video id="age-camera-video" autoplay muted playsinline></video>
@@ -264,6 +265,14 @@
               <button type="button" id="btn-age-camera-capture">Capturar</button>
               <button type="button" id="btn-age-camera-cancel">Cancelar</button>
             </div>
+          </div>
+          <!-- QR Code pra fazer a verificação pelo celular, quando o
+               computador não tem câmera (item pedido). -->
+          <div id="age-camera-qr-wrap" class="age-camera-wrap hidden" style="text-align:center;">
+            <p id="age-camera-qr-status" class="hint">Gerando código...</p>
+            <img id="age-camera-qr-img" alt="QR Code" style="width:180px; height:180px; border-radius:8px; background:#fff; padding:8px; margin:6px auto; display:block;" />
+            <p class="hint">Aponte a câmera do celular pra esse código, ou abra o link nele.</p>
+            <button type="button" id="btn-age-camera-qr-cancel">Cancelar</button>
           </div>
         </div>
 
@@ -942,6 +951,11 @@
         <div class="voice-controls-bar">
           <div class="voice-controls">
             <button id="btn-toggle-camera" class="control-icon-btn" title="Ligar/desligar câmera"><span class="ng-icon-wrap" data-icon="camera"></span></button>
+            <!-- Item pedido: usar a câmera do celular na chamada quando o
+                 computador não tem uma. Entra como uma segunda conexão da
+                 mesma conta (reaproveita 100% o sistema de chamada que já
+                 existe, sem mexer no WebRTC em si). -->
+            <button id="btn-camera-from-phone" class="control-icon-btn" title="Usar câmera do celular (QR Code)"><span class="ng-icon-wrap" data-icon="smartphone"></span></button>
             <button id="btn-share-screen" class="control-icon-btn" title="Compartilhar tela"><span class="ng-icon-wrap" data-icon="monitor"></span></button>
             <button id="btn-stop-share" class="control-icon-btn hidden active-state" title="Parar compartilhamento">⏹️</button>
             <button id="btn-toggle-mic" class="control-icon-btn" title="Mutar/Ativar microfone"><span class="ng-icon-wrap" data-icon="mic"></span></button>
@@ -2055,6 +2069,21 @@
 </div>
 
 <!-- MODAL: eventos do servidor (item 7 da especificação) -->
+<!-- Modal: usar câmera do celular na chamada (QR Code). Escaneia, entra
+     automaticamente na mesma sala de voz com a MESMA conta (segunda conexão),
+     e a câmera do celular aparece como uma janelinha extra pra essa pessoa. -->
+<div id="modal-camera-from-phone" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2><span class="ng-icon-wrap" data-icon="smartphone"></span> Usar câmera do celular</h2>
+    <p class="hint" id="camera-from-phone-status">Gerando código...</p>
+    <img id="camera-from-phone-qr" alt="QR Code" style="width:200px; height:200px; border-radius:8px; background:#fff; padding:8px; margin:6px auto; display:block; visibility:hidden;" />
+    <p class="hint">Escaneie com a câmera do celular. Ele entra nesta mesma sala de voz com a sua conta, e a câmera dele aparece do lado da sua.</p>
+    <div class="modal-actions">
+      <button type="button" id="btn-camera-from-phone-close">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-server-events" class="modal-overlay hidden">
   <div class="modal-card modal-card-wide">
     <h2><span class="ng-icon-wrap" data-icon="calendar"></span> Eventos do servidor</h2>
