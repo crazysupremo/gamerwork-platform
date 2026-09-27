@@ -37,7 +37,7 @@
   // à mão pra cada tema novo — funciona automático pra qualquer tema
   // (inclusive os que o usuário PLUS cria na hora, na aba "Criar tema").
   function hexToRgb(hex) {
-    const clean = String(hex || '#5865f2').replace('#', '');
+    const clean = String(hex || '#00ff9d').replace('#', '');
     const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean;
     const num = parseInt(full, 16) || 0;
     return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
@@ -126,6 +126,15 @@
       '--gradient-brand',
       `linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.secondary} 55%, ${theme.colors.highlight} 100%)`
     );
+    // CORRIGIDO — o remodelamento visual (bordas/glow neon) usa
+    // rgba(var(--accent-rgb), X) em vez de cor fixa, exatamente pra poder
+    // acompanhar o tema escolhido aqui. Antes só --accent (a cor "sólida")
+    // mudava; o glow ficava sempre verde-neon porque não tinha essa
+    // variável — parecia que "o tema não aplicava em tudo".
+    const rgb = hexToRgb(theme.colors.primary);
+    const rgb2 = hexToRgb(theme.colors.secondary);
+    root.style.setProperty('--accent-rgb', `${rgb.r},${rgb.g},${rgb.b}`);
+    root.style.setProperty('--accent-2-rgb', `${rgb2.r},${rgb2.g},${rgb2.b}`);
     // Fundo das colunas (rail de servidores, sidebar de canais, painel
     // principal, barra do topo e pop-ups) também acompanha o tema agora —
     // antes só os detalhes/botões mudavam de cor, as colunas ficavam sempre

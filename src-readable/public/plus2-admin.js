@@ -41,7 +41,7 @@
       return select;
     }
     if (field.type === 'color') {
-      const input = el('input', { type: 'color', class: 'pv2a-color-input', value: value || '#5865f2' });
+      const input = el('input', { type: 'color', class: 'pv2a-color-input', value: value || '#00ff9d' });
       return input;
     }
     if (field.type === 'number') {
@@ -181,8 +181,8 @@
 
   const THEME_FIELDS = [
     { key: 'name', label: 'Nome', type: 'text' },
-    { key: 'primary', label: 'Primária', type: 'color', default: '#5865f2' },
-    { key: 'secondary', label: 'Secundária', type: 'color', default: '#9147ff' },
+    { key: 'primary', label: 'Primária', type: 'color', default: '#00ff9d' },
+    { key: 'secondary', label: 'Secundária', type: 'color', default: '#00e5ff' },
     { key: 'highlight', label: 'Destaque', type: 'color', default: '#00d4ff' },
     { key: 'text', label: 'Texto', type: 'color', default: '#e6e6e6' },
     { key: 'button', label: 'Botão', type: 'color', default: '#1e1e2f' },
@@ -221,7 +221,7 @@
   ];
 
   function themePreview(t) {
-    const dot = el('div', { style: `width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg, ${t.primary || '#5865f2'}, ${t.secondary || '#9147ff'});` });
+    const dot = el('div', { style: `width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg, ${t.primary || '#00ff9d'}, ${t.secondary || '#00e5ff'});` });
     return dot;
   }
   function backgroundPreview(b) {

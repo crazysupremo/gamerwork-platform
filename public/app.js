@@ -1256,23 +1256,9 @@ function startApp() {
       }
     }
 
-    // "Usar câmera do celular" — o celular acabou de logar via QR Code e
-    // precisa cair direto na mesma sala de voz + ligar a câmera sozinho,
-    // sem a pessoa precisar procurar o canal de novo.
-    const autoJoinVoiceId = params.get('autoJoinVoice');
-    const autoJoinTarget = autoJoinVoiceId && allChannels.find((c) => c.id === autoJoinVoiceId);
-    if (autoJoinTarget) {
-      selectChannel(autoJoinTarget);
-      connectVoice(autoJoinTarget.id).then(() => {
-        setTimeout(() => toggleCamera(), 800);
-      });
-    }
-
     const inviteChannelId = params.get('channel');
     const target = inviteChannelId && allChannels.find((c) => c.id === inviteChannelId);
-    if (autoJoinTarget) {
-      // já tratado acima — não faz nada extra aqui.
-    } else if (target) {
+    if (target) {
       selectChannel(target);
     } else if (inviteChannelId) {
       // Tinha "?channel=" mas o canal continua fora do alcance (ex: convite
@@ -1945,11 +1931,12 @@ async function checkForUpdates() {
     if (!res.ok) return;
     const data = await res.json();
     ngLatestChangelogData = data;
-    // Mostra a versão atual no lugar da antiga tag fixa "BETA" (a pedido) —
-    // atualiza sempre, tanto na primeira checagem quanto quando detecta uma
-    // versão nova rodando no servidor.
+    // Mostra a versão atual + "BETA" (a pedido de novo — o site ainda está
+    // em fase de testes, várias coisas ainda sendo ajustadas) — atualiza
+    // sempre, tanto na primeira checagem quanto quando detecta uma versão
+    // nova rodando no servidor.
     const versionTagEl = document.getElementById('app-version-tag');
-    if (versionTagEl) versionTagEl.textContent = 'v' + data.version;
+    if (versionTagEl) versionTagEl.textContent = 'v' + data.version + ' · BETA';
     if (!ngAppVersion) {
       // Primeira checagem desta aba: só guarda a versão atual como
       // referência, sem avisar nada (senão todo mundo que abre o site pela
@@ -9093,6 +9080,13 @@ function disconnectVoice(skipServerNotify) {
     micStream = null;
   }
   teardownNoiseGate();
+  // Sair da sala derruba também a ponte com o celular, se tiver uma ativa
+  // (senão ele ficaria "conectado" sem sala nenhuma pra mandar o vídeo).
+  if (typeof phoneCameraPC !== 'undefined' && phoneCameraPC) {
+    stopPhoneCameraPolling();
+    phoneCameraPC.close();
+    phoneCameraPC = null;
+  }
   if (cameraStream) {
     cameraStream.getTracks().forEach((t) => t.stop());
     cameraStream = null;
@@ -10041,6 +10035,111 @@ function updateCameraButton() {
 document.getElementById('btn-toggle-camera').onclick = toggleCamera;
 
 // ---------- Usar câmera do celular na chamada (QR Code) ----------
+// Ajustado a pedido: NÃO faz login no celular nem entra como uma segunda
+// pessoa na sala — o celular só manda o vídeo dele direto (WebRTC) pra essa
+// aba, que repassa pros outros participantes com o MESMO pc.addTrack() que
+// a câmera normal já usa (ver toggleCamera acima). Continua UM participante
+// só, sem eventos de entrar/sair.
+let phoneCameraPC = null;
+let phoneCameraPollTimer = null;
+let phoneCameraToken = null;
+
+async function startPhoneCameraSignaling(token) {
+  const statusEl = document.getElementById('camera-from-phone-status');
+  phoneCameraPC = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  phoneCameraPC.onconnectionstatechange = () => {
+    if (phoneCameraPC && (phoneCameraPC.connectionState === 'failed' || phoneCameraPC.connectionState === 'closed')) {
+      statusEl.textContent = 'A conexão com o celular caiu.';
+    }
+  };
+  phoneCameraPC.ontrack = (e) => {
+    // Trata a câmera do celular EXATAMENTE como a webcam normal do
+    // computador — mesmo caminho testado, só troca de onde vem o track.
+    if (cameraStream) {
+      const oldTracks = cameraStream.getTracks();
+      Object.values(peers).forEach((pc) => {
+        pc.getSenders().filter((s) => s.track && oldTracks.includes(s.track)).forEach((s) => pc.removeTrack(s));
+      });
+      oldTracks.forEach((t) => t.stop());
+    }
+    cameraStream = new MediaStream([e.track]);
+    Object.values(peers).forEach((pc) => {
+      cameraStream.getTracks().forEach((track) => pc.addTrack(track, cameraStream));
+    });
+    updateLocalTile();
+    updateCameraButton();
+    startFrameModeration();
+    SFX.cameraOn();
+    statusEl.textContent = 'Conectado! A câmera do celular já está na chamada.';
+    document.getElementById('camera-from-phone-qr').style.display = 'none';
+    e.track.onended = stopPhoneCameraSource;
+  };
+
+  stopPhoneCameraPolling();
+  const startedAt = Date.now();
+  phoneCameraPollTimer = setInterval(async () => {
+    if (Date.now() - startedAt > 4.5 * 60 * 1000) {
+      statusEl.textContent = 'Código expirado — feche e gere um novo.';
+      stopPhoneCameraPolling();
+      return;
+    }
+    if (!phoneCameraPC || phoneCameraPC.currentRemoteDescription) return; // já processou a oferta
+    try {
+      const res = await fetch(`/api/phone-camera-pair/${encodeURIComponent(token)}/offer`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.sdp) return;
+      await phoneCameraPC.setRemoteDescription({ type: 'offer', sdp: data.sdp });
+      const answer = await phoneCameraPC.createAnswer();
+      await phoneCameraPC.setLocalDescription(answer);
+      // Sem trickle ICE de propósito (mais simples e confiável de fazer via
+      // HTTP polling) — espera juntar todos os candidatos antes de mandar.
+      await new Promise((resolve) => {
+        if (phoneCameraPC.iceGatheringState === 'complete') return resolve();
+        phoneCameraPC.addEventListener('icegatheringstatechange', () => {
+          if (phoneCameraPC.iceGatheringState === 'complete') resolve();
+        });
+        setTimeout(resolve, 4000); // não trava pra sempre em rede ruim
+      });
+      await fetch(`/api/phone-camera-pair/${encodeURIComponent(token)}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ sdp: phoneCameraPC.localDescription.sdp }),
+      });
+      stopPhoneCameraPolling();
+    } catch (err) {
+      // rede instável — tenta de novo no próximo tick
+    }
+  }, 1500);
+}
+function stopPhoneCameraPolling() {
+  if (phoneCameraPollTimer) {
+    clearInterval(phoneCameraPollTimer);
+    phoneCameraPollTimer = null;
+  }
+}
+function stopPhoneCameraSource() {
+  stopPhoneCameraPolling();
+  if (phoneCameraPC) {
+    phoneCameraPC.close();
+    phoneCameraPC = null;
+  }
+  phoneCameraToken = null;
+  if (cameraStream) {
+    const tracksToRemove = cameraStream.getTracks();
+    Object.values(peers).forEach((pc) => {
+      pc.getSenders().filter((s) => s.track && tracksToRemove.includes(s.track)).forEach((s) => pc.removeTrack(s));
+    });
+    tracksToRemove.forEach((t) => t.stop());
+    cameraStream = null;
+    updateLocalTile();
+    updateCameraButton();
+    stopFrameModerationIfIdle();
+    SFX.cameraOff();
+  }
+}
+
 document.getElementById('btn-camera-from-phone').onclick = async () => {
   const modal = document.getElementById('modal-camera-from-phone');
   const statusEl = document.getElementById('camera-from-phone-status');
@@ -10052,28 +10151,29 @@ document.getElementById('btn-camera-from-phone').onclick = async () => {
   modal.classList.remove('hidden');
   statusEl.textContent = 'Gerando código...';
   qrImg.style.visibility = 'hidden';
+  qrImg.style.display = '';
   try {
-    const res = await fetch('/api/voice-camera-pair', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ channelId: connectedVoiceRoomId }),
-    });
+    const res = await fetch('/api/phone-camera-pair', { method: 'POST', credentials: 'include' });
     const data = await res.json();
     if (!res.ok) {
       statusEl.textContent = data.error || 'Não deu pra gerar o código agora.';
       return;
     }
-    const redeemUrl = `${location.origin}/api/voice-camera-pair/${encodeURIComponent(data.token)}/redeem`;
-    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(redeemUrl)}`;
+    phoneCameraToken = data.token;
+    const mobileUrl = `${location.origin}/phone-camera-source.html?token=${encodeURIComponent(data.token)}`;
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mobileUrl)}`;
     qrImg.style.visibility = 'visible';
     statusEl.textContent = 'Escaneie com a câmera do celular:';
+    startPhoneCameraSignaling(data.token);
   } catch (err) {
     statusEl.textContent = 'Não deu pra gerar o código agora — tenta de novo.';
   }
 };
 document.getElementById('btn-camera-from-phone-close').onclick = () => {
   document.getElementById('modal-camera-from-phone').classList.add('hidden');
+  if (!(phoneCameraPC && phoneCameraPC.connectionState === 'connected')) {
+    stopPhoneCameraPolling();
+  }
 };
 
 document.getElementById('btn-mic-options').onclick = () => {

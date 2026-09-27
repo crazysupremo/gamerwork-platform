@@ -1964,7 +1964,7 @@
         <label>Nome do cargo</label>
         <input type="text" id="role-name-input" maxlength="30" placeholder="ex: Moderador" required />
         <label>Cor</label>
-        <input type="color" id="role-color-input" value="#5865f2" style="height:36px; padding:2px;" />
+        <input type="color" id="role-color-input" value="#00ff9d" style="height:36px; padding:2px;" />
         <label>Permissões</label>
         <div id="role-permissions-checkboxes" class="role-permissions-checkboxes"></div>
         <div class="modal-actions">
@@ -2069,15 +2069,15 @@
 </div>
 
 <!-- MODAL: eventos do servidor (item 7 da especificação) -->
-<!-- Modal: usar câmera do celular na chamada (QR Code). Escaneia, entra
-     automaticamente na mesma sala de voz com a MESMA conta (segunda conexão),
-     e a câmera do celular aparece como uma janelinha extra pra essa pessoa. -->
+<!-- Modal: usar câmera do celular na chamada (QR Code). O celular manda o
+     vídeo direto pra essa aba (sem login, sem entrar como outra pessoa) —
+     continua UM participante só, agora com a câmera vindo do celular. -->
 <div id="modal-camera-from-phone" class="modal-overlay hidden">
   <div class="modal-card">
     <h2><span class="ng-icon-wrap" data-icon="smartphone"></span> Usar câmera do celular</h2>
     <p class="hint" id="camera-from-phone-status">Gerando código...</p>
     <img id="camera-from-phone-qr" alt="QR Code" style="width:200px; height:200px; border-radius:8px; background:#fff; padding:8px; margin:6px auto; display:block; visibility:hidden;" />
-    <p class="hint">Escaneie com a câmera do celular. Ele entra nesta mesma sala de voz com a sua conta, e a câmera dele aparece do lado da sua.</p>
+    <p class="hint">Escaneie com a câmera do celular. A câmera dele passa a ser a sua câmera nesta chamada — não entra como outra pessoa.</p>
     <div class="modal-actions">
       <button type="button" id="btn-camera-from-phone-close">Fechar</button>
     </div>
@@ -2299,7 +2299,7 @@
       </div>
       <div class="safety-info-item">
         <span class="ng-icon-wrap" data-icon="globe"></span>
-        <div><strong>Denúncia externa e independente</strong><span>Suspeita de crime contra criança/adolescente (aliciamento, exploração) também pode ser denunciada direto pra <a href="https://new.safernet.org.br/denuncie" target="_blank" rel="noopener" style="color:#5865f2;">SaferNet Brasil</a>, organização independente que recebe e apura denúncias, sem precisar se identificar.</span></div>
+        <div><strong>Denúncia externa e independente</strong><span>Suspeita de crime contra criança/adolescente (aliciamento, exploração) também pode ser denunciada direto pra <a href="https://new.safernet.org.br/denuncie" target="_blank" rel="noopener" style="color:#00ff9d;">SaferNet Brasil</a>, organização independente que recebe e apura denúncias, sem precisar se identificar.</span></div>
       </div>
     </div>
     <p class="hint" style="margin-top:12px;">
