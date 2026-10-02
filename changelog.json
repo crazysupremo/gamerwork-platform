@@ -3,6 +3,7 @@
     "version": "0.55.0",
     "date": "2026-09-25",
     "changes": [
+      "Bot Decifrando virou um instalador de verdade: criado o repositório crazysupremo/bot-decifrando com build automático (GitHub Actions, igual o next-game-desktop) que gera um .exe e publica como Release. O botão de download na tela de login do NEXT GAME aponta direto pra última release.",
       "Download do Bot Decifrando (ferramenta da comunidade, roda no PC de quem baixar) direto na tela de login — disponível antes mesmo de entrar na conta.",
       "Usar câmera do celular numa chamada de voz (ajustado): o botão 📱 gera um QR Code, o celular conecta direto na aba do computador (WebRTC ponto a ponto, nada passa pelo servidor) e essa câmera vira a SUA câmera na chamada — continua um participante só, sem entrar/sair, sem segunda janela.",
       "Tema (NEXTGAME PLUS): os brilhos/bordas neon do remodelamento agora seguem a cor do tema escolhido em tempo real (antes só a cor \"sólida\" dos botões acompanhava; o brilho ficava sempre verde fixo, dando a impressão de tema incompleto).",

@@ -5620,6 +5620,27 @@ if (linkSafetySettings) linkSafetySettings.onclick = openSafetyInfoModal;
 document.getElementById('btn-close-safety-info').onclick = () =>
   document.getElementById('modal-safety-info').classList.add('hidden');
 
+// ---------- Downloads (app de desktop + ferramentas da comunidade) ----------
+// Botão de baixar o app de desktop — troque esse link quando tiver uma
+// release nova em github.com/crazysupremo/next-game-desktop/releases/latest
+// (clique com o botão direito no arquivo .exe dentro de "Assets" → "Copiar
+// link do arquivo", e cole aqui).
+const DESKTOP_DOWNLOAD_URL = 'https://github.com/crazysupremo/next-game-desktop/releases/latest';
+document.getElementById('link-download-desktop').href = DESKTOP_DOWNLOAD_URL;
+
+// Bot Decifrando — virou instalador próprio (repositório + Release no
+// GitHub, igual o next-game-desktop), em vez do zip solto na pasta
+// public/downloads. Troque esse link quando tiver uma release nova.
+const BOT_DECIFRANDO_DOWNLOAD_URL = 'https://github.com/crazysupremo/bot-decifrando/releases/latest';
+document.getElementById('link-download-bot').href = BOT_DECIFRANDO_DOWNLOAD_URL;
+
+document.getElementById('link-downloads').onclick = (e) => {
+  e.preventDefault();
+  document.getElementById('modal-downloads').classList.remove('hidden');
+};
+document.getElementById('btn-close-downloads').onclick = () =>
+  document.getElementById('modal-downloads').classList.add('hidden');
+
 // ---------- FALE COM O SUPORTE (reclamação/dúvida) ----------
 // Funciona tanto logado (pré-preenche com a conta) quanto deslogado — por
 // isso fica acessível já na tela de login, sem precisar de sessão válida
