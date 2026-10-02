@@ -252,6 +252,21 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .auth-partner-text { font-size: 12px; color: #b5bac1; }
 .auth-partner-text strong { color: #f2f3f5; }
 
+/* Download de ferramenta da comunidade na tela de login (a pedido —
+   disponível antes mesmo de entrar na conta). Mesmo visual do card de
+   parceria acima, só que clicável/com hover, já que baixa um arquivo. */
+.auth-bot-download-row {
+  display: inline-flex; align-items: center; gap: 10px; background: rgba(20,21,28,0.55);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 8px 14px; margin-bottom: 14px;
+  backdrop-filter: blur(6px); text-decoration: none; cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.auth-bot-download-row:hover { border-color: var(--accent); background: rgba(20,21,28,0.75); }
+.auth-bot-download-row .ng-icon-wrap { color: var(--accent-3); flex-shrink: 0; width: 18px; height: 18px; }
+.auth-bot-download-text { display: flex; flex-direction: column; gap: 1px; }
+.auth-bot-download-text strong { font-size: 12.5px; color: #f2f3f5; }
+.auth-bot-download-text span { font-size: 11px; color: #b5bac1; }
+
 /* Aviso da promoção Magic Tank na Loja NEXT Coins (recarga full -> código
    de NEXTGAME PLUS). */
 .shop-partner-promo {
