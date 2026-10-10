@@ -192,6 +192,13 @@ const DEFAULT_THEMES = [
   // arte VIP que eles mandaram: azul neon (#00a8ff) + dourado (#fbdc70)
   // sobre fundo escuro azulado.
   { key: 'magic-tank', name: 'Magic Tank', primary: '#00a8ff', secondary: '#fbdc70', highlight: '#7fd9ff', text: '#e2e8f0', button: '#050810', premium: true, effect: 'glow' },
+  // Tema "DDTank" (jogo parceiro), a pedido — paleta fofa/pastel tirada da
+  // identidade visual do jogo: rosa choque + azul-céu + amarelo-ouro, sobre
+  // fundo escuro arroxeado bem profundo (pra não perder contraste/leitura
+  // mesmo com cores claras). Igual qualquer outro tema do catálogo, ao ser
+  // escolhido ele assume a identidade visual inteira (sidebar, topo, botões,
+  // chat, glow etc.) via plus2-live.js — não precisa de nenhum código extra.
+  { key: 'ddtank', name: 'DDTank', primary: '#ff5fa0', secondary: '#5fd4ff', highlight: '#ffd34d', text: '#fff2f8', button: '#210c1c', premium: true, effect: 'shine' },
 ];
 
 const DEFAULT_BADGES = [

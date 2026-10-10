@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.56.0",
+    "date": "2026-10-10",
+    "changes": [
+      "Visual completamente novo (\"Gamer Vibrante\"): saiu o verde-neon/cantos cortados (cyberpunk), entrou uma identidade rosa → roxo → azul, com painéis em vidro fosco (blur de verdade), cantos arredondados suaves, mais profundidade/sombra e fonte 'Baloo 2' em títulos/botões — mudança só de CSS, nenhum comportamento foi alterado.",
+      "Novo tema PLUS \"DDTank\": paleta rosa choque + azul-céu + amarelo-ouro, cadastrada no catálogo igual qualquer outro tema (sidebar, topo, botões, glow e bolha de chat acompanham a cor escolhida).",
+      "Correção de cobertura de tema: a borda da caixa de editar mensagem ficava sempre verde-neon fixo, ignorando o tema escolhido — agora acompanha a cor do tema ativo como o resto do app."
+    ]
+  },
+  {
     "version": "0.55.0",
     "date": "2026-09-25",
     "changes": [

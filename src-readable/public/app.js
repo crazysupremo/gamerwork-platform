@@ -8224,7 +8224,10 @@ function startEditMessage(el, msg) {
   input.type = 'text';
   input.value = original;
   input.className = 'edit-inline-input';
-  input.style.cssText = 'width:100%;padding:6px;border-radius:4px;border:1px solid #00ff9d;background:#26272e;color:#e6e6e6;';
+  // CORRIGIDO (tema não cobria tudo): essa borda ficava sempre verde-neon
+  // fixo, mesmo com outro tema (ex: DDTank, Diamond) escolhido. Agora usa
+  // var(--accent), que o plus2-live.js já atualiza pra cor do tema ativo.
+  input.style.cssText = 'width:100%;padding:6px;border-radius:4px;border:1px solid var(--accent, #00ff9d);background:#26272e;color:#e6e6e6;';
   contentEl.appendChild(input);
   input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
