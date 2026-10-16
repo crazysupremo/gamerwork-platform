@@ -103,9 +103,16 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
     requireAuth,
     asyncHandler(async (req, res) => {
       const unlocked = isPlusAccount(req.user);
-      const themes = await db.all(
+      let themes = await db.all(
         'SELECT * FROM plus_v2_themes WHERE is_preset = 1 ORDER BY sort_order ASC'
       );
+      // O tema sazonal fica disponível até 31 de outubro (inclusive), no
+      // fuso da Espanha. Depois disso some do catálogo para novas escolhas.
+      const madridDate = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit'
+      }).format(new Date());
+      const halloweenAvailable = madridDate <= `${new Date().getFullYear()}-10-31`;
+      themes = themes.filter((theme) => theme.key !== 'halloween' || halloweenAvailable);
       const myCustomThemes = await db.all(
         'SELECT * FROM plus_v2_themes WHERE is_preset = 0 AND owner_user_id = ? ORDER BY created_at DESC',
         [req.user.id]

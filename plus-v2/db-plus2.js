@@ -205,7 +205,7 @@ const DEFAULT_THEMES = [
   // <body> quando esse tema está ativo (ver applyTheme() em plus2-live.js),
   // que o style.css usa pra mostrar os extras exclusivos dele (morcegos
   // voando, lua, neblina) só quando a pessoa escolhe esse tema específico.
-  { key: 'halloween', name: 'Halloween', primary: '#ff7a1a', secondary: '#6a1fb0', highlight: '#39ff6a', text: '#f1ecd8', button: '#07050c', premium: true, effect: 'glow' },
+  { key: 'halloween', name: 'Halloween · até 31/10', primary: '#ff7a1a', secondary: '#6a1fb0', highlight: '#39ff6a', text: '#f1ecd8', button: '#07050c', premium: false, effect: 'glow' },
 ];
 
 const DEFAULT_BADGES = [
