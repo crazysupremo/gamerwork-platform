@@ -134,6 +134,10 @@
     // qualquer tema), liga uma classe extra no <body> que o style.css usa
     // pra mostrar os decorativos exclusivos dele (morcegos, lua, neblina).
     document.body.classList.toggle('theme-halloween', theme.key === 'halloween');
+    // Mesma ideia pro tema do jogo parceiro Magic Tank — extras próprios
+    // (banner "MAGIC TANK PARTNER" com brilho, borda azul/dourada nos
+    // painéis) só aparecem quando esse tema específico está ativo.
+    document.body.classList.toggle('theme-magic-tank', theme.key === 'magic-tank');
     root.style.setProperty('--accent', theme.colors.primary);
     root.style.setProperty('--accent-2', theme.colors.secondary);
     root.style.setProperty('--accent-3', theme.colors.highlight);

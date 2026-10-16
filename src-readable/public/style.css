@@ -4004,3 +4004,73 @@ body, input, textarea, button, .message-content, .home-partner-game-info span {
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px)) !important;
   border-radius: 0 !important;
 }
+
+
+/* NEXT GAME — temas especiais com identidade visual real e animações leves
+   (patch enviado pelo usuário). Seletores .chat-main/.members-sidebar do
+   patch original corrigidos pra bater com os nomes reais do HTML
+   (.text-panel/.members-panel). */
+body.theme-halloween {
+  --halloween-orange: #ff7a1a;
+  --halloween-purple: #7628c7;
+  --halloween-green: #b7ff45;
+  background-image: radial-gradient(ellipse at 12% 0%, rgba(118,40,199,.19), transparent 42%),
+                    radial-gradient(ellipse at 88% 100%, rgba(255,122,26,.13), transparent 44%);
+  background-attachment: fixed;
+}
+body.theme-halloween .app-sidebar,
+body.theme-halloween #channel-sidebar,
+body.theme-halloween .text-panel,
+body.theme-halloween .members-panel {
+  border-color: rgba(255,122,26,.20);
+}
+body.theme-halloween button:not(:disabled):hover,
+body.theme-halloween .btn:not(:disabled):hover {
+  box-shadow: 0 0 0 1px rgba(255,122,26,.48), 0 0 22px rgba(255,122,26,.20);
+}
+body.theme-halloween .app-sidebar::after {
+  content: "🎃  SPOOKY SEASON";
+  display: block; margin: 8px 12px 12px; padding: 7px 10px; border-radius: 10px;
+  color: #ffe8cb; font-size: 10px; font-weight: 900; letter-spacing: 1.8px; text-align: center;
+  background: linear-gradient(100deg, rgba(118,40,199,.30), rgba(255,122,26,.22));
+  border: 1px solid rgba(255,122,26,.28); text-shadow: 0 0 12px rgba(255,122,26,.6);
+}
+body.theme-halloween #halloween-moon { width: 74px; height: 74px; right: 30px; bottom: 82px; }
+body.theme-halloween #halloween-fog { opacity: .95; }
+.hw-bat { user-select: none; }
+
+body.theme-magic-tank {
+  --mt-blue: #00a8ff;
+  --mt-gold: #fbdc70;
+  background-image: radial-gradient(ellipse at 8% 5%, rgba(0,168,255,.20), transparent 38%),
+                    radial-gradient(ellipse at 92% 92%, rgba(251,220,112,.12), transparent 40%);
+  background-attachment: fixed;
+}
+body.theme-magic-tank .app-sidebar,
+body.theme-magic-tank #channel-sidebar,
+body.theme-magic-tank .text-panel,
+body.theme-magic-tank .members-panel {
+  border-color: rgba(0,168,255,.24);
+  box-shadow: inset 0 1px 0 rgba(251,220,112,.035);
+}
+body.theme-magic-tank .app-sidebar::after {
+  content: "✦ MAGIC TANK PARTNER ✦";
+  display: block; margin: 8px 12px 12px; padding: 8px 10px; border-radius: 10px;
+  color: #fbe7a0; font-size: 10px; font-weight: 900; letter-spacing: 1.45px; text-align: center;
+  background: linear-gradient(110deg, rgba(0,168,255,.18), rgba(251,220,112,.12), rgba(0,168,255,.18));
+  background-size: 220% 100%; border: 1px solid rgba(251,220,112,.32);
+  box-shadow: 0 0 18px rgba(0,168,255,.10), inset 0 0 14px rgba(251,220,112,.045);
+  animation: magicTankBanner 5s ease-in-out infinite;
+}
+body.theme-magic-tank button:not(:disabled):hover,
+body.theme-magic-tank .btn:not(:disabled):hover {
+  box-shadow: 0 0 0 1px rgba(0,168,255,.52), 0 0 22px rgba(0,168,255,.22), 0 0 34px rgba(251,220,112,.08);
+}
+body.theme-magic-tank .app-sidebar a.active,
+body.theme-magic-tank .app-sidebar .active {
+  box-shadow: inset 3px 0 0 #fbdc70, 0 0 18px rgba(0,168,255,.10);
+}
+@keyframes magicTankBanner { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@media (prefers-reduced-motion: reduce) {
+  body.theme-magic-tank .app-sidebar::after { animation: none; }
+}

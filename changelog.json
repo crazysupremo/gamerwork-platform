@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.59.4",
+    "date": "2026-10-17",
+    "changes": [
+      "Identidade visual extra pros temas Halloween e Magic Tank: atmosfera de cor própria no fundo, borda dos painéis tingida, brilho no hover dos botões combinando com cada tema, e uma faixinha animada no menu lateral ('SPOOKY SEASON' / 'MAGIC TANK PARTNER'). Corrigidos 2 seletores do patch que apontavam pra nomes de classe que não existem no site (.chat-main/.members-sidebar → .text-panel/.members-panel) pra garantir que tudo realmente aparece."
+    ]
+  },
+  {
     "version": "0.59.3",
     "date": "2026-10-17",
     "changes": [
