@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.57.1",
+    "date": "2026-10-16",
+    "changes": [
+      "Correção visual na tela de login: o card tinha ficado transparente demais (vidro fosco 8%), deixando os círculos de cor do fundo 'vazarem' por cima dos campos — voltou a ser um painel escuro sólido com blur, sem perder o efeito de vidro.",
+      "Correção: campo de usuário/senha preenchido automaticamente pelo navegador (autofill) aparecia com fundo branco, destoando do tema escuro — corrigido para manter o visual escuro mesmo com autofill ativo.",
+      "Cores da foto de fundo do login harmonizadas com a nova paleta rosa/roxo/azul (antes os tons ciano da foto destoavam um pouco)."
+    ]
+  },
+  {
     "version": "0.57.0",
     "date": "2026-10-16",
     "changes": [
