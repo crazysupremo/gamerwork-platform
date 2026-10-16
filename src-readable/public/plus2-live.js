@@ -67,12 +67,19 @@
     const toHex = (x) => Math.round(255 * x).toString(16).padStart(2, '0');
     return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
   }
-  // Satura pouco de propósito (28%) — dá pra sentir a cor do tema no fundo
-  // sem virar neon chapado atrás do conteúdo (mantém leitura confortável).
+  // Satura pouco de propósito — dá pra sentir a cor do tema no fundo sem
+  // virar neon chapado atrás do conteúdo (mantém leitura confortável).
+  // CORRIGIDO ("ficou feio" no tema Halloween/laranja): 28% de saturação
+  // com matiz laranja/amarela em pouca luminosidade lê como MARROM SUJO, não
+  // como "escuro combinando com o tema" — funcionava bem pra matizes frias
+  // (azul/roxo/rosa) mas ficava lamacento pras quentes. Reduz a saturação
+  // base e desatura ainda mais matizes entre 15°-55° (laranja/âmbar/amarelo),
+  // a faixa que mais sofre desse efeito "barro".
   function deriveSurfaces(primaryHex) {
     const rgb = hexToRgb(primaryHex);
     const { h } = rgbToHsl(rgb.r, rgb.g, rgb.b);
-    const S = 28;
+    const isWarmBrownZone = h >= 15 && h <= 55;
+    const S = isWarmBrownZone ? 10 : 18;
     return {
       app: hslToHex(h, S, 9),
       rail: hslToHex(h, S, 6.5),

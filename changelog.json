@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.59.1",
+    "date": "2026-10-17",
+    "changes": [
+      "Correção visual séria: o fundo de todas as colunas (rail, sidebar, painel, chat) era tingido com a cor do tema numa saturação que funcionava bem pra tons frios (rosa/roxo/azul), mas virava um marrom sujo/lamacento em tons quentes como o laranja do Halloween. Ajustado pra ficar bonito em qualquer tema.",
+      "Correção: a lua do tema Halloween ficava flutuando POR CIMA dos ícones do topo do chat (apagar, membros), tampando os botões. Agora fica atrás dos painéis, menor, só aparecendo nos espaços abertos — não cobre mais nada clicável.",
+      "Fundo da tela (os círculos de cor atrás do conteúdo) reduzido de 3 pra 2, com menos opacidade — evita a mistura de cores formar uma mancha feia no meio da tela em qualquer tema."
+    ]
+  },
+  {
     "version": "0.59.0",
     "date": "2026-10-17",
     "changes": [

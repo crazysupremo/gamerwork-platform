@@ -3421,10 +3421,15 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 body {
   font-family: 'Poppins', 'Inter', sans-serif;
+  /* CORRIGIDO ("ficou feio"): 3 cores se misturando no meio da tela (rosa +
+     azul + roxo tudo bem forte) lia bem com essa paleta específica, mas em
+     temas com cores mais distantes (ex: laranja + roxo + verde do
+     Halloween) a mistura no meio virava uma mancha barrenta/suja. Reduz pra
+     só 2 blobs, cada um mais no canto (menos sobreposição no centro), com
+     opacidade mais baixa — sensação de cor sem virar lama em nenhum tema. */
   background:
-    radial-gradient(circle at 10% 0%, rgba(var(--accent-rgb),.22), transparent 38%),
-    radial-gradient(circle at 92% 12%, rgba(var(--accent-2-rgb),.2), transparent 42%),
-    radial-gradient(circle at 50% 115%, rgba(var(--accent-3-rgb),.22), transparent 55%),
+    radial-gradient(circle at 6% -4%, rgba(var(--accent-rgb),.16), transparent 34%),
+    radial-gradient(circle at 96% 100%, rgba(var(--accent-2-rgb),.14), transparent 36%),
     var(--bg-app) !important;
 }
 
@@ -3793,20 +3798,24 @@ input:focus, textarea:focus, select:focus, #message-input:focus {
    elementos extras gerados aqui — nenhum HTML novo, só CSS + um punhado de
    `<div>`s criados por JS (ver initHalloweenExtras() em app.js). ===== */
 body.theme-halloween #halloween-moon {
-  position: fixed; top: 40px; right: 70px; width: 70px; height: 70px; border-radius: 50%;
+  /* CORRIGIDO ("tá cobrindo os ícones"): position:fixed fica por cima de
+     tudo por padrão — com z-index negativo, ela passa a ficar ATRÁS dos
+     painéis (topo, sidebar, chat), só aparecendo nos espaços vazios/abertos
+     entre eles, sem tampar nenhum botão. Também um pouco menor. */
+  position: fixed; top: 54px; right: 90px; width: 56px; height: 56px; border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #fff7e0, #e8d9a8 60%, #b8a876);
-  box-shadow: 0 0 50px rgba(255,230,160,.45), 0 0 100px rgba(255,230,160,.2);
-  z-index: 0; pointer-events: none; animation: hwMoonGlow 4s ease-in-out infinite;
+  box-shadow: 0 0 46px rgba(255,230,160,.4), 0 0 90px rgba(255,230,160,.18);
+  z-index: -1; pointer-events: none; animation: hwMoonGlow 4s ease-in-out infinite;
 }
 @keyframes hwMoonGlow {
-  0%, 100% { box-shadow: 0 0 50px rgba(255,230,160,.45), 0 0 100px rgba(255,230,160,.2); }
-  50% { box-shadow: 0 0 70px rgba(255,230,160,.65), 0 0 130px rgba(255,230,160,.35); }
+  0%, 100% { box-shadow: 0 0 46px rgba(255,230,160,.4), 0 0 90px rgba(255,230,160,.18); }
+  50% { box-shadow: 0 0 64px rgba(255,230,160,.6), 0 0 120px rgba(255,230,160,.3); }
 }
 body.theme-halloween #halloween-fog {
-  position: fixed; bottom: -200px; left: -10%; width: 120%; height: 380px; z-index: 0; pointer-events: none;
+  position: fixed; bottom: -200px; left: -10%; width: 120%; height: 380px; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(ellipse at 30% 100%, rgba(106,31,176,.28), transparent 60%),
-    radial-gradient(ellipse at 70% 100%, rgba(255,122,26,.14), transparent 55%);
+    radial-gradient(ellipse at 30% 100%, rgba(106,31,176,.24), transparent 60%),
+    radial-gradient(ellipse at 70% 100%, rgba(255,122,26,.12), transparent 55%);
   animation: hwFogMove 14s ease-in-out infinite; opacity: .8;
 }
 @keyframes hwFogMove {
@@ -3814,8 +3823,8 @@ body.theme-halloween #halloween-fog {
   50% { transform: translateX(30px) translateY(-20px); }
 }
 .hw-bat {
-  position: fixed; font-size: 20px; z-index: 0; pointer-events: none; opacity: .8;
-  filter: drop-shadow(0 0 6px rgba(0,0,0,.6)); animation: hwBatFly linear forwards;
+  position: fixed; font-size: 22px; z-index: -1; pointer-events: none; opacity: .9;
+  filter: drop-shadow(0 0 8px rgba(255,200,120,.5)); animation: hwBatFly linear forwards;
 }
 @keyframes hwBatFly {
   0% { transform: translate(-10vw, 10vh) scale(1); }
