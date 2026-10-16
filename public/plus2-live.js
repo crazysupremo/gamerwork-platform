@@ -78,8 +78,12 @@
   function deriveSurfaces(primaryHex) {
     const rgb = hexToRgb(primaryHex);
     const { h } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    // AJUSTADO: a redução geral pra 18% deixou os temas frios (rosa/roxo/
+    // azul) "personalizando mal" — fracos demais. Volta pro 28% original
+    // pra esses, e mantém baixa SÓ na faixa laranja/âmbar/amarela (15°-55°),
+    // que é a única que lia como barro/lama.
     const isWarmBrownZone = h >= 15 && h <= 55;
-    const S = isWarmBrownZone ? 10 : 18;
+    const S = isWarmBrownZone ? 12 : 28;
     return {
       app: hslToHex(h, S, 9),
       rail: hslToHex(h, S, 6.5),

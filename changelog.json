@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.59.2",
+    "date": "2026-10-17",
+    "changes": [
+      "Correção: o ajuste anterior deixou os outros temas (rosa/roxo/azul) fracos demais — voltou pra saturação original neles; a correção do 'marrom sujo' agora é exclusiva da faixa laranja/âmbar (Halloween, Magic Tank etc.), sem enfraquecer o resto.",
+      "Correção: a lua do Halloween tinha sumido de vez (ficou atrás de tudo) — volta a aparecer, agora no canto inferior direito, longe dos ícones do topo do chat.",
+      "Morcegos do tema Halloween agora voam só na metade de baixo da tela, sem cruzar por cima da barra de ícones do topo."
+    ]
+  },
+  {
     "version": "0.59.1",
     "date": "2026-10-17",
     "changes": [

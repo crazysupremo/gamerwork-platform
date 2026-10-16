@@ -11111,7 +11111,10 @@ function animateHomeStatCounters(container) {
     const b = document.createElement('div');
     b.className = 'hw-bat';
     b.textContent = '🦇';
-    b.style.top = (10 + Math.random() * 50) + 'vh';
+    // AJUSTADO: voavam também na faixa de cima (10-60vh), cruzando em cima
+    // da barra de topo/ícones do chat — agora ficam só na metade de baixo
+    // da tela, longe de qualquer botão.
+    b.style.top = (45 + Math.random() * 40) + 'vh';
     b.style.animationDuration = (6 + Math.random() * 5) + 's';
     document.body.appendChild(b);
     setTimeout(() => b.remove(), 12000);
