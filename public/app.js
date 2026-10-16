@@ -7551,7 +7551,7 @@ async function loadHomeStats() {
     <div class="home-header-stat" title="${label}">
       <span class="home-header-stat-icon">${icon(iconName)}</span>
       <span class="home-header-stat-text">
-        <span class="home-header-stat-num">${num}</span>
+        <span class="home-header-stat-num" data-count-target="${num}">0</span>
         <span class="home-header-stat-label">${label}</span>
       </span>
     </div>
@@ -7561,6 +7561,7 @@ async function loadHomeStats() {
     chip('gamepad-2', stats.servers, 'Servidores') +
     chip('trophy', stats.tournaments, 'Torneios') +
     chip('zap', onlineUserIds.size, 'Online agora');
+  animateHomeStatCounters(el);
 }
 
 // Paleta fixa (hash simples pelo nome) pra cada card de servidor ganhar uma
@@ -11035,6 +11036,55 @@ document.getElementById('btn-test-output').onclick = async () => {
   card.addEventListener('mouseleave', () => {
     card.style.setProperty('--tiltX', '0deg');
     card.style.setProperty('--tiltY', '0deg');
+  });
+})();
+
+// ---------- TELA DE INÍCIO INTERATIVA ----------
+// Números dos cards de estatística (Membros/Servidores/Torneios/Online)
+// contam do zero até o valor real em vez de aparecer já pronto — chamado
+// de dentro de loadHomeStats() toda vez que os números são atualizados.
+function animateHomeStatCounters(container) {
+  container.querySelectorAll('.home-header-stat-num[data-count-target]').forEach((el) => {
+    const target = parseInt(el.dataset.countTarget, 10) || 0;
+    const duration = 900;
+    const start = performance.now();
+    function tick(now) {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(eased * target);
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+// Tilt 3D leve nos cards de servidor e do jogo parceiro na Início — usa
+// delegação de evento no painel inteiro (em vez de prender listener em cada
+// card), porque os cards de servidor são recriados toda vez que a lista
+// atualiza (renderHomeServers), então isso funciona automaticamente mesmo
+// pra cards novos, sem precisar religar nada.
+(function initHomeTilt() {
+  const panel = document.getElementById('home-panel');
+  if (!panel) return;
+  const MAX_TILT = 5;
+  let activeCard = null;
+
+  panel.addEventListener('mousemove', (e) => {
+    const card = e.target.closest('.home-server-card, .home-partner-game-card');
+    if (!card) {
+      if (activeCard) { activeCard.style.transform = ''; activeCard = null; }
+      return;
+    }
+    activeCard = card;
+    const r = card.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    const rx = (py - 0.5) * -2 * MAX_TILT;
+    const ry = (px - 0.5) * 2 * MAX_TILT;
+    card.style.transform = `perspective(700px) rotateX(${rx}deg) rotateY(${ry}deg) translateY(-4px)`;
+  });
+  panel.addEventListener('mouseleave', () => {
+    if (activeCard) { activeCard.style.transform = ''; activeCard = null; }
   });
 })();
 

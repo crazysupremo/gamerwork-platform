@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.58.1",
+    "date": "2026-10-17",
+    "changes": [
+      "Correção de cobertura de tema (de verdade dessa vez): faltava a variável --accent-3-rgb no motor de temas (plus2-live.js), e vários blocos novos (fundo da tela, blobs do login, destaque de menu ativo, tingimento da foto de login, brilho de menção no chat) estavam com a 3ª cor do tema fixa em vez de variável — por isso só parte do site acompanhava o tema escolhido. Agora as 20 opções do catálogo (incluindo DDTank e GAMEX) mudam a cor em TODO lugar, não só nos botões."
+    ]
+  },
+  {
+    "version": "0.58.0",
+    "date": "2026-10-17",
+    "changes": [
+      "Tela de Início mais bonita e interativa: mesma identidade visual do login (blobs de cor se movendo atrás, painéis em vidro fosco), cards de servidor e do jogo parceiro inclinam em 3D seguindo o mouse, os números de Membros/Servidores/Torneios/Online contam do zero até o valor real ao carregar, banner de torneio com brilho passando, e indicador 'online' com anel pulsando.",
+      "Nenhuma rota, dado ou comportamento mudou — é só visual e interação (CSS + JS)."
+    ]
+  },
+  {
     "version": "0.57.1",
     "date": "2026-10-16",
     "changes": [

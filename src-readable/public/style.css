@@ -3407,6 +3407,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   --accent-3: #8b2dff;
   --accent-rgb: 255,45,135;
   --accent-2-rgb: 45,123,255;
+  --accent-3-rgb: 139,45,255;
   --gradient-brand: linear-gradient(135deg, #ff2d87 0%, #8b2dff 55%, #2d7bff 100%);
   --bg-app: #0d0818;
   --bg-rail: #120b20;
@@ -3421,9 +3422,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 body {
   font-family: 'Poppins', 'Inter', sans-serif;
   background:
-    radial-gradient(circle at 10% 0%, rgba(255,45,135,.22), transparent 38%),
-    radial-gradient(circle at 92% 12%, rgba(45,123,255,.2), transparent 42%),
-    radial-gradient(circle at 50% 115%, rgba(139,45,255,.22), transparent 55%),
+    radial-gradient(circle at 10% 0%, rgba(var(--accent-rgb),.22), transparent 38%),
+    radial-gradient(circle at 92% 12%, rgba(var(--accent-2-rgb),.2), transparent 42%),
+    radial-gradient(circle at 50% 115%, rgba(var(--accent-3-rgb),.22), transparent 55%),
     var(--bg-app) !important;
 }
 
@@ -3480,8 +3481,8 @@ h1, h2, h3, .auth-card-title, .auth-hero-title, .auth-hero-brand-name,
 }
 .sidebar-nav-item.active, .sidebar-nav-item-solo.active,
 .channel-item.active {
-  background: linear-gradient(135deg, rgba(255,45,135,.32), rgba(139,45,255,.26)) !important;
-  box-shadow: 0 6px 20px rgba(139,45,255,.3), inset 0 1px 0 rgba(255,255,255,.08) !important;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),.32), rgba(var(--accent-3-rgb),.26)) !important;
+  box-shadow: 0 6px 20px rgba(var(--accent-3-rgb),.3), inset 0 1px 0 rgba(255,255,255,.08) !important;
   color: #fff !important;
 }
 
@@ -3518,7 +3519,7 @@ input:focus, textarea:focus, select:focus, #message-input:focus {
    moderno) e leve brilho quando é uma mensagem destacada/menção. */
 .message { border-radius: 0 14px 14px 14px !important; }
 .message.mention-me, .message.pv2-mention-glow {
-  background: linear-gradient(135deg, rgba(var(--accent-rgb),.18), rgba(139,45,255,.14)) !important;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),.18), rgba(var(--accent-3-rgb),.14)) !important;
   box-shadow: 0 6px 18px rgba(var(--accent-rgb),.22) !important;
 }
 
@@ -3527,9 +3528,9 @@ input:focus, textarea:focus, select:focus, #message-input:focus {
 .auth-screen { background: var(--bg-app) !important; }
 .auth-bg-overlay {
   background:
-    radial-gradient(circle at 15% 15%, rgba(255,45,135,.28), transparent 45%),
-    radial-gradient(circle at 85% 20%, rgba(45,123,255,.26), transparent 45%),
-    radial-gradient(circle at 50% 100%, rgba(139,45,255,.3), transparent 55%) !important;
+    radial-gradient(circle at 15% 15%, rgba(var(--accent-rgb),.28), transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(var(--accent-2-rgb),.26), transparent 45%),
+    radial-gradient(circle at 50% 100%, rgba(var(--accent-3-rgb),.3), transparent 55%) !important;
 }
 .auth-card {
   /* CORRIGIDO ("ficou bugado"): estava usando --vibrant-glass-strong (8% de
@@ -3657,7 +3658,7 @@ input:focus, textarea:focus, select:focus, #message-input:focus {
 .auth-hero-overlay::after {
   content: '';
   position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(255,45,135,0.16), rgba(139,45,255,0.1) 50%, rgba(45,123,255,0.14));
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),0.16), rgba(var(--accent-3-rgb),0.1) 50%, rgba(var(--accent-2-rgb),0.14));
   mix-blend-mode: color;
   pointer-events: none;
 }
@@ -3705,6 +3706,84 @@ input:focus, textarea:focus, select:focus, #message-input:focus {
     animation: none !important;
   }
   .auth-split { transform: none !important; }
+}
+
+/* ==========================================================================
+   TELA DE INÍCIO INTERATIVA (pedido: "mais bonito e interativo") — mesma
+   identidade visual do login (blobs de cor, vidro fosco), aplicada na Home:
+   cards inclinam em 3D ao passar o mouse (ver initHomeTilt em app.js),
+   números dos stats contam do zero (ver initHomeStatCounters), banner com
+   brilho passando, status "online" com anel pulsando. Só visual/interação —
+   nenhuma rota ou dado muda. ========================== */
+#home-panel { position: relative; }
+#home-panel::before, #home-panel::after {
+  content: ''; position: fixed; border-radius: 50%; filter: blur(120px);
+  z-index: 0; opacity: 0.28; pointer-events: none;
+}
+#home-panel::before {
+  width: 520px; height: 520px; background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  top: -180px; left: -120px; animation: homeBlob1 17s ease-in-out infinite;
+}
+#home-panel::after {
+  width: 480px; height: 480px; background: radial-gradient(circle, var(--accent-2) 0%, transparent 70%);
+  top: 25%; right: -180px; animation: homeBlob2 19s ease-in-out infinite;
+}
+@keyframes homeBlob1 { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(50px,40px) scale(1.12); } }
+@keyframes homeBlob2 { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-40px,-30px) scale(1.1); } }
+#home-panel .home-grid, #home-panel .home-tournament-banner { position: relative; z-index: 1; }
+
+.home-header-stat {
+  background: rgba(255,255,255,0.045) !important;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  transition: transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s ease, border-color .3s ease;
+}
+.home-header-stat:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 36px rgba(var(--accent-rgb), 0.28);
+  border-color: rgba(var(--accent-rgb), 0.45) !important;
+}
+
+.home-side-card, .home-partner-game-card {
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  transition: transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s ease;
+}
+.home-side-card:hover, .home-partner-game-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 38px rgba(0,0,0,0.35);
+}
+
+.home-server-card {
+  transform-style: preserve-3d;
+  transition: transform .1s linear, box-shadow .3s ease, border-color .3s ease;
+}
+.home-server-card:hover {
+  box-shadow: 0 22px 46px rgba(var(--accent-rgb), 0.3);
+}
+
+/* Brilho passando no banner de torneio, de tempos em tempos. */
+.home-tournament-banner { position: relative; overflow: hidden; }
+.home-tournament-banner::before {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 120px; left: -140px;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.22), transparent);
+  animation: homeBannerSweep 4s ease-in-out infinite; pointer-events: none;
+}
+@keyframes homeBannerSweep { 0% { left: -140px; } 55%, 100% { left: 120%; } }
+
+/* Anel pulsando no indicador "online" dos cards/membros. */
+.member-status-dot.member-status-online, .server-row-dot-on {
+  position: relative;
+}
+.member-status-dot.member-status-online::after, .server-row-dot-on::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 1.5px solid var(--accent); animation: homeStatusPulse 1.8s ease-out infinite;
+}
+@keyframes homeStatusPulse { 0% { transform: scale(0.6); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  #home-panel::before, #home-panel::after, .home-tournament-banner::before,
+  .member-status-dot.member-status-online::after, .server-row-dot-on::after {
+    animation: none !important;
+  }
 }
 
 /* ==========================================================================

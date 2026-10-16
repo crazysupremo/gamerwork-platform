@@ -133,8 +133,15 @@
     // variável — parecia que "o tema não aplicava em tudo".
     const rgb = hexToRgb(theme.colors.primary);
     const rgb2 = hexToRgb(theme.colors.secondary);
+    const rgb3 = hexToRgb(theme.colors.highlight);
     root.style.setProperty('--accent-rgb', `${rgb.r},${rgb.g},${rgb.b}`);
     root.style.setProperty('--accent-2-rgb', `${rgb2.r},${rgb2.g},${rgb2.b}`);
+    // CORRIGIDO ("temas não personalizam tudo"): faltava essa variável —
+    // vários blocos novos (fundo da tela, blobs do login, destaque do menu)
+    // precisam da 3ª cor do tema (highlight) em rgba() e só tinham --accent/
+    // --accent-2 disponíveis, então ficavam sempre na cor padrão (rosa/roxo)
+    // não importa qual tema a pessoa escolhesse.
+    root.style.setProperty('--accent-3-rgb', `${rgb3.r},${rgb3.g},${rgb3.b}`);
     // Fundo das colunas (rail de servidores, sidebar de canais, painel
     // principal, barra do topo e pop-ups) também acompanha o tema agora —
     // antes só os detalhes/botões mudavam de cor, as colunas ficavam sempre
