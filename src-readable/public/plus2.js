@@ -86,7 +86,7 @@
       async getCatalog() {
         return delay(JSON.parse(JSON.stringify(state)));
       },
-      async saveMe({ themeId, bannerId, badgeId, backgroundId, customBannerUrl, visualPrefs }) {
+      async saveMe({ themeId, bannerId, badgeId, backgroundId, customBannerUrl, customBackgroundUrl, customBackgroundType, visualPrefs }) {
         const unlocked = state.isPlusUser;
         if (themeId !== undefined) state.current.themeId = themeId;
         if (bannerId !== undefined) {
@@ -94,10 +94,20 @@
           if (bannerId !== null) state.current.customBannerUrl = null;
         }
         if (badgeId !== undefined) state.current.badgeId = badgeId;
-        if (backgroundId !== undefined) state.current.backgroundId = backgroundId;
+        if (backgroundId !== undefined) {
+          state.current.backgroundId = backgroundId;
+          if (backgroundId !== null) state.current.customBackgroundUrl = null;
+        }
         if (customBannerUrl !== undefined) {
           state.current.customBannerUrl = customBannerUrl;
           if (customBannerUrl !== null) state.current.bannerId = null;
+        }
+        if (customBackgroundUrl !== undefined) {
+          state.current.customBackgroundUrl = customBackgroundUrl;
+          if (customBackgroundUrl !== null) {
+            state.current.backgroundId = null;
+            state.current.customBackgroundType = customBackgroundType === 'gif' ? 'gif' : 'image';
+          }
         }
         if (visualPrefs) {
           const current = state.visualPrefs;
@@ -154,6 +164,16 @@
       // Na integração real, isso vira uma chamada pro /api/uploads/presign
       // que o site principal já tem (ver createHttpAdapter abaixo).
       async uploadBannerImage(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Não deu pra ler essa imagem'));
+          reader.readAsDataURL(file);
+        });
+      },
+      // Mesmo esquema do banner — no preview sem servidor, só lê o arquivo
+      // como data URL (ver createHttpAdapter abaixo pro upload de verdade).
+      async uploadBackgroundImage(file) {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result);
@@ -226,6 +246,35 @@
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result);
           reader.onerror = () => reject(new Error('Não deu pra ler essa imagem'));
+          reader.readAsDataURL(file);
+        });
+      },
+      // Fundo com imagem/GIF próprio — mesmo caminho do banner (presign R2
+      // com fallback embutido no banco quando não tem storage externo
+      // configurado). Corrige "imagem/GIF não funciona" no painel de fundo.
+      async uploadBackgroundImage(file) {
+        const presignRes = await fetchFn('/api/uploads/presign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
+        });
+        if (!presignRes.ok) throw new Error('Erro ao preparar upload: ' + presignRes.status);
+        const presign = await presignRes.json();
+        if (presign.configured) {
+          const putRes = await fetchFn(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+          if (!putRes.ok) throw new Error('Erro ao enviar o arquivo: ' + putRes.status);
+          return presign.publicUrl;
+        }
+        const MAX_INLINE_FILE_BYTES = 250 * 1024;
+        if (file.size > MAX_INLINE_FILE_BYTES) {
+          throw new Error(
+            'Upload externo não está configurado no servidor, e esse arquivo é grande demais pra guardar direto (máx. ~250KB). Tente uma imagem/GIF menor ou mais comprimida.'
+          );
+        }
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Não deu pra ler esse arquivo'));
           reader.readAsDataURL(file);
         });
       },
@@ -736,8 +785,59 @@
         'Escolha o fundo do app inteiro: cor sólida, gradiente, imagem, GIF animado ou um efeito ao vivo (partículas, ondas).',
       ]));
       panelBackgrounds.appendChild(el('div', { class: 'pv2-locked-note' }, [
-        '✅ Cor sólida, gradiente e efeitos (partículas/ondas) já aplicam de verdade no fundo do app. Imagem e GIF ainda são só exemplos de ilustração no catálogo — a escolha fica salva, mas não desenha nada até ter um arquivo de verdade por trás.',
+        '✅ Cor sólida, gradiente, efeitos (partículas/ondas) e agora também imagem/GIF próprio já aplicam de verdade no fundo do app. Os itens "(exemplo)" do catálogo abaixo continuam sendo só ilustração — envie a sua própria imagem/GIF pra um fundo de verdade.',
       ]));
+
+      // Upload de fundo próprio (imagem ou GIF) — mesmo esquema do upload de
+      // banner na aba Perfil. Corrige "imagem/GIF não funciona": antes só
+      // existiam exemplos de ilustração no catálogo, sem jeito de mandar um
+      // arquivo de verdade.
+      panelBackgrounds.appendChild(el('div', { class: 'pv2-section-title', style: 'font-size:13px;margin-bottom:4px;' }, ['Sua própria imagem ou GIF']));
+      const bgUploadRow = el('div', { class: 'pv2-upload-row' });
+      const bgFileInput = el('input', {
+        type: 'file', accept: 'image/*,.gif',
+        disabled: data.isPlusUser ? undefined : 'disabled',
+        style: 'position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;',
+      });
+      const bgUploadBtnLabel = el('span', {}, [data.isPlusUser ? '📤 Enviar imagem/GIF' : '🔒 Enviar imagem/GIF (PLUS)']);
+      const bgUploadBtn = el('label', {
+        class: 'pv2-upload-btn', style: `display:inline-flex; align-items:center; ${data.isPlusUser ? 'cursor:pointer;' : 'cursor:not-allowed; opacity:0.5;'}`,
+      }, [bgFileInput, bgUploadBtnLabel]);
+      bgFileInput.addEventListener('change', async () => {
+        const file = bgFileInput.files && bgFileInput.files[0];
+        if (!file) return;
+        bgFileInput.disabled = true;
+        bgUploadBtn.style.opacity = '0.6';
+        bgUploadBtnLabel.textContent = 'Enviando…';
+        try {
+          const url = await adapter.uploadBackgroundImage(file);
+          const bgType = /\.gif$/i.test(file.name) || file.type === 'image/gif' ? 'gif' : 'image';
+          data.current.customBackgroundUrl = url;
+          data.current.customBackgroundType = bgType;
+          data.current.backgroundId = null;
+          await saveMe({ customBackgroundUrl: url, customBackgroundType: bgType });
+          renderBackgroundsPanel();
+        } catch (err) {
+          if (opts.onUploadError) opts.onUploadError(err);
+        } finally {
+          bgFileInput.disabled = false;
+          bgUploadBtn.style.opacity = '';
+          bgUploadBtnLabel.textContent = '📤 Enviar imagem/GIF';
+        }
+      });
+      bgUploadRow.appendChild(bgUploadBtn);
+      if (data.current.customBackgroundUrl) {
+        bgUploadRow.appendChild(el('div', { class: 'pv2-upload-preview selected', style: `background-image:url(${data.current.customBackgroundUrl});` }));
+        bgUploadRow.appendChild(el('button', {
+          class: 'pv2-upload-btn', type: 'button',
+          onclick: async () => { data.current.customBackgroundUrl = null; renderBackgroundsPanel(); await saveMe({ customBackgroundUrl: null }); },
+        }, ['Remover']));
+      }
+      panelBackgrounds.appendChild(bgUploadRow);
+      if (!data.isPlusUser) {
+        panelBackgrounds.appendChild(el('div', { class: 'pv2-upload-hint' }, ['Fundo com imagem/GIF próprio é exclusivo de quem tem NEXTGAME PLUS.']));
+      }
+      panelBackgrounds.appendChild(el('div', { class: 'pv2-section-title', style: 'font-size:13px;margin:16px 0 8px;' }, ['Ou escolha da galeria']));
 
       const layout = el('div', { class: 'pv2-bg-layout' });
       const controls = el('div', { class: 'pv2-bg-controls' });
@@ -835,6 +935,7 @@
     async function selectBackground(bg) {
       if (bg.locked) { if (opts.onLockedClick) opts.onLockedClick('background', bg); return; }
       data.current.backgroundId = bg.id;
+      data.current.customBackgroundUrl = null;
       renderBackgroundsPanel();
       await saveMe({ backgroundId: bg.id });
     }

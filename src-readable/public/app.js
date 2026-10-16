@@ -11088,6 +11088,49 @@ function animateHomeStatCounters(container) {
   });
 })();
 
+// ---------- TEMA SAZONAL "HALLOWEEN" — decorativos extras ----------
+// Lua e neblina são só 2 <div>s fixos (ligados/desligados junto com a classe
+// theme-halloween no <body>, ver applyTheme() em plus2-live.js). Morcegos
+// são gerados em intervalos, cada um atravessando a tela uma vez e se
+// removendo sozinho — só enquanto o tema Halloween estiver ativo.
+(function initHalloweenExtras() {
+  let moon, fog, batTimer;
+  function ensureDecor() {
+    if (!moon) {
+      moon = document.createElement('div');
+      moon.id = 'halloween-moon';
+      document.body.appendChild(moon);
+    }
+    if (!fog) {
+      fog = document.createElement('div');
+      fog.id = 'halloween-fog';
+      document.body.appendChild(fog);
+    }
+  }
+  function spawnBat() {
+    const b = document.createElement('div');
+    b.className = 'hw-bat';
+    b.textContent = '🦇';
+    b.style.top = (10 + Math.random() * 50) + 'vh';
+    b.style.animationDuration = (6 + Math.random() * 5) + 's';
+    document.body.appendChild(b);
+    setTimeout(() => b.remove(), 12000);
+  }
+  function start() {
+    ensureDecor();
+    if (!batTimer) batTimer = setInterval(spawnBat, 3200);
+  }
+  function stop() {
+    if (batTimer) { clearInterval(batTimer); batTimer = null; }
+  }
+  const observer = new MutationObserver(() => {
+    if (document.body.classList.contains('theme-halloween')) start();
+    else stop();
+  });
+  observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  if (document.body.classList.contains('theme-halloween')) start();
+})();
+
 // ---------- MÚSICA DE FUNDO DO LOGIN ----------
 // Se existir /assets/music/login-theme.mp3, toca em loop atrás do login.
 // Navegador bloqueia áudio automático COM SOM, então começa sempre mudo

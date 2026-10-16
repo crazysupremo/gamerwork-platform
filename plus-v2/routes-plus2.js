@@ -127,6 +127,8 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
           badgeId: req.user.plus2_badge_id || null,
           backgroundId: req.user.plus2_background_id || null,
           customBannerUrl: req.user.plus2_custom_banner_url || null,
+          customBackgroundUrl: req.user.plus2_custom_bg_url || null,
+          customBackgroundType: req.user.plus2_custom_bg_type || 'image',
         },
         visualPrefs: mergeVisualPrefs(req.user.plus2_visual_prefs),
       });
@@ -310,7 +312,37 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
           if (background.is_premium && !unlocked) {
             return res.status(403).json({ error: 'Esse fundo é exclusivo de quem tem NEXTGAME PLUS' });
           }
-          await db.run('UPDATE users SET plus2_background_id = ? WHERE id = ?', [backgroundId, req.user.id]);
+          await db.run('UPDATE users SET plus2_background_id = ?, plus2_custom_bg_url = NULL WHERE id = ?', [backgroundId, req.user.id]);
+        }
+      }
+
+      // Fundo com imagem/GIF próprio (upload) — exclusivo de quem tem
+      // NEXTGAME PLUS. Mesmo padrão do customBannerUrl acima: a URL já vem
+      // pronta (upload direto pro storage via /api/uploads/presign do site
+      // principal), aqui só valida e guarda. Corrige o "imagem/GIF não
+      // funciona" — antes só existiam exemplos de ilustração no catálogo,
+      // sem nenhum jeito de a pessoa mandar um arquivo de verdade.
+      if (req.body && req.body.customBackgroundUrl !== undefined) {
+        const url = req.body.customBackgroundUrl;
+        if (url === null) {
+          await db.run('UPDATE users SET plus2_custom_bg_url = NULL WHERE id = ?', [req.user.id]);
+        } else {
+          if (!unlocked) {
+            return res.status(403).json({ error: 'Fundo com imagem própria é exclusivo de quem tem NEXTGAME PLUS' });
+          }
+          const isHttpsUrl = typeof url === 'string' && url.length <= 2048 && HTTPS_URL_RE.test(url);
+          const isInlineImage =
+            typeof url === 'string' && url.length <= MAX_INLINE_IMAGE_LENGTH && DATA_IMAGE_URI_RE.test(url);
+          if (!isHttpsUrl && !isInlineImage) {
+            return res.status(400).json({ error: 'URL de imagem/GIF inválida ou arquivo grande demais.' });
+          }
+          const bgType = req.body.customBackgroundType === 'gif' ? 'gif' : 'image';
+          // Imagem própria desliga o fundo escolhido do catálogo (só um dos
+          // dois fica ativo por vez, igual banner/tema).
+          await db.run(
+            'UPDATE users SET plus2_custom_bg_url = ?, plus2_custom_bg_type = ?, plus2_background_id = NULL WHERE id = ?',
+            [url, bgType, req.user.id]
+          );
         }
       }
 

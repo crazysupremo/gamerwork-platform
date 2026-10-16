@@ -199,6 +199,13 @@ const DEFAULT_THEMES = [
   // escolhido ele assume a identidade visual inteira (sidebar, topo, botões,
   // chat, glow etc.) via plus2-live.js — não precisa de nenhum código extra.
   { key: 'ddtank', name: 'DDTank', primary: '#ff5fa0', secondary: '#5fd4ff', highlight: '#ffd34d', text: '#fff2f8', button: '#210c1c', premium: true, effect: 'shine' },
+  // Tema sazonal "Halloween" — laranja-abóbora + roxo escuro + verde-zumbi,
+  // sobre fundo quase preto. Além da cor (que já se aplica em tudo sozinha,
+  // igual qualquer tema), o app.js liga uma classe `theme-halloween` no
+  // <body> quando esse tema está ativo (ver applyTheme() em plus2-live.js),
+  // que o style.css usa pra mostrar os extras exclusivos dele (morcegos
+  // voando, lua, neblina) só quando a pessoa escolhe esse tema específico.
+  { key: 'halloween', name: 'Halloween', primary: '#ff7a1a', secondary: '#6a1fb0', highlight: '#39ff6a', text: '#f1ecd8', button: '#07050c', premium: true, effect: 'glow' },
 ];
 
 const DEFAULT_BADGES = [

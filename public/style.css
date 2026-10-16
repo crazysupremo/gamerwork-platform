@@ -3787,6 +3787,46 @@ input:focus, textarea:focus, select:focus, #message-input:focus {
 }
 
 /* ==========================================================================
+   TEMA SAZONAL "HALLOWEEN" — decorativos exclusivos, só aparecem quando
+   esse tema está ativo (classe `theme-halloween` no <body>, ligada em
+   applyTheme() no plus2-live.js). Lua, neblina e morcegos voando são
+   elementos extras gerados aqui — nenhum HTML novo, só CSS + um punhado de
+   `<div>`s criados por JS (ver initHalloweenExtras() em app.js). ===== */
+body.theme-halloween #halloween-moon {
+  position: fixed; top: 40px; right: 70px; width: 70px; height: 70px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff7e0, #e8d9a8 60%, #b8a876);
+  box-shadow: 0 0 50px rgba(255,230,160,.45), 0 0 100px rgba(255,230,160,.2);
+  z-index: 0; pointer-events: none; animation: hwMoonGlow 4s ease-in-out infinite;
+}
+@keyframes hwMoonGlow {
+  0%, 100% { box-shadow: 0 0 50px rgba(255,230,160,.45), 0 0 100px rgba(255,230,160,.2); }
+  50% { box-shadow: 0 0 70px rgba(255,230,160,.65), 0 0 130px rgba(255,230,160,.35); }
+}
+body.theme-halloween #halloween-fog {
+  position: fixed; bottom: -200px; left: -10%; width: 120%; height: 380px; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 30% 100%, rgba(106,31,176,.28), transparent 60%),
+    radial-gradient(ellipse at 70% 100%, rgba(255,122,26,.14), transparent 55%);
+  animation: hwFogMove 14s ease-in-out infinite; opacity: .8;
+}
+@keyframes hwFogMove {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  50% { transform: translateX(30px) translateY(-20px); }
+}
+.hw-bat {
+  position: fixed; font-size: 20px; z-index: 0; pointer-events: none; opacity: .8;
+  filter: drop-shadow(0 0 6px rgba(0,0,0,.6)); animation: hwBatFly linear forwards;
+}
+@keyframes hwBatFly {
+  0% { transform: translate(-10vw, 10vh) scale(1); }
+  50% { transform: translate(55vw, -4vh) scale(.8) rotate(10deg); }
+  100% { transform: translate(115vw, 14vh) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.theme-halloween #halloween-moon, body.theme-halloween #halloween-fog, .hw-bat { animation: none !important; display: none !important; }
+}
+
+/* ==========================================================================
    RESPONSIVO — CELULAR (sem precisar instalar nada, direto pelo navegador)
    ==========================================================================
    O app inteiro (fora a tela de login, que já tinha um breakpoint próprio)

@@ -1153,6 +1153,14 @@ async function initDb() {
   // ---------- CONTA DE MODERADOR (acesso parcial: BLUEX + moderação básica) ----------
   await ensureColumn('users', 'is_moderator INTEGER NOT NULL DEFAULT 0');
   await seedModeratorAccount({ run, get });
+
+  // ---------- FUNDO PRÓPRIO (upload) NO NEXTGAME PLUS ----------
+  // Mesma ideia do banner com imagem própria (plus2_custom_banner_url) — a
+  // pessoa plus manda sua própria imagem/GIF de fundo em vez de escolher só
+  // do catálogo pronto. Corrige o "imagem/gif não funciona" do painel de
+  // Personalização (antes só existiam exemplos de ilustração no catálogo).
+  await ensureColumn('users', 'plus2_custom_bg_url TEXT');
+  await ensureColumn('users', "plus2_custom_bg_type TEXT NOT NULL DEFAULT 'image'");
 }
 
 // Conta de staff com acesso PARCIAL ao painel /admin.html — só as abas

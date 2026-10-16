@@ -119,6 +119,10 @@
   function applyTheme(theme) {
     if (!theme) return;
     const root = document.documentElement;
+    // Tema sazonal "Halloween" — além da cor (que se aplica sozinha, igual
+    // qualquer tema), liga uma classe extra no <body> que o style.css usa
+    // pra mostrar os decorativos exclusivos dele (morcegos, lua, neblina).
+    document.body.classList.toggle('theme-halloween', theme.key === 'halloween');
     root.style.setProperty('--accent', theme.colors.primary);
     root.style.setProperty('--accent-2', theme.colors.secondary);
     root.style.setProperty('--accent-3', theme.colors.highlight);
@@ -209,8 +213,18 @@
       } else if (bg.value === 'particles') {
         state._bgParticlesRequested = true;
       }
+    } else if ((bg.type === 'image' || bg.type === 'gif') && String(bg.value || '').indexOf('placeholder:') !== 0) {
+      // CORRIGIDO ("imagem/GIF não funciona"): agora desenha de verdade
+      // quando `value` é uma URL/imagem de verdade (upload próprio via
+      // Configurações → Personalização, ou um valor real de catálogo) — só
+      // os exemplos de ilustração do catálogo (prefixo "placeholder:",
+      // sem arquivo real por trás) continuam sem desenhar nada.
+      layer.style.backgroundImage = `url("${bg.value}")`;
+      layer.style.backgroundSize = 'cover';
+      layer.style.backgroundPosition = 'center';
+      layer.style.backgroundRepeat = 'no-repeat';
     } else {
-      // image/gif ainda são só exemplos no catálogo (sem arquivo real) —
+      // Exemplo de ilustração do catálogo (sem arquivo real por trás) —
       // não desenha nada pra não mostrar um placeholder quebrado; a escolha
       // continua salva normalmente.
       document.body.classList.remove('pv2-custom-bg-active');
@@ -283,7 +297,14 @@
   function applyAll(data) {
     const theme = [...data.themes, ...data.myCustomThemes].find((t) => t.id === data.current.themeId);
     applyTheme(theme);
-    applyBackground(data.backgrounds.find((b) => b.id === data.current.backgroundId), data.visualPrefs.background);
+    // CORRIGIDO ("fundo com imagem/GIF não funciona"): fundo com upload
+    // próprio tem prioridade sobre o escolhido do catálogo — mesmo padrão
+    // de banner/tema (ver applyIdentity() abaixo pro banner equivalente).
+    const customBgUrl = data.current.customBackgroundUrl;
+    const bg = customBgUrl
+      ? { key: 'custom-upload', type: data.current.customBackgroundType || 'image', value: customBgUrl }
+      : data.backgrounds.find((b) => b.id === data.current.backgroundId);
+    applyBackground(bg, data.visualPrefs.background);
     applyEffects(data.visualPrefs.effects, data.visualPrefs.performanceMode);
     applyChatState(data.visualPrefs.chat);
     applyIdentity(data);

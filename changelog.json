@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.59.0",
+    "date": "2026-10-17",
+    "changes": [
+      "Novo tema sazonal PLUS \"Halloween\": laranja-abóbora + roxo escuro + verde, com extras exclusivos só dele — lua cheia pulsando, neblina roxa subindo e morcegos voando atravessando a tela de vez em quando.",
+      "Fundo personalizado com imagem ou GIF próprio (upload de verdade) no NEXTGAME PLUS: antes só existiam exemplos de ilustração no catálogo que não desenhavam nada — agora dá pra enviar sua própria imagem/GIF em Configurações → Personalização → Fundo, do mesmo jeito que já funcionava pro banner do perfil.",
+      "Interatividade dos temas: confirmado que os efeitos novos (blobs de fundo, glow, hover) seguem automaticamente a cor de qualquer tema escolhido no catálogo (20 opções), sem precisar de ajuste por tema."
+    ]
+  },
+  {
     "version": "0.58.1",
     "date": "2026-10-17",
     "changes": [
