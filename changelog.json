@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.57.0",
+    "date": "2026-10-16",
+    "changes": [
+      "Tela de login repaginada e interativa: card com leve inclinação 3D que segue o mouse, blobs de gradiente rosa/azul se movendo devagar no fundo, campos de usuário/senha que acendem e 'levantam' ao focar, botão de entrar com brilho pulsante, logo 'respirando' e badges de confiança flutuando fora de sincronia — tudo respeitando quem prefere menos animação (prefers-reduced-motion).",
+      "Nenhuma rota, validação ou comportamento de login mudou — é só visual/CSS e JS de interação."
+    ]
+  },
+  {
     "version": "0.56.0",
     "date": "2026-10-10",
     "changes": [

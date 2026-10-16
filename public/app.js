@@ -11015,6 +11015,29 @@ document.getElementById('btn-test-output').onclick = async () => {
   observer.observe(document.getElementById('auth-screen'), { attributes: true, attributeFilter: ['class'] });
 })();
 
+// ---------- LOGIN INTERATIVO: card reage ao mouse (tilt 3D leve) ----------
+// Pedido: "bem interativo e bonito". Só visual — move o mouse por cima do
+// card de login e ele inclina de leve na direção do cursor (efeito usado em
+// landing pages premium). Em celular (sem mouse) simplesmente não ativa.
+(function initAuthInteractiveTilt() {
+  const card = document.querySelector('.auth-split');
+  if (!card) return;
+  const MAX_TILT = 4; // graus — sutil de propósito, não é pra exagerar
+  card.addEventListener('mousemove', (e) => {
+    const rect = card.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width; // 0..1
+    const py = (e.clientY - rect.top) / rect.height;
+    const tiltX = (px - 0.5) * 2 * MAX_TILT;
+    const tiltY = (py - 0.5) * -2 * MAX_TILT;
+    card.style.setProperty('--tiltX', tiltX.toFixed(2) + 'deg');
+    card.style.setProperty('--tiltY', tiltY.toFixed(2) + 'deg');
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.setProperty('--tiltX', '0deg');
+    card.style.setProperty('--tiltY', '0deg');
+  });
+})();
+
 // ---------- MÚSICA DE FUNDO DO LOGIN ----------
 // Se existir /assets/music/login-theme.mp3, toca em loop atrás do login.
 // Navegador bloqueia áudio automático COM SOM, então começa sempre mudo

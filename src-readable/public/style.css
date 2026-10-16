@@ -3557,6 +3557,125 @@ input:focus, textarea:focus, select:focus, #message-input:focus {
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* ==========================================================================
+   LOGIN INTERATIVO — repaginada da tela de autenticação (só CSS/JS visual,
+   nenhuma rota ou validação muda). Pedido: "bem interativo e bonito" — ideia
+   aqui é dar vida de verdade: blobs de gradiente se movendo atrás do card,
+   o card reagindo ao mouse (leve 3D), campos com glow ao focar, botão com
+   brilho pulsante, e o logo "respirando". ========================== */
+
+/* Blobs de gradiente grandes, desfocados, se movendo devagar atrás do card
+   — dá profundidade e cor sem atrapalhar a leitura (ficam bem borrados). */
+.auth-screen::before, .auth-screen::after {
+  content: '';
+  position: fixed;
+  width: 640px; height: 640px;
+  border-radius: 50%;
+  filter: blur(110px);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.55;
+}
+.auth-screen::before {
+  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  top: -220px; left: -160px;
+  animation: authBlobFloat1 16s ease-in-out infinite;
+}
+.auth-screen::after {
+  background: radial-gradient(circle, var(--accent-2) 0%, transparent 70%);
+  bottom: -260px; right: -180px;
+  animation: authBlobFloat2 18s ease-in-out infinite;
+}
+@keyframes authBlobFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(60px, 40px) scale(1.12); }
+}
+@keyframes authBlobFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-50px, -35px) scale(1.1); }
+}
+
+/* Card com leve perspectiva 3D — o JS (initAuthInteractive) atualiza
+   --tiltx/--tiltY conforme o mouse se move por cima do card. */
+.auth-split {
+  transform: perspective(1200px) rotateX(var(--tiltY, 0deg)) rotateY(var(--tiltX, 0deg));
+  transition: transform 0.15s ease-out, box-shadow 0.3s ease;
+  will-change: transform;
+}
+.auth-split:hover {
+  box-shadow: 0 40px 100px rgba(0,0,0,0.6), 0 0 60px rgba(var(--accent-rgb), 0.22);
+}
+
+/* Logo "respirando" — pulso bem sutil, contínuo, chama atenção sem cansar. */
+.auth-logo-badge, .auth-hero-brand-logo {
+  animation: authLogoBreathe 3.2s ease-in-out infinite;
+}
+@keyframes authLogoBreathe {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(var(--accent-rgb),0)); }
+  50% { transform: scale(1.05); filter: drop-shadow(0 0 14px rgba(var(--accent-rgb),0.55)); }
+}
+
+/* Campos de formulário — moldura acende e o ícone "pula" de leve ao focar,
+   em vez de só trocar a cor da borda (feedback mais vivo). */
+.input-icon-wrap {
+  transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.input-icon-wrap:focus-within {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.3), 0 0 0 2px rgba(var(--accent-rgb), 0.45);
+  border-color: var(--accent) !important;
+}
+.input-icon-wrap:focus-within svg, .input-icon-wrap:focus-within .ng-icon-wrap {
+  transform: scale(1.15);
+  color: var(--accent);
+}
+.input-icon-wrap svg, .input-icon-wrap .ng-icon-wrap { transition: transform 0.2s ease, color 0.2s ease; }
+
+/* Abas Entrar/Criar conta — a ativa ganha sublinhado em degradê animado. */
+.auth-tab { position: relative; overflow: visible; }
+.auth-tab.active::after {
+  content: '';
+  position: absolute; left: 10%; right: 10%; bottom: -2px; height: 3px;
+  border-radius: 4px;
+  background: var(--gradient-brand);
+  animation: authTabIn 0.3s ease;
+}
+@keyframes authTabIn { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Botão principal — brilho pulsante contínuo (bem sutil) + "zoom" de verdade
+   no hover, pra parecer clicável de longe. */
+.btn-register, #form-login button[type="submit"] {
+  position: relative;
+  animation: authBtnGlow 2.4s ease-in-out infinite;
+}
+@keyframes authBtnGlow {
+  0%, 100% { box-shadow: 0 8px 22px rgba(var(--accent-rgb), 0.35); }
+  50% { box-shadow: 0 8px 30px rgba(var(--accent-rgb), 0.6); }
+}
+.btn-register:hover, #form-login button[type="submit"]:hover {
+  transform: translateY(-2px) scale(1.015);
+}
+
+/* Trust badges (BLUEX, etc.) — aparecem com leve "flutuação" individual,
+   dessincronizada entre si, pra não parecer tudo travado no mesmo compasso. */
+.auth-trust-badge:nth-child(1) { animation: authFloat 4s ease-in-out infinite; }
+.auth-trust-badge:nth-child(2) { animation: authFloat 4s ease-in-out infinite 0.6s; }
+.auth-trust-badge:nth-child(3) { animation: authFloat 4s ease-in-out infinite 1.2s; }
+@keyframes authFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-screen::before, .auth-screen::after,
+  .auth-logo-badge, .auth-hero-brand-logo,
+  .btn-register, #form-login button[type="submit"],
+  .auth-trust-badge:nth-child(1), .auth-trust-badge:nth-child(2), .auth-trust-badge:nth-child(3) {
+    animation: none !important;
+  }
+  .auth-split { transform: none !important; }
+}
+
+/* ==========================================================================
    RESPONSIVO — CELULAR (sem precisar instalar nada, direto pelo navegador)
    ==========================================================================
    O app inteiro (fora a tela de login, que já tinha um breakpoint próprio)
