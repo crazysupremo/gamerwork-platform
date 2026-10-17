@@ -4146,3 +4146,70 @@ body.theme-halloween .halloween-home-card {
 @media (prefers-reduced-motion: reduce) {
   .halloween-home-jack { animation: none !important; }
 }
+
+/* ==========================================================================
+   HALLOWEEN "INCRÍVEL" — pedido explícito: efeitos fantásticos de verdade.
+   Canvas de partículas ambiente (fantasmas/abóboras flutuando com brilho,
+   ver initHalloweenExtras() em app.js), relâmpago aleatório, aranha descendo
+   o fio da teia, e uma vinheta escura nas bordas pra dar clima de filme de
+   terror. Tudo isso só existe/anima quando o tema Halloween está ativo. */
+#halloween-particles-canvas {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+}
+#halloween-vignette {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(5,2,10,0.55) 100%);
+}
+#halloween-lightning {
+  position: fixed; inset: 0; z-index: 3; pointer-events: none;
+  background: rgba(220,210,255,0); opacity: 0;
+}
+#halloween-lightning.hw-lightning-strike {
+  animation: hwLightningFlash 0.7s ease-out;
+}
+@keyframes hwLightningFlash {
+  0% { background: rgba(220,210,255,0); opacity: 0; }
+  8% { background: rgba(220,210,255,0.55); opacity: 1; }
+  16% { background: rgba(220,210,255,0.08); opacity: 1; }
+  24% { background: rgba(220,210,255,0.4); opacity: 1; }
+  40% { background: rgba(220,210,255,0.02); opacity: 1; }
+  100% { background: rgba(220,210,255,0); opacity: 0; }
+}
+
+/* Aranha pendurada numa linha de seda, descendo/subindo devagar e
+   balançando de leve — fica colada na teia do canto direito. */
+#halloween-spider {
+  position: fixed; top: -10px; right: 70px; z-index: 2; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center;
+  animation: hwSpiderDangle 8s ease-in-out infinite;
+  transform-origin: top center;
+}
+.hw-spider-thread {
+  width: 1px; height: 90px;
+  background: linear-gradient(rgba(230,210,255,.7), rgba(230,210,255,.25));
+}
+.hw-spider-body {
+  font-size: 22px; filter: drop-shadow(0 0 8px rgba(0,0,0,.6));
+  animation: hwSpiderSway 3s ease-in-out infinite;
+}
+@keyframes hwSpiderDangle {
+  0%, 100% { transform: translateY(0); }
+  20% { transform: translateY(60px); }
+  50% { transform: translateY(60px); }
+  70% { transform: translateY(0); }
+}
+@keyframes hwSpiderSway {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
+}
+
+/* Lua e teias ganham mais presença/brilho nessa versão "incrível". */
+body.theme-halloween #halloween-moon {
+  box-shadow: 0 0 60px rgba(255,230,160,.55), 0 0 120px rgba(255,230,160,.3), 0 0 180px rgba(118,40,199,.15);
+}
+.hw-web { opacity: .6; filter: drop-shadow(0 0 4px rgba(200,170,255,.3)); }
+
+@media (prefers-reduced-motion: reduce) {
+  #halloween-lightning.hw-lightning-strike { animation: none !important; }
+  #halloween-spider, .hw-spider-body { animation: none !important; }
+}

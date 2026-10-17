@@ -11088,43 +11088,117 @@ function animateHomeStatCounters(container) {
   });
 })();
 
-// ---------- TEMA SAZONAL "HALLOWEEN" — decorativos extras ----------
-// Lua e neblina são só 2 <div>s fixos (ligados/desligados junto com a classe
-// theme-halloween no <body>, ver applyTheme() em plus2-live.js). Morcegos
-// são gerados em intervalos, cada um atravessando a tela uma vez e se
-// removendo sozinho — só enquanto o tema Halloween estiver ativo.
+// ---------- TEMA SAZONAL "HALLOWEEN" — efeitos "incríveis" ----------
+// Pedido explícito: "fique incrível, com efeitos fantásticos". Em vez de só
+// a lua/neblina/morcegos fixos de antes, agora tem: partículas ambiente num
+// canvas (fantasmas + brasa subindo, com brilho de verdade), relâmpago
+// aleatório que ilumina a tela, uma aranha descendo/subindo o fio da teia, e
+// uma vinheta escura nas bordas pra dar clima. Tudo some sozinho quando o
+// tema Halloween não está ativo (um MutationObserver vigia a classe
+// `theme-halloween` no <body>, ligada em applyTheme() no plus2-live.js).
 (function initHalloweenExtras() {
-  let moon, fog, batTimer;
+  let moon, fog, vignette, lightning, spider, canvas, ctx;
+  let batTimer, lightningTimer, rafId;
+  let particles = [];
+  const PARTICLE_ICONS = ['👻', '🎃'];
+
   function ensureDecor() {
-    if (!moon) {
-      moon = document.createElement('div');
-      moon.id = 'halloween-moon';
-      document.body.appendChild(moon);
+    if (!moon) { moon = document.createElement('div'); moon.id = 'halloween-moon'; document.body.appendChild(moon); }
+    if (!fog) { fog = document.createElement('div'); fog.id = 'halloween-fog'; document.body.appendChild(fog); }
+    if (!vignette) { vignette = document.createElement('div'); vignette.id = 'halloween-vignette'; document.body.appendChild(vignette); }
+    if (!lightning) { lightning = document.createElement('div'); lightning.id = 'halloween-lightning'; document.body.appendChild(lightning); }
+    if (!spider) {
+      spider = document.createElement('div');
+      spider.id = 'halloween-spider';
+      spider.innerHTML = '<div class="hw-spider-thread"></div><div class="hw-spider-body">🕷️</div>';
+      document.body.appendChild(spider);
     }
-    if (!fog) {
-      fog = document.createElement('div');
-      fog.id = 'halloween-fog';
-      document.body.appendChild(fog);
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      canvas.id = 'halloween-particles-canvas';
+      document.body.appendChild(canvas);
+      ctx = canvas.getContext('2d');
+      resizeCanvas();
+      global.addEventListener('resize', resizeCanvas);
     }
   }
+
+  function resizeCanvas() {
+    if (!canvas) return;
+    canvas.width = global.innerWidth;
+    canvas.height = global.innerHeight;
+  }
+
+  function makeParticle() {
+    return {
+      icon: PARTICLE_ICONS[Math.floor(Math.random() * PARTICLE_ICONS.length)],
+      x: Math.random() * canvas.width,
+      y: canvas.height + 60 + Math.random() * 300,
+      size: 22 + Math.random() * 20,
+      speed: 0.25 + Math.random() * 0.5,
+      drift: (Math.random() - 0.5) * 0.5,
+      opacity: 0.18 + Math.random() * 0.22,
+      sway: Math.random() * Math.PI * 2,
+    };
+  }
+
+  function tickParticles() {
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach((p) => {
+      p.y -= p.speed;
+      p.sway += 0.02;
+      p.x += p.drift + Math.sin(p.sway) * 0.3;
+      if (p.y < -60) Object.assign(p, makeParticle(), { y: canvas.height + 60 });
+      ctx.save();
+      ctx.globalAlpha = p.opacity;
+      ctx.shadowColor = p.icon === '🎃' ? 'rgba(255,160,40,0.9)' : 'rgba(200,170,255,0.9)';
+      ctx.shadowBlur = 14;
+      ctx.font = p.size + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.icon, p.x, p.y);
+      ctx.restore();
+    });
+    rafId = requestAnimationFrame(tickParticles);
+  }
+
   function spawnBat() {
     const b = document.createElement('div');
     b.className = 'hw-bat';
     b.textContent = '🦇';
-    // AJUSTADO: voavam também na faixa de cima (10-60vh), cruzando em cima
-    // da barra de topo/ícones do chat — agora ficam só na metade de baixo
-    // da tela, longe de qualquer botão.
     b.style.top = (45 + Math.random() * 40) + 'vh';
     b.style.animationDuration = (6 + Math.random() * 5) + 's';
     document.body.appendChild(b);
     setTimeout(() => b.remove(), 12000);
   }
+
+  // Relâmpago de vez em quando — ilumina a tela por um instante e some.
+  // Intervalo aleatório (12-28s) pra não ficar previsível/cansativo.
+  function strikeLightning() {
+    if (!lightning) return;
+    lightning.classList.add('hw-lightning-strike');
+    setTimeout(() => lightning.classList.remove('hw-lightning-strike'), 700);
+    lightningTimer = setTimeout(strikeLightning, 12000 + Math.random() * 16000);
+  }
+
   function start() {
     ensureDecor();
     if (!batTimer) batTimer = setInterval(spawnBat, 3200);
+    if (particles.length === 0) {
+      for (let i = 0; i < 14; i++) {
+        const p = makeParticle();
+        p.y = Math.random() * canvas.height;
+        particles.push(p);
+      }
+    }
+    if (!rafId) tickParticles();
+    if (!lightningTimer) lightningTimer = setTimeout(strikeLightning, 6000 + Math.random() * 10000);
   }
   function stop() {
     if (batTimer) { clearInterval(batTimer); batTimer = null; }
+    if (lightningTimer) { clearTimeout(lightningTimer); lightningTimer = null; }
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
   }
   const observer = new MutationObserver(() => {
     if (document.body.classList.contains('theme-halloween')) start();
