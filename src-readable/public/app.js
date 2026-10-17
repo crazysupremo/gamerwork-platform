@@ -11134,6 +11134,69 @@ function animateHomeStatCounters(container) {
   if (document.body.classList.contains('theme-halloween')) start();
 })();
 
+// ---------- CARD "DOCE OU TRAVESSURA" (Início, tema Halloween) ----------
+// Pedido explícito: a versão "divertida de verdade" do tema, não só cor de
+// fundo — sorteia uma mensagem diferente a cada clique, igual o preview que
+// foi aprovado. O card inteiro já fica escondido/mostrado só via CSS
+// (body.theme-halloween .halloween-home-card) — aqui só liga o clique.
+(function initHalloweenTrickOrTreat() {
+  const btn = document.getElementById('halloween-trick-btn');
+  const jack = document.getElementById('halloween-jack');
+  const result = document.getElementById('halloween-candy-result');
+  if (!btn || !result) return;
+  const CANDIES = [
+    '🍬 +5 NEXT Coins!',
+    '👻 Buuu! Nada dessa vez...',
+    '🍫 +1 badge sazonal desbloqueado!',
+    '🕸️ Travessura: seu avatar treme por 3s',
+    '🎃 +10 NEXT Coins!',
+  ];
+  function trickOrTreat() {
+    result.textContent = CANDIES[Math.floor(Math.random() * CANDIES.length)];
+  }
+  btn.addEventListener('click', trickOrTreat);
+  if (jack) jack.addEventListener('click', trickOrTreat);
+})();
+
+// ---------- FAIXA ANIMADA DO TEMA (universal, qualquer tema) ----------
+// Pedido: "refaz todos os temas, estão sem interatividade" — em vez de só
+// Halloween/Magic Tank terem uma faixinha de identidade no menu lateral,
+// TODO tema ganha uma automaticamente agora, com o próprio nome do tema e
+// cor combinando (vem de applyTheme() -> expõe o tema atual em
+// window.PlusV2LiveCurrentTheme, ver plus2-live.js).
+(function initThemeBanner() {
+  function ensureBanner() {
+    const sidebar = document.getElementById('app-sidebar');
+    if (!sidebar) return null;
+    let banner = document.getElementById('app-sidebar-theme-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'app-sidebar-theme-banner';
+      banner.className = 'app-sidebar-theme-banner';
+      sidebar.appendChild(banner);
+    }
+    return banner;
+  }
+  function render() {
+    const theme = global.PlusV2LiveCurrentTheme;
+    const banner = ensureBanner();
+    if (!banner) return;
+    if (!theme || !theme.name) { banner.classList.add('hidden'); return; }
+    // Os temas sazonais (Halloween/Magic Tank) já têm texto/estilo próprio
+    // fixo via CSS (::after) — essa faixa genérica não entra em cima deles,
+    // pra não duplicar/competir visualmente com a já feita à mão.
+    if (document.body.classList.contains('theme-halloween') || document.body.classList.contains('theme-magic-tank')) {
+      banner.classList.add('hidden');
+      return;
+    }
+    banner.classList.remove('hidden');
+    banner.textContent = '✦ ' + theme.name.toUpperCase() + ' ✦';
+  }
+  const observer = new MutationObserver(render);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+  setTimeout(render, 300);
+})();
+
 // ---------- MÚSICA DE FUNDO DO LOGIN ----------
 // Se existir /assets/music/login-theme.mp3, toca em loop atrás do login.
 // Navegador bloqueia áudio automático COM SOM, então começa sempre mudo

@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.60.0",
+    "date": "2026-10-17",
+    "changes": [
+      "Halloween ganhou a versão 'divertida de verdade' na Início: abóbora grande, título 'Feliz Halloween, NEXT GAME!' e botão 'Doce ou travessura' que sorteia uma recompensa diferente a cada clique — mais teias de aranha decorativas nos cantos.",
+      "TODOS os 21 temas do catálogo agora ganham uma faixa animada de identidade no menu lateral (nome do tema + brilho na cor dele), não só Halloween e Magic Tank — qualquer tema novo que entrar no catálogo já ganha isso automaticamente."
+    ]
+  },
+  {
     "version": "0.59.4",
     "date": "2026-10-17",
     "changes": [

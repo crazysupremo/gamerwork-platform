@@ -130,6 +130,12 @@
   function applyTheme(theme) {
     if (!theme) return;
     const root = document.documentElement;
+    // Expõe o tema atual pro app.js conseguir ler o nome/cor sem duplicar
+    // esse dado — usado pela faixa de identidade genérica no menu lateral
+    // (ver initThemeBanner() em app.js), que funciona pra qualquer tema do
+    // catálogo, não só os 2 que ganharam decoração feita à mão (Halloween/
+    // Magic Tank).
+    global.PlusV2LiveCurrentTheme = theme;
     // Tema sazonal "Halloween" — além da cor (que se aplica sozinha, igual
     // qualquer tema), liga uma classe extra no <body> que o style.css usa
     // pra mostrar os decorativos exclusivos dele (morcegos, lua, neblina).

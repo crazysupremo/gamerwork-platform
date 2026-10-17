@@ -4074,3 +4074,75 @@ body.theme-magic-tank .app-sidebar .active {
 @media (prefers-reduced-motion: reduce) {
   body.theme-magic-tank .app-sidebar::after { animation: none; }
 }
+
+/* Card sazonal do Halloween na Início — a pedido, a versão "divertida de
+   verdade" (abóbora grande + botão de doce ou travessura), não só cor de
+   fundo. Fica escondido via CSS sempre que o tema não é o Halloween —
+   nenhum JS precisa checar isso, só o display. */
+.halloween-home-card { display: none; }
+body.theme-halloween .halloween-home-card {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 28px 24px; margin-bottom: 18px; border-radius: 20px;
+  background: linear-gradient(135deg, rgba(118,40,199,.22), rgba(255,122,26,.16));
+  border: 1px solid rgba(255,122,26,.3);
+  box-shadow: 0 20px 50px rgba(0,0,0,.35);
+  text-align: center;
+}
+.halloween-home-jack {
+  font-size: 64px; cursor: pointer; user-select: none;
+  filter: drop-shadow(0 0 22px rgba(255,160,40,.7));
+  animation: hwJackFlicker 3s ease-in-out infinite;
+  transition: transform .2s ease;
+}
+.halloween-home-jack:hover { transform: scale(1.1) rotate(-4deg); }
+@keyframes hwJackFlicker {
+  0%, 100% { filter: drop-shadow(0 0 22px rgba(255,160,40,.7)); }
+  45% { filter: drop-shadow(0 0 12px rgba(255,120,20,.4)); }
+  55% { filter: drop-shadow(0 0 28px rgba(255,180,60,.9)); }
+}
+.halloween-home-title { font-family: 'Baloo 2', sans-serif; font-size: 22px; font-weight: 800; margin: 0; }
+.halloween-home-title-grad {
+  background: linear-gradient(135deg, #ff7a1a, #6a1fb0);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.halloween-home-trick-btn {
+  background: linear-gradient(135deg, #ff7a1a, #6a1fb0);
+  border: 1px solid rgba(255,180,100,.4); color: #fff; font-weight: 800;
+  font-family: 'Baloo 2', sans-serif; padding: 12px 24px; border-radius: 14px;
+  cursor: pointer; font-size: 14px; box-shadow: 0 10px 26px rgba(255,122,26,.35);
+  transition: transform .2s ease;
+}
+.halloween-home-trick-btn:hover { transform: translateY(-3px) scale(1.03); }
+.halloween-candy-result { font-size: 13px; color: #ffd080; min-height: 18px; }
+
+/* Faixa de identidade do tema no menu lateral — GENÉRICA, funciona pra
+   qualquer um dos 21 temas do catálogo (não só Halloween/Magic Tank, que
+   têm a versão feita à mão via ::after). Cor e nome vêm das variáveis do
+   tema ativo, então qualquer tema novo já ganha isso de graça. */
+.app-sidebar-theme-banner {
+  display: block; margin: 8px 12px 12px; padding: 8px 10px; border-radius: 10px;
+  color: #fff; font-size: 10px; font-weight: 900; letter-spacing: 1.5px; text-align: center;
+  font-family: 'Baloo 2', sans-serif;
+  background: linear-gradient(110deg, rgba(var(--accent-rgb),.32), rgba(var(--accent-2-rgb),.24), rgba(var(--accent-rgb),.32));
+  background-size: 220% 100%;
+  border: 1px solid rgba(var(--accent-rgb),.35);
+  box-shadow: 0 0 18px rgba(var(--accent-rgb),.18);
+  text-shadow: 0 0 10px rgba(var(--accent-rgb),.5);
+  animation: themeBannerShine 5s ease-in-out infinite;
+}
+.app-sidebar-theme-banner.hidden { display: none; }
+@keyframes themeBannerShine { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar-theme-banner { animation: none; }
+}
+
+/* Teias de aranha decorativas nos dois cantos de cima — só no Halloween. */
+.hw-web {
+  position: fixed; top: -10px; width: 130px; height: 130px; z-index: 2;
+  opacity: .45; pointer-events: none;
+}
+.hw-web.left { left: -10px; }
+.hw-web.right { right: -10px; transform: scaleX(-1); }
+@media (prefers-reduced-motion: reduce) {
+  .halloween-home-jack { animation: none !important; }
+}

@@ -7,8 +7,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
 <link rel="icon" type="image/png" sizes="512x512" href="/assets/favicon-512.png" />
 <link rel="apple-touch-icon" href="/assets/favicon-180.png" />
-<link rel="stylesheet" href="/style.css?v=0.59.4" />
-<link rel="stylesheet" href="/plus2.css?v=0.59.4" />
+<link rel="stylesheet" href="/style.css?v=0.60.0" />
+<link rel="stylesheet" href="/plus2.css?v=0.60.0" />
 </head>
 <body>
 
@@ -386,6 +386,10 @@
   </div>
 </div>
 
+<!-- Teias de aranha decorativas (só aparecem com tema Halloween, ver CSS) -->
+<svg class="hw-web left" viewBox="0 0 100 100" aria-hidden="true"><g stroke="rgba(230,210,255,.6)" fill="none" stroke-width="1"><path d="M0 0 L100 100 M0 30 L55 85 M0 60 L30 90 M0 0 L0 100 M0 0 L100 0"/><path d="M0 15 Q20 20 25 35 M0 35 Q25 38 35 55 M0 55 Q30 55 40 70"/></g></svg>
+<svg class="hw-web right" viewBox="0 0 100 100" aria-hidden="true"><g stroke="rgba(230,210,255,.6)" fill="none" stroke-width="1"><path d="M0 0 L100 100 M0 30 L55 85 M0 60 L30 90 M0 0 L0 100 M0 0 L100 0"/><path d="M0 15 Q20 20 25 35 M0 35 Q25 38 35 55 M0 55 Q30 55 40 70"/></g></svg>
+
 <!-- APP PRINCIPAL -->
 <div id="app" class="app hidden">
   <!-- Sidebar única à esquerda: marca, navegação principal, Meus Servidores
@@ -749,6 +753,19 @@
     <section id="home-panel" class="home-panel">
       <!-- Banner de torneio em destaque, no topo — o cartão principal da tela -->
       <div id="home-tournament-banner" class="home-tournament-banner"></div>
+
+      <!-- Card sazonal do Halloween — só visível quando esse tema está
+           ativo (controlado 100% via CSS, ver body.theme-halloween
+           #halloween-home-card no style.css). "Doce ou travessura" sorteia
+           uma mensagem diferente a cada clique (ver initHalloweenExtras()
+           em app.js) — pedido explícito do dono do projeto, mais divertido
+           que só a cor/decoração de fundo. -->
+      <div id="halloween-home-card" class="halloween-home-card">
+        <div class="halloween-home-jack" id="halloween-jack">🎃</div>
+        <h2 class="halloween-home-title">Feliz <span class="halloween-home-title-grad">Halloween</span>, NEXT GAME!</h2>
+        <button type="button" class="halloween-home-trick-btn" id="halloween-trick-btn">🍬 Doce ou travessura</button>
+        <div id="halloween-candy-result" class="halloween-candy-result"></div>
+      </div>
 
       <div class="home-grid">
         <div class="home-col-main">
@@ -2492,11 +2509,11 @@
      pessoa, nunca passa nem fica salvo no nosso servidor. -->
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/icons.js?v=0.59.4"></script>
-<script src="/sfx.js?v=0.59.4"></script>
-<script src="/plus2.js?v=0.59.4"></script>
-<script src="/plus2-live.js?v=0.59.4"></script>
-<script src="/app.js?v=0.59.4"></script>
+<script src="/icons.js?v=0.60.0"></script>
+<script src="/sfx.js?v=0.60.0"></script>
+<script src="/plus2.js?v=0.60.0"></script>
+<script src="/plus2-live.js?v=0.60.0"></script>
+<script src="/app.js?v=0.60.0"></script>
 <script>
   // Dificulta cópia casual do conteúdo da página — bloqueia menu de botão
   // direito e alguns atalhos de DevTools. IMPORTANTE: isso NÃO esconde o
