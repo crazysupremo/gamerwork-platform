@@ -11152,7 +11152,10 @@ function animateHomeStatCounters(container) {
       if (p.y < -60) Object.assign(p, makeParticle(), { y: canvas.height + 60 });
       ctx.save();
       ctx.globalAlpha = p.opacity;
-      ctx.shadowColor = p.icon === '🎃' ? 'rgba(255,160,40,0.9)' : 'rgba(200,170,255,0.9)';
+      // AJUSTADO ("laranja com preto, não roxo"): o brilho do fantasma era
+      // lilás/roxo — trocado pra um branco-acinzentado fantasmagórico, sem
+      // puxar pro roxo que não combina com a paleta do tema.
+      ctx.shadowColor = p.icon === '🎃' ? 'rgba(255,160,40,0.9)' : 'rgba(225,225,235,0.9)';
       ctx.shadowBlur = 14;
       ctx.font = p.size + 'px sans-serif';
       ctx.textAlign = 'center';
@@ -11230,6 +11233,62 @@ function animateHomeStatCounters(container) {
   }
   btn.addEventListener('click', trickOrTreat);
   if (jack) jack.addEventListener('click', trickOrTreat);
+})();
+
+// ---------- TEMA ESPECIAL "DDTANK" — efeitos próprios ----------
+// Pedido: "o mesmo do DDTank" — igual o Halloween ganhou partículas ambiente,
+// o DDTank ganha as dele: coraçõezinhos e brilhos subindo, combinando com a
+// paleta fofa/pastel (rosa/azul-céu/dourado) desse tema específico.
+(function initDdtankExtras() {
+  let canvas, ctx, rafId;
+  let particles = [];
+  const ICONS = ['💕', '✨', '🎀'];
+
+  function ensureCanvas() {
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      canvas.id = 'ddtank-particles-canvas';
+      document.body.appendChild(canvas);
+      ctx = canvas.getContext('2d');
+      resize();
+      global.addEventListener('resize', resize);
+    }
+  }
+  function resize() { if (canvas) { canvas.width = global.innerWidth; canvas.height = global.innerHeight; } }
+  function make() {
+    return {
+      icon: ICONS[Math.floor(Math.random() * ICONS.length)],
+      x: Math.random() * canvas.width, y: canvas.height + 40 + Math.random() * 240,
+      size: 16 + Math.random() * 14, speed: 0.3 + Math.random() * 0.5,
+      drift: (Math.random() - 0.5) * 0.5, opacity: 0.25 + Math.random() * 0.3, sway: Math.random() * Math.PI * 2,
+    };
+  }
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach((p) => {
+      p.y -= p.speed; p.sway += 0.025; p.x += p.drift + Math.sin(p.sway) * 0.4;
+      if (p.y < -40) Object.assign(p, make(), { y: canvas.height + 40 });
+      ctx.save(); ctx.globalAlpha = p.opacity;
+      ctx.shadowColor = 'rgba(255,95,160,0.8)'; ctx.shadowBlur = 10;
+      ctx.font = p.size + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(p.icon, p.x, p.y); ctx.restore();
+    });
+    rafId = requestAnimationFrame(tick);
+  }
+  function start() {
+    ensureCanvas();
+    if (particles.length === 0) {
+      for (let i = 0; i < 10; i++) { const p = make(); p.y = Math.random() * canvas.height; particles.push(p); }
+    }
+    if (!rafId) tick();
+  }
+  function stop() { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } }
+  const observer = new MutationObserver(() => {
+    if (document.body.classList.contains('theme-ddtank')) start();
+    else stop();
+  });
+  observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  if (document.body.classList.contains('theme-ddtank')) start();
 })();
 
 // ---------- FAIXA ANIMADA DO TEMA (universal, qualquer tema) ----------

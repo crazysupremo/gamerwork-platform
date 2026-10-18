@@ -3798,24 +3798,27 @@ input:focus, textarea:focus, select:focus, #message-input:focus {
    elementos extras gerados aqui — nenhum HTML novo, só CSS + um punhado de
    `<div>`s criados por JS (ver initHalloweenExtras() em app.js). ===== */
 body.theme-halloween #halloween-moon {
-  /* AJUSTADO: z-index negativo escondeu a lua de vez atrás dos painéis
-     (ficou invisível, não só "atrás dos ícones") — volta a aparecer por
-     cima, só que agora no canto inferior direito, bem longe da barra de
-     topo/ícones do chat, então não atrapalha mais nada clicável. */
-  position: fixed; bottom: 90px; right: 36px; width: 64px; height: 64px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #fff7e0, #e8d9a8 60%, #b8a876);
-  box-shadow: 0 0 46px rgba(255,230,160,.4), 0 0 90px rgba(255,230,160,.18);
+  /* AJUSTADO ("a lua não tá dando pra ver direito"): bem maior, bem mais
+     brilhante, e num canto onde nenhum painel passa por cima (alto, acima
+     de onde a barra de topo/sidebar começam) — pra ficar impossível de não
+     ver, do jeito que foi pedido. */
+  position: fixed; top: 26px; right: 46px; width: 118px; height: 118px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fffaf0, #ffe9b8 55%, #e8c27a 85%);
+  box-shadow: 0 0 70px rgba(255,210,120,.75), 0 0 140px rgba(255,160,60,.45), 0 0 220px rgba(255,100,20,.22);
   z-index: 2; pointer-events: none; animation: hwMoonGlow 4s ease-in-out infinite;
 }
 @keyframes hwMoonGlow {
-  0%, 100% { box-shadow: 0 0 46px rgba(255,230,160,.4), 0 0 90px rgba(255,230,160,.18); }
-  50% { box-shadow: 0 0 64px rgba(255,230,160,.6), 0 0 120px rgba(255,230,160,.3); }
+  0%, 100% { box-shadow: 0 0 70px rgba(255,210,120,.75), 0 0 140px rgba(255,160,60,.45), 0 0 220px rgba(255,100,20,.22); }
+  50% { box-shadow: 0 0 95px rgba(255,210,120,.95), 0 0 170px rgba(255,160,60,.6), 0 0 260px rgba(255,100,20,.32); }
 }
 body.theme-halloween #halloween-fog {
+  /* AJUSTADO ("laranja com preto, não roxo"): a neblina roxa virou preta
+     (fumaça de verdade) misturada com o laranja, em vez da mistura roxo +
+     laranja que não combinava. */
   position: fixed; bottom: -200px; left: -10%; width: 120%; height: 380px; z-index: 1; pointer-events: none;
   background:
-    radial-gradient(ellipse at 30% 100%, rgba(106,31,176,.24), transparent 60%),
-    radial-gradient(ellipse at 70% 100%, rgba(255,122,26,.12), transparent 55%);
+    radial-gradient(ellipse at 30% 100%, rgba(5,5,8,.5), transparent 60%),
+    radial-gradient(ellipse at 70% 100%, rgba(255,122,26,.16), transparent 55%);
   animation: hwFogMove 14s ease-in-out infinite; opacity: .8;
 }
 @keyframes hwFogMove {
@@ -4011,11 +4014,14 @@ body, input, textarea, button, .message-content, .home-partner-game-info span {
    patch original corrigidos pra bater com os nomes reais do HTML
    (.text-panel/.members-panel). */
 body.theme-halloween {
+  /* AJUSTADO ("laranja com roxo não combina, laranja com preto sim"):
+     trocado --halloween-purple por --halloween-black, e os gradientes de
+     fundo agora misturam laranja com preto/fumaça, não mais roxo. */
   --halloween-orange: #ff7a1a;
-  --halloween-purple: #7628c7;
-  --halloween-green: #b7ff45;
-  background-image: radial-gradient(ellipse at 12% 0%, rgba(118,40,199,.19), transparent 42%),
-                    radial-gradient(ellipse at 88% 100%, rgba(255,122,26,.13), transparent 44%);
+  --halloween-black: #0a0a0a;
+  --halloween-red: #ff2e2e;
+  background-image: radial-gradient(ellipse at 12% 0%, rgba(10,10,10,.4), transparent 42%),
+                    radial-gradient(ellipse at 88% 100%, rgba(255,122,26,.18), transparent 44%);
   background-attachment: fixed;
 }
 body.theme-halloween .app-sidebar,
@@ -4032,10 +4038,11 @@ body.theme-halloween .app-sidebar::after {
   content: "🎃  SPOOKY SEASON";
   display: block; margin: 8px 12px 12px; padding: 7px 10px; border-radius: 10px;
   color: #ffe8cb; font-size: 10px; font-weight: 900; letter-spacing: 1.8px; text-align: center;
-  background: linear-gradient(100deg, rgba(118,40,199,.30), rgba(255,122,26,.22));
+  background: linear-gradient(100deg, rgba(10,10,10,.55), rgba(255,122,26,.3));
   border: 1px solid rgba(255,122,26,.28); text-shadow: 0 0 12px rgba(255,122,26,.6);
 }
-body.theme-halloween #halloween-moon { width: 74px; height: 74px; right: 30px; bottom: 82px; }
+/* (sem encolher a lua aqui — o tamanho/posição grande já vem definido mais
+   acima, de propósito, depois do pedido "a lua não tá dando pra ver direito") */
 body.theme-halloween #halloween-fog { opacity: .95; }
 .hw-bat { user-select: none; }
 
@@ -4083,7 +4090,7 @@ body.theme-magic-tank .app-sidebar .active {
 body.theme-halloween .halloween-home-card {
   display: flex; flex-direction: column; align-items: center; gap: 14px;
   padding: 28px 24px; margin-bottom: 18px; border-radius: 20px;
-  background: linear-gradient(135deg, rgba(118,40,199,.22), rgba(255,122,26,.16));
+  background: linear-gradient(135deg, rgba(10,10,10,.55), rgba(255,122,26,.22));
   border: 1px solid rgba(255,122,26,.3);
   box-shadow: 0 20px 50px rgba(0,0,0,.35);
   text-align: center;
@@ -4102,11 +4109,11 @@ body.theme-halloween .halloween-home-card {
 }
 .halloween-home-title { font-family: 'Baloo 2', sans-serif; font-size: 22px; font-weight: 800; margin: 0; }
 .halloween-home-title-grad {
-  background: linear-gradient(135deg, #ff7a1a, #6a1fb0);
+  background: linear-gradient(135deg, #ff7a1a, #1a1a1a);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .halloween-home-trick-btn {
-  background: linear-gradient(135deg, #ff7a1a, #6a1fb0);
+  background: linear-gradient(135deg, #ff7a1a, #1a1a1a);
   border: 1px solid rgba(255,180,100,.4); color: #fff; font-weight: 800;
   font-family: 'Baloo 2', sans-serif; padding: 12px 24px; border-radius: 14px;
   cursor: pointer; font-size: 14px; box-shadow: 0 10px 26px rgba(255,122,26,.35);
@@ -4203,13 +4210,21 @@ body.theme-halloween .halloween-home-card {
   50% { transform: rotate(6deg); }
 }
 
-/* Lua e teias ganham mais presença/brilho nessa versão "incrível". */
+/* Lua e teias ganham mais presença/brilho nessa versão "incrível" —
+   terceira camada de brilho trocada de roxo pra laranja-brasa, combinando
+   com o resto da paleta laranja+preto. */
 body.theme-halloween #halloween-moon {
-  box-shadow: 0 0 60px rgba(255,230,160,.55), 0 0 120px rgba(255,230,160,.3), 0 0 180px rgba(118,40,199,.15);
+  box-shadow: 0 0 70px rgba(255,210,120,.75), 0 0 140px rgba(255,160,60,.45), 0 0 220px rgba(255,80,20,.3);
 }
-.hw-web { opacity: .6; filter: drop-shadow(0 0 4px rgba(200,170,255,.3)); }
+.hw-web { opacity: .6; filter: drop-shadow(0 0 4px rgba(255,160,60,.35)); }
 
 @media (prefers-reduced-motion: reduce) {
   #halloween-lightning.hw-lightning-strike { animation: none !important; }
   #halloween-spider, .hw-spider-body { animation: none !important; }
+}
+
+/* Canvas de partículas fofas (coraçãozinho/brilho) do tema DDTank — ver
+   initDdtankExtras() em app.js. */
+#ddtank-particles-canvas {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
 }

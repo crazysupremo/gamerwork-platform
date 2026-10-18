@@ -144,6 +144,10 @@
     // (banner "MAGIC TANK PARTNER" com brilho, borda azul/dourada nos
     // painéis) só aparecem quando esse tema específico está ativo.
     document.body.classList.toggle('theme-magic-tank', theme.key === 'magic-tank');
+    // Mesma ideia pro tema DDTank — a pedido ("o mesmo do DDTank"): partículas
+    // de brilho/coraçãozinho flutuando, combinando com a paleta fofa/pastel
+    // dele (ver initDdtankExtras() em app.js).
+    document.body.classList.toggle('theme-ddtank', theme.key === 'ddtank');
     root.style.setProperty('--accent', theme.colors.primary);
     root.style.setProperty('--accent-2', theme.colors.secondary);
     root.style.setProperty('--accent-3', theme.colors.highlight);

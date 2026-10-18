@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.61.0",
+    "date": "2026-10-17",
+    "changes": [
+      "Halloween: trocado roxo por preto em toda a paleta (fundo, neblina, banner, título, botão) — laranja + preto, combinação clássica, no lugar da mistura laranja+roxo que não combinava.",
+      "Lua do Halloween bem maior e mais brilhante, reposicionada pro canto superior onde nenhum painel passa por cima — agora dá pra ver direito.",
+      "Tema DDTank ganhou efeitos próprios: coraçõezinhos e brilhos flutuando (💕✨🎀) combinando com a paleta rosa/azul-céu/dourado dele, igual o Halloween ganhou os fantasmas/abóboras."
+    ]
+  },
+  {
     "version": "0.60.1",
     "date": "2026-10-17",
     "changes": [
