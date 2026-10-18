@@ -1465,6 +1465,26 @@ document.getElementById('btn-toggle-servers').onclick = () => {
 };
 setServersCollapsed(localStorage.getItem(SERVERS_COLLAPSED_KEY) !== '0');
 
+// BUG CORRIGIDO: rolar a lista de servidores com o cursor parado em cima
+// fazia o navegador reavaliar :hover a cada item que passava por baixo do
+// ponteiro, disparando a transição de cor/glow repetidamente — parecia a
+// lista "mudando de cor sozinha". Enquanto a lista está sendo rolada,
+// suspendemos o destaque de hover (ver regra .is-scrolling no style.css);
+// volta ao normal pouco depois de o scroll parar.
+(function suppressHoverDuringScroll() {
+  const scrollables = ['server-rail-list', 'server-rail'];
+  let hideTimer = null;
+  scrollables.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('scroll', () => {
+      el.classList.add('is-scrolling');
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => el.classList.remove('is-scrolling'), 150);
+    }, { passive: true });
+  });
+})();
+
 // Mesma ideia pras seções Explorar/Competitivo/Sua Biblioteca — antes eram
 // só rótulos fixos, sem jeito de ocultar. Ao contrário de Servidores (que
 // começa fechado pra economizar espaço), essas três começam ABERTAS por
@@ -9467,6 +9487,36 @@ function createPeerConnection(peerId, username, userInfo) {
     }
     if (!stream.getTracks().includes(e.track)) stream.addTrack(e.track);
     addVideoTile(peerId, username, stream, remotePeerInfo[peerId]);
+
+    // BUG CORRIGIDO: quando quem transmite para o compartilhamento de tela
+    // (stopScreenShare() já remove a track certinho do lado de quem
+    // transmite), o navegador de quem assiste marca essa track remota como
+    // "ended" — mas nada escutava esse evento, então a track morta ficava
+    // presa dentro da MediaStream combinada do peer e o <video> continuava
+    // mostrando o último frame pra sempre (tela congelada). Isso só limpa a
+    // track encerrada da stream local (sem mexer em sinalização, ICE,
+    // RTCPeerConnection ou no lado de quem transmite); se não sobrar
+    // nenhuma track de vídeo, o elemento de vídeo é limpo e volta a mostrar
+    // o avatar. Áudio do mesmo peer continua tocando normalmente.
+    e.track.onended = () => {
+      const s = remoteStreams[peerId];
+      if (!s || !s.getTracks().includes(e.track)) return;
+      s.removeTrack(e.track);
+      if (e.track.kind === 'video') {
+        const tile = document.getElementById('tile-' + peerId);
+        const videoEl = tile && tile.querySelector('video');
+        if (videoEl) {
+          // Força o <video> a largar o último frame decodificado antes de
+          // reatribuir a mesma stream (já sem a track de vídeo morta) —
+          // addVideoTile() cuida de reatribuir srcObject, tocar o áudio
+          // restante (se houver) e alternar a classe audio-only/has-video
+          // pra voltar a mostrar o avatar, igual quando alguém entra só de
+          // voz numa chamada.
+          videoEl.srcObject = null;
+          addVideoTile(peerId, username, s, remotePeerInfo[peerId]);
+        }
+      }
+    };
   };
 
   pc.onnegotiationneeded = async () => {
@@ -11202,6 +11252,15 @@ function animateHomeStatCounters(container) {
     if (batTimer) { clearInterval(batTimer); batTimer = null; }
     if (lightningTimer) { clearTimeout(lightningTimer); lightningTimer = null; }
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    // BUG CORRIGIDO: antes, stop() só parava os timers/animação, mas nunca
+    // removia os elementos (lua, neblina, vinheta, relâmpago, aranha,
+    // canvas) do DOM — eles ficavam lá pra sempre depois da primeira vez
+    // que o tema Halloween era ativado. O CSS já foi corrigido pra só
+    // mostrá-los com body.theme-halloween, mas também limpamos o DOM aqui
+    // por segurança (evita acumular elementos escondidos à toa).
+    [moon, fog, vignette, lightning, spider, canvas].forEach((el) => el && el.remove());
+    moon = fog = vignette = lightning = spider = canvas = ctx = null;
+    particles = [];
   }
   const observer = new MutationObserver(() => {
     if (document.body.classList.contains('theme-halloween')) start();

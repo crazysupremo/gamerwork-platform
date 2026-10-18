@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.62.0",
+    "date": "2026-10-19",
+    "changes": [
+      "BUG CORRIGIDO: a lista de servidores mudava de cor sozinha ao rolar a página com o cursor parado em cima — o navegador reavaliava :hover a cada item que passava por baixo do ponteiro. Agora o destaque de hover é suspenso enquanto a lista está sendo rolada.",
+      "BUG CORRIGIDO: as teias de aranha decorativas e os efeitos do tema Halloween (vinheta escura, relâmpago, aranha pendurada, canvas de partículas) apareciam pra TODO MUNDO, em qualquer tema, em vez de só pra quem tinha o Halloween ativado — faltava o escopo 'body.theme-halloween' em várias regras de CSS.",
+      "BUG CORRIGIDO: quando alguém parava de transmitir a tela, quem estava assistindo ficava com o vídeo congelado no último frame em vez de ver a tela limpar. Faltava um listener no lado de quem assiste pra reagir ao fim da track de vídeo remota (o lado de quem transmite já estava correto)."
+    ]
+  },
+  {
     "version": "0.61.0",
     "date": "2026-10-17",
     "changes": [

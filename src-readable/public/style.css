@@ -3477,6 +3477,17 @@ h1, h2, h3, .auth-card-title, .auth-hero-title, .auth-hero-brand-name,
   box-shadow: 0 0 22px rgba(var(--accent-rgb),0.55) !important;
   transform: translateY(-1px);
 }
+/* BUG CORRIGIDO: rolar a lista com o cursor parado em cima faz o navegador
+   reavaliar :hover a cada item que passa por baixo do ponteiro, disparando a
+   transição de cor/glow repetidamente (parecia "mudar de cor sozinho").
+   Enquanto a lista está rolando (classe alternada via JS em app.js),
+   suprimimos o destaque de hover — o item ativo continua destacado normal. */
+.server-rail-list.is-scrolling .server-row:hover:not(.active),
+#server-rail.is-scrolling .server-row:hover:not(.active) {
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
 
 /* Itens de navegação e canais — cantos arredondados, destaque em degradê
    suave em vez de bloco sólido duro. */
@@ -4143,13 +4154,18 @@ body.theme-halloween .halloween-home-card {
   .app-sidebar-theme-banner { animation: none; }
 }
 
-/* Teias de aranha decorativas nos dois cantos de cima — só no Halloween. */
-.hw-web {
+/* Teias de aranha decorativas nos dois cantos de cima — só no Halloween.
+   BUG CORRIGIDO: essa regra não tinha o prefixo "body.theme-halloween",
+   então as teias (que ficam sempre no HTML, ver index.html) apareciam pra
+   TODO MUNDO, em qualquer tema — não só em quem tinha o Halloween ativado. */
+.hw-web { display: none; }
+body.theme-halloween .hw-web {
+  display: block;
   position: fixed; top: -10px; width: 130px; height: 130px; z-index: 2;
   opacity: .45; pointer-events: none;
 }
-.hw-web.left { left: -10px; }
-.hw-web.right { right: -10px; transform: scaleX(-1); }
+body.theme-halloween .hw-web.left { left: -10px; }
+body.theme-halloween .hw-web.right { right: -10px; transform: scaleX(-1); }
 @media (prefers-reduced-motion: reduce) {
   .halloween-home-jack { animation: none !important; }
 }
@@ -4160,18 +4176,33 @@ body.theme-halloween .halloween-home-card {
    ver initHalloweenExtras() em app.js), relâmpago aleatório, aranha descendo
    o fio da teia, e uma vinheta escura nas bordas pra dar clima de filme de
    terror. Tudo isso só existe/anima quando o tema Halloween está ativo. */
-#halloween-particles-canvas {
+/* BUG CORRIGIDO: estas 4 regras (canvas de partículas, vinheta escura,
+   relâmpago e aranha, mais abaixo) não tinham o prefixo "body.theme-halloween"
+   — diferente de #halloween-moon/#halloween-fog, que já tinham o prefixo
+   certo. Resultado: assim que alguém ativava o Halloween uma vez, esses
+   elementos ficavam no DOM (a função stop() só para as animações, não
+   remove os elementos) e continuavam visíveis/aplicados pra sempre,
+   independente do tema realmente ativo — inclusive pra outros usuários que
+   nunca selecionaram esse tema. Agora ficam escondidos por padrão e só
+   aparecem com body.theme-halloween. */
+#halloween-particles-canvas, #halloween-vignette, #halloween-lightning, #halloween-spider {
+  display: none;
+}
+body.theme-halloween #halloween-particles-canvas {
+  display: block;
   position: fixed; inset: 0; z-index: 1; pointer-events: none;
 }
-#halloween-vignette {
+body.theme-halloween #halloween-vignette {
+  display: block;
   position: fixed; inset: 0; z-index: 1; pointer-events: none;
   background: radial-gradient(ellipse at center, transparent 45%, rgba(5,2,10,0.55) 100%);
 }
-#halloween-lightning {
+body.theme-halloween #halloween-lightning {
+  display: block;
   position: fixed; inset: 0; z-index: 3; pointer-events: none;
   background: rgba(220,210,255,0); opacity: 0;
 }
-#halloween-lightning.hw-lightning-strike {
+body.theme-halloween #halloween-lightning.hw-lightning-strike {
   animation: hwLightningFlash 0.7s ease-out;
 }
 @keyframes hwLightningFlash {
@@ -4185,9 +4216,10 @@ body.theme-halloween .halloween-home-card {
 
 /* Aranha pendurada numa linha de seda, descendo/subindo devagar e
    balançando de leve — fica colada na teia do canto direito. */
-#halloween-spider {
+body.theme-halloween #halloween-spider {
+  display: flex;
   position: fixed; top: -10px; right: 70px; z-index: 2; pointer-events: none;
-  display: flex; flex-direction: column; align-items: center;
+  flex-direction: column; align-items: center;
   animation: hwSpiderDangle 8s ease-in-out infinite;
   transform-origin: top center;
 }
