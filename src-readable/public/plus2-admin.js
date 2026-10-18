@@ -48,13 +48,32 @@
       const input = el('input', { type: 'number', class: 'pv2a-input', value: value !== undefined ? String(value) : '0' });
       return input;
     }
+    if (field.type === 'datetime-local') {
+      // Data/hora exata de lançamento de um tema especial — campo nativo do
+      // navegador (seletor de calendário + hora), nada de digitar texto à
+      // mão. Vazio = sem data (tema já disponível desde sempre).
+      const input = el('input', { type: 'datetime-local', class: 'pv2a-input', value: isoToDatetimeLocal(value) });
+      return input;
+    }
     const input = el('input', { type: 'text', class: 'pv2a-input', value: value || '' });
     return input;
+  }
+
+  // Converte um ISO completo do banco ("2026-12-25T00:00:00.000Z") pro
+  // formato que o <input type="datetime-local"> aceita ("2026-12-25T00:00"),
+  // no fuso local do navegador de quem está editando no admin.
+  function isoToDatetimeLocal(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   function fieldValue(field, input) {
     if (field.type === 'checkbox') return input.checked;
     if (field.type === 'number') return Number(input.value) || 0;
+    if (field.type === 'datetime-local') return input.value || null; // vazio = sem data de lançamento
     return input.value;
   }
 
@@ -189,6 +208,11 @@
     { key: 'effect', label: 'Efeito', type: 'select', options: [{ value: 'none', label: 'Nenhum' }, { value: 'shine', label: 'Shine' }, { value: 'glow', label: 'Glow' }, { value: 'pulse', label: 'Pulse' }] },
     { key: 'premium', label: 'PLUS', type: 'checkbox' },
     { key: 'sortOrder', label: 'Ordem', type: 'number', default: 0 },
+    // Tema especial com lançamento programado: vazio = disponível na hora;
+    // com data/hora marcada, o tema só aparece liberado na galeria dos
+    // usuários a partir desse momento exato (até lá, aparece com cadeado e a
+    // data "disponível em..."). Ex.: tema de Natal, só libera 25/12 00:00.
+    { key: 'releaseAt', label: 'Lançamento em (vazio = já disponível)', type: 'datetime-local' },
   ];
   const BACKGROUND_FIELDS = [
     { key: 'name', label: 'Nome', type: 'text' },
@@ -222,6 +246,14 @@
 
   function themePreview(t) {
     const dot = el('div', { style: `width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg, ${t.primary || '#00ff9d'}, ${t.secondary || '#00e5ff'});` });
+    // Indicador rápido pro admin ver, sem precisar abrir o campo de data, se
+    // esse tema ainda está com lançamento agendado pro futuro.
+    if (t.releaseAt && new Date(t.releaseAt).getTime() > Date.now()) {
+      const wrap = el('div', { style: 'display:flex; flex-direction:column; align-items:center; gap:2px;' });
+      wrap.appendChild(dot);
+      wrap.appendChild(el('span', { style: 'font-size:9px; color:#ffd34d;' }, ['⏳ agendado']));
+      return wrap;
+    }
     return dot;
   }
   function backgroundPreview(b) {

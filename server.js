@@ -8341,25 +8341,46 @@ app.post(
   })
 );
 
-// ---------- SELO DE SERVIDOR OFICIAL (selo azul) ----------
+// ---------- SELO DE SERVIDOR OFICIAL (selo azul) + VISÃO GERAL (admin) ----------
 // Só admin de verdade (requireAdmin, não moderador) pode marcar QUALQUER
 // servidor como oficial NEXT GAME — liga/desliga na hora, quantas vezes
 // quiser, em qualquer servidor (não só os pré-cadastrados no seed).
+//
+// Esse MESMO endpoint também é a visão "todos os servidores da plataforma"
+// pedida pelo admin: dono (join com users), data de criação, contagem de
+// canais e de membros. Antes só devolvia categoria/ícone/selo/membros e
+// tinha um LIMIT 50 fixo sem paginação — agora devolve tudo que o painel
+// precisa pra listar e auditar qualquer servidor criado por qualquer
+// usuário, com paginação de verdade (?limit=&offset=) pra plataformas com
+// muitos servidores.
 app.get(
   '/api/admin/servers/search',
   requireAuth,
   requireAdmin,
   asyncHandler(async (req, res) => {
     const q = String(req.query.q || '').trim();
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 500);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    // Busca tanto pelo nome do servidor quanto pelo username do dono — mais
+    // útil pro admin do que só poder buscar pela categoria.
+    const where = q ? 'WHERE s.category LIKE ? OR u.username LIKE ?' : '';
     const rows = await db.all(
-      `SELECT s.category, s.icon, s.is_official,
-        (SELECT COUNT(*) FROM server_members WHERE category = s.category) as member_count
+      `SELECT s.category, s.icon, s.is_official, s.owner_id, s.created_at,
+        u.username AS owner_username,
+        (SELECT COUNT(*) FROM server_members WHERE category = s.category) as member_count,
+        (SELECT COUNT(*) FROM channels WHERE category = s.category) as channel_count
        FROM servers s
-       ${q ? 'WHERE s.category LIKE ?' : ''}
-       ORDER BY s.is_official DESC, s.category ASC LIMIT 50`,
-      q ? [`%${q}%`] : []
+       LEFT JOIN users u ON u.id = s.owner_id
+       ${where}
+       ORDER BY s.created_at DESC
+       LIMIT ? OFFSET ?`,
+      q ? [`%${q}%`, `%${q}%`, limit, offset] : [limit, offset]
     );
-    res.json(rows);
+    const [{ total }] = await db.all(
+      `SELECT COUNT(*) as total FROM servers s LEFT JOIN users u ON u.id = s.owner_id ${where}`,
+      q ? [`%${q}%`, `%${q}%`] : []
+    );
+    res.json({ servers: rows, total, limit, offset });
   })
 );
 

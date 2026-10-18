@@ -1161,6 +1161,26 @@ async function initDb() {
   // Personalização (antes só existiam exemplos de ilustração no catálogo).
   await ensureColumn('users', 'plus2_custom_bg_url TEXT');
   await ensureColumn('users', "plus2_custom_bg_type TEXT NOT NULL DEFAULT 'image'");
+
+  // ---------- DATA DE CRIAÇÃO DO SERVIDOR (visão admin "todos os servidores") ----------
+  // A tabela "servers" nunca teve coluna de data de criação (só updated_at,
+  // que muda toda vez que o servidor é editado). Pra admin conseguir ver
+  // quando cada servidor foi criado, adiciona a coluna (servidores novos já
+  // gravam certo, ver POST /api/servers em server.js) e faz um backfill pra
+  // quem já existia: usa a data do canal mais antigo daquele servidor (o
+  // canal "#geral" é sempre criado junto com o servidor, então é a melhor
+  // aproximação disponível da data de criação real). Roda toda vez que o
+  // servidor sobe, mas é idempotente — recalcula o mesmo valor sempre que já
+  // existe pelo menos um canal, e não mexe em servidores sem nenhum canal.
+  await ensureColumn('servers', "created_at TEXT NOT NULL DEFAULT (datetime('now'))");
+  await run(`
+    UPDATE servers
+    SET created_at = (SELECT MIN(c.created_at) FROM channels c WHERE c.category = servers.category)
+    WHERE EXISTS (SELECT 1 FROM channels c WHERE c.category = servers.category)
+  `).catch(() => {
+    // Melhor esforço — se por algum motivo falhar, created_at já tem o
+    // DEFAULT (datetime('now')) aplicado pelo ensureColumn acima.
+  });
 }
 
 // Conta de staff com acesso PARCIAL ao painel /admin.html — só as abas

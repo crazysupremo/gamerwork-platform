@@ -31,7 +31,29 @@ const COLOR_MODES = new Set(['per_user', 'theme', 'mono']);
 const FONT_SIZES = new Set(['small', 'medium', 'large']);
 const MENTION_EFFECTS = new Set(['none', 'highlight', 'shake', 'glow']);
 
-function themeOut(t, unlocked) {
+// Valida/normaliza a data de lançamento vinda do admin (campo <input
+// type="datetime-local">, formato "2026-12-25T00:00") — devolve null (sem
+// data = tema já disponível) ou uma string ISO completa pra gravar no banco.
+function normalizeReleaseAt(value) {
+  if (value === null || value === undefined || value === '') return { ok: true, value: null };
+  if (typeof value !== 'string') return { ok: false };
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return { ok: false };
+  return { ok: true, value: d.toISOString() };
+}
+
+// Tema com release_at no futuro = "lançamento programado": a pessoa ainda
+// não pode usar, mas o tema continua aparecendo na galeria (com cadeado + a
+// data exata), em vez de simplesmente sumir do catálogo (era assim que o
+// Halloween funcionava antes — removido da lista por completo depois de uma
+// data fixa no código). Controlável pelo admin via o campo release_at.
+function isThemeReleased(t, now) {
+  if (!t.release_at) return true;
+  return new Date(t.release_at).getTime() <= now.getTime();
+}
+
+function themeOut(t, unlocked, now) {
+  const released = isThemeReleased(t, now || new Date());
   return {
     id: t.id,
     key: t.key,
@@ -48,7 +70,12 @@ function themeOut(t, unlocked) {
     premium: !!t.is_premium,
     preset: !!t.is_preset,
     custom: !t.is_preset,
-    locked: !!t.is_premium && !unlocked,
+    // Data exata de lançamento definida pelo admin (null = sem data, tema já
+    // disponível desde sempre). comingSoon fica true enquanto a data ainda
+    // não chegou — o frontend usa isso pra mostrar "disponível em XX/XX".
+    releaseAt: t.release_at || null,
+    comingSoon: !released,
+    locked: (!!t.is_premium && !unlocked) || !released,
   };
 }
 
@@ -254,6 +281,15 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
           if (theme.is_premium && !unlocked) {
             return res.status(403).json({ error: 'Esse tema é exclusivo de quem tem NEXTGAME PLUS' });
           }
+          // Reforça no servidor a data de lançamento (release_at) definida
+          // pelo admin — sem isso, dava pra escolher um tema "ainda não
+          // lançado" direto pela API, mesmo que a galeria mostrasse cadeado.
+          if (!isThemeReleased(theme, new Date())) {
+            return res.status(403).json({
+              error: 'Esse tema ainda não foi lançado.',
+              releaseAt: theme.release_at,
+            });
+          }
           await db.run('UPDATE users SET plus2_theme_id = ? WHERE id = ?', [themeId, req.user.id]);
         }
       }
@@ -447,6 +483,8 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
           primary: t.primary_color, secondary: t.secondary_color, highlight: t.highlight_color,
           text: t.text_color, button: t.button_color, darkMode: !!t.dark_mode, effect: t.effect,
           premium: !!t.is_premium, sortOrder: t.sort_order,
+          // Data exata de lançamento (null = sem data, já disponível).
+          releaseAt: t.release_at || null,
         })),
         backgrounds: backgrounds.map((b) => ({ id: b.id, key: b.key, name: b.name, type: b.type, value: b.value, premium: !!b.is_premium, sortOrder: b.sort_order })),
         banners: banners.map((b) => ({ id: b.id, key: b.key, name: b.name, style: b.style, value: b.value, premium: !!b.is_premium, sortOrder: b.sort_order })),
@@ -575,7 +613,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
     requireAuth,
     requireAdmin,
     asyncHandler(async (req, res) => {
-      const { key, name, primary, secondary, highlight, text, button, darkMode, effect, premium, sortOrder } = req.body || {};
+      const { key, name, primary, secondary, highlight, text, button, darkMode, effect, premium, sortOrder, releaseAt } = req.body || {};
       const colors = { primary, secondary, highlight, text, button };
       for (const [k, v] of Object.entries(colors)) {
         if (typeof v !== 'string' || !HEX_COLOR_RE.test(v)) {
@@ -583,12 +621,14 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
         }
       }
       if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Nome é obrigatório' });
+      const releaseAtResult = normalizeReleaseAt(releaseAt);
+      if (!releaseAtResult.ok) return res.status(400).json({ error: 'Data de lançamento inválida' });
       const id = newId();
       await db.run(
         `INSERT INTO plus_v2_themes
-          (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?)`,
-        [id, key || null, name.trim(), primary, secondary, highlight, text, button, darkMode ? 1 : 0, EFFECTS.has(effect) ? effect : 'none', premium ? 1 : 0, sortOrder || 0]
+          (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, release_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, ?)`,
+        [id, key || null, name.trim(), primary, secondary, highlight, text, button, darkMode ? 1 : 0, EFFECTS.has(effect) ? effect : 'none', premium ? 1 : 0, sortOrder || 0, releaseAtResult.value]
       );
       res.json({ ok: true, id });
     })
@@ -617,6 +657,12 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
       if (typeof fields.effect === 'string' && EFFECTS.has(fields.effect)) { sets.push('effect = ?'); values.push(fields.effect); }
       if (typeof fields.premium === 'boolean') { sets.push('is_premium = ?'); values.push(fields.premium ? 1 : 0); }
       if (typeof fields.sortOrder === 'number') { sets.push('sort_order = ?'); values.push(fields.sortOrder); }
+      if (fields.releaseAt !== undefined) {
+        const releaseAtResult = normalizeReleaseAt(fields.releaseAt);
+        if (!releaseAtResult.ok) return res.status(400).json({ error: 'Data de lançamento inválida' });
+        sets.push('release_at = ?');
+        values.push(releaseAtResult.value);
+      }
       if (!sets.length) return res.json({ ok: true });
       values.push(req.params.id);
       await db.run(`UPDATE plus_v2_themes SET ${sets.join(', ')} WHERE id = ?`, values);

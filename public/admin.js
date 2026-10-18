@@ -625,21 +625,37 @@ body: JSON.stringify({ official_servers_pinned: e.target.checked }),
 });
 });
 
-async function loadOfficialServers(q) {
-const res = await fetch(`/api/admin/servers/search${q ? '?q=' + encodeURIComponent(q) : ''}`, {
+// Visão "todos os servidores da plataforma" — não é só sobre o selo
+// oficial (o nome da função ficou pra não quebrar quem já chama ela, mas o
+// endpoint agora devolve TODO servidor criado por qualquer usuário, com
+// dono/data/canais/membros, paginado). currentServersOffset guarda a
+// página atual pra Anterior/Próxima funcionarem.
+let currentServersOffset = 0;
+const SERVERS_PAGE_SIZE = 50;
+async function loadOfficialServers(q, offset) {
+currentServersOffset = offset || 0;
+const params = new URLSearchParams();
+if (q) params.set('q', q);
+params.set('limit', String(SERVERS_PAGE_SIZE));
+params.set('offset', String(currentServersOffset));
+const res = await fetch(`/api/admin/servers/search?${params.toString()}`, {
 credentials: 'include',
 });
-const rows = await res.json();
+const data = await res.json();
+const rows = data.servers || [];
 const tbody = document.querySelector('#official-servers-table tbody');
 tbody.innerHTML = '';
 if (rows.length === 0) {
-tbody.innerHTML = '<tr><td colspan="4" style="color:#949ba4;">Nenhum servidor encontrado.</td></tr>';
-return;
-}
+tbody.innerHTML = '<tr><td colspan="7" style="color:#949ba4;">Nenhum servidor encontrado.</td></tr>';
+} else {
 rows.forEach((s) => {
 const tr = document.createElement('tr');
+const createdLabel = s.created_at ? new Date(s.created_at).toLocaleString('pt-BR') : '—';
 tr.innerHTML = `
 <td>${escapeHtml(s.category)}</td>
+<td>${s.owner_username ? escapeHtml(s.owner_username) : '<span style="color:#949ba4;">— (sem dono/seed)</span>'}</td>
+<td>${createdLabel}</td>
+<td>${s.channel_count}</td>
 <td>${s.member_count}</td>
 <td>${
 s.is_official
@@ -660,18 +676,40 @@ await fetch(`/api/admin/servers/${encodeURIComponent(btn.dataset.category)}/togg
 method: 'POST',
 credentials: 'include',
 });
-loadOfficialServers(document.getElementById('official-server-search').value.trim());
+loadOfficialServers(document.getElementById('official-server-search').value.trim(), currentServersOffset);
 })
 );
 }
 
+const pager = document.getElementById('official-servers-pagination');
+if (pager) {
+const total = data.total || 0;
+const from = total === 0 ? 0 : currentServersOffset + 1;
+const to = Math.min(currentServersOffset + SERVERS_PAGE_SIZE, total);
+pager.innerHTML = '';
+pager.appendChild(document.createTextNode(`${from}–${to} de ${total} servidor(es)`));
+const prevBtn = document.createElement('button');
+prevBtn.className = 'action';
+prevBtn.textContent = '← Anterior';
+prevBtn.disabled = currentServersOffset === 0;
+prevBtn.onclick = () => loadOfficialServers(q, Math.max(currentServersOffset - SERVERS_PAGE_SIZE, 0));
+const nextBtn = document.createElement('button');
+nextBtn.className = 'action';
+nextBtn.textContent = 'Próxima →';
+nextBtn.disabled = currentServersOffset + SERVERS_PAGE_SIZE >= total;
+nextBtn.onclick = () => loadOfficialServers(q, currentServersOffset + SERVERS_PAGE_SIZE);
+pager.appendChild(prevBtn);
+pager.appendChild(nextBtn);
+}
+}
+
 document.getElementById('btn-official-server-search').addEventListener('click', () => {
-loadOfficialServers(document.getElementById('official-server-search').value.trim());
+loadOfficialServers(document.getElementById('official-server-search').value.trim(), 0);
 });
 document.getElementById('official-server-search').addEventListener('keydown', (e) => {
 if (e.key === 'Enter') {
 e.preventDefault();
-loadOfficialServers(document.getElementById('official-server-search').value.trim());
+loadOfficialServers(document.getElementById('official-server-search').value.trim(), 0);
 }
 });
 

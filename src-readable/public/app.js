@@ -5881,7 +5881,20 @@ async function mountPlusV2Personalization() {
     const adapter = PlusV2.createHttpAdapter({ fetch: window.fetch.bind(window) });
     await PlusV2.mount(root, adapter, {
       onThemeApplied: (t) => showCopyToast('Tema "' + t.name + '" aplicado ✓'),
-      onLockedClick: (kind, item) => showCopyToast('🔒 "' + item.name + '" é exclusivo do NEXTGAME PLUS'),
+      onLockedClick: (kind, item) => {
+        // Tema com lançamento programado (comingSoon) tem uma mensagem
+        // diferente de "é PLUS" — mostra a data exata em que vai liberar,
+        // definida pelo admin (ver aba Personalização do painel admin).
+        if (item && item.comingSoon && item.releaseAt) {
+          const d = new Date(item.releaseAt);
+          const formatted = Number.isNaN(d.getTime())
+            ? ''
+            : d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+          showCopyToast('⏳ "' + item.name + '" ainda não foi lançado' + (formatted ? ' — disponível em ' + formatted : ''));
+          return;
+        }
+        showCopyToast('🔒 "' + item.name + '" é exclusivo do NEXTGAME PLUS');
+      },
       onUploadError: (err) => showCopyToast('Erro no upload: ' + err.message),
       // Cada mudança salva (tema, fundo, efeito, chat, badge, banner) chama
       // isso — reaplica tudo na hora, sem precisar recarregar a página.

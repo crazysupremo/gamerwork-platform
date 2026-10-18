@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.63.0",
+    "date": "2026-10-19",
+    "changes": [
+      "NOVO: temas especiais com data de lançamento exata, controlável pelo admin (painel Personalização → Temas → campo 'Lançamento em'). O tema aparece na galeria com cadeado e a data ('⏳ em 25/12/2026') até esse momento chegar — em vez do antigo esquema do Halloween, que tinha a data '31/10' fixa direto no código-fonte.",
+      "NOVO: a seção 'Servidores' do admin agora lista TODOS os servidores já criados na plataforma por qualquer usuário — nome, dono, data de criação, quantidade de canais e de membros, com busca por nome ou dono e paginação (antes mostrava só até 50 servidores, sem dono nem data).",
+      "Reforço de segurança: a escolha de tema (PATCH /api/plus2/me) agora valida a data de lançamento no servidor também, não só na galeria — fecha uma brecha onde um tema 'ainda não lançado' podia ser selecionado direto pela API."
+    ]
+  },
+  {
     "version": "0.62.0",
     "date": "2026-10-19",
     "changes": [

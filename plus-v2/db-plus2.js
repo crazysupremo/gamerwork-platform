@@ -143,6 +143,13 @@ async function ensurePlusV2Schema(db) {
   // ficam todas num JSON só, pra não precisar de uma coluna nova pra cada
   // checkbox futuro. Ver DEFAULT_VISUAL_PREFS abaixo pro formato.
   await ensureColumn('users', 'plus2_visual_prefs TEXT');
+
+  // Data/hora exata de lançamento de um tema especial (ex.: "Natal" só fica
+  // disponível a partir de 25/12/2026 00:00) — controlável pelo admin, em vez
+  // de datas escondidas no código-fonte (era assim que o Halloween funcionava
+  // antes). NULL = tema sempre disponível, sem data de lançamento. Formato
+  // ISO completo (ex.: "2026-12-25T00:00:00"), comparado em UTC no servidor.
+  await ensureColumn('plus_v2_themes', 'release_at TEXT');
 }
 
 // ---------------------------------------------------------------------------

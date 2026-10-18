@@ -74,6 +74,10 @@
   font-weight: 800; padding: 3px 7px; border-radius: 20px; display: flex; align-items: center; gap: 3px;
   backdrop-filter: blur(2px);
 }
+/* Tema com lançamento programado (data controlada pelo admin) — mesma
+   posição/formato do cadeado de PLUS, mas em azul pra não confundir "ainda
+   não chegou a data" com "precisa assinar". */
+.pv2-lock-badge-soon { color: #6fb6ff; }
 .pv2-premium-pill {
   font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.04em;
   background: linear-gradient(90deg, #00e5ff, #00ff9d); color: #fff;

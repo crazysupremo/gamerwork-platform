@@ -413,7 +413,18 @@
             theme.premium ? el('span', { class: 'pv2-premium-pill' }, ['PLUS']) : null,
           ]),
         ]);
-        if (theme.locked) {
+        if (theme.comingSoon) {
+          // Tema com lançamento programado — mostra "disponível em XX/XX" em
+          // vez do cadeado genérico de PLUS, pra deixar claro que é questão
+          // de tempo, não de assinatura.
+          const d = theme.releaseAt ? new Date(theme.releaseAt) : null;
+          const formatted = d && !Number.isNaN(d.getTime())
+            ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            : null;
+          card.appendChild(el('div', { class: 'pv2-lock-badge pv2-lock-badge-soon' }, [
+            formatted ? ('⏳ em ' + formatted) : '⏳ em breve',
+          ]));
+        } else if (theme.locked) {
           card.appendChild(el('div', { class: 'pv2-lock-badge' }, ['🔒 PLUS']));
         }
         grid.appendChild(card);
