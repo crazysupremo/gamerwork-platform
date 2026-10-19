@@ -9620,6 +9620,41 @@ io.on('connection', (socket) => {
     });
   });
 
+  // BUG CORRIGIDO ("ligar não funciona igual ligação de verdade"): antes só
+  // existia o aviso (dm:ring) — quem ligava já conectava o áudio sozinho,
+  // sem nunca saber se a chamada foi atendida/recusada/perdida. Esses 3
+  // eventos fecham o ciclo: quem RECEBE a chamada avisa de volta o que
+  // decidiu, e o servidor repassa só pra quem ligou (nunca um broadcast
+  // geral). O outro usuário é descoberto a partir do próprio channelId
+  // (formato "dm::<idA>::<idB>", ver dmChannelId acima) — assim o cliente
+  // não precisa nem saber o id de quem ligou, só o channelId que já tinha.
+  function otherDmParticipant(channelId, selfId) {
+    if (!channelId || !channelId.startsWith('dm::')) return null;
+    const ids = channelId.slice(4).split('::');
+    return ids.find((id) => id !== selfId) || null;
+  }
+  socket.on('dm:ring:accept', ({ channelId }) => {
+    const toUserId = otherDmParticipant(channelId, user.id);
+    if (!toUserId) return;
+    io.to('user:' + toUserId).emit('dm:ring:accept', { channelId });
+  });
+  socket.on('dm:ring:decline', ({ channelId, reason }) => {
+    const toUserId = otherDmParticipant(channelId, user.id);
+    if (!toUserId) return;
+    io.to('user:' + toUserId).emit('dm:ring:decline', { channelId, reason: reason || 'decline' });
+  });
+  // Quem ligou desistiu antes de a outra pessoa atender/recusar (fechou o
+  // modal de "Chamando..." na mão, ou os 30s de toque esgotaram) — avisa o
+  // outro lado pra parar de tocar. Evento próprio (não reaproveita
+  // dm:ring:decline) porque quem recebe esse aviso é sempre quem estava
+  // com o telefone tocando (o destinatário original), nunca quem ligou —
+  // direção oposta de dm:ring:accept/decline.
+  socket.on('dm:ring:cancel', ({ channelId }) => {
+    const toUserId = otherDmParticipant(channelId, user.id);
+    if (!toUserId) return;
+    io.to('user:' + toUserId).emit('dm:ring:cancel', { channelId });
+  });
+
   socket.on('rtc:signal', ({ to, data }) => {
     io.to(to).emit('rtc:signal', {
       from: socket.id,

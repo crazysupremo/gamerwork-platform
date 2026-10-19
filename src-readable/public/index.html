@@ -7,8 +7,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
 <link rel="icon" type="image/png" sizes="512x512" href="/assets/favicon-512.png" />
 <link rel="apple-touch-icon" href="/assets/favicon-180.png" />
-<link rel="stylesheet" href="/style.css?v=0.63.0" />
-<link rel="stylesheet" href="/plus2.css?v=0.63.0" />
+<link rel="stylesheet" href="/style.css?v=0.64.0" />
+<link rel="stylesheet" href="/plus2.css?v=0.64.0" />
 </head>
 <body>
 
@@ -1174,6 +1174,42 @@
     <div id="saved-games-list" class="saved-games-list"></div>
     <div class="modal-actions">
       <button type="button" id="btn-close-saved-games">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chamada de DM — chegando: igual Discord/celular, fica na tela até a
+     pessoa decidir (não some sozinho em alguns segundos como um toast).
+     Toque de chamada em loop (ver ringLoopStart() em app.js) até atender,
+     recusar ou a chamada não ser mais respondida. -->
+<div id="modal-incoming-call" class="modal-overlay hidden">
+  <div class="modal-card incoming-call-card">
+    <div class="incoming-call-avatar" id="incoming-call-avatar">📞</div>
+    <h2 id="incoming-call-username" style="margin-bottom:2px;">Alguém</h2>
+    <p class="hint" style="margin-top:0;">está te ligando...</p>
+    <div class="modal-actions incoming-call-actions">
+      <button type="button" id="btn-incoming-call-decline" class="incoming-call-btn incoming-call-btn-decline" title="Recusar">
+        <span class="ng-icon-wrap" data-icon="phone-off"></span>
+      </button>
+      <button type="button" id="btn-incoming-call-accept" class="incoming-call-btn incoming-call-btn-accept" title="Atender">
+        <span class="ng-icon-wrap" data-icon="phone"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Chamada de DM — chamando: aparece pra quem ligou, enquanto espera a
+     outra pessoa atender/recusar. Só conecta o áudio/vídeo de verdade
+     depois que o outro lado atender (ver openDmCall() em app.js). -->
+<div id="modal-outgoing-call" class="modal-overlay hidden">
+  <div class="modal-card incoming-call-card">
+    <div class="incoming-call-avatar outgoing-call-avatar-pulse" id="outgoing-call-avatar">📞</div>
+    <h2 id="outgoing-call-username" style="margin-bottom:2px;">Alguém</h2>
+    <p class="hint" style="margin-top:0;" id="outgoing-call-status">Chamando...</p>
+    <div class="modal-actions" style="justify-content:center;">
+      <button type="button" id="btn-outgoing-call-cancel" class="incoming-call-btn incoming-call-btn-decline" title="Cancelar">
+        <span class="ng-icon-wrap" data-icon="phone-off"></span>
+      </button>
     </div>
   </div>
 </div>
@@ -2509,11 +2545,11 @@
      pessoa, nunca passa nem fica salvo no nosso servidor. -->
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/icons.js?v=0.63.0"></script>
-<script src="/sfx.js?v=0.63.0"></script>
-<script src="/plus2.js?v=0.63.0"></script>
-<script src="/plus2-live.js?v=0.63.0"></script>
-<script src="/app.js?v=0.63.0"></script>
+<script src="/icons.js?v=0.64.0"></script>
+<script src="/sfx.js?v=0.64.0"></script>
+<script src="/plus2.js?v=0.64.0"></script>
+<script src="/plus2-live.js?v=0.64.0"></script>
+<script src="/app.js?v=0.64.0"></script>
 <script>
   // Dificulta cópia casual do conteúdo da página — bloqueia menu de botão
   // direito e alguns atalhos de DevTools. IMPORTANTE: isso NÃO esconde o

@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.64.0",
+    "date": "2026-10-19",
+    "changes": [
+      "Login/cadastro: visual redesenhado (arte de fundo em tela cheia, cartão de login flutuante com vidro fosco) — e a tela de Início ganhou o mesmo tratamento de vidro fosco nos cards que tinham ficado pra trás de uma fase antiga de redesign.",
+      "BUG CORRIGIDO: notificação de mensagem/chamada não aparecia no computador/celular. A causa era pedir permissão de notificação automaticamente ao carregar a página — navegadores modernos exigem que esse pedido venha de um clique real da pessoa, senão ignoram silenciosamente. Agora a permissão é pedida no primeiro clique/tecla depois de entrar no app.",
+      "BUG CORRIGIDO: ligar para um amigo não funcionava como uma ligação de verdade — quem ligava já entrava sozinho na chamada de voz, sem esperar resposta nenhuma, e quem recebia só via um aviso que sumia sozinho em 8 segundos. Agora existe uma tela de 'chamada chegando' de verdade (toca até atender, com botões Atender/Recusar), e quem ligou só conecta o áudio depois que a pessoa atende — e fica sabendo se a chamada foi recusada ou não atendida, igual uma ligação de celular."
+    ]
+  },
+  {
     "version": "0.63.0",
     "date": "2026-10-19",
     "changes": [

@@ -1171,6 +1171,28 @@ function requestDesktopNotificationPermission() {
   }
 }
 
+// BUG CORRIGIDO: antes essa permissão era pedida automaticamente dentro de
+// startApp(), sem nenhum clique do usuário no meio do caminho. Navegadores
+// modernos (Chrome e companhia) exigem que Notification.requestPermission()
+// rode dentro de um gesto direto do usuário (clique/tecla) — chamado
+// sozinho no carregamento da página, o navegador simplesmente ignora o
+// pedido, e Notification.permission fica preso em 'default' pra sempre, o
+// que fazia notifyDesktop() nunca disparar nada (o primeiro if sempre
+// barrava). Agora a permissão só é pedida no primeiro clique/tecla de
+// verdade que a pessoa der depois de entrar no app — ainda sem precisar de
+// um botão dedicado "Ativar notificações", só aproveita a primeira
+// interação real como o gesto exigido pelo navegador.
+function armDesktopNotificationPermissionOnFirstInteraction() {
+  if (!('Notification' in window) || Notification.permission !== 'default') return;
+  const trigger = () => {
+    document.removeEventListener('click', trigger, true);
+    document.removeEventListener('keydown', trigger, true);
+    requestDesktopNotificationPermission();
+  };
+  document.addEventListener('click', trigger, true);
+  document.addEventListener('keydown', trigger, true);
+}
+
 // Só dispara a notificação de verdade quando a aba não está em foco — se a
 // pessoa já está olhando o NEXT GAME, o toast/som de dentro do site já
 // avisam, notificação do sistema em cima seria redundante/chata.
@@ -1190,7 +1212,7 @@ function notifyDesktop(title, body, onClick) {
 function startApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  requestDesktopNotificationPermission();
+  armDesktopNotificationPermissionOnFirstInteraction();
   // Vídeo de abertura removido a pedido — deixava o login/recarregamento
   // mais lento e travava a transição entre a tela de login e a Início.
   document.getElementById('me-username').textContent = me.username;
@@ -4183,6 +4205,13 @@ async function openDmText(userId, username) {
   updateDmRequestBanner({ ...data, channel_id: data.channel_id });
 }
 
+// ---------- CHAMADA DE DM (igual Discord/celular: toca até atender) ----------
+// Estado da chamada em andamento — só um objeto global porque só existe uma
+// chamada de DM por vez (igual o resto do app, que só tem uma sala de voz
+// conectada por vez).
+let activeOutgoingCall = null; // { channelId, timeoutId }
+let activeIncomingCall = null; // { channelId, fromUsername, ringIntervalId }
+
 async function openDmCall(userId, username) {
   const res = await fetch(`/api/dm/${userId}`, { credentials: 'include' });
   const data = await res.json();
@@ -4192,34 +4221,91 @@ async function openDmCall(userId, username) {
   }
   if (!inChatMode) enterChatMode();
   document.getElementById('friends-panel').classList.add('hidden');
+  // BUG CORRIGIDO: antes a gente já conectava o áudio aqui mesmo
+  // (autoConnect:true), sem esperar resposta nenhuma — quem ligava ficava
+  // sozinho na sala até a pessoa entrar (se entrasse). Agora só mostra
+  // "Chamando..." e conecta de verdade quando/se a outra pessoa atender.
   socket.emit('dm:ring', { toUserId: userId, channelId: data.channel_id, fromUsername: me.username });
-  selectChannel({ id: data.channel_id, type: 'voz', name: '📞 ' + username }, { autoConnect: true });
+  showOutgoingCallModal(username, data.channel_id, userId);
 }
 
-// Notificação de "alguém está te ligando" — toast com som, mesmo padrão dos
-// avisos de recompensa.
-function showCallToast(fromUsername, channelId) {
-  const toast = document.createElement('div');
-  toast.className = 'reward-toast reward-toast-rare';
-  toast.innerHTML = `
-    <span class="reward-toast-icon">📞</span>
-    <div class="reward-toast-text">
-      <strong>${escapeHtml(fromUsername)} está te ligando</strong>
-      <span>Clique aqui pra atender</span>
-    </div>
-  `;
-  toast.style.cursor = 'pointer';
-  toast.onclick = () => {
-    toast.remove();
-    selectChannel({ id: channelId, type: 'voz', name: '📞 ' + fromUsername }, { autoConnect: true });
-  };
-  document.body.appendChild(toast);
-  requestAnimationFrame(() => toast.classList.add('reward-toast-show'));
-  setTimeout(() => {
-    toast.classList.remove('reward-toast-show');
-    setTimeout(() => toast.remove(), 400);
-  }, 8000);
+function showOutgoingCallModal(username, channelId, toUserId) {
+  document.getElementById('outgoing-call-username').textContent = username;
+  document.getElementById('outgoing-call-status').textContent = 'Chamando...';
+  document.getElementById('modal-outgoing-call').classList.remove('hidden');
+  SFX.join();
+  if (activeOutgoingCall) clearTimeout(activeOutgoingCall.timeoutId);
+  // Ninguém atende depois de 30s — trata como chamada perdida (mesma coisa
+  // que acontece quando você liga pra alguém no celular e ninguém atende).
+  const timeoutId = setTimeout(() => {
+    socket.emit('dm:ring:cancel', { toUserId, channelId });
+    resolveOutgoingCall(channelId, 'timeout');
+  }, 30000);
+  activeOutgoingCall = { channelId, timeoutId };
 }
+
+function resolveOutgoingCall(channelId, result) {
+  if (!activeOutgoingCall || activeOutgoingCall.channelId !== channelId) return;
+  clearTimeout(activeOutgoingCall.timeoutId);
+  const username = document.getElementById('outgoing-call-username').textContent;
+  activeOutgoingCall = null;
+  if (result === 'accept') {
+    document.getElementById('modal-outgoing-call').classList.add('hidden');
+    selectChannel({ id: channelId, type: 'voz', name: '📞 ' + username }, { autoConnect: true });
+    return;
+  }
+  const statusEl = document.getElementById('outgoing-call-status');
+  statusEl.textContent = result === 'timeout' ? 'Não atendeu' : 'Chamada recusada';
+  setTimeout(() => document.getElementById('modal-outgoing-call').classList.add('hidden'), 1500);
+}
+document.getElementById('btn-outgoing-call-cancel').onclick = () => {
+  if (!activeOutgoingCall) return;
+  const { channelId } = activeOutgoingCall;
+  clearTimeout(activeOutgoingCall.timeoutId);
+  activeOutgoingCall = null;
+  document.getElementById('modal-outgoing-call').classList.add('hidden');
+  socket.emit('dm:ring:cancel', { channelId });
+};
+
+function showIncomingCallModal(fromUsername, channelId) {
+  // Se já tinha uma chamada chegando (raro, mas possível), encerra a
+  // anterior antes de mostrar essa — nunca duas ao mesmo tempo.
+  if (activeIncomingCall) stopRingLoop();
+  document.getElementById('incoming-call-username').textContent = fromUsername;
+  document.getElementById('modal-incoming-call').classList.remove('hidden');
+  SFX.join();
+  const ringIntervalId = setInterval(() => SFX.join(), 1800);
+  activeIncomingCall = { channelId, fromUsername, ringIntervalId };
+  // Ninguém atende em 30s — conta como perdida, igual uma ligação de
+  // celular que ninguém pegou, e avisa quem ligou.
+  activeIncomingCall.timeoutId = setTimeout(() => declineIncomingCall('timeout'), 30000);
+}
+
+function stopRingLoop() {
+  if (!activeIncomingCall) return;
+  clearInterval(activeIncomingCall.ringIntervalId);
+  clearTimeout(activeIncomingCall.timeoutId);
+  document.getElementById('modal-incoming-call').classList.add('hidden');
+  activeIncomingCall = null;
+}
+
+function acceptIncomingCall() {
+  if (!activeIncomingCall) return;
+  const { channelId, fromUsername } = activeIncomingCall;
+  stopRingLoop();
+  socket.emit('dm:ring:accept', { channelId });
+  selectChannel({ id: channelId, type: 'voz', name: '📞 ' + fromUsername }, { autoConnect: true });
+}
+
+function declineIncomingCall(reason) {
+  if (!activeIncomingCall) return;
+  const { channelId } = activeIncomingCall;
+  stopRingLoop();
+  socket.emit('dm:ring:decline', { channelId, reason: reason || 'decline' });
+}
+
+document.getElementById('btn-incoming-call-accept').onclick = acceptIncomingCall;
+document.getElementById('btn-incoming-call-decline').onclick = () => declineIncomingCall('decline');
 
 // Notificação de "chegou mensagem nova" — mesmo pop-up da chamada, só que
 // pra DM de texto. Só aparece se a pessoa não estiver já olhando essa
@@ -8955,15 +9041,37 @@ function registerSocketHandlers() {
     syncMusicPlayer(state);
   });
 
-  // Alguém te ligou diretamente (DM) — mostra um toast com som pra atender,
-  // mais notificação de desktop (chamada é o caso onde isso importa mais —
-  // a pessoa pode estar com o NEXT GAME minimizado).
+  // BUG CORRIGIDO ("ligar pra alguém não funciona igual uma ligação de
+  // verdade"): antes disso, quem ligava já entrava sozinho na sala de voz
+  // (autoConnect:true) no mesmo instante — a pessoa que recebia só via um
+  // toast que sumia em 8s, sem botão explícito de atender/recusar, e quem
+  // ligou nunca ficava sabendo se foi recusada/perdida. Agora é: chega
+  // dm:ring → mostra um modal de "chamada chegando" de verdade (fica na
+  // tela até decidir, com toque em loop) → só conecta o áudio quando a
+  // pessoa aperta Atender (emite dm:ring:accept) ou encerra se apertar
+  // Recusar (dm:ring:decline). Nada disso toca no WebRTC/codec em si — só
+  // em QUANDO connectVoice() é chamado.
   socket.on('dm:ring', ({ fromUsername, channelId }) => {
-    SFX.join();
-    showCallToast(fromUsername, channelId);
+    showIncomingCallModal(fromUsername, channelId);
     notifyDesktop(`${fromUsername} está te ligando`, 'Clique aqui pra atender', () => {
-      selectChannel({ id: channelId, type: 'voz', name: '📞 ' + fromUsername }, { autoConnect: true });
+      acceptIncomingCall();
     });
+  });
+
+  // Quem ligou recebe a resposta — ou a chamada é aceita (aí sim conecta o
+  // áudio pros dois lados) ou foi recusada/perdida (mostra aviso e some).
+  socket.on('dm:ring:accept', ({ channelId }) => {
+    resolveOutgoingCall(channelId, 'accept');
+  });
+  socket.on('dm:ring:decline', ({ channelId, reason }) => {
+    resolveOutgoingCall(channelId, reason === 'timeout' ? 'timeout' : 'decline');
+  });
+
+  // Quem ligou desistiu (fechou "Chamando..." ou estourou os 30s) antes da
+  // gente atender/recusar — fecha o modal de chamada chegando em silêncio,
+  // sem precisar mandar nada de volta (já é o próprio cancelamento).
+  socket.on('dm:ring:cancel', ({ channelId }) => {
+    if (activeIncomingCall && activeIncomingCall.channelId === channelId) stopRingLoop();
   });
 
   // Mensagem de DM chegou e a pessoa não está com essa conversa aberta —
