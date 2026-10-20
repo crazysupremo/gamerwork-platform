@@ -18,6 +18,57 @@ let isDeafened = false;
 // entre chamadas via localStorage, igual as outras preferências de áudio.
 let masterCallVolume = Number(localStorage.getItem('ng_master_volume') ?? 100) / 100;
 const peers = {}; // socketId -> RTCPeerConnection
+
+// ---------- CAPTURA AUTOMÁTICA DE ERRO (item pedido: "toda verificação de
+// erro chega no site") ----------
+// Complementa o botão manual de "Reportar erro" (mais abaixo): QUALQUER
+// erro de JavaScript não tratado, ou promise rejeitada sem .catch, no
+// navegador de qualquer pessoa usando o site, é mandado sozinho pro mesmo
+// canal de suporte (categoria 'bug') — sem precisar a pessoa perceber e
+// clicar em nada. Fica logo no topo do arquivo de propósito, pra capturar
+// erro o mais cedo possível (inclusive erros que aconteçam durante o
+// carregamento do resto do app.js).
+(function setupAutomaticErrorReporting() {
+  const reportedMessages = new Set();
+  let reportsSentThisSession = 0;
+  const MAX_AUTO_REPORTS_PER_SESSION = 5; // nunca spamma o painel de suporte
+
+  function sendAutoReport(message, extra) {
+    const key = String(message).slice(0, 200);
+    if (reportedMessages.has(key)) return; // mesmo erro repetindo (ex: loop) — só manda 1 vez
+    if (reportsSentThisSession >= MAX_AUTO_REPORTS_PER_SESSION) return;
+    reportedMessages.add(key);
+    reportsSentThisSession++;
+    const body = {
+      category: 'bug',
+      subject: 'Erro automático detectado (' + (typeof me !== 'undefined' && me ? me.username : 'visitante') + ')',
+      message:
+        'Erro de JavaScript detectado automaticamente, sem a pessoa precisar reportar:\n\n' +
+        String(message).slice(0, 2000) +
+        (extra ? '\n\n' + extra : '') +
+        '\n\n--- contexto técnico ---\nURL: ' + window.location.href +
+        '\nNavegador: ' + navigator.userAgent,
+      name: 'Captura automática',
+      email: 'auto-report@nextgame.local',
+    };
+    // "fire and forget" — nunca trava nem quebra nada se o envio falhar
+    // (ex: sem internet no momento do erro); é só uma tentativa de avisar.
+    fetch('/api/support/tickets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    }).catch(() => {});
+  }
+
+  window.addEventListener('error', (e) => {
+    sendAutoReport(e.message || 'Erro desconhecido', e.filename ? `Arquivo: ${e.filename}:${e.lineno}:${e.colno}` : '');
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    const reason = e.reason && e.reason.message ? e.reason.message : String(e.reason);
+    sendAutoReport('Promise rejeitada sem tratamento: ' + reason);
+  });
+})();
 const remoteStreams = {}; // socketId -> MediaStream combinada (áudio + vídeo do peer)
 const remotePeerInfo = {}; // socketId -> { username, avatar, avatar_frame } — pra mostrar a foto de perfil na tile
 let voiceParticipants = {}; // channelId -> [{socketId, userId, username}]
@@ -5803,6 +5854,114 @@ document.getElementById('form-support').onsubmit = async (e) => {
     errEl.textContent = 'Erro de conexão com o servidor';
   }
 };
+
+// ---------- "REPORTAR ERRO" — botão flutuante, popup próprio ----------
+// Item pedido: um jeito fácil e sempre visível de reportar um bug, sem
+// atrapalhar nenhuma outra função (botão pequeno e discreto, ver CSS
+// .report-bug-fab). Reaproveita a MESMA rota/tabela do suporte geral (só
+// com category:'bug'), mas com um popup e um texto próprios, e já junta
+// sozinho um resumo técnico da tela atual (canal aberto, URL, navegador) —
+// a pessoa não precisa descrever "onde" o bug aconteceu, só "o que".
+function currentScreenContext() {
+  const parts = [];
+  if (typeof currentChannel !== 'undefined' && currentChannel) {
+    parts.push('Canal/sala: ' + (currentChannel.name || currentChannel.id));
+  } else {
+    const homeVisible = document.getElementById('home-panel') && !document.getElementById('home-panel').classList.contains('hidden');
+    if (homeVisible) parts.push('Tela: Início');
+  }
+  parts.push('Navegador: ' + navigator.userAgent);
+  parts.push('Resolução: ' + window.innerWidth + 'x' + window.innerHeight);
+  parts.push('URL: ' + window.location.href);
+  return parts.join('\n');
+}
+
+function openBugReportModal() {
+  const guestFields = document.getElementById('bug-report-guest-fields');
+  guestFields.classList.toggle('hidden', typeof me !== 'undefined' && !!me);
+  document.getElementById('bug-report-error').textContent = '';
+  document.getElementById('bug-report-success').classList.add('hidden');
+  document.getElementById('form-bug-report').classList.remove('hidden');
+  document.getElementById('bug-report-message').value = '';
+  document.getElementById('bug-report-context-hint').textContent =
+    'A gente já vai junto anexar automaticamente: a tela em que você estava, seu navegador e a resolução da tela — você só precisa descrever o problema.';
+  document.getElementById('modal-bug-report').classList.remove('hidden');
+}
+document.getElementById('btn-report-bug').onclick = openBugReportModal;
+document.getElementById('btn-close-bug-report').onclick = () => document.getElementById('modal-bug-report').classList.add('hidden');
+
+document.getElementById('form-bug-report').onsubmit = async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('bug-report-error');
+  const okEl = document.getElementById('bug-report-success');
+  errEl.textContent = '';
+  const description = document.getElementById('bug-report-message').value.trim();
+  if (!description) {
+    errEl.textContent = 'Descreve rapidinho o que aconteceu.';
+    return;
+  }
+  const body = {
+    category: 'bug',
+    subject: 'Erro reportado pelo botão flutuante',
+    message: description + '\n\n--- contexto técnico (preenchido automaticamente) ---\n' + currentScreenContext(),
+  };
+  if (typeof me === 'undefined' || !me) {
+    body.name = document.getElementById('bug-report-name').value.trim();
+    body.email = document.getElementById('bug-report-email').value.trim();
+  }
+  try {
+    const res = await fetch('/api/support/tickets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Não deu pra enviar agora, tenta de novo em instantes.';
+      return;
+    }
+    document.getElementById('form-bug-report').classList.add('hidden');
+    okEl.classList.remove('hidden');
+  } catch (err) {
+    errEl.textContent = 'Erro de conexão com o servidor';
+  }
+};
+
+// ---------- FECHAR QUALQUER POPUP/MODAL (Esc, clique fora, ou tudo de uma
+// vez) ----------
+// BUG CORRIGIDO ("tem que ter a opção de fechar todos os popups abertos, e
+// recusar chamada, verifica se em tudo é possível sair"): auditoria
+// confirmou que todo modal do site JÁ tinha um botão de fechar funcionando
+// (inclusive os novos — chamada e reportar erro), mas não existia nenhum
+// jeito GENÉRICO de fechar (Esc ou clicar fora do cartão), diferente da
+// maioria dos apps/sites. Isso aqui cobre os 2 casos pra TODO modal-overlay
+// do site de uma vez, sem precisar listar um por um — e trata os modais de
+// chamada com cuidado: fechar com Esc/clique-fora RECUSA/CANCELA a chamada
+// de verdade (avisa a outra pessoa), não só esconde a tela sem avisar
+// ninguém, que deixaria o outro lado esperando resposta pra sempre.
+function closeModalOverlay(modalEl) {
+  if (!modalEl || modalEl.classList.contains('hidden')) return;
+  if (modalEl.id === 'modal-incoming-call') { declineIncomingCall('decline'); return; }
+  if (modalEl.id === 'modal-outgoing-call') { document.getElementById('btn-outgoing-call-cancel').click(); return; }
+  modalEl.classList.add('hidden');
+}
+function closeAllOpenModals() {
+  document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(closeModalOverlay);
+}
+// Esc fecha qualquer popup aberto — não troca nada dos atalhos de Esc que
+// já existiam (menu de contexto, dropdown de busca), só soma mais um.
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeAllOpenModals();
+});
+// Clicar no fundo escuro, fora do cartão do modal, também fecha — padrão
+// universal (Discord, Instagram, praticamente qualquer app com popup
+// funciona assim).
+document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModalOverlay(overlay);
+  });
+});
 
 // Aviso de segurança pra contas sinalizadas como menores (ECA Digital) —
 // some ao fechar e não volta por 7 dias, pra não incomodar toda vez que

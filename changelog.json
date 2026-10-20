@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.66.0",
+    "date": "2026-10-19",
+    "changes": [
+      "BUG CORRIGIDO: nenhum popup/modal do site fechava com a tecla Esc ou clicando fora dele — só com o próprio botão de fechar/cancelar (que já funcionava em todos). Agora Esc ou clicar fora fecha qualquer popup aberto, em qualquer tela.",
+      "A tela de 'chamada chegando' e a de 'chamando...' agora recusam/cancelam a chamada de verdade quando fechadas com Esc ou clique fora (avisam a outra pessoa), em vez de só sumir da tela sem avisar ninguém."
+    ]
+  },
+  {
+    "version": "0.65.0",
+    "date": "2026-10-19",
+    "changes": [
+      "App principal (sidebar, canais, chat): visual alinhado com o vidro fosco do login e da Início — o canal ativo, os botões de destaque, o campo de mensagem e os menus flutuantes tinham ficado numa fase antiga de redesign (cantos cortados em bisel, colchetes '[ geral ]') que nunca foi atualizada junto com o resto.",
+      "NOVO: botão 'Reportar erro' — ícone discreto no canto inferior esquerdo, visível em qualquer tela (login ou já logado), sem atrapalhar nenhuma outra função. Abre um popup próprio que já anexa sozinho a tela em que você estava, navegador e resolução — só precisa descrever o problema.",
+      "NOVO: captura automática de erros — qualquer erro de JavaScript que acontecer no navegador de alguém usando o site agora é reportado sozinho pro painel de suporte (categoria 'Erro/bug do site'), sem precisar a pessoa perceber ou clicar em nada."
+    ]
+  },
+  {
     "version": "0.64.0",
     "date": "2026-10-19",
     "changes": [

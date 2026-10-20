@@ -7,8 +7,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
 <link rel="icon" type="image/png" sizes="512x512" href="/assets/favicon-512.png" />
 <link rel="apple-touch-icon" href="/assets/favicon-180.png" />
-<link rel="stylesheet" href="/style.css?v=0.64.0" />
-<link rel="stylesheet" href="/plus2.css?v=0.64.0" />
+<link rel="stylesheet" href="/style.css?v=0.66.0" />
+<link rel="stylesheet" href="/plus2.css?v=0.66.0" />
 </head>
 <body>
 
@@ -2545,11 +2545,11 @@
      pessoa, nunca passa nem fica salvo no nosso servidor. -->
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/icons.js?v=0.64.0"></script>
-<script src="/sfx.js?v=0.64.0"></script>
-<script src="/plus2.js?v=0.64.0"></script>
-<script src="/plus2-live.js?v=0.64.0"></script>
-<script src="/app.js?v=0.64.0"></script>
+<script src="/icons.js?v=0.66.0"></script>
+<script src="/sfx.js?v=0.66.0"></script>
+<script src="/plus2.js?v=0.66.0"></script>
+<script src="/plus2-live.js?v=0.66.0"></script>
+<script src="/app.js?v=0.66.0"></script>
 <script>
   // Dificulta cópia casual do conteúdo da página — bloqueia menu de botão
   // direito e alguns atalhos de DevTools. IMPORTANTE: isso NÃO esconde o
@@ -2559,6 +2559,7 @@
   // está usando ele). Isso aqui só afasta quem clicaria com o botão direito
   // ou tentaria selecionar/copiar texto da tela casualmente.
   document.addEventListener('contextmenu', (e) => e.preventDefault());
+
   document.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
     const blockedCombo =
@@ -2568,5 +2569,45 @@
     if (blockedCombo) e.preventDefault();
   });
 </script>
+
+<!-- "Reportar erro" — item pedido: um jeito fácil de reportar um bug do
+     site, visível o tempo todo (login OU já logado, qualquer tela), mas
+     discreto o bastante pra não atrapalhar nada — ícone pequeno flutuando
+     no canto inferior esquerdo (o canto direito já tem o aviso de
+     atualização e o menu de contexto, ver style.css). Clicar abre um popup
+     PRÓPRIO (não reaproveita o modal genérico de suporte), já com a tela
+     atual preenchida sozinha. -->
+<button type="button" id="btn-report-bug" class="report-bug-fab" title="Reportar um erro do site">
+  <span class="ng-icon-wrap" data-icon="bug"></span>
+</button>
+
+<div id="modal-bug-report" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h2><span class="ng-icon-wrap" data-icon="bug"></span> Reportar um erro</h2>
+    <p class="hint" style="margin-bottom:6px;">
+      Encontrou algo quebrado, travado ou que não devia estar acontecendo? Conta aqui — cai direto
+      no painel da equipe, com a tela em que você estava já anexada.
+    </p>
+    <form id="form-bug-report">
+      <div id="bug-report-guest-fields" class="hidden">
+        <label>Seu nome</label>
+        <input type="text" id="bug-report-name" placeholder="Nome" />
+        <label>Seu e-mail (pra gente responder, se precisar)</label>
+        <input type="email" id="bug-report-email" placeholder="voce@email.com" />
+      </div>
+      <label>O que aconteceu?</label>
+      <textarea id="bug-report-message" rows="5" placeholder="Descreva o que você esperava que acontecesse e o que aconteceu de errado..." maxlength="4000" required style="width:100%;"></textarea>
+      <p class="hint" id="bug-report-context-hint" style="margin-top:6px;"></p>
+      <p id="bug-report-error" class="auth-error"></p>
+      <p id="bug-report-success" class="hint hidden" style="color:#3ba55c; margin-top:6px;">
+        ✅ Reportado! Obrigado por ajudar a melhorar o NEXT GAME.
+      </p>
+      <div class="modal-actions">
+        <button type="button" id="btn-close-bug-report">Fechar</button>
+        <button type="submit" id="btn-send-bug-report">Enviar</button>
+      </div>
+    </form>
+  </div>
+</div>
 </body>
 </html>

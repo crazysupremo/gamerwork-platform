@@ -7440,7 +7440,12 @@ app.post(
     if (!subject || !String(subject).trim() || !message || !String(message).trim()) {
       return res.status(400).json({ error: 'Preencha o assunto e a mensagem.' });
     }
-    const validCategories = ['reclamacao', 'duvida', 'denuncia', 'conta_banida', 'cobranca', 'outro'];
+    // 'bug' adicionado — item pedido: "reportar erro" do site, com popup
+    // próprio (ver #modal-bug-report em index.html). Reaproveita 100% a
+    // infraestrutura de suporte que já existe (mesma tabela, mesmo painel
+    // admin) — só uma categoria nova, pra separar bug técnico de
+    // reclamação/dúvida na hora de olhar os tickets.
+    const validCategories = ['reclamacao', 'duvida', 'denuncia', 'conta_banida', 'cobranca', 'bug', 'outro'];
     const categoryValue = validCategories.includes(category) ? category : 'outro';
 
     // Se tiver sessão válida (logado), usa os dados da conta — mesmo que a
