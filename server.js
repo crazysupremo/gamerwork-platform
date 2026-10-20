@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const helmet = require('helmet');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
@@ -71,6 +72,16 @@ app.set('trust proxy', 1);
 // CSP desabilitado por padrão aqui porque o app usa scripts inline simples;
 // ative e ajuste se quiser uma política mais restrita.
 app.use(helmet({ contentSecurityPolicy: false }));
+
+// BUG CORRIGIDO ("tá demorando bastante pra carregar"): o site não tinha
+// NENHUMA compressão HTTP — toda resposta (HTML, CSS, JS, JSON de API)
+// trafegava no tamanho real, sem gzip. app.js sozinho tem ~500KB e
+// style.css ~230KB — sem compressão isso é transferido quase 4-5x maior do
+// que precisaria (texto comprime muito bem). Não muda nada visualmente,
+// só o tamanho de transferência; arquivos já comprimidos (imagens, vídeo,
+// música) são ignorados automaticamente pelo compression (não comprime o
+// que já é binário comprimido).
+app.use(compression());
 
 // 100kb era pouco pra imagem em base64 (avatar/evidência de torneio somados
 // ao resto do corpo da requisição já passam disso) — 700kb dá folga

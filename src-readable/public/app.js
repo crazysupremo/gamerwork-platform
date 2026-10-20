@@ -6441,6 +6441,18 @@ function renderVoicePreview(channel) {
 // Volta pra tela de Início (dashboard), saindo do canal de texto atual (a
 // sala de voz continua conectada em segundo plano, igual Discord).
 function goHome() {
+  // BUG CORRIGIDO ("servidores não aparece" — Servidores em Destaque,
+  // Jogando Agora, Atividade Recente, Eventos e Ranking ficando vazios, sem
+  // nem o aviso de "nenhum servidor ainda"): loadHomeDashboard() ficava lá
+  // embaixo, depois de várias linhas de document.getElementById(...) —
+  // se QUALQUER uma delas desse erro (ex: um id que não existe mais numa
+  // tela específica), a função parava ali no meio e loadHomeDashboard()
+  // nunca era chamada, deixando a Início inteira "muda" sem erro visível
+  // pra quem usa o site. Chamando logo na entrada da função, os dados da
+  // Início sempre carregam, não importa o que aconteça no resto de
+  // goHome() depois disso.
+  try { loadHomeDashboard(); } catch (err) { console.error('Erro ao carregar dados da Início:', err); }
+
   if (currentChannel && currentChannel.type === 'texto') {
     socket.emit('channel:leave', currentChannel.id);
   }
@@ -6475,7 +6487,8 @@ function goHome() {
   // BOTÃO sumia, a lista ficava presa na tela. Agora fecha os dois juntos.
   document.getElementById('members-panel').classList.add('hidden');
   document.getElementById('btn-toggle-members').classList.remove('active-state');
-  loadHomeDashboard();
+  // (loadHomeDashboard() já foi chamada logo no início desta função — ver
+  // comentário "BUG CORRIGIDO" lá em cima — não precisa chamar de novo aqui.)
 
   // Início fica "viva": ranking, atividade recente e quem tá jogando agora
   // se atualizam sozinhos a cada meio minuto, sem precisar recarregar a

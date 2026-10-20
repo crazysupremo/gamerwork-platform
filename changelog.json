@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.67.0",
+    "date": "2026-10-20",
+    "changes": [
+      "BUG CORRIGIDO: a tela de Início às vezes ficava com 'Servidores em Destaque', 'Jogando Agora', 'Atividade Recente', 'Eventos' e 'Ranking' completamente vazios, sem nem a mensagem de 'nenhum servidor ainda'. A causa: o carregamento desses dados ficava no meio da função que organiza a tela, então se qualquer coisa desse errado ANTES dele, os dados nunca chegavam a ser buscados. Agora o carregamento desses dados é a primeira coisa que acontece ao entrar na Início, sempre.",
+      "Performance: adicionada compressão HTTP (gzip) nas respostas do servidor — o site carrega mais rápido, principalmente da primeira vez (sem cache do navegador ainda), já que a página e os arquivos de estilo/script agora trafegam bem menores.",
+      "Nota sobre lentidão: parte do carregamento lento observado é do plano gratuito do Render, que 'desliga' o site depois de um tempo sem acesso e demora de 30 a 60 segundos pra acordar no primeiro acesso seguinte — isso é do plano de hospedagem, não do código; se continuar incomodando, migrar pra um plano pago do Render remove essa espera."
+    ]
+  },
+  {
     "version": "0.66.0",
     "date": "2026-10-19",
     "changes": [
