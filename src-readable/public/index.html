@@ -7,8 +7,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
 <link rel="icon" type="image/png" sizes="512x512" href="/assets/favicon-512.png" />
 <link rel="apple-touch-icon" href="/assets/favicon-180.png" />
-<link rel="stylesheet" href="/style.css?v=0.68.0" />
-<link rel="stylesheet" href="/plus2.css?v=0.68.0" />
+<link rel="stylesheet" href="/style.css?v=0.69.0" />
+<link rel="stylesheet" href="/plus2.css?v=0.69.0" />
 </head>
 <body>
 
@@ -21,6 +21,14 @@
        encarando um logo girando sem saber se travou ou se é só o servidor
        "acordando" — ver tryResumeSession() em app.js). -->
   <p id="boot-loading-status" class="boot-loading-status hidden"></p>
+  <!-- BUG CORRIGIDO ("tá carregando infinito"): esperar o servidor sozinho
+       (mesmo que seja só uns 30-60s do Render acordando) PARECE travado pra
+       quem não sabe quanto tempo falta — ninguém consegue distinguir "ainda
+       tá tentando" de "quebrou de vez" só olhando um spinner. Esse botão
+       aparece logo nos primeiros segundos e deixa a pessoa pular a espera
+       na hora e já ir pro login digitar a senha de novo, em vez de ficar
+       presa esperando um retry automático que ela não pediu. -->
+  <button type="button" id="btn-skip-boot-wait" class="boot-loading-skip hidden">Está demorando? Entrar manualmente</button>
 </div>
 
 <!-- TRAVA DE SEGURANÇA INDEPENDENTE DO APP.JS: essa tag roda sozinha, sem
@@ -32,11 +40,11 @@
      no plano gratuito às vezes leva pra "acordar" (30-60s, segundo
      comentário em tryResumeSession() no app.js) — essa trava achava que
      travou e forçava o login bem no meio da tentativa de reconectar
-     sozinho de verdade, dando a impressão de "não lembrou o login" quando
-     na real só precisava de mais um pouco de paciência. Subiu pra 100s —
-     mais que o prazo máximo que tryResumeSession() já tenta sozinho (~88s
-     no pior caso), então essa trava só age de verdade se o app.js tiver
-     falhado mesmo. -->
+     sozinho de verdade. Agora existe também um botão "Entrar manualmente"
+     (ver #btn-skip-boot-wait) que aparece em poucos segundos — essa trava
+     aqui é só a ÚLTIMA rede de segurança, pro caso raro de o app.js nem
+     ter carregado (nesse caso nem o botão apareceria). 60s é bem mais que
+     o prazo que tryResumeSession() leva sozinho (~50s no pior caso). -->
 <script>
   setTimeout(function () {
     var boot = document.getElementById('boot-loading');
@@ -53,7 +61,7 @@
       var auth = document.getElementById('auth-screen');
       if (auth) auth.className = auth.className.replace(' hidden', '').replace('hidden', '');
     }
-  }, 100000);
+  }, 60000);
 </script>
 
 
@@ -2556,11 +2564,11 @@
      pessoa, nunca passa nem fica salvo no nosso servidor. -->
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/icons.js?v=0.68.0"></script>
-<script src="/sfx.js?v=0.68.0"></script>
-<script src="/plus2.js?v=0.68.0"></script>
-<script src="/plus2-live.js?v=0.68.0"></script>
-<script src="/app.js?v=0.68.0"></script>
+<script src="/icons.js?v=0.69.0"></script>
+<script src="/sfx.js?v=0.69.0"></script>
+<script src="/plus2.js?v=0.69.0"></script>
+<script src="/plus2-live.js?v=0.69.0"></script>
+<script src="/app.js?v=0.69.0"></script>
 <script>
   // Dificulta cópia casual do conteúdo da página — bloqueia menu de botão
   // direito e alguns atalhos de DevTools. IMPORTANTE: isso NÃO esconde o

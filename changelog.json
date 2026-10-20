@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.69.0",
+    "date": "2026-10-20",
+    "changes": [
+      "BUG CORRIGIDO: 'continuar conectado' tentava esperar o servidor acordar sozinho por quase 90 segundos — tecnicamente mais correto, mas na prática PARECIA travado ('carregando infinito'), já que ninguém sabe se um spinner parado ainda tá tentando ou se quebrou de vez. Agora aparece um botão 'Está demorando? Entrar manualmente' já nos primeiros segundos — quem não quiser esperar o servidor do Render acordar sozinho cai direto no login com um clique, sem precisar ficar preso esperando nada."
+    ]
+  },
+  {
     "version": "0.68.0",
     "date": "2026-10-20",
     "changes": [

@@ -1133,6 +1133,7 @@ document.getElementById('btn-logout').onclick = async () => {
 async function tryResumeSession() {
   const bootLoading = document.getElementById('boot-loading');
   const statusEl = document.getElementById('boot-loading-status');
+  const skipBtn = document.getElementById('btn-skip-boot-wait');
   const remembered = localStorage.getItem('ng_remember_me') === 'true';
 
   if (!remembered) {
@@ -1141,22 +1142,31 @@ async function tryResumeSession() {
     return;
   }
 
-  // BUG CORRIGIDO ("não segura login" / "demora demais"): o site roda no
-  // plano GRATUITO do Render, que "desliga" o servidor depois de um tempo
-  // sem acesso — no primeiro acesso seguinte, ele demora de 30 a 60s pra
-  // "acordar" de novo (characteristic do plano, não é bug de código). Antes
-  // essa função só tentava 2 vezes (8s + 8s, com 1.8s de espera no meio —
-  // uns 18s no total) antes de desistir e mostrar o login — bem menos que
-  // os 30-60s que o Render pode levar. Isso fazia a pessoa cair na tela de
-  // login achando que "não lembrou", quando na real a sessão continuava
-  // válida — só precisava esperar mais um pouco o servidor acordar. Agora
-  // tenta por até ~75s (bem mais perto do pior caso do Render), e MOSTRA
-  // uma mensagem avisando que pode demorar, em vez de só um logo girando
-  // sem explicação nenhuma — só um 401 de verdade (sessão realmente
-  // inválida) interrompe antes disso e manda pro login.
+  // BUG CORRIGIDO ("tá carregando infinito" / "não segura login"): o site
+  // roda no plano GRATUITO do Render, que "desliga" o servidor depois de
+  // um tempo sem acesso — no primeiro acesso seguinte, pode levar de 30 a
+  // 60s pra "acordar" de novo (característica do plano, não é bug de
+  // código). Uma primeira tentativa de correção deixou isso esperar
+  // automaticamente por quase 90s — só que pra quem não sabe disso, ficar
+  // esperando um spinner por tanto tempo PARECE travado/quebrado, mesmo
+  // funcionando certinho por trás ("carregando infinito"). A solução de
+  // verdade é dar uma SAÍDA IMEDIATA: esse botão de "entrar manualmente"
+  // aparece já nos primeiros segundos, então ninguém mais fica preso
+  // esperando um retry que não pediu — quem quiser esperar o automático
+  // pode, quem não quiser clica e já cai no login na hora.
+  let skipped = false;
+  skipBtn.onclick = () => {
+    skipped = true;
+    statusEl.classList.add('hidden');
+    skipBtn.classList.add('hidden');
+    bootLoading.classList.add('hidden');
+    document.getElementById('auth-screen').classList.remove('hidden');
+  };
+  setTimeout(() => { if (!skipped) skipBtn.classList.remove('hidden'); }, 4000);
+
   const tryFetchMe = async () => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
       return await fetch('/api/me', { credentials: 'include', signal: controller.signal });
     } catch (_) {
@@ -1166,10 +1176,12 @@ async function tryResumeSession() {
     }
   };
 
-  const MAX_ATTEMPTS = 7; // ~75s no total (10s de tentativa + ~espera crescente entre elas)
+  const MAX_ATTEMPTS = 5; // ~50s no total — com o botão de pular acima, não precisa mais ser tão longo
   let res = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (skipped) return; // pessoa já clicou "entrar manualmente" — para de tentar sozinho
     res = await tryFetchMe();
+    if (skipped) return;
     if (res && res.ok) {
       me = await res.json();
       if (me.email_verified === false) {
@@ -1180,6 +1192,7 @@ async function tryResumeSession() {
         await showTermsAcceptanceScreen();
         return;
       }
+      skipBtn.classList.add('hidden');
       startApp();
       bootLoading.classList.add('hidden');
       return;
@@ -1198,17 +1211,19 @@ async function tryResumeSession() {
       statusEl.textContent =
         attempt <= 2
           ? 'Conectando...'
-          : 'O servidor pode estar "acordando" depois de um tempo parado — isso pode levar até 1 minuto na primeira vez do dia. Aguarde...';
+          : 'O servidor pode estar "acordando" depois de um tempo parado — isso pode levar até 1 minuto na primeira vez do dia.';
       statusEl.classList.remove('hidden');
-      await new Promise((r) => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, 2500));
     }
   }
 
   // Só chega aqui depois de tentar várias vezes sem sucesso E sem um 401
   // explícito — mantém "Continuar conectado" salvo (a sessão pode muito
   // bem ainda ser válida, só o servidor não respondeu a tempo) e mostra o
-  // login pra essa tentativa; próxima vez que a pessoa voltar, tenta nesvo.
+  // login pra essa tentativa; próxima vez que a pessoa voltar, tenta de novo.
+  if (skipped) return;
   statusEl.classList.add('hidden');
+  skipBtn.classList.add('hidden');
   bootLoading.classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
 }

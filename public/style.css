@@ -4474,3 +4474,14 @@ body.theme-halloween #halloween-moon {
   color: #9aa0ab; font-size: 13px; margin: 18px 0 0; text-align: center;
   max-width: 320px; padding: 0 20px; line-height: 1.5;
 }
+
+/* Botão "entrar manualmente" na tela de carregamento inicial — sempre dá
+   uma saída imediata pra quem não quer esperar o servidor "acordar"
+   sozinho, em vez de forçar a pessoa a ficar olhando um spinner sem saber
+   quanto tempo falta. */
+.boot-loading-skip {
+  margin-top: 14px; background: none; border: 1px solid rgba(255,255,255,0.18);
+  color: #9aa0ab; font-size: 12.5px; padding: 8px 16px; border-radius: 20px; cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.boot-loading-skip:hover { color: #fff; border-color: var(--accent); }
