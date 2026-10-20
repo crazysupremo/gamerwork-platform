@@ -21,13 +21,14 @@ const peers = {}; // socketId -> RTCPeerConnection
 
 // ---------- CAPTURA AUTOMÁTICA DE ERRO (item pedido: "toda verificação de
 // erro chega no site") ----------
-// Complementa o botão manual de "Reportar erro" (mais abaixo): QUALQUER
-// erro de JavaScript não tratado, ou promise rejeitada sem .catch, no
-// navegador de qualquer pessoa usando o site, é mandado sozinho pro mesmo
-// canal de suporte (categoria 'bug') — sem precisar a pessoa perceber e
-// clicar em nada. Fica logo no topo do arquivo de propósito, pra capturar
-// erro o mais cedo possível (inclusive erros que aconteçam durante o
-// carregamento do resto do app.js).
+// DESATIVADA por enquanto (item pedido: "verifica se é o reportar erro que
+// tá dando problema no login/carregamento") — enquanto investigamos o bug
+// de sessão/carregamento, é mais seguro eliminar essa variável do meio do
+// caminho. O botão manual de "Reportar erro" (mais abaixo, só dispara com
+// um clique de verdade da pessoa) continua funcionando normalmente — só a
+// captura AUTOMÁTICA (que rodava sozinha a cada erro, sem clique nenhum)
+// está desligada. Pra reativar: descomentar os dois addEventListener no
+// fim desta função.
 (function setupAutomaticErrorReporting() {
   const reportedMessages = new Set();
   let reportsSentThisSession = 0;
@@ -61,13 +62,13 @@ const peers = {}; // socketId -> RTCPeerConnection
     }).catch(() => {});
   }
 
-  window.addEventListener('error', (e) => {
-    sendAutoReport(e.message || 'Erro desconhecido', e.filename ? `Arquivo: ${e.filename}:${e.lineno}:${e.colno}` : '');
-  });
-  window.addEventListener('unhandledrejection', (e) => {
-    const reason = e.reason && e.reason.message ? e.reason.message : String(e.reason);
-    sendAutoReport('Promise rejeitada sem tratamento: ' + reason);
-  });
+  // window.addEventListener('error', (e) => {
+  //   sendAutoReport(e.message || 'Erro desconhecido', e.filename ? `Arquivo: ${e.filename}:${e.lineno}:${e.colno}` : '');
+  // });
+  // window.addEventListener('unhandledrejection', (e) => {
+  //   const reason = e.reason && e.reason.message ? e.reason.message : String(e.reason);
+  //   sendAutoReport('Promise rejeitada sem tratamento: ' + reason);
+  // });
 })();
 const remoteStreams = {}; // socketId -> MediaStream combinada (áudio + vídeo do peer)
 const remotePeerInfo = {}; // socketId -> { username, avatar, avatar_frame } — pra mostrar a foto de perfil na tile

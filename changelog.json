@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.72.0",
+    "date": "2026-10-20",
+    "changes": [
+      "Desativada a captura AUTOMÁTICA de erros (ficava rodando sozinha a cada erro de JavaScript) — por enquanto, enquanto investigamos a lentidão/sessão, pra eliminar mais uma variável do meio do caminho. O botão manual de 'Reportar erro' (clique do usuário) continua funcionando normalmente, só a parte automática foi pausada."
+    ]
+  },
+  {
     "version": "0.71.0",
     "date": "2026-10-20",
     "changes": [
