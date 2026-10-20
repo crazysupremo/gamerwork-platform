@@ -7,8 +7,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
 <link rel="icon" type="image/png" sizes="512x512" href="/assets/favicon-512.png" />
 <link rel="apple-touch-icon" href="/assets/favicon-180.png" />
-<link rel="stylesheet" href="/style.css?v=0.73.0" />
-<link rel="stylesheet" href="/plus2.css?v=0.73.0" />
+<link rel="stylesheet" href="/style.css?v=0.63.0" />
+<link rel="stylesheet" href="/plus2.css?v=0.63.0" />
 </head>
 <body>
 
@@ -17,34 +17,15 @@
 <div id="boot-loading" class="boot-loading">
   <img src="/assets/logo.png" alt="NEXT GAME" class="boot-loading-logo" />
   <div class="boot-loading-spinner"></div>
-  <!-- Item pedido: avisar quando está demorando (em vez de deixar a pessoa
-       encarando um logo girando sem saber se travou ou se é só o servidor
-       "acordando" — ver tryResumeSession() em app.js). -->
-  <p id="boot-loading-status" class="boot-loading-status hidden"></p>
-  <!-- BUG CORRIGIDO ("tá carregando infinito"): esperar o servidor sozinho
-       (mesmo que seja só uns 30-60s do Render acordando) PARECE travado pra
-       quem não sabe quanto tempo falta — ninguém consegue distinguir "ainda
-       tá tentando" de "quebrou de vez" só olhando um spinner. Esse botão
-       aparece logo nos primeiros segundos e deixa a pessoa pular a espera
-       na hora e já ir pro login digitar a senha de novo, em vez de ficar
-       presa esperando um retry automático que ela não pediu. -->
-  <button type="button" id="btn-skip-boot-wait" class="boot-loading-skip hidden">Está demorando? Entrar manualmente</button>
 </div>
 
 <!-- TRAVA DE SEGURANÇA INDEPENDENTE DO APP.JS: essa tag roda sozinha, sem
      depender de app.js carregar/rodar certo — é a última linha de defesa
      contra a tela de carregamento ficando presa pra sempre (ex: app.js
      falhou ao carregar, algum erro de script travou tudo antes de qualquer
-     outra trava rodar, servidor do Render muito lento pra acordar). BUG
-     CORRIGIDO: esse prazo era 20s, menor que o próprio tempo que o Render
-     no plano gratuito às vezes leva pra "acordar" (30-60s, segundo
-     comentário em tryResumeSession() no app.js) — essa trava achava que
-     travou e forçava o login bem no meio da tentativa de reconectar
-     sozinho de verdade. Agora existe também um botão "Entrar manualmente"
-     (ver #btn-skip-boot-wait) que aparece em poucos segundos — essa trava
-     aqui é só a ÚLTIMA rede de segurança, pro caso raro de o app.js nem
-     ter carregado (nesse caso nem o botão apareceria). 60s é bem mais que
-     o prazo que tryResumeSession() leva sozinho (~50s no pior caso). -->
+     outra trava rodar, servidor do Render muito lento pra acordar). Depois
+     de 20s, se ainda tiver preso no logo girando, força a tela de login a
+     aparecer na marra — nunca deixa a pessoa numa tela preta sem saída. -->
 <script>
   setTimeout(function () {
     var boot = document.getElementById('boot-loading');
@@ -61,7 +42,7 @@
       var auth = document.getElementById('auth-screen');
       if (auth) auth.className = auth.className.replace(' hidden', '').replace('hidden', '');
     }
-  }, 60000);
+  }, 20000);
 </script>
 
 
@@ -1193,42 +1174,6 @@
     <div id="saved-games-list" class="saved-games-list"></div>
     <div class="modal-actions">
       <button type="button" id="btn-close-saved-games">Fechar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Chamada de DM — chegando: igual Discord/celular, fica na tela até a
-     pessoa decidir (não some sozinho em alguns segundos como um toast).
-     Toque de chamada em loop (ver ringLoopStart() em app.js) até atender,
-     recusar ou a chamada não ser mais respondida. -->
-<div id="modal-incoming-call" class="modal-overlay hidden">
-  <div class="modal-card incoming-call-card">
-    <div class="incoming-call-avatar" id="incoming-call-avatar">📞</div>
-    <h2 id="incoming-call-username" style="margin-bottom:2px;">Alguém</h2>
-    <p class="hint" style="margin-top:0;">está te ligando...</p>
-    <div class="modal-actions incoming-call-actions">
-      <button type="button" id="btn-incoming-call-decline" class="incoming-call-btn incoming-call-btn-decline" title="Recusar">
-        <span class="ng-icon-wrap" data-icon="phone-off"></span>
-      </button>
-      <button type="button" id="btn-incoming-call-accept" class="incoming-call-btn incoming-call-btn-accept" title="Atender">
-        <span class="ng-icon-wrap" data-icon="phone"></span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- Chamada de DM — chamando: aparece pra quem ligou, enquanto espera a
-     outra pessoa atender/recusar. Só conecta o áudio/vídeo de verdade
-     depois que o outro lado atender (ver openDmCall() em app.js). -->
-<div id="modal-outgoing-call" class="modal-overlay hidden">
-  <div class="modal-card incoming-call-card">
-    <div class="incoming-call-avatar outgoing-call-avatar-pulse" id="outgoing-call-avatar">📞</div>
-    <h2 id="outgoing-call-username" style="margin-bottom:2px;">Alguém</h2>
-    <p class="hint" style="margin-top:0;" id="outgoing-call-status">Chamando...</p>
-    <div class="modal-actions" style="justify-content:center;">
-      <button type="button" id="btn-outgoing-call-cancel" class="incoming-call-btn incoming-call-btn-decline" title="Cancelar">
-        <span class="ng-icon-wrap" data-icon="phone-off"></span>
-      </button>
     </div>
   </div>
 </div>
@@ -2564,11 +2509,11 @@
      pessoa, nunca passa nem fica salvo no nosso servidor. -->
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/icons.js?v=0.73.0"></script>
-<script src="/sfx.js?v=0.73.0"></script>
-<script src="/plus2.js?v=0.73.0"></script>
-<script src="/plus2-live.js?v=0.73.0"></script>
-<script src="/app.js?v=0.73.0"></script>
+<script src="/icons.js?v=0.63.0"></script>
+<script src="/sfx.js?v=0.63.0"></script>
+<script src="/plus2.js?v=0.63.0"></script>
+<script src="/plus2-live.js?v=0.63.0"></script>
+<script src="/app.js?v=0.63.0"></script>
 <script>
   // Dificulta cópia casual do conteúdo da página — bloqueia menu de botão
   // direito e alguns atalhos de DevTools. IMPORTANTE: isso NÃO esconde o
@@ -2578,7 +2523,6 @@
   // está usando ele). Isso aqui só afasta quem clicaria com o botão direito
   // ou tentaria selecionar/copiar texto da tela casualmente.
   document.addEventListener('contextmenu', (e) => e.preventDefault());
-
   document.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
     const blockedCombo =
@@ -2588,45 +2532,5 @@
     if (blockedCombo) e.preventDefault();
   });
 </script>
-
-<!-- "Reportar erro" — item pedido: um jeito fácil de reportar um bug do
-     site, visível o tempo todo (login OU já logado, qualquer tela), mas
-     discreto o bastante pra não atrapalhar nada — ícone pequeno flutuando
-     no canto inferior esquerdo (o canto direito já tem o aviso de
-     atualização e o menu de contexto, ver style.css). Clicar abre um popup
-     PRÓPRIO (não reaproveita o modal genérico de suporte), já com a tela
-     atual preenchida sozinha. -->
-<button type="button" id="btn-report-bug" class="report-bug-fab" title="Reportar um erro do site">
-  <span class="ng-icon-wrap" data-icon="bug"></span>
-</button>
-
-<div id="modal-bug-report" class="modal-overlay hidden">
-  <div class="modal-card">
-    <h2><span class="ng-icon-wrap" data-icon="bug"></span> Reportar um erro</h2>
-    <p class="hint" style="margin-bottom:6px;">
-      Encontrou algo quebrado, travado ou que não devia estar acontecendo? Conta aqui — cai direto
-      no painel da equipe, com a tela em que você estava já anexada.
-    </p>
-    <form id="form-bug-report">
-      <div id="bug-report-guest-fields" class="hidden">
-        <label>Seu nome</label>
-        <input type="text" id="bug-report-name" placeholder="Nome" />
-        <label>Seu e-mail (pra gente responder, se precisar)</label>
-        <input type="email" id="bug-report-email" placeholder="voce@email.com" />
-      </div>
-      <label>O que aconteceu?</label>
-      <textarea id="bug-report-message" rows="5" placeholder="Descreva o que você esperava que acontecesse e o que aconteceu de errado..." maxlength="4000" required style="width:100%;"></textarea>
-      <p class="hint" id="bug-report-context-hint" style="margin-top:6px;"></p>
-      <p id="bug-report-error" class="auth-error"></p>
-      <p id="bug-report-success" class="hint hidden" style="color:#3ba55c; margin-top:6px;">
-        ✅ Reportado! Obrigado por ajudar a melhorar o NEXT GAME.
-      </p>
-      <div class="modal-actions">
-        <button type="button" id="btn-close-bug-report">Fechar</button>
-        <button type="submit" id="btn-send-bug-report">Enviar</button>
-      </div>
-    </form>
-  </div>
-</div>
 </body>
 </html>

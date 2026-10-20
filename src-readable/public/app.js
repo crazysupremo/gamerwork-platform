@@ -18,58 +18,6 @@ let isDeafened = false;
 // entre chamadas via localStorage, igual as outras preferências de áudio.
 let masterCallVolume = Number(localStorage.getItem('ng_master_volume') ?? 100) / 100;
 const peers = {}; // socketId -> RTCPeerConnection
-
-// ---------- CAPTURA AUTOMÁTICA DE ERRO (item pedido: "toda verificação de
-// erro chega no site") ----------
-// DESATIVADA por enquanto (item pedido: "verifica se é o reportar erro que
-// tá dando problema no login/carregamento") — enquanto investigamos o bug
-// de sessão/carregamento, é mais seguro eliminar essa variável do meio do
-// caminho. O botão manual de "Reportar erro" (mais abaixo, só dispara com
-// um clique de verdade da pessoa) continua funcionando normalmente — só a
-// captura AUTOMÁTICA (que rodava sozinha a cada erro, sem clique nenhum)
-// está desligada. Pra reativar: descomentar os dois addEventListener no
-// fim desta função.
-(function setupAutomaticErrorReporting() {
-  const reportedMessages = new Set();
-  let reportsSentThisSession = 0;
-  const MAX_AUTO_REPORTS_PER_SESSION = 5; // nunca spamma o painel de suporte
-
-  function sendAutoReport(message, extra) {
-    const key = String(message).slice(0, 200);
-    if (reportedMessages.has(key)) return; // mesmo erro repetindo (ex: loop) — só manda 1 vez
-    if (reportsSentThisSession >= MAX_AUTO_REPORTS_PER_SESSION) return;
-    reportedMessages.add(key);
-    reportsSentThisSession++;
-    const body = {
-      category: 'bug',
-      subject: 'Erro automático detectado (' + (typeof me !== 'undefined' && me ? me.username : 'visitante') + ')',
-      message:
-        'Erro de JavaScript detectado automaticamente, sem a pessoa precisar reportar:\n\n' +
-        String(message).slice(0, 2000) +
-        (extra ? '\n\n' + extra : '') +
-        '\n\n--- contexto técnico ---\nURL: ' + window.location.href +
-        '\nNavegador: ' + navigator.userAgent,
-      name: 'Captura automática',
-      email: 'auto-report@nextgame.local',
-    };
-    // "fire and forget" — nunca trava nem quebra nada se o envio falhar
-    // (ex: sem internet no momento do erro); é só uma tentativa de avisar.
-    fetch('/api/support/tickets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(body),
-    }).catch(() => {});
-  }
-
-  // window.addEventListener('error', (e) => {
-  //   sendAutoReport(e.message || 'Erro desconhecido', e.filename ? `Arquivo: ${e.filename}:${e.lineno}:${e.colno}` : '');
-  // });
-  // window.addEventListener('unhandledrejection', (e) => {
-  //   const reason = e.reason && e.reason.message ? e.reason.message : String(e.reason);
-  //   sendAutoReport('Promise rejeitada sem tratamento: ' + reason);
-  // });
-})();
 const remoteStreams = {}; // socketId -> MediaStream combinada (áudio + vídeo do peer)
 const remotePeerInfo = {}; // socketId -> { username, avatar, avatar_frame } — pra mostrar a foto de perfil na tile
 let voiceParticipants = {}; // channelId -> [{socketId, userId, username}]
@@ -1133,8 +1081,6 @@ document.getElementById('btn-logout').onclick = async () => {
 // esteve marcado da última vez (guardado em localStorage, não no cookie).
 async function tryResumeSession() {
   const bootLoading = document.getElementById('boot-loading');
-  const statusEl = document.getElementById('boot-loading-status');
-  const skipBtn = document.getElementById('btn-skip-boot-wait');
   const remembered = localStorage.getItem('ng_remember_me') === 'true';
 
   if (!remembered) {
@@ -1143,28 +1089,21 @@ async function tryResumeSession() {
     return;
   }
 
-  // BUG CORRIGIDO ("tá carregando infinito" / "não segura login"): o site
-  // roda no plano GRATUITO do Render, que "desliga" o servidor depois de
-  // um tempo sem acesso — no primeiro acesso seguinte, pode levar de 30 a
-  // 60s pra "acordar" de novo (característica do plano, não é bug de
-  // código). Uma primeira tentativa de correção deixou isso esperar
-  // automaticamente por quase 90s — só que pra quem não sabe disso, ficar
-  // esperando um spinner por tanto tempo PARECE travado/quebrado, mesmo
-  // funcionando certinho por trás ("carregando infinito"). A solução de
-  // verdade é dar uma SAÍDA IMEDIATA: esse botão de "entrar manualmente"
-  // aparece já nos primeiros segundos, então ninguém mais fica preso
-  // esperando um retry que não pediu — quem quiser esperar o automático
-  // pode, quem não quiser clica e já cai no login na hora.
-  let skipped = false;
-  skipBtn.onclick = () => {
-    skipped = true;
-    statusEl.classList.add('hidden');
-    skipBtn.classList.add('hidden');
-    bootLoading.classList.add('hidden');
-    document.getElementById('auth-screen').classList.remove('hidden');
-  };
-  setTimeout(() => { if (!skipped) skipBtn.classList.remove('hidden'); }, 4000);
-
+  // BUG CORRIGIDO: antes, qualquer resposta que não fosse "ok" — inclusive
+  // erro passageiro tipo o servidor do Render acordando do modo economia
+  // (fica uns 30-60s lento/instável logo após ficar inativo), instabilidade
+  // de rede, ou um 500 momentâneo — já apagava "Continuar conectado" e
+  // jogava a pessoa pro login, mesmo com a sessão ainda válida no servidor.
+  // Agora só um 401 de verdade (sessão realmente inválida/expirada) apaga a
+  // preferência; qualquer outro erro tenta de novo antes de desistir, e
+  // nunca apaga o "Continuar conectado" por causa de um erro passageiro.
+  // BUG CORRIGIDO (parte 2): se o servidor aceitar a conexão mas nunca
+  // responder (trava, cai no meio, proxy do Render engasga) o fetch antigo
+  // ficava esperando pra sempre — nem "ok" nem erro, então nunca sobrava pra
+  // limpar o spinner e mostrar o login. Isso deixava a pessoa presa na tela
+  // preta com o logo girando pra sempre. Agora tem um limite de 8s: passou
+  // disso, trata como falha passageira (mesmo caminho de retry abaixo) em
+  // vez de ficar esperando sem fim.
   const tryFetchMe = async () => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -1177,54 +1116,42 @@ async function tryResumeSession() {
     }
   };
 
-  const MAX_ATTEMPTS = 5; // ~50s no total — com o botão de pular acima, não precisa mais ser tão longo
-  let res = null;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    if (skipped) return; // pessoa já clicou "entrar manualmente" — para de tentar sozinho
-    res = await tryFetchMe();
-    if (skipped) return;
-    if (res && res.ok) {
-      me = await res.json();
-      if (me.email_verified === false) {
-        showEmailVerificationScreen();
-        return;
-      }
-      if (me.terms_accepted === false) {
-        await showTermsAcceptanceScreen();
-        return;
-      }
-      skipBtn.classList.add('hidden');
-      startApp();
-      bootLoading.classList.add('hidden');
-      return;
-    }
+  let res = await tryFetchMe();
+  if (!res || !res.ok) {
     if (res && res.status === 401) {
-      // Sessão realmente inválida/expirada — não insiste, vai pro login.
       localStorage.removeItem('ng_remember_me');
       bootLoading.classList.add('hidden');
       document.getElementById('auth-screen').classList.remove('hidden');
       return;
     }
-    // Erro passageiro (servidor do Render ainda acordando, rede instável,
-    // 500 momentâneo) — mostra aviso e tenta de novo, sem apagar "Continuar
-    // conectado" (a sessão pode muito bem ainda ser válida no servidor).
-    if (attempt < MAX_ATTEMPTS) {
-      statusEl.textContent =
-        attempt <= 2
-          ? 'Conectando...'
-          : 'O servidor pode estar "acordando" depois de um tempo parado — isso pode levar até 1 minuto na primeira vez do dia.';
-      statusEl.classList.remove('hidden');
-      await new Promise((r) => setTimeout(r, 2500));
-    }
+    // Erro passageiro (servidor acordando, rede instável, 500 momentâneo) —
+    // espera um instante e tenta mais uma vez antes de mostrar o login.
+    await new Promise((r) => setTimeout(r, 1800));
+    res = await tryFetchMe();
   }
 
-  // Só chega aqui depois de tentar várias vezes sem sucesso E sem um 401
-  // explícito — mantém "Continuar conectado" salvo (a sessão pode muito
-  // bem ainda ser válida, só o servidor não respondeu a tempo) e mostra o
-  // login pra essa tentativa; próxima vez que a pessoa voltar, tenta de novo.
-  if (skipped) return;
-  statusEl.classList.add('hidden');
-  skipBtn.classList.add('hidden');
+  if (res && res.ok) {
+    me = await res.json();
+    if (me.email_verified === false) {
+      showEmailVerificationScreen();
+      return;
+    }
+    if (me.terms_accepted === false) {
+      await showTermsAcceptanceScreen();
+      return;
+    }
+    startApp();
+    bootLoading.classList.add('hidden');
+    return;
+  }
+
+  // Só chega aqui depois de tentar 2x — se foi 401 de verdade, apaga a
+  // preferência; se continuou sendo erro de rede/servidor, mantém "Continuar
+  // conectado" salvo (a sessão pode muito bem ainda ser válida) e só mostra
+  // o login pra essa tentativa.
+  if (res && res.status === 401) {
+    localStorage.removeItem('ng_remember_me');
+  }
   bootLoading.classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
 }
@@ -1242,28 +1169,6 @@ function requestDesktopNotificationPermission() {
   if (Notification.permission === 'default') {
     Notification.requestPermission().catch(() => {});
   }
-}
-
-// BUG CORRIGIDO: antes essa permissão era pedida automaticamente dentro de
-// startApp(), sem nenhum clique do usuário no meio do caminho. Navegadores
-// modernos (Chrome e companhia) exigem que Notification.requestPermission()
-// rode dentro de um gesto direto do usuário (clique/tecla) — chamado
-// sozinho no carregamento da página, o navegador simplesmente ignora o
-// pedido, e Notification.permission fica preso em 'default' pra sempre, o
-// que fazia notifyDesktop() nunca disparar nada (o primeiro if sempre
-// barrava). Agora a permissão só é pedida no primeiro clique/tecla de
-// verdade que a pessoa der depois de entrar no app — ainda sem precisar de
-// um botão dedicado "Ativar notificações", só aproveita a primeira
-// interação real como o gesto exigido pelo navegador.
-function armDesktopNotificationPermissionOnFirstInteraction() {
-  if (!('Notification' in window) || Notification.permission !== 'default') return;
-  const trigger = () => {
-    document.removeEventListener('click', trigger, true);
-    document.removeEventListener('keydown', trigger, true);
-    requestDesktopNotificationPermission();
-  };
-  document.addEventListener('click', trigger, true);
-  document.addEventListener('keydown', trigger, true);
 }
 
 // Só dispara a notificação de verdade quando a aba não está em foco — se a
@@ -1285,7 +1190,7 @@ function notifyDesktop(title, body, onClick) {
 function startApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  armDesktopNotificationPermissionOnFirstInteraction();
+  requestDesktopNotificationPermission();
   // Vídeo de abertura removido a pedido — deixava o login/recarregamento
   // mais lento e travava a transição entre a tela de login e a Início.
   document.getElementById('me-username').textContent = me.username;
@@ -4278,13 +4183,6 @@ async function openDmText(userId, username) {
   updateDmRequestBanner({ ...data, channel_id: data.channel_id });
 }
 
-// ---------- CHAMADA DE DM (igual Discord/celular: toca até atender) ----------
-// Estado da chamada em andamento — só um objeto global porque só existe uma
-// chamada de DM por vez (igual o resto do app, que só tem uma sala de voz
-// conectada por vez).
-let activeOutgoingCall = null; // { channelId, timeoutId }
-let activeIncomingCall = null; // { channelId, fromUsername, ringIntervalId }
-
 async function openDmCall(userId, username) {
   const res = await fetch(`/api/dm/${userId}`, { credentials: 'include' });
   const data = await res.json();
@@ -4294,91 +4192,34 @@ async function openDmCall(userId, username) {
   }
   if (!inChatMode) enterChatMode();
   document.getElementById('friends-panel').classList.add('hidden');
-  // BUG CORRIGIDO: antes a gente já conectava o áudio aqui mesmo
-  // (autoConnect:true), sem esperar resposta nenhuma — quem ligava ficava
-  // sozinho na sala até a pessoa entrar (se entrasse). Agora só mostra
-  // "Chamando..." e conecta de verdade quando/se a outra pessoa atender.
   socket.emit('dm:ring', { toUserId: userId, channelId: data.channel_id, fromUsername: me.username });
-  showOutgoingCallModal(username, data.channel_id, userId);
+  selectChannel({ id: data.channel_id, type: 'voz', name: '📞 ' + username }, { autoConnect: true });
 }
 
-function showOutgoingCallModal(username, channelId, toUserId) {
-  document.getElementById('outgoing-call-username').textContent = username;
-  document.getElementById('outgoing-call-status').textContent = 'Chamando...';
-  document.getElementById('modal-outgoing-call').classList.remove('hidden');
-  SFX.join();
-  if (activeOutgoingCall) clearTimeout(activeOutgoingCall.timeoutId);
-  // Ninguém atende depois de 30s — trata como chamada perdida (mesma coisa
-  // que acontece quando você liga pra alguém no celular e ninguém atende).
-  const timeoutId = setTimeout(() => {
-    socket.emit('dm:ring:cancel', { toUserId, channelId });
-    resolveOutgoingCall(channelId, 'timeout');
-  }, 30000);
-  activeOutgoingCall = { channelId, timeoutId };
+// Notificação de "alguém está te ligando" — toast com som, mesmo padrão dos
+// avisos de recompensa.
+function showCallToast(fromUsername, channelId) {
+  const toast = document.createElement('div');
+  toast.className = 'reward-toast reward-toast-rare';
+  toast.innerHTML = `
+    <span class="reward-toast-icon">📞</span>
+    <div class="reward-toast-text">
+      <strong>${escapeHtml(fromUsername)} está te ligando</strong>
+      <span>Clique aqui pra atender</span>
+    </div>
+  `;
+  toast.style.cursor = 'pointer';
+  toast.onclick = () => {
+    toast.remove();
+    selectChannel({ id: channelId, type: 'voz', name: '📞 ' + fromUsername }, { autoConnect: true });
+  };
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('reward-toast-show'));
+  setTimeout(() => {
+    toast.classList.remove('reward-toast-show');
+    setTimeout(() => toast.remove(), 400);
+  }, 8000);
 }
-
-function resolveOutgoingCall(channelId, result) {
-  if (!activeOutgoingCall || activeOutgoingCall.channelId !== channelId) return;
-  clearTimeout(activeOutgoingCall.timeoutId);
-  const username = document.getElementById('outgoing-call-username').textContent;
-  activeOutgoingCall = null;
-  if (result === 'accept') {
-    document.getElementById('modal-outgoing-call').classList.add('hidden');
-    selectChannel({ id: channelId, type: 'voz', name: '📞 ' + username }, { autoConnect: true });
-    return;
-  }
-  const statusEl = document.getElementById('outgoing-call-status');
-  statusEl.textContent = result === 'timeout' ? 'Não atendeu' : 'Chamada recusada';
-  setTimeout(() => document.getElementById('modal-outgoing-call').classList.add('hidden'), 1500);
-}
-document.getElementById('btn-outgoing-call-cancel').onclick = () => {
-  if (!activeOutgoingCall) return;
-  const { channelId } = activeOutgoingCall;
-  clearTimeout(activeOutgoingCall.timeoutId);
-  activeOutgoingCall = null;
-  document.getElementById('modal-outgoing-call').classList.add('hidden');
-  socket.emit('dm:ring:cancel', { channelId });
-};
-
-function showIncomingCallModal(fromUsername, channelId) {
-  // Se já tinha uma chamada chegando (raro, mas possível), encerra a
-  // anterior antes de mostrar essa — nunca duas ao mesmo tempo.
-  if (activeIncomingCall) stopRingLoop();
-  document.getElementById('incoming-call-username').textContent = fromUsername;
-  document.getElementById('modal-incoming-call').classList.remove('hidden');
-  SFX.join();
-  const ringIntervalId = setInterval(() => SFX.join(), 1800);
-  activeIncomingCall = { channelId, fromUsername, ringIntervalId };
-  // Ninguém atende em 30s — conta como perdida, igual uma ligação de
-  // celular que ninguém pegou, e avisa quem ligou.
-  activeIncomingCall.timeoutId = setTimeout(() => declineIncomingCall('timeout'), 30000);
-}
-
-function stopRingLoop() {
-  if (!activeIncomingCall) return;
-  clearInterval(activeIncomingCall.ringIntervalId);
-  clearTimeout(activeIncomingCall.timeoutId);
-  document.getElementById('modal-incoming-call').classList.add('hidden');
-  activeIncomingCall = null;
-}
-
-function acceptIncomingCall() {
-  if (!activeIncomingCall) return;
-  const { channelId, fromUsername } = activeIncomingCall;
-  stopRingLoop();
-  socket.emit('dm:ring:accept', { channelId });
-  selectChannel({ id: channelId, type: 'voz', name: '📞 ' + fromUsername }, { autoConnect: true });
-}
-
-function declineIncomingCall(reason) {
-  if (!activeIncomingCall) return;
-  const { channelId } = activeIncomingCall;
-  stopRingLoop();
-  socket.emit('dm:ring:decline', { channelId, reason: reason || 'decline' });
-}
-
-document.getElementById('btn-incoming-call-accept').onclick = acceptIncomingCall;
-document.getElementById('btn-incoming-call-decline').onclick = () => declineIncomingCall('decline');
 
 // Notificação de "chegou mensagem nova" — mesmo pop-up da chamada, só que
 // pra DM de texto. Só aparece se a pessoa não estiver já olhando essa
@@ -5877,114 +5718,6 @@ document.getElementById('form-support').onsubmit = async (e) => {
   }
 };
 
-// ---------- "REPORTAR ERRO" — botão flutuante, popup próprio ----------
-// Item pedido: um jeito fácil e sempre visível de reportar um bug, sem
-// atrapalhar nenhuma outra função (botão pequeno e discreto, ver CSS
-// .report-bug-fab). Reaproveita a MESMA rota/tabela do suporte geral (só
-// com category:'bug'), mas com um popup e um texto próprios, e já junta
-// sozinho um resumo técnico da tela atual (canal aberto, URL, navegador) —
-// a pessoa não precisa descrever "onde" o bug aconteceu, só "o que".
-function currentScreenContext() {
-  const parts = [];
-  if (typeof currentChannel !== 'undefined' && currentChannel) {
-    parts.push('Canal/sala: ' + (currentChannel.name || currentChannel.id));
-  } else {
-    const homeVisible = document.getElementById('home-panel') && !document.getElementById('home-panel').classList.contains('hidden');
-    if (homeVisible) parts.push('Tela: Início');
-  }
-  parts.push('Navegador: ' + navigator.userAgent);
-  parts.push('Resolução: ' + window.innerWidth + 'x' + window.innerHeight);
-  parts.push('URL: ' + window.location.href);
-  return parts.join('\n');
-}
-
-function openBugReportModal() {
-  const guestFields = document.getElementById('bug-report-guest-fields');
-  guestFields.classList.toggle('hidden', typeof me !== 'undefined' && !!me);
-  document.getElementById('bug-report-error').textContent = '';
-  document.getElementById('bug-report-success').classList.add('hidden');
-  document.getElementById('form-bug-report').classList.remove('hidden');
-  document.getElementById('bug-report-message').value = '';
-  document.getElementById('bug-report-context-hint').textContent =
-    'A gente já vai junto anexar automaticamente: a tela em que você estava, seu navegador e a resolução da tela — você só precisa descrever o problema.';
-  document.getElementById('modal-bug-report').classList.remove('hidden');
-}
-document.getElementById('btn-report-bug').onclick = openBugReportModal;
-document.getElementById('btn-close-bug-report').onclick = () => document.getElementById('modal-bug-report').classList.add('hidden');
-
-document.getElementById('form-bug-report').onsubmit = async (e) => {
-  e.preventDefault();
-  const errEl = document.getElementById('bug-report-error');
-  const okEl = document.getElementById('bug-report-success');
-  errEl.textContent = '';
-  const description = document.getElementById('bug-report-message').value.trim();
-  if (!description) {
-    errEl.textContent = 'Descreve rapidinho o que aconteceu.';
-    return;
-  }
-  const body = {
-    category: 'bug',
-    subject: 'Erro reportado pelo botão flutuante',
-    message: description + '\n\n--- contexto técnico (preenchido automaticamente) ---\n' + currentScreenContext(),
-  };
-  if (typeof me === 'undefined' || !me) {
-    body.name = document.getElementById('bug-report-name').value.trim();
-    body.email = document.getElementById('bug-report-email').value.trim();
-  }
-  try {
-    const res = await fetch('/api/support/tickets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      errEl.textContent = data.error || 'Não deu pra enviar agora, tenta de novo em instantes.';
-      return;
-    }
-    document.getElementById('form-bug-report').classList.add('hidden');
-    okEl.classList.remove('hidden');
-  } catch (err) {
-    errEl.textContent = 'Erro de conexão com o servidor';
-  }
-};
-
-// ---------- FECHAR QUALQUER POPUP/MODAL (Esc, clique fora, ou tudo de uma
-// vez) ----------
-// BUG CORRIGIDO ("tem que ter a opção de fechar todos os popups abertos, e
-// recusar chamada, verifica se em tudo é possível sair"): auditoria
-// confirmou que todo modal do site JÁ tinha um botão de fechar funcionando
-// (inclusive os novos — chamada e reportar erro), mas não existia nenhum
-// jeito GENÉRICO de fechar (Esc ou clicar fora do cartão), diferente da
-// maioria dos apps/sites. Isso aqui cobre os 2 casos pra TODO modal-overlay
-// do site de uma vez, sem precisar listar um por um — e trata os modais de
-// chamada com cuidado: fechar com Esc/clique-fora RECUSA/CANCELA a chamada
-// de verdade (avisa a outra pessoa), não só esconde a tela sem avisar
-// ninguém, que deixaria o outro lado esperando resposta pra sempre.
-function closeModalOverlay(modalEl) {
-  if (!modalEl || modalEl.classList.contains('hidden')) return;
-  if (modalEl.id === 'modal-incoming-call') { declineIncomingCall('decline'); return; }
-  if (modalEl.id === 'modal-outgoing-call') { document.getElementById('btn-outgoing-call-cancel').click(); return; }
-  modalEl.classList.add('hidden');
-}
-function closeAllOpenModals() {
-  document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(closeModalOverlay);
-}
-// Esc fecha qualquer popup aberto — não troca nada dos atalhos de Esc que
-// já existiam (menu de contexto, dropdown de busca), só soma mais um.
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeAllOpenModals();
-});
-// Clicar no fundo escuro, fora do cartão do modal, também fecha — padrão
-// universal (Discord, Instagram, praticamente qualquer app com popup
-// funciona assim).
-document.querySelectorAll('.modal-overlay').forEach((overlay) => {
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeModalOverlay(overlay);
-  });
-});
-
 // Aviso de segurança pra contas sinalizadas como menores (ECA Digital) —
 // some ao fechar e não volta por 7 dias, pra não incomodar toda vez que
 // a pessoa abre o app.
@@ -6463,18 +6196,6 @@ function renderVoicePreview(channel) {
 // Volta pra tela de Início (dashboard), saindo do canal de texto atual (a
 // sala de voz continua conectada em segundo plano, igual Discord).
 function goHome() {
-  // BUG CORRIGIDO ("servidores não aparece" — Servidores em Destaque,
-  // Jogando Agora, Atividade Recente, Eventos e Ranking ficando vazios, sem
-  // nem o aviso de "nenhum servidor ainda"): loadHomeDashboard() ficava lá
-  // embaixo, depois de várias linhas de document.getElementById(...) —
-  // se QUALQUER uma delas desse erro (ex: um id que não existe mais numa
-  // tela específica), a função parava ali no meio e loadHomeDashboard()
-  // nunca era chamada, deixando a Início inteira "muda" sem erro visível
-  // pra quem usa o site. Chamando logo na entrada da função, os dados da
-  // Início sempre carregam, não importa o que aconteça no resto de
-  // goHome() depois disso.
-  try { loadHomeDashboard(); } catch (err) { console.error('Erro ao carregar dados da Início:', err); }
-
   if (currentChannel && currentChannel.type === 'texto') {
     socket.emit('channel:leave', currentChannel.id);
   }
@@ -6509,8 +6230,7 @@ function goHome() {
   // BOTÃO sumia, a lista ficava presa na tela. Agora fecha os dois juntos.
   document.getElementById('members-panel').classList.add('hidden');
   document.getElementById('btn-toggle-members').classList.remove('active-state');
-  // (loadHomeDashboard() já foi chamada logo no início desta função — ver
-  // comentário "BUG CORRIGIDO" lá em cima — não precisa chamar de novo aqui.)
+  loadHomeDashboard();
 
   // Início fica "viva": ranking, atividade recente e quem tá jogando agora
   // se atualizam sozinhos a cada meio minuto, sem precisar recarregar a
@@ -7997,24 +7717,8 @@ async function loadHomeServers() {
 async function loadHomeActivity() {
   const el = document.getElementById('home-activity');
   el.innerHTML = '<p class="empty-hint">Carregando...</p>';
-  // BUG CORRIGIDO ("servidores/atividade não aparece"): essa função não
-  // tinha NENHUM try/catch — se o fetch falhasse (ex: servidor do Render
-  // ainda "acordando", rede instável), a seção ficava travada pra sempre em
-  // "Carregando..." (ou, se a falha acontecesse antes mesmo disso, nem esse
-  // texto aparecia), sem erro visível nem jeito de tentar de novo sem
-  // recarregar a página inteira. Agora mostra um aviso claro com link de
-  // "Tentar de novo" em vez de ficar muda.
-  let activity;
-  try {
-    const res = await fetch('/api/activity', { credentials: 'include' });
-    if (!res.ok) throw new Error('status ' + res.status);
-    activity = await res.json();
-  } catch (_) {
-    el.innerHTML = '<p class="empty-hint">⚠️ Não foi possível carregar agora. <a href="#" id="retry-home-activity">Tentar de novo</a></p>';
-    const retryLink = document.getElementById('retry-home-activity');
-    if (retryLink) retryLink.onclick = (e) => { e.preventDefault(); loadHomeActivity(); };
-    return;
-  }
+  const res = await fetch('/api/activity', { credentials: 'include' });
+  const activity = await res.json();
   el.innerHTML = '';
   if (activity.length === 0) {
     el.innerHTML = '<p class="empty-hint">Sem atividade ainda — manda a primeira mensagem!</p>';
@@ -9251,37 +8955,15 @@ function registerSocketHandlers() {
     syncMusicPlayer(state);
   });
 
-  // BUG CORRIGIDO ("ligar pra alguém não funciona igual uma ligação de
-  // verdade"): antes disso, quem ligava já entrava sozinho na sala de voz
-  // (autoConnect:true) no mesmo instante — a pessoa que recebia só via um
-  // toast que sumia em 8s, sem botão explícito de atender/recusar, e quem
-  // ligou nunca ficava sabendo se foi recusada/perdida. Agora é: chega
-  // dm:ring → mostra um modal de "chamada chegando" de verdade (fica na
-  // tela até decidir, com toque em loop) → só conecta o áudio quando a
-  // pessoa aperta Atender (emite dm:ring:accept) ou encerra se apertar
-  // Recusar (dm:ring:decline). Nada disso toca no WebRTC/codec em si — só
-  // em QUANDO connectVoice() é chamado.
+  // Alguém te ligou diretamente (DM) — mostra um toast com som pra atender,
+  // mais notificação de desktop (chamada é o caso onde isso importa mais —
+  // a pessoa pode estar com o NEXT GAME minimizado).
   socket.on('dm:ring', ({ fromUsername, channelId }) => {
-    showIncomingCallModal(fromUsername, channelId);
+    SFX.join();
+    showCallToast(fromUsername, channelId);
     notifyDesktop(`${fromUsername} está te ligando`, 'Clique aqui pra atender', () => {
-      acceptIncomingCall();
+      selectChannel({ id: channelId, type: 'voz', name: '📞 ' + fromUsername }, { autoConnect: true });
     });
-  });
-
-  // Quem ligou recebe a resposta — ou a chamada é aceita (aí sim conecta o
-  // áudio pros dois lados) ou foi recusada/perdida (mostra aviso e some).
-  socket.on('dm:ring:accept', ({ channelId }) => {
-    resolveOutgoingCall(channelId, 'accept');
-  });
-  socket.on('dm:ring:decline', ({ channelId, reason }) => {
-    resolveOutgoingCall(channelId, reason === 'timeout' ? 'timeout' : 'decline');
-  });
-
-  // Quem ligou desistiu (fechou "Chamando..." ou estourou os 30s) antes da
-  // gente atender/recusar — fecha o modal de chamada chegando em silêncio,
-  // sem precisar mandar nada de volta (já é o próprio cancelamento).
-  socket.on('dm:ring:cancel', ({ channelId }) => {
-    if (activeIncomingCall && activeIncomingCall.channelId === channelId) stopRingLoop();
   });
 
   // Mensagem de DM chegou e a pessoa não está com essa conversa aberta —

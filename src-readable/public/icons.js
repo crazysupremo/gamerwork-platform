@@ -2,7 +2,6 @@
 // emojis de interface por algo mais limpo/profissional/consistente entre navegadores.
 // Fonte: lucide-static (ISC license) - https://lucide.dev
 const NG_ICONS = {
-  'bug': "<path d='M8 2 9.88 3.88' /> <path d='M14.12 3.88 16 2' /> <path d='M9 7.13V6a3 3 0 1 1 6 0v1.13' /> <path d='M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6' /> <path d='M12 20v-9' /> <path d='M6.53 9C4.6 8.8 3 7.1 3 5' /> <path d='M6 13H2' /> <path d='M3 21c0-2.1 1.7-3.9 3.8-4' /> <path d='M20.97 5c0 2.1-1.6 3.8-3.5 4' /> <path d='M22 13h-4' /> <path d='M17.2 17c2.1.1 3.8 1.9 3.8 4' />",
   'music': "<path d='M9 18V5l12-2v13' /> <circle cx='6' cy='18' r='3' /> <circle cx='18' cy='16' r='3' />",
   'play': "<path d='M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z' />",
   'pause': "<rect x='14' y='3' width='5' height='18' rx='1' /> <rect x='5' y='3' width='5' height='18' rx='1' />",

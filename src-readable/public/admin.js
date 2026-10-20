@@ -771,7 +771,6 @@ duvida: 'Dúvida',
 conta_banida: 'Recurso de banimento',
 cobranca: 'Cobrança/Plus',
 denuncia: 'Denúncia',
-bug: '🐞 Erro/bug do site',
 outro: 'Outro',
 };
 
