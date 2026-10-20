@@ -4301,11 +4301,16 @@ body.theme-halloween #halloween-moon {
    de Início parecer um conjunto coerente em vez de dois estilos
    misturados. Vem por último no arquivo de propósito (mesmo padrão de
    sempre aqui: a última regra é quem vale). */
+/* BUG CORRIGIDO ("tá demorando muito"): essas cartas usavam
+   backdrop-filter: blur(20px) — efeito bonito, mas pesado de verdade pra
+   placa de vídeo renderizar, principalmente com vários cards borrados ao
+   mesmo tempo na tela (6+ ao mesmo tempo na grade de servidores). Trocado
+   por uma cor sólida (sem blur nenhum) que mantém a mesma identidade
+   visual (fundo escuro, borda sutil, sombra) sem o custo de performance —
+   olho nu quase não tem diferença, mas o navegador trabalha muito menos. */
 .home-partner-game-card, .home-server-card, .explore-card,
 .home-quick-action, .tournament-card {
-  background: var(--vibrant-glass) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  background: var(--bg-panel) !important;
   border: 1px solid rgba(255,255,255,0.08) !important;
   border-radius: var(--vibrant-radius) !important;
   box-shadow: 0 16px 40px rgba(0,0,0,0.35) !important;
@@ -4423,12 +4428,13 @@ body.theme-halloween #halloween-moon {
   border-radius: var(--vibrant-radius, 18px) !important;
 }
 
-/* Painel de canais e de membros ganham o mesmo vidro fosco que a sidebar
-   principal e o topo já têm (antes ficavam lisos, sem blur, destoando). */
+/* BUG CORRIGIDO ("tá demorando muito"): blur(20px) numa COLUNA INTEIRA (não
+   um card pequeno) é bem mais pesado pra renderizar — são muito mais
+   pixels por trás pra borrar o tempo todo, inclusive ao rolar a lista de
+   canais ou de membros. Esses dois painéis ficam com fundo sólido (sem
+   blur), mantendo a cor/identidade escura, mas sem o custo de desempenho. */
 #channel-sidebar.sidebar, .members-panel {
-  background: var(--vibrant-glass) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  background: var(--bg-sidebar) !important;
   border-color: rgba(255,255,255,0.07) !important;
 }
 
