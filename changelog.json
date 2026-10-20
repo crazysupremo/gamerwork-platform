@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.70.0",
+    "date": "2026-10-20",
+    "changes": [
+      "BUG CORRIGIDO (causa provável do 'carregamento infinito' e 'não segura login' que voltavam sempre): a versão anterior tinha adicionado uma biblioteca nova (compression, pra acelerar o carregamento) que nunca tinha sido testada rodando de verdade no servidor do Render. Se essa biblioteca falhasse ao instalar ou desse qualquer problema na inicialização, o servidor inteiro não subia — o que trava TUDO (nem a página carrega, nem login funciona, nem nada aparece), e explica por que as correções anteriores (que só mexiam na tela de carregamento) pareciam não fazer diferença nenhuma: o servidor nem chegava a responder. Removida essa biblioteca — o site volta a usar exatamente a mesma forma de subir que já funcionava antes, sem esse risco."
+    ]
+  },
+  {
     "version": "0.69.0",
     "date": "2026-10-20",
     "changes": [
