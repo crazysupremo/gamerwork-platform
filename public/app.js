@@ -1132,6 +1132,7 @@ document.getElementById('btn-logout').onclick = async () => {
 // esteve marcado da última vez (guardado em localStorage, não no cookie).
 async function tryResumeSession() {
   const bootLoading = document.getElementById('boot-loading');
+  const statusEl = document.getElementById('boot-loading-status');
   const remembered = localStorage.getItem('ng_remember_me') === 'true';
 
   if (!remembered) {
@@ -1140,24 +1141,22 @@ async function tryResumeSession() {
     return;
   }
 
-  // BUG CORRIGIDO: antes, qualquer resposta que não fosse "ok" — inclusive
-  // erro passageiro tipo o servidor do Render acordando do modo economia
-  // (fica uns 30-60s lento/instável logo após ficar inativo), instabilidade
-  // de rede, ou um 500 momentâneo — já apagava "Continuar conectado" e
-  // jogava a pessoa pro login, mesmo com a sessão ainda válida no servidor.
-  // Agora só um 401 de verdade (sessão realmente inválida/expirada) apaga a
-  // preferência; qualquer outro erro tenta de novo antes de desistir, e
-  // nunca apaga o "Continuar conectado" por causa de um erro passageiro.
-  // BUG CORRIGIDO (parte 2): se o servidor aceitar a conexão mas nunca
-  // responder (trava, cai no meio, proxy do Render engasga) o fetch antigo
-  // ficava esperando pra sempre — nem "ok" nem erro, então nunca sobrava pra
-  // limpar o spinner e mostrar o login. Isso deixava a pessoa presa na tela
-  // preta com o logo girando pra sempre. Agora tem um limite de 8s: passou
-  // disso, trata como falha passageira (mesmo caminho de retry abaixo) em
-  // vez de ficar esperando sem fim.
+  // BUG CORRIGIDO ("não segura login" / "demora demais"): o site roda no
+  // plano GRATUITO do Render, que "desliga" o servidor depois de um tempo
+  // sem acesso — no primeiro acesso seguinte, ele demora de 30 a 60s pra
+  // "acordar" de novo (characteristic do plano, não é bug de código). Antes
+  // essa função só tentava 2 vezes (8s + 8s, com 1.8s de espera no meio —
+  // uns 18s no total) antes de desistir e mostrar o login — bem menos que
+  // os 30-60s que o Render pode levar. Isso fazia a pessoa cair na tela de
+  // login achando que "não lembrou", quando na real a sessão continuava
+  // válida — só precisava esperar mais um pouco o servidor acordar. Agora
+  // tenta por até ~75s (bem mais perto do pior caso do Render), e MOSTRA
+  // uma mensagem avisando que pode demorar, em vez de só um logo girando
+  // sem explicação nenhuma — só um 401 de verdade (sessão realmente
+  // inválida) interrompe antes disso e manda pro login.
   const tryFetchMe = async () => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     try {
       return await fetch('/api/me', { credentials: 'include', signal: controller.signal });
     } catch (_) {
@@ -1167,42 +1166,49 @@ async function tryResumeSession() {
     }
   };
 
-  let res = await tryFetchMe();
-  if (!res || !res.ok) {
+  const MAX_ATTEMPTS = 7; // ~75s no total (10s de tentativa + ~espera crescente entre elas)
+  let res = null;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    res = await tryFetchMe();
+    if (res && res.ok) {
+      me = await res.json();
+      if (me.email_verified === false) {
+        showEmailVerificationScreen();
+        return;
+      }
+      if (me.terms_accepted === false) {
+        await showTermsAcceptanceScreen();
+        return;
+      }
+      startApp();
+      bootLoading.classList.add('hidden');
+      return;
+    }
     if (res && res.status === 401) {
+      // Sessão realmente inválida/expirada — não insiste, vai pro login.
       localStorage.removeItem('ng_remember_me');
       bootLoading.classList.add('hidden');
       document.getElementById('auth-screen').classList.remove('hidden');
       return;
     }
-    // Erro passageiro (servidor acordando, rede instável, 500 momentâneo) —
-    // espera um instante e tenta mais uma vez antes de mostrar o login.
-    await new Promise((r) => setTimeout(r, 1800));
-    res = await tryFetchMe();
+    // Erro passageiro (servidor do Render ainda acordando, rede instável,
+    // 500 momentâneo) — mostra aviso e tenta de novo, sem apagar "Continuar
+    // conectado" (a sessão pode muito bem ainda ser válida no servidor).
+    if (attempt < MAX_ATTEMPTS) {
+      statusEl.textContent =
+        attempt <= 2
+          ? 'Conectando...'
+          : 'O servidor pode estar "acordando" depois de um tempo parado — isso pode levar até 1 minuto na primeira vez do dia. Aguarde...';
+      statusEl.classList.remove('hidden');
+      await new Promise((r) => setTimeout(r, 3000));
+    }
   }
 
-  if (res && res.ok) {
-    me = await res.json();
-    if (me.email_verified === false) {
-      showEmailVerificationScreen();
-      return;
-    }
-    if (me.terms_accepted === false) {
-      await showTermsAcceptanceScreen();
-      return;
-    }
-    startApp();
-    bootLoading.classList.add('hidden');
-    return;
-  }
-
-  // Só chega aqui depois de tentar 2x — se foi 401 de verdade, apaga a
-  // preferência; se continuou sendo erro de rede/servidor, mantém "Continuar
-  // conectado" salvo (a sessão pode muito bem ainda ser válida) e só mostra
-  // o login pra essa tentativa.
-  if (res && res.status === 401) {
-    localStorage.removeItem('ng_remember_me');
-  }
+  // Só chega aqui depois de tentar várias vezes sem sucesso E sem um 401
+  // explícito — mantém "Continuar conectado" salvo (a sessão pode muito
+  // bem ainda ser válida, só o servidor não respondeu a tempo) e mostra o
+  // login pra essa tentativa; próxima vez que a pessoa voltar, tenta nesvo.
+  statusEl.classList.add('hidden');
   bootLoading.classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
 }
@@ -7975,8 +7981,24 @@ async function loadHomeServers() {
 async function loadHomeActivity() {
   const el = document.getElementById('home-activity');
   el.innerHTML = '<p class="empty-hint">Carregando...</p>';
-  const res = await fetch('/api/activity', { credentials: 'include' });
-  const activity = await res.json();
+  // BUG CORRIGIDO ("servidores/atividade não aparece"): essa função não
+  // tinha NENHUM try/catch — se o fetch falhasse (ex: servidor do Render
+  // ainda "acordando", rede instável), a seção ficava travada pra sempre em
+  // "Carregando..." (ou, se a falha acontecesse antes mesmo disso, nem esse
+  // texto aparecia), sem erro visível nem jeito de tentar de novo sem
+  // recarregar a página inteira. Agora mostra um aviso claro com link de
+  // "Tentar de novo" em vez de ficar muda.
+  let activity;
+  try {
+    const res = await fetch('/api/activity', { credentials: 'include' });
+    if (!res.ok) throw new Error('status ' + res.status);
+    activity = await res.json();
+  } catch (_) {
+    el.innerHTML = '<p class="empty-hint">⚠️ Não foi possível carregar agora. <a href="#" id="retry-home-activity">Tentar de novo</a></p>';
+    const retryLink = document.getElementById('retry-home-activity');
+    if (retryLink) retryLink.onclick = (e) => { e.preventDefault(); loadHomeActivity(); };
+    return;
+  }
   el.innerHTML = '';
   if (activity.length === 0) {
     el.innerHTML = '<p class="empty-hint">Sem atividade ainda — manda a primeira mensagem!</p>';

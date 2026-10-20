@@ -4466,3 +4466,11 @@ body.theme-halloween #halloween-moon {
   .report-bug-fab { width: 40px; height: 40px; left: 12px; bottom: 76px; }
   .report-bug-fab .ng-icon { width: 17px; height: 17px; }
 }
+
+/* Texto de status na tela de carregamento inicial — item pedido: avisar
+   quando está demorando (Render acordando do modo economia) em vez de
+   deixar a pessoa só olhando um logo girar sem explicação nenhuma. */
+.boot-loading-status {
+  color: #9aa0ab; font-size: 13px; margin: 18px 0 0; text-align: center;
+  max-width: 320px; padding: 0 20px; line-height: 1.5;
+}

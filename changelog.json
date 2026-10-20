@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.68.0",
+    "date": "2026-10-20",
+    "changes": [
+      "BUG CORRIGIDO (principal): 'continuar conectado' desistia cedo demais (~18 segundos) esperando o servidor responder. O plano gratuito do Render pode levar de 30 a 60 segundos pra 'acordar' depois de um tempo sem acesso — então a pessoa caía na tela de login achando que não tinha lembrado, quando na real só faltava mais um pouco de paciência. Agora tenta por quase 90 segundos, mostrando uma mensagem explicando que pode demorar na primeira vez do dia, em vez de desistir cedo ou deixar a pessoa só olhando um logo girar sem explicação.",
+      "BUG CORRIGIDO: a seção 'Atividade Recente' da Início podia ficar travada pra sempre em 'Carregando...' se a busca de dados falhasse (sem nenhum aviso nem jeito de tentar de novo sem recarregar a página inteira). Agora mostra um aviso com link de 'Tentar de novo'.",
+      "Nota: se 'Servidores em Destaque' continuar vazio depois dessa atualização, pode ser simplesmente que a conta testada não é membro de nenhum servidor ainda (nesse caso aparece uma mensagem explicando isso, não fica em branco) — qualquer dúvida, usa o botão de reportar erro (🐞, canto inferior esquerdo) que a gente já recebe os detalhes técnicos automaticamente."
+    ]
+  },
+  {
     "version": "0.67.0",
     "date": "2026-10-20",
     "changes": [

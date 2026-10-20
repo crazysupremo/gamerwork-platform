@@ -7,8 +7,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
 <link rel="icon" type="image/png" sizes="512x512" href="/assets/favicon-512.png" />
 <link rel="apple-touch-icon" href="/assets/favicon-180.png" />
-<link rel="stylesheet" href="/style.css?v=0.67.0" />
-<link rel="stylesheet" href="/plus2.css?v=0.67.0" />
+<link rel="stylesheet" href="/style.css?v=0.68.0" />
+<link rel="stylesheet" href="/plus2.css?v=0.68.0" />
 </head>
 <body>
 
@@ -17,15 +17,26 @@
 <div id="boot-loading" class="boot-loading">
   <img src="/assets/logo.png" alt="NEXT GAME" class="boot-loading-logo" />
   <div class="boot-loading-spinner"></div>
+  <!-- Item pedido: avisar quando está demorando (em vez de deixar a pessoa
+       encarando um logo girando sem saber se travou ou se é só o servidor
+       "acordando" — ver tryResumeSession() em app.js). -->
+  <p id="boot-loading-status" class="boot-loading-status hidden"></p>
 </div>
 
 <!-- TRAVA DE SEGURANÇA INDEPENDENTE DO APP.JS: essa tag roda sozinha, sem
      depender de app.js carregar/rodar certo — é a última linha de defesa
      contra a tela de carregamento ficando presa pra sempre (ex: app.js
      falhou ao carregar, algum erro de script travou tudo antes de qualquer
-     outra trava rodar, servidor do Render muito lento pra acordar). Depois
-     de 20s, se ainda tiver preso no logo girando, força a tela de login a
-     aparecer na marra — nunca deixa a pessoa numa tela preta sem saída. -->
+     outra trava rodar, servidor do Render muito lento pra acordar). BUG
+     CORRIGIDO: esse prazo era 20s, menor que o próprio tempo que o Render
+     no plano gratuito às vezes leva pra "acordar" (30-60s, segundo
+     comentário em tryResumeSession() no app.js) — essa trava achava que
+     travou e forçava o login bem no meio da tentativa de reconectar
+     sozinho de verdade, dando a impressão de "não lembrou o login" quando
+     na real só precisava de mais um pouco de paciência. Subiu pra 100s —
+     mais que o prazo máximo que tryResumeSession() já tenta sozinho (~88s
+     no pior caso), então essa trava só age de verdade se o app.js tiver
+     falhado mesmo. -->
 <script>
   setTimeout(function () {
     var boot = document.getElementById('boot-loading');
@@ -42,7 +53,7 @@
       var auth = document.getElementById('auth-screen');
       if (auth) auth.className = auth.className.replace(' hidden', '').replace('hidden', '');
     }
-  }, 20000);
+  }, 100000);
 </script>
 
 
@@ -2545,11 +2556,11 @@
      pessoa, nunca passa nem fica salvo no nosso servidor. -->
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/icons.js?v=0.67.0"></script>
-<script src="/sfx.js?v=0.67.0"></script>
-<script src="/plus2.js?v=0.67.0"></script>
-<script src="/plus2-live.js?v=0.67.0"></script>
-<script src="/app.js?v=0.67.0"></script>
+<script src="/icons.js?v=0.68.0"></script>
+<script src="/sfx.js?v=0.68.0"></script>
+<script src="/plus2.js?v=0.68.0"></script>
+<script src="/plus2-live.js?v=0.68.0"></script>
+<script src="/app.js?v=0.68.0"></script>
 <script>
   // Dificulta cópia casual do conteúdo da página — bloqueia menu de botão
   // direito e alguns atalhos de DevTools. IMPORTANTE: isso NÃO esconde o
