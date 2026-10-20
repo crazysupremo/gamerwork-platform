@@ -240,6 +240,38 @@ async function initDb() {
     -- PDF de auditoria: "criar índices pra evitar lentidão").
     CREATE INDEX IF NOT EXISTS idx_messages_channel_created ON messages(channel_id, created_at);
 
+    -- BUG CORRIGIDO ("tá demorando muito pra carregar" / "não segura
+    -- login"): GET /api/me — a rota mais chamada de TODO o site (roda em
+    -- toda troca de página/refresh, inclusive na tentativa de retomar a
+    -- sessão sozinho) — faz "SELECT COUNT(*) FROM messages WHERE user_id =
+    -- ?" toda vez que é chamada, e essa coluna NUNCA teve índice (só
+    -- channel_id+created_at acima tinha). Sem índice em user_id, esse COUNT
+    -- vira uma varredura da tabela de mensagens INTEIRA a cada carregamento
+    -- de página — e fica mais lento à medida que mais gente manda mais
+    -- mensagem no site com o tempo (explica a lentidão ter piorado e não
+    -- ser só do servidor "acordando"). Com esse índice, essa consulta fica
+    -- rápida independente de quantas mensagens existirem no total.
+    CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id);
+
+    -- BUG CORRIGIDO: GET /api/activity (usado na "Atividade Recente" da
+    -- Início) faz "ORDER BY created_at DESC LIMIT 15" na tabela de
+    -- mensagens INTEIRA, sem filtrar por canal — o índice de
+    -- channel_id+created_at acima não ajuda aqui porque não tem filtro de
+    -- channel_id. Sem índice próprio em created_at sozinho, isso também
+    -- varre/ordena a tabela inteira a cada vez que a Início carrega.
+    CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+
+    -- BUG CORRIGIDO: GET /api/channels (chamada toda vez que o app carrega
+    -- e a cada troca de servidor) também faz "WHERE category IN (...)" na
+    -- tabela de canais, que nunca teve NENHUM índice em category — toda
+    -- listagem de canais de um servidor (abrir um servidor, trocar de
+    -- servidor, montar a grade de "Servidores em Destaque") dependia de uma
+    -- varredura completa. (o índice de server_members.user_id pra essa
+    -- mesma rota fica mais abaixo, logo depois da tabela server_members ser
+    -- criada — não dava pra criar índice numa tabela que ainda não existe
+    -- neste ponto do script).
+    CREATE INDEX IF NOT EXISTS idx_channels_category ON channels(category);
+
     CREATE TABLE IF NOT EXISTS blocked_messages (
       id TEXT PRIMARY KEY,
       channel_id TEXT NOT NULL,
@@ -430,6 +462,15 @@ async function initDb() {
       joined_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(category, user_id)
     );
+
+    -- BUG CORRIGIDO: GET /api/channels (chamada toda vez que o app carrega
+    -- e a cada troca de servidor) faz "SELECT category FROM server_members
+    -- WHERE user_id = ?" — só existia o índice ÚNICO composto acima
+    -- (category, user_id), que não ajuda uma busca só por user_id (um
+    -- índice composto só acelera buscas que também usem a coluna mais à
+    -- esquerda dele no WHERE). Índice dedicado aqui, logo após a tabela
+    -- existir de verdade.
+    CREATE INDEX IF NOT EXISTS idx_server_members_user_id ON server_members(user_id);
 
     CREATE TABLE IF NOT EXISTS server_roles (
       id TEXT PRIMARY KEY,

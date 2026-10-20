@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.73.0",
+    "date": "2026-10-20",
+    "changes": [
+      "BUG CORRIGIDO (causa real da lentidão e do 'não segura login', mais provável que tudo que tentamos antes): 4 consultas usadas o tempo todo — a mais importante é GET /api/me, chamada em TODA troca de página e em toda tentativa de retomar sessão sozinho — faziam uma varredura completa em tabelas inteiras (mensagens, participação em servidores, canais) porque faltavam índices no banco de dados. Isso fica mais lento à medida que o site acumula mais mensagens e mais gente usando — explica a lentidão ter piorado com o tempo, não ser só o servidor 'acordando'. Adicionados os índices que faltavam: agora essas consultas ficam rápidas independente de quantos dados existirem no banco."
+    ]
+  },
+  {
     "version": "0.72.0",
     "date": "2026-10-20",
     "changes": [
