@@ -543,7 +543,27 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   display: flex; flex-direction: column; min-height: 0; padding: 16px 12px 12px;
 }
 .app-sidebar-logo { padding: 4px 6px 16px; display: flex; align-items: center; gap: 8px; }
-.app-sidebar-logo-img { height: 30px; width: auto; display: block; }
+/* Logo + badge de versão combinando com o tema ativo: a logo em si (arquivo
+   .png) continua a mesma pra manter a marca reconhecível, mas o "halo" atrás
+   dela e o brilho usam as variáveis de cor do tema (--accent-rgb/--gradient-
+   brand), que já são trocadas na hora pelo applyTheme() em plus2-live.js
+   sempre que a pessoa troca de tema no PLUS — então a logo "muda de cor"
+   junto com o resto do site sem precisar de uma imagem por tema. */
+.app-sidebar-logo { position: relative; }
+.app-sidebar-logo::before {
+  content: ''; position: absolute; left: 2px; top: 0; width: 38px; height: 38px;
+  background: var(--gradient-brand); border-radius: 50%; filter: blur(14px); opacity: 0.45;
+  animation: logoHaloPulse 4s ease-in-out infinite; pointer-events: none; z-index: 0;
+  transition: background 0.5s ease;
+}
+@keyframes logoHaloPulse {
+  0%, 100% { opacity: 0.32; transform: scale(0.92); }
+  50% { opacity: 0.55; transform: scale(1.08); }
+}
+.app-sidebar-logo-img {
+  height: 30px; width: auto; display: block; position: relative; z-index: 1;
+  transition: filter 0.4s ease;
+}
 /* "+ Criar" da navbar + menu suspenso */
 .navbar-create-wrap { position: relative; }
 .navbar-create-btn {
@@ -634,10 +654,27 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 }
 
 .beta-tag {
-  background: rgba(var(--accent-rgb),0.18); color: #a7b0ff; border: 1px solid rgba(var(--accent-rgb),0.4);
-  font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 5px;
-  cursor: default;
+  position: relative; overflow: hidden; background: rgba(var(--accent-rgb),0.18); color: #fff;
+  border: 1px solid rgba(var(--accent-rgb),0.45);
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; padding: 3px 7px; border-radius: 6px;
+  cursor: default; box-shadow: 0 0 0 rgba(var(--accent-rgb),0); z-index: 1;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
 }
+/* Preenchimento com o gradiente do tema (mesmas 3 cores do tema ativo) em
+   vez de uma cor única fixa, pra ficar claramente "do tema" e não só um
+   detalhe isolado — e um brilho suave passando por cima, só decorativo. */
+.beta-tag::before {
+  content: ''; position: absolute; inset: 0; background: var(--gradient-brand); opacity: 0.55; z-index: -1;
+}
+.beta-tag::after {
+  content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+  background: linear-gradient(115deg, transparent, rgba(255,255,255,0.55), transparent);
+  animation: betaTagShine 3.2s ease-in-out infinite; z-index: -1;
+}
+@keyframes betaTagShine {
+  0% { left: -60%; } 35% { left: 130%; } 100% { left: 130%; }
+}
+.app-sidebar-logo:hover .beta-tag { box-shadow: 0 0 10px rgba(var(--accent-rgb),0.55); }
 
 .app-sidebar-nav { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
 .app-sidebar-section-label {

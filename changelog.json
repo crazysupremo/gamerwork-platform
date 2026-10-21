@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.75.0",
+    "date": "2026-10-21",
+    "changes": [
+      "Logo e tag de versão (menu lateral) agora acompanham o tema ativo da Personalização PLUS: a logo ganhou um halo pulsante com o gradiente das cores do tema escolhido, e a tag de versão passou a usar esse mesmo gradiente como fundo, com um brilho passando por cima — tudo via as cores que o tema já define, muda sozinho ao trocar de tema.",
+      "Galeria de 'Temas prontos' (Configurações → PLUS) mais interativa e bonita: cada carta agora levanta com um brilho na cor do próprio tema ao passar o mouse, a mini-prévia do app dá um leve zoom, o botão 'Aplicar' reage ao hover, e o tema selecionado ganha um contorno com brilho pulsante — só visual, nenhuma lógica de seleção/aplicação de tema foi alterada."
+    ]
+  },
+  {
     "version": "0.74.0",
     "date": "2026-10-21",
     "changes": [

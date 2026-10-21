@@ -413,6 +413,12 @@
             theme.premium ? el('span', { class: 'pv2-premium-pill' }, ['PLUS']) : null,
           ]),
         ]);
+        // A cor de brilho do hover/seleção (CSS, ver .pv2-theme-card:hover em
+        // plus2.css) lê var(--pv2-mini-primary) do próprio elemento do card —
+        // CSS var só desce pra filho, não sobe do "mini" (que é filho do
+        // card) pro card em si, então precisa ser aplicada aqui também pra
+        // cada carta brilhar com a cor certa do seu próprio tema.
+        card.style.setProperty('--pv2-mini-primary', theme.colors.primary);
         if (theme.comingSoon) {
           // Tema com lançamento programado — mostra "disponível em XX/XX" em
           // vez do cadeado genérico de PLUS, pra deixar claro que é questão

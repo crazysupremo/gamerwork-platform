@@ -33,15 +33,39 @@
 }
 .pv2-theme-card {
   position: relative; border-radius: 12px; overflow: hidden; cursor: pointer; border: 2px solid transparent;
-  background: #1a1b20; transition: transform 0.12s ease, border-color 0.15s ease;
+  background: #1a1b20;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease, box-shadow 0.25s ease;
 }
-.pv2-theme-card:hover { transform: translateY(-2px); }
-.pv2-theme-card.selected { border-color: #fff; }
-.pv2-theme-card.locked { cursor: not-allowed; opacity: 0.88; }
+/* Mais interativo: a carta "levanta" e ganha um brilho com a própria cor do
+   tema (var(--pv2-mini-primary), já definida por tema no JS) em vez de só
+   mover — fica óbvio que cada carta tem personalidade própria ao passar o
+   mouse, sem precisar abrir/aplicar pra ver a cor. */
+.pv2-theme-card:hover {
+  transform: translateY(-5px) scale(1.025);
+  box-shadow: 0 10px 24px -6px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06),
+    0 0 22px -2px var(--pv2-mini-primary, rgba(0,255,157,0.5));
+}
+.pv2-theme-card.selected {
+  border-color: #fff;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.12), 0 0 20px -2px var(--pv2-mini-primary, rgba(0,255,157,0.6));
+  animation: pv2SelectedGlow 2.4s ease-in-out infinite;
+}
+@keyframes pv2SelectedGlow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(255,255,255,0.12), 0 0 14px -2px var(--pv2-mini-primary, rgba(0,255,157,0.5)); }
+  50% { box-shadow: 0 0 0 3px rgba(255,255,255,0.2), 0 0 26px 0px var(--pv2-mini-primary, rgba(0,255,157,0.75)); }
+}
+.pv2-theme-card.locked { cursor: not-allowed; opacity: 0.88; transition: transform 0.22s ease, opacity 0.2s ease; }
+.pv2-theme-card.locked:hover { transform: none; opacity: 1; box-shadow: none; }
 .pv2-theme-mini {
   height: 118px; padding: 8px 8px 6px; display: flex; flex-direction: column; gap: 6px;
   background: var(--pv2-mini-bg); color: var(--pv2-mini-text);
+  transition: transform 0.3s ease;
 }
+/* Leve zoom na mini-interface ao passar o mouse na carta inteira — dá a
+   sensação de "entrar" no tema antes mesmo de aplicar. */
+.pv2-theme-card:hover .pv2-theme-mini { transform: scale(1.04); }
+.pv2-theme-mini-btn { transition: filter 0.2s ease, transform 0.2s ease; }
+.pv2-theme-card:hover .pv2-theme-mini-btn { filter: brightness(1.25); transform: translateY(-1px); }
 /* -- mini-interface de verdade: sidebar de servidores + topo + chat + input -- */
 .pv2-theme-mini-body { flex: 1; display: flex; gap: 6px; min-height: 0; }
 .pv2-theme-mini-side {
