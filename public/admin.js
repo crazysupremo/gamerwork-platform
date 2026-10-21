@@ -776,10 +776,12 @@ outro: 'Outro',
 };
 
 let lastSeenSupportTicketIds = null;
+let allSupportTickets = [];
 
 async function loadSupportTickets() {
 const res = await fetch('/api/admin/support/tickets', { credentials: 'include' });
 const tickets = await res.json();
+allSupportTickets = tickets;
 
 const openCount = tickets.filter((t) => t.status === 'aberto').length;
 setNavBadge('suporte', openCount);
@@ -787,21 +789,49 @@ setNavBadge('suporte', openCount);
 if (lastSeenSupportTicketIds) {
 const newOnes = tickets.filter((t) => !lastSeenSupportTicketIds.has(t.id));
 if (newOnes.length > 0) {
+const newBugs = newOnes.filter((t) => t.category === 'bug');
 showAdminToast(
 newOnes.length === 1
-? `📨 Novo ticket de suporte: "${newOnes[0].subject}"`
+? (newOnes[0].category === 'bug' ? `🐞 Novo erro reportado: "${newOnes[0].subject}"` : `📨 Novo ticket de suporte: "${newOnes[0].subject}"`)
+: newBugs.length > 0
+? `📨 ${newOnes.length} novos tickets de suporte (${newBugs.length} 🐞 erro/bug)`
 : `📨 ${newOnes.length} novos tickets de suporte`
 );
 }
 }
 lastSeenSupportTicketIds = new Set(tickets.map((t) => t.id));
 
+renderSupportTickets();
+}
+
+// Filtro por categoria/status — pedido explícito: deixar os erros/bugs
+// reportados pelo botão flutuante "Reportar erro" bem visíveis em vez de
+// ficarem perdidos no meio de reclamação/dúvida/denúncia etc. Não refaz a
+// busca na API, só filtra a lista já carregada (mais rápido, e mantém os
+// contadores corretos mesmo filtrando).
+function renderSupportTickets() {
 const tbody = document.querySelector('#support-tickets-table tbody');
 if (!tbody) return;
+const filterEl = document.getElementById('support-filter-category');
+const filter = filterEl ? filterEl.value : 'bug';
+const countEl = document.getElementById('support-filter-count');
+
+let tickets = allSupportTickets;
+if (filter === 'aberto') {
+tickets = tickets.filter((t) => t.status === 'aberto');
+} else if (filter !== 'todos') {
+tickets = tickets.filter((t) => t.category === filter);
+}
+if (countEl) {
+const bugCount = allSupportTickets.filter((t) => t.category === 'bug').length;
+countEl.textContent = `${tickets.length} de ${allSupportTickets.length} tickets` + (bugCount > 0 ? ` · 🐞 ${bugCount} erro(s) reportado(s) no total` : '');
+}
+
 tbody.innerHTML = '';
 tickets.forEach((t) => {
 const tr = document.createElement('tr');
 const statusColor = t.status === 'aberto' ? '#f23f42' : t.status === 'respondido' ? '#faa61a' : '#3ba55c';
+if (t.category === 'bug' && t.status === 'aberto') tr.style.background = 'rgba(242,63,66,0.08)';
 tr.innerHTML = `
 <td>${new Date(t.created_at).toLocaleString('pt-BR')}</td>
 <td>${escapeHtml(t.username || t.name || '-')}<br><span style="color:#949ba4; font-size:11px;">${escapeHtml(t.email)}</span></td>
@@ -809,8 +839,9 @@ tr.innerHTML = `
 <td>${escapeHtml(t.subject)}</td>
 <td style="max-width:260px; white-space:pre-wrap;">${escapeHtml(t.message)}</td>
 <td style="color:${statusColor}; font-weight:700;">${escapeHtml(t.status)}</td>
-<td>
+<td style="display:flex; gap:6px; flex-wrap:wrap;">
 <button class="action" data-action="support-respond" data-id="${t.id}">Responder/Fechar</button>
+<button class="action danger" data-action="support-delete" data-id="${t.id}">🗑️ Eliminar</button>
 </td>
 `;
 tbody.appendChild(tr);
@@ -818,6 +849,9 @@ tbody.appendChild(tr);
 
 tbody.querySelectorAll('button[data-action="support-respond"]').forEach((btn) =>
 btn.addEventListener('click', () => respondSupportTicket(btn.dataset.id))
+);
+tbody.querySelectorAll('button[data-action="support-delete"]').forEach((btn) =>
+btn.addEventListener('click', () => deleteSupportTicket(btn.dataset.id))
 );
 }
 
@@ -830,6 +864,44 @@ method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 credentials: 'include',
 body: JSON.stringify({ admin_response, status }),
+});
+loadSupportTickets();
+}
+
+// Apagar UM ticket — some da lista de vez (diferente de "Responder/Fechar",
+// que só muda o status mas mantém o registro).
+async function deleteSupportTicket(id) {
+if (!confirm('Eliminar este ticket/reporte de erro de vez? Não tem como desfazer.')) return;
+await fetch(`/api/admin/support/tickets/${id}`, { method: 'DELETE', credentials: 'include' });
+loadSupportTickets();
+}
+
+// "Limpar fechados" — limpeza rápida do dia a dia, só mexe no que já foi
+// resolvido.
+async function clearClosedSupportTickets() {
+const closedCount = allSupportTickets.filter((t) => t.status === 'fechado').length;
+if (closedCount === 0) { alert('Não tem nenhum ticket fechado pra limpar.'); return; }
+if (!confirm(`Limpar ${closedCount} ticket(s) já FECHADO(S)? Não tem como desfazer.`)) return;
+await fetch('/api/admin/support/tickets', {
+method: 'DELETE',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ status: 'fechado' }),
+});
+loadSupportTickets();
+}
+
+// "Limpar tudo" — ação mais forte (apaga mesmo os ainda abertos), por isso
+// pede o nome do painel digitado de propósito, não só um "OK".
+async function clearAllSupportTickets() {
+if (allSupportTickets.length === 0) { alert('A lista já está vazia.'); return; }
+const typed = prompt(`Isso apaga TODOS os ${allSupportTickets.length} tickets de suporte, inclusive os em aberto. Não tem como desfazer.\n\nDigite LIMPAR para confirmar:`);
+if (typed !== 'LIMPAR') return;
+await fetch('/api/admin/support/tickets', {
+method: 'DELETE',
+headers: { 'Content-Type': 'application/json' },
+credentials: 'include',
+body: JSON.stringify({ all: true }),
 });
 loadSupportTickets();
 }
@@ -1414,5 +1486,9 @@ tbody.appendChild(tr);
 });
 }
 document.getElementById('btn-audit-filter').addEventListener('click', loadAuditLogs);
+
+document.getElementById('support-filter-category').addEventListener('change', renderSupportTickets);
+document.getElementById('btn-support-clear-closed').addEventListener('click', clearClosedSupportTickets);
+document.getElementById('btn-support-clear-all').addEventListener('click', clearAllSupportTickets);
 
 init();

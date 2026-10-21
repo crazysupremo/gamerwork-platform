@@ -5,8 +5,8 @@
 <title>NEXT GAME · Admin</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
 <link rel="apple-touch-icon" href="/assets/favicon-180.png" />
-<link rel="stylesheet" href="/style.css?v=0.61.0" />
-<link rel="stylesheet" href="/plus2-admin.css?v=0.61.0" />
+<link rel="stylesheet" href="/style.css?v=0.76.0" />
+<link rel="stylesheet" href="/plus2-admin.css?v=0.76.0" />
 <style>
   /* ==========================================================================
      REDESIGN VISUAL DO ADMIN (a pedido — "deixa mais redondo, remodele tudo
@@ -594,8 +594,30 @@
         <h2>📨 Fale com o suporte (reclamações/dúvidas da Blue)</h2>
         <p style="color:#949ba4; font-size:13px;">
           Mensagens enviadas pelo formulário "Fale com o suporte" — funciona logado ou não, então também
-          recebe recursos de conta banida.
+          recebe recursos de conta banida. O botão "Reportar erro" do site (ícone flutuante) também cai
+          aqui, na categoria 🐞 Erro/bug do site.
         </p>
+        <!-- Filtro por categoria — pedido: deixar os erros/bugs reportados
+             bem visíveis em vez de ficarem misturados com reclamação/dúvida/
+             etc. "Só erros" já entra selecionado por padrão. -->
+        <div class="admin-form-row" style="flex-wrap:wrap; align-items:center;">
+          <label style="font-size:12.5px; color:#949ba4;">Mostrar:</label>
+          <select id="support-filter-category" style="padding:6px; border-radius:4px; border:1px solid #3a3c42; background:#1e1f22; color:#e6e6e6;">
+            <option value="todos">Todos</option>
+            <option value="bug" selected>🐞 Só erros/bugs do site</option>
+            <option value="aberto">Só em aberto (qualquer categoria)</option>
+            <option value="reclamacao">Reclamação</option>
+            <option value="duvida">Dúvida</option>
+            <option value="denuncia">Denúncia</option>
+            <option value="conta_banida">Recurso de banimento</option>
+            <option value="cobranca">Cobrança/Plus</option>
+            <option value="outro">Outro</option>
+          </select>
+          <span id="support-filter-count" style="font-size:12.5px; color:#949ba4;"></span>
+          <span style="flex:1;"></span>
+          <button type="button" id="btn-support-clear-closed" class="action">🧹 Limpar fechados</button>
+          <button type="button" id="btn-support-clear-all" class="action danger">🗑️ Limpar tudo</button>
+        </div>
         <table id="support-tickets-table">
           <thead><tr><th>Data</th><th>De</th><th>Categoria</th><th>Título</th><th>Mensagem</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody></tbody>
@@ -621,7 +643,7 @@
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="/plus2-admin.js?v=0.61.0"></script>
-<script src="/admin.js?v=0.61.0"></script>
+<script src="/plus2-admin.js?v=0.76.0"></script>
+<script src="/admin.js?v=0.76.0"></script>
 </body>
 </html>

@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.76.0",
+    "date": "2026-10-21",
+    "changes": [
+      "Painel Admin → Suporte: adicionado filtro por categoria/status na lista de tickets, já abrindo em 'Só erros/bugs do site' por padrão, pra quem reporta erro pelo botão flutuante do site aparecer em destaque (linha com fundo avermelhado quando o erro ainda está em aberto) em vez de ficar misturado com reclamação/dúvida/denúncia etc. Contador mostra quantos tickets batem o filtro e quantos erros existem no total.",
+      "Adicionado botão '🗑️ Eliminar' em cada ticket — apaga aquele ticket específico de vez (diferente de 'Responder/Fechar', que só muda o status e mantém o histórico).",
+      "Adicionados dois botões de limpeza em lote no topo da lista: '🧹 Limpar fechados' (apaga só os que já foram marcados como fechados) e '🗑️ Limpar tudo' (apaga a lista inteira, inclusive os em aberto — pede confirmação digitando 'LIMPAR' por ser mais forte). Ambas as ações ficam registradas no Audit Log."
+    ]
+  },
+  {
     "version": "0.75.0",
     "date": "2026-10-21",
     "changes": [

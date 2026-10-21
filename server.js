@@ -7525,6 +7525,46 @@ app.post(
   })
 );
 
+// Apagar UM ticket — pedido: "poder limpar as mensagens e eliminar" no
+// painel de Suporte. Só exclui o registro do ticket em si (não afeta nada
+// de conta/usuário), irreversível, por isso só admin e com confirmação no
+// front (ver btn-ticket-delete em admin.js).
+app.delete(
+  '/api/admin/support/tickets/:id',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    await db.run('DELETE FROM support_tickets WHERE id = ?', [req.params.id]);
+    logAudit(req.user, 'delete_support_ticket', 'support_ticket', req.params.id, {});
+    res.json({ ok: true });
+  })
+);
+
+// "Limpar" em lote — pedido explícito do admin pra não precisar apagar um
+// por um quando a lista enche de tickets já resolvidos/fechados. Por
+// segurança, só aceita os dois filtros abaixo (nunca um DELETE sem WHERE):
+// - status: 'fechado' -> limpa só os já fechados (uso comum, "limpar lixo")
+// - all: true -> limpa a lista inteira (ação mais forte, exige confirmação
+//   dupla no front antes de chamar isso)
+app.delete(
+  '/api/admin/support/tickets',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { status, all } = req.body || {};
+    let result;
+    if (all === true) {
+      result = await db.run('DELETE FROM support_tickets');
+    } else if (status === 'fechado') {
+      result = await db.run("DELETE FROM support_tickets WHERE status = 'fechado'");
+    } else {
+      return res.status(400).json({ error: 'Informe status:"fechado" ou all:true pra confirmar o que limpar.' });
+    }
+    logAudit(req.user, 'bulk_clear_support_tickets', 'support_ticket', null, { status: status || null, all: !!all });
+    res.json({ ok: true, deleted: result && typeof result.changes === 'number' ? result.changes : undefined });
+  })
+);
+
 app.get(
   '/api/admin/reports',
   requireAuth,
