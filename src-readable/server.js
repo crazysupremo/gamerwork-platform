@@ -67,6 +67,26 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'troque-este-segredo-antes-
 // cookies "secure" e detecção de HTTPS funcionem corretamente.
 app.set('trust proxy', 1);
 
+// CORRIGIDO: domínio próprio (nextgameblue.stream) respondia certinho em
+// https://, mas http:// (sem o "s") servia o site direto, sem redirecionar
+// pra https — inseguro e também o motivo de alguns navegadores/ferramentas
+// "acharem" que o domínio não tinha sido configurado direito. O Render manda
+// o cabeçalho x-forwarded-proto dizendo se o pedido original (antes de
+// chegar no nosso servidor) veio em http ou https — só redireciona quando
+// esse cabeçalho diz "http" explicitamente. Importante NÃO redirecionar
+// quando o cabeçalho simplesmente não vem (healthcheck interno do próprio
+// Render fala direto com o contêiner, sem passar pelo proxy público e sem
+// mandar esse cabeçalho — se a gente redirecionasse esse caso também, o
+// Render ia achar que o deploy está com problema).
+if (IS_PRODUCTION) {
+  app.use((req, res, next) => {
+    if (req.headers['x-forwarded-proto'] === 'http') {
+      return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
+    }
+    next();
+  });
+}
+
 // Cabeçalhos de segurança (protege contra XSS, clickjacking, sniffing, etc.)
 // CSP desabilitado por padrão aqui porque o app usa scripts inline simples;
 // ative e ajuste se quiser uma política mais restrita.

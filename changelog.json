@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.77.0",
+    "date": "2026-10-21",
+    "changes": [
+      "Domínio próprio (nextgameblue.stream): testei de fora e confirmei que o DNS e a conexão com o Render já estavam funcionando (site e API carregando normal em https e em www). O que achei de errado: http:// (sem o 's') servia o site direto, sem redirecionar pra https — corrigido, agora toda visita em http é redirecionada pra https automaticamente (301), sem afetar o healthcheck interno do Render."
+    ]
+  },
+  {
     "version": "0.76.0",
     "date": "2026-10-21",
     "changes": [
