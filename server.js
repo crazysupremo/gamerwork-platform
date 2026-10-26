@@ -78,14 +78,20 @@ app.set('trust proxy', 1);
 // Render fala direto com o contêiner, sem passar pelo proxy público e sem
 // mandar esse cabeçalho — se a gente redirecionasse esse caso também, o
 // Render ia achar que o deploy está com problema).
-if (IS_PRODUCTION) {
-  app.use((req, res, next) => {
-    if (req.headers['x-forwarded-proto'] === 'http') {
-      return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
-    }
-    next();
-  });
-}
+// CORRIGIDO (v0.78.0): a versão anterior só ligava esse redirecionamento
+// "if (IS_PRODUCTION)", ou seja, dependia de NODE_ENV=production estar
+// configurado manualmente nas variáveis de ambiente do serviço no Render —
+// testamos depois do deploy e o http:// continuava sem redirecionar, sinal
+// de que essa variável não está definida lá. Removida essa dependência: o
+// próprio cabeçalho x-forwarded-proto já só existe quando tem um proxy de
+// verdade na frente (Render), então a trava funciona sozinha sem precisar
+// de NODE_ENV nenhum.
+app.use((req, res, next) => {
+  if (req.headers['x-forwarded-proto'] === 'http') {
+    return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
+  }
+  next();
+});
 
 // Cabeçalhos de segurança (protege contra XSS, clickjacking, sniffing, etc.)
 // CSP desabilitado por padrão aqui porque o app usa scripts inline simples;

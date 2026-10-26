@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.78.0",
+    "date": "2026-10-26",
+    "changes": [
+      "Corrigido de vez o redirecionamento http -> https: conferi o domínio nextgameblue.stream no Cloudflare (DNS certo, CNAME direto pro Render, sem proxy) e no Render (domínio e www Verified + Certificate Issued, tudo certo dos dois lados) — só o redirect em si não tinha pegado depois do deploy da v0.77.0 porque a trava dependia de NODE_ENV=production, variável que não está configurada no serviço do Render. Removida essa dependência: agora o redirecionamento funciona sozinho, baseado só no cabeçalho que o próprio Render manda, sem precisar configurar nada a mais."
+    ]
+  },
+  {
     "version": "0.77.0",
     "date": "2026-10-21",
     "changes": [
