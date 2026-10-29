@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.79.0",
+    "date": "2026-10-26",
+    "changes": [
+      "BUG CORRIGIDO: portão de ruído da sala de voz (e, por tabela, o cancelamento de ruído) ficava mudo. O AudioContext usado pelo portão nasce suspenso em vários navegadores até alguém 'ligar' ele de novo (resume()) — isso nunca era feito, então o portão ficava sempre fechado (gain=0) e, como ele vem ligado por padrão, praticamente todo mundo acabava mandando silêncio pros outros em vez do áudio de verdade (daí também parecer que o cancelamento de ruído não funcionava — nem chegava a passar pela call). Corrigido retomando o AudioContext na criação e, de segurança, a cada verificação de volume.",
+      "Clicar no nome de alguém na sala de voz agora abre o chat direto (DM) com ela, sem precisar sair da call pra procurar a pessoa na lista de amigos.",
+      "Colar uma imagem (Ctrl+V / Cmd+V) direto no campo de mensagem agora anexa ela igual um arquivo de verdade — funciona tanto no chat normal quanto no chat da sala de voz, sem precisar salvar a imagem antes pra depois anexar pelo clipe."
+    ]
+  },
+  {
     "version": "0.78.0",
     "date": "2026-10-26",
     "changes": [

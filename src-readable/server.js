@@ -9531,9 +9531,13 @@ io.on('connection', (socket) => {
     // ver "chegou gente nova" (evita as duas pontas tentando negociar ao
     // mesmo tempo) — só responde quando a oferta chega, o que já funcionava.
     const roomBeforeJoin = voiceRooms.get(roomId);
+    // userId incluído aqui (pedido: clicar no nome de alguém na sala de voz
+    // e já abrir o DM com ela) — antes só ia socketId/username/avatar, que
+    // não dá pra usar em /api/dm/:userId porque muda a cada reconexão.
     const existingPeers = roomBeforeJoin
       ? Array.from(roomBeforeJoin.values()).map((p) => ({
           socketId: p.socketId,
+          userId: p.userId,
           username: p.username,
           avatar: p.avatar,
           avatar_frame: p.avatar_frame,
@@ -9543,6 +9547,7 @@ io.on('connection', (socket) => {
     socket.join('rtc:' + roomId);
     socket.to('rtc:' + roomId).emit('rtc:peer-joined', {
       socketId: socket.id,
+      userId: user.id,
       username: user.username,
       avatar: user.avatar,
       avatar_frame: user.avatar_frame,
@@ -9729,6 +9734,7 @@ io.on('connection', (socket) => {
   socket.on('rtc:signal', ({ to, data }) => {
     io.to(to).emit('rtc:signal', {
       from: socket.id,
+      userId: user.id,
       username: user.username,
       avatar: user.avatar,
       avatar_frame: user.avatar_frame,

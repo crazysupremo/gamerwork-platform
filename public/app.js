@@ -8923,6 +8923,35 @@ function setupChatDropzone(dropTargetEl, overlayEl, onFile) {
   });
 }
 
+// Colar imagem direto no campo de mensagem (Ctrl+V / Cmd+V) — pedido
+// explícito: em vez de só arrastar ou clicar no clipe, print/imagem
+// copiada (ex: do Windows+Shift+S, ou copiar uma imagem de outro site)
+// já anexa igual um arquivo de verdade, reaproveitando o mesmo
+// attachFileWithPreview() do drag-and-drop/clique.
+function setupPasteImage(inputEl, previewEl, nameEl, setPending) {
+  if (!inputEl) return;
+  inputEl.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault(); // não cola um nome de arquivo/lixo como texto no campo
+          attachFileWithPreview(file, previewEl, nameEl, setPending);
+        }
+        break;
+      }
+    }
+  });
+}
+setupPasteImage(
+  document.getElementById('message-input'),
+  document.getElementById('attachment-preview'),
+  document.getElementById('attachment-preview-name'),
+  (v) => { pendingAttachment = v; }
+);
+
 document.getElementById('message-attachment-input').onchange = async (e) => {
   const file = e.target.files[0];
   e.target.value = '';
@@ -9149,7 +9178,7 @@ function registerSocketHandlers() {
     SFX.peerLeave();
   });
 
-  socket.on('rtc:signal', async ({ from, username, avatar, avatar_frame, data }) => {
+  socket.on('rtc:signal', async ({ from, userId, username, avatar, avatar_frame, data }) => {
     let pc = peers[from];
     let isNewPc = false;
     if (!pc) {
@@ -9159,7 +9188,7 @@ function registerSocketHandlers() {
       await micReadyPromise;
       pc = peers[from];
       if (!pc) {
-        pc = createPeerConnection(from, username, { username, avatar, avatar_frame });
+        pc = createPeerConnection(from, username, { userId, username, avatar, avatar_frame });
         isNewPc = true;
       }
     }
@@ -9405,7 +9434,7 @@ async function connectVoice(roomId) {
   (joined.peers || []).forEach((peer) => {
     if (peers[peer.socketId]) return; // já tem conexão com essa pessoa, não duplica
     const pc = createPeerConnection(peer.socketId, peer.username, {
-      username: peer.username, avatar: peer.avatar, avatar_frame: peer.avatar_frame,
+      userId: peer.userId, username: peer.username, avatar: peer.avatar, avatar_frame: peer.avatar_frame,
     });
     addLocalTracksToPeer(pc);
   });
@@ -9714,6 +9743,13 @@ let pendingVoiceAttachment = null;
 document.getElementById('btn-attach-file-voice').onclick = () => {
   document.getElementById('voice-message-attachment-input').click();
 };
+
+setupPasteImage(
+  document.getElementById('voice-message-input'),
+  document.getElementById('voice-attachment-preview'),
+  document.getElementById('voice-attachment-preview-name'),
+  (v) => { pendingVoiceAttachment = v; }
+);
 
 document.getElementById('voice-message-attachment-input').onchange = async (e) => {
   const file = e.target.files[0];
@@ -10027,7 +10063,7 @@ function addVideoTile(peerId, username, stream, userInfo) {
       <div class="tile-avatar ${avatarFrameClass(avatarUser)}">${renderAvatarHtml(avatarUser)}</div>
       <div class="tile-waveform"><span></span><span></span><span></span><span></span></div>
       ${isRemote ? '<span class="quality-dot quality-good" title="Qualidade da conexão"></span>' : ''}
-      <span class="label">${escapeHtml(username || 'Participante')}</span>
+      <span class="label${isRemote && userInfo && userInfo.userId ? ' label-clickable' : ''}" ${isRemote && userInfo && userInfo.userId ? 'title="Clique para mandar mensagem"' : ''}>${escapeHtml(username || 'Participante')}</span>
       <div class="tile-controls">
         ${isRemote ? '<input type="range" class="tile-volume" min="0" max="100" value="100" title="Volume" />' : ''}
         <button type="button" class="tile-btn tile-size-btn" title="Mudar tamanho">⬜</button>
@@ -10077,6 +10113,18 @@ function addVideoTile(peerId, username, stream, userInfo) {
       toggleExpandedTile(tile);
     };
     tile.querySelector('video').ondblclick = () => toggleExpandedTile(tile);
+
+    // Clicar no nome de quem está na sala de voz já abre a conversa (DM) com
+    // ela — pedido explícito. Só funciona pra participantes remotos cujo
+    // userId a gente já recebeu (ver userId em rtc:peer-joined/rtc:signal no
+    // server.js); sem isso não dá pra saber QUEM é a pessoa pra abrir o DM certo.
+    if (isRemote && userInfo && userInfo.userId) {
+      const labelEl = tile.querySelector('.label');
+      labelEl.onclick = (e) => {
+        e.stopPropagation();
+        openDmText(userInfo.userId, username);
+      };
+    }
 
     // "Tela cheia" de verdade — usa a Fullscreen API nativa do navegador
     // direto no elemento de vídeo (o jeito mais confiável, mesmo padrão do
@@ -10212,6 +10260,16 @@ function buildNoiseGate(rawStream) {
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtx) return;
   gateAudioCtx = new AudioCtx();
+  // CORRIGIDO ("portão de ruído não funciona"/fica mudo o tempo todo): o
+  // AudioContext nasce SUSPENSO em vários navegadores (política de autoplay)
+  // até alguém chamar .resume() nele — sem isso, o grafo de áudio aqui
+  // (analyser + gain + destination) simplesmente não processa nada, e como
+  // o portão começa com gain=0 ("fechado até detectar fala"), o resultado
+  // na prática é mandar SILÊNCIO pra sempre pros outros participantes,
+  // mesmo falando. Isso também explicava o cancelamento de ruído do
+  // navegador "não funcionar": como o portão vem ligado por padrão, era
+  // essa stream (travada) que sempre ia pra call, nunca o áudio de verdade.
+  gateAudioCtx.resume().catch(() => {});
   const source = gateAudioCtx.createMediaStreamSource(rawStream);
   gateAnalyser = gateAudioCtx.createAnalyser();
   gateAnalyser.fftSize = 512;
@@ -10231,6 +10289,11 @@ function buildNoiseGate(rawStream) {
 
   function loop() {
     if (!gateAnalyser || document.hidden) return; // desligado, ou aba minimizada/oculta
+    // Rede de segurança: alguns navegadores suspendem o AudioContext de novo
+    // sozinhos (ex: depois de um tempo sem interação, ou ao trocar de rota
+    // de áudio) — sem retomar aqui, o portão trava fechado até a pessoa
+    // sair e entrar de novo na call.
+    if (gateAudioCtx.state === 'suspended') gateAudioCtx.resume().catch(() => {});
     gateAnalyser.getByteTimeDomainData(dataArray);
     let sumSquares = 0;
     for (let i = 0; i < dataArray.length; i++) {
@@ -11241,6 +11304,7 @@ document.getElementById('btn-test-mic').onclick = async () => {
   document.getElementById('mic-test-hint').textContent = 'Fale perto do microfone — a barra abaixo deve se mover.';
 
   micTestAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  micTestAudioCtx.resume().catch(() => {}); // mesmo ajuste do portão de ruído (ver buildNoiseGate)
   const source = micTestAudioCtx.createMediaStreamSource(micTestStream);
   const analyser = micTestAudioCtx.createAnalyser();
   analyser.fftSize = 512;

@@ -1620,6 +1620,15 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
 .video-tile.audio-only .label {
   position: static; background: none; padding: 0; font-size: 12px; font-weight: 700; color: #dbdee1;
 }
+/* Nome clicável na tile da sala de voz — pedido: clicar no nome de alguém
+   já abre a conversa (DM) com ela, sem precisar sair da call pra procurar
+   a pessoa na lista de amigos. */
+.video-tile .label.label-clickable {
+  cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+}
+.video-tile .label.label-clickable:hover {
+  background: rgba(var(--accent-rgb),0.85); color: #fff; text-decoration: underline;
+}
 .video-tile.has-video .tile-waveform { display: none; }
 
 /* Botões de ampliar / tela cheia — só aparecem pra quem tem vídeo de verdade
