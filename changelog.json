@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.80.0",
+    "date": "2026-10-26",
+    "changes": [
+      "BUG CORRIGIDO: login e cadastro 'não funcionavam' no celular. A tela usava 100vh (altura da tela toda, como se a barra de endereço do navegador estivesse escondida) em vez de 100dvh (altura real visível). No celular, isso fazia o cartão de login/cadastro — com o botão 'Entrar'/'Criar conta' lá embaixo — ficar maior que a área realmente visível, e ainda 'pular' de lugar toda vez que a barra do navegador aparecia/sumia ao rolar a tela: dava a impressão de botão que não responde, porque o toque caía onde o botão tinha acabado de deixar de estar. Mesmo ajuste que já tinha sido feito no app principal há um tempo, só que a tela de login/cadastro tinha ficado de fora."
+    ]
+  },
+  {
     "version": "0.79.0",
     "date": "2026-10-26",
     "changes": [
