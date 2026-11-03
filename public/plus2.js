@@ -307,6 +307,7 @@
       { key: 'creator', label: 'Criar tema' },
       { key: 'backgrounds', label: 'Fundos' },
       { key: 'effects', label: 'Efeitos' },
+      { key: 'mascot', label: 'Mascote' },
       { key: 'chat', label: 'Chat' },
       { key: 'stickers', label: 'Figurinhas' },
       { key: 'profile', label: 'Perfil' },
@@ -331,15 +332,17 @@
     const panelCreator = el('div', { class: 'pv2-panel' + (activeTab === 'creator' ? ' active' : '') });
     const panelBackgrounds = el('div', { class: 'pv2-panel' + (activeTab === 'backgrounds' ? ' active' : '') });
     const panelEffects = el('div', { class: 'pv2-panel' + (activeTab === 'effects' ? ' active' : '') });
+    const panelMascot = el('div', { class: 'pv2-panel' + (activeTab === 'mascot' ? ' active' : '') });
     const panelChat = el('div', { class: 'pv2-panel' + (activeTab === 'chat' ? ' active' : '') });
     const panelStickers = el('div', { class: 'pv2-panel' + (activeTab === 'stickers' ? ' active' : '') });
     const panelProfile = el('div', { class: 'pv2-panel' + (activeTab === 'profile' ? ' active' : '') });
     panels.themes = panelThemes; panels.creator = panelCreator; panels.backgrounds = panelBackgrounds;
-    panels.effects = panelEffects; panels.chat = panelChat; panels.stickers = panelStickers; panels.profile = panelProfile;
+    panels.effects = panelEffects; panels.mascot = panelMascot; panels.chat = panelChat; panels.stickers = panelStickers; panels.profile = panelProfile;
     container.appendChild(panelThemes);
     container.appendChild(panelCreator);
     container.appendChild(panelBackgrounds);
     container.appendChild(panelEffects);
+    container.appendChild(panelMascot);
     container.appendChild(panelChat);
     container.appendChild(panelStickers);
     container.appendChild(panelProfile);
@@ -364,6 +367,7 @@
       renderCreatorPanel();
       renderBackgroundsPanel();
       renderEffectsPanel();
+      renderMascotPanel();
       renderChatPanel();
       renderProfilePanel();
       if (stickersData) { stickersData = await adapter.getStickers(); renderStickersPanel(); }
@@ -373,14 +377,15 @@
     // Busca por nome, filtro por categoria, "Ver ao vivo" (aplica no site de
     // verdade sem salvar) e importar/exportar tema em JSON.
     const CATEGORY_LABELS = {
-      essenciais: 'Essenciais', gamer: 'Gamer', espaco: 'Espaço', luxo: 'Luxo',
-      natureza: 'Natureza', sazonal: 'Sazonais', parceiros: 'Parceiros', meus: 'Meus temas',
+      essenciais: 'Essenciais', datas: '🎉 Datas comemorativas', gamer: 'Gamer', espaco: 'Espaço', luxo: 'Luxo',
+      natureza: 'Natureza', sazonal: 'Estações', parceiros: 'Parceiros', meus: 'Meus temas',
     };
-    const CATEGORY_ORDER = ['essenciais', 'gamer', 'espaco', 'luxo', 'natureza', 'sazonal', 'parceiros', 'meus'];
+    const CATEGORY_ORDER = ['essenciais', 'datas', 'gamer', 'espaco', 'luxo', 'natureza', 'sazonal', 'parceiros', 'meus'];
     const FONT_LABELS = { '': 'Padrão', modern: 'Moderna', tech: 'Tech', retro: 'Retrô', elegant: 'Elegante', soft: 'Suave' };
     const SCENE_LABELS = {
       none: 'Sem fundo animado', aurora: 'Aurora', grid: 'Grade neon', waves: 'Ondas',
       stars: 'Estrelas', embers: 'Brasas', matrix: 'Chuva de código', petals: 'Pétalas', snow: 'Neve',
+      confetti: 'Confete', fireworks: 'Fogos de artifício', hearts: 'Corações', balloons: 'Balões', easter: 'Ovos de Páscoa',
     };
     const galleryState = { search: '', category: 'todos', ieOpen: false };
     let previewingTheme = null;
@@ -570,6 +575,7 @@
 
       const metaTags = [];
       if (theme.scene && theme.scene !== 'none') metaTags.push('🎬 ' + (SCENE_LABELS[theme.scene] || theme.scene));
+      if (theme.decor) metaTags.push('🎀 Decoração temática');
       if (theme.font) metaTags.push('Aa ' + (FONT_LABELS[theme.font] || theme.font));
       if (theme.suggestedEffects && theme.suggestedEffects.length) metaTags.push('✨ ' + theme.suggestedEffects.length + ' efeitos');
 
@@ -619,6 +625,7 @@
       }
       data.current.themeId = theme.id;
       renderThemesPanel();
+      renderMascotPanel();
       await saveMe({ themeId: theme.id });
       await applyThemeSuggestedEffects(theme);
       if (opts.onThemeApplied) opts.onThemeApplied(theme);
@@ -650,6 +657,86 @@
         const labels = toEnable.map((key) => (EFFECT_DEFS.find((d) => d.key === key) || {}).label || key);
         opts.onEffectsAutoApplied(labels);
       }
+    }
+
+
+    // ---------------- ABA: mascote e decoração (v0.87.0) ----------------
+    // Preferências guardadas no próprio navegador (não vão pro servidor):
+    // liga/desliga cada parte, intensidade, qual personagem e o nome usado nas falas.
+    function renderMascotPanel() {
+      panelMascot.innerHTML = '';
+      panelMascot.appendChild(el('div', { class: 'pv2-section-title' }, ['Mascote e decoração']));
+      const Live = global.PlusV2Live, Masc = global.PlusV2Mascot;
+      const allThemes = [...data.themes, ...data.myCustomThemes];
+      const theme = allThemes.find((t) => t.id === data.current.themeId);
+      const decor = theme && theme.decor;
+      if (!Live || !Masc || !decor || !Masc.themes[decor]) {
+        panelMascot.appendChild(el('p', { class: 'pv2-section-hint' }, [
+          'Os temas de datas comemorativas (Natal, Ano Novo, Carnaval, Páscoa, Dia dos Namorados e Dia das Crianças) trazem um mascote que voa pela tela, pousa nos servidores, fala, faz perguntas e solta itens para coletar. Escolha um deles para liberar as opções aqui.',
+        ]));
+        panelMascot.appendChild(el('button', {
+          type: 'button', class: 'pv2-ghost-btn',
+          onclick: () => { galleryState.category = 'datas'; setActiveTab('themes'); renderThemesPanel(); },
+        }, ['🎉 Ver temas de datas comemorativas']));
+        return;
+      }
+      const prefs = Live.prefs();
+      const cfg = Masc.themes[decor];
+      panelMascot.appendChild(el('p', { class: 'pv2-section-hint' }, ['Tema atual: ' + theme.name + '. Tudo aqui fica salvo só neste navegador e muda na hora.']));
+
+      // ---- personagem ----
+      panelMascot.appendChild(el('label', { class: 'pv2-lbl' }, ['Escolha o personagem']));
+      const chars = el('div', { class: 'pv2-char-grid' });
+      const chosen = (prefs.variant || {})[decor] && cfg.variants.indexOf(prefs.variant[decor]) >= 0 ? prefs.variant[decor] : cfg.variants[0];
+      cfg.variants.forEach((v) => {
+        const card = el('button', {
+          type: 'button', class: 'pv2-char-card' + (v === chosen ? ' selected' : ''),
+          onclick: () => { Live.setPrefs({ variant: { [decor]: v } }); renderMascotPanel(); },
+        }, [el('div', { class: 'pv2-char-art' + (v === 'santa' ? ' wide' : ''), html: Masc.preview(decor, v) }), el('span', {}, [cfg.names[v]])]);
+        chars.appendChild(card);
+      });
+      panelMascot.appendChild(chars);
+
+      // ---- liga/desliga ----
+      panelMascot.appendChild(el('label', { class: 'pv2-lbl', style: 'margin-top:14px;' }, ['O que mostrar']));
+      [
+        ['mascot', 'Personagem (voa, pousa nos servidores e botões)'],
+        ['decor', 'Decoração do topo da tela'],
+        ['scene', 'Fundo animado'],
+        ['drops', 'Itens coletáveis que o personagem solta'],
+        ['talk', 'Falas do personagem'],
+        ['quiz', 'Perguntas e mini-desafios'],
+      ].forEach(([key, label]) => {
+        const box = el('input', { type: 'checkbox' });
+        box.checked = prefs[key] !== false;
+        box.addEventListener('change', () => { Live.setPrefs({ [key]: box.checked }); });
+        panelMascot.appendChild(el('label', { class: 'pv2-toggle-row' }, [el('span', { style: 'font-size:12.5px;font-weight:600;color:#cfd2d8;' }, [label]), box]));
+      });
+
+      // ---- intensidade ----
+      panelMascot.appendChild(el('label', { class: 'pv2-lbl', style: 'margin-top:14px;' }, ['Intensidade']));
+      const seg = el('div', { class: 'pv2-seg' });
+      [['leve', 'Leve'], ['normal', 'Normal'], ['intenso', 'Intenso']].forEach(([v, l]) => {
+        seg.appendChild(el('button', {
+          type: 'button', class: 'pv2-seg-btn' + ((prefs.intensity || 'normal') === v ? ' active' : ''),
+          onclick: () => { Live.setPrefs({ intensity: v }); renderMascotPanel(); },
+        }, [l]));
+      });
+      panelMascot.appendChild(seg);
+      panelMascot.appendChild(el('p', { class: 'pv2-section-hint', style: 'margin-top:6px;' }, ['Controla a quantidade de animações do fundo e a frequência do personagem.']));
+
+      // ---- nome ----
+      panelMascot.appendChild(el('label', { class: 'pv2-lbl' }, ['Como o personagem deve te chamar']));
+      const nameInput = el('input', { type: 'text', class: 'pv2-name-input', maxlength: '24', placeholder: 'Seu nome ou apelido', value: prefs.name || '' });
+      nameInput.addEventListener('change', () => Live.setPrefs({ name: nameInput.value.trim().slice(0, 24) }));
+      panelMascot.appendChild(nameInput);
+
+      // ---- ações ----
+      const actions = el('div', { class: 'pv2-ie-row', style: 'margin-top:14px;' }, [
+        el('button', { type: 'button', class: 'pv2-ghost-btn', onclick: () => Masc.summon() }, ['👋 Chamar o personagem agora']),
+        el('button', { type: 'button', class: 'pv2-ghost-btn', onclick: () => Masc.resetScore() }, ['Zerar placar de ' + cfg.itemName]),
+      ]);
+      panelMascot.appendChild(actions);
     }
 
     // ---------------- ABA: criar tema ----------------
@@ -1600,6 +1687,7 @@
     renderCreatorPanel();
     renderBackgroundsPanel();
     renderEffectsPanel();
+    renderMascotPanel();
     renderChatPanel();
     renderProfilePanel();
     if (activeTab === 'stickers') loadStickers();

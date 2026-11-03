@@ -1,5 +1,39 @@
 [
   {
+    "version": "0.87.0",
+    "date": "2026-11-03",
+    "changes": [
+      "NOVO: MASCOTES nas datas comemorativas! Cada data tem personagens desenhados que voam pela tela, POUSAM nos servidores, botões e cards, acenam, falam (usando seu nome), fazem PERGUNTAS com respostas clicáveis, soltam itens para COLETAR (presentes, estrelas, confetes, ovos, corações, doces) e às vezes correm atrás do seu mouse — clique neles e eles reagem.",
+      "Natal: Papai Noel no trenó com renas, Boneco de Neve e Duende. Ano Novo: Relógio Festeiro e Sr. Dourado. Carnaval: Folião e Passista. Páscoa: Coelhinho e Pintinho. Namorados: Cupido e Ursinho Apaixonado. Dia das Crianças: Ursinho e Robozinho.",
+      "Placar de itens coletados (a cada 10, comemoração com fogos/efeitos) salvo no navegador.",
+      "O pisca-pisca agora é só do Natal. Cada outra data tem decoração própria: contagem regressiva + serpentinas (Ano Novo), bandeirinhas (Carnaval), trepadeira com flores e ovinhos pendurados (Páscoa), varal de corações (Namorados) e varal de balões (Dia das Crianças).",
+      "Nova aba 'Mascote' em Personalização: escolher o personagem, ligar/desligar personagem, decoração, fundo animado, itens, falas e perguntas, intensidade (Leve/Normal/Intenso), nome que o personagem usa, chamar o personagem na hora e zerar o placar.",
+      "Tudo desliga no Modo desempenho e respeita 'reduzir movimento' do sistema."
+    ]
+  },
+  {
+    "version": "0.86.0",
+    "date": "2026-11-03",
+    "changes": [
+      "Datas comemorativas redesenhadas SEM emoji: tudo agora é desenho vetorial — Papai Noel no trenó com duas renas galopando (nariz brilhando), enfeites de Natal pendurados no fio de luzes (bolas, estrela, presente, sino, bengala doce), gorro de Natal / chapéu de festa / máscara de carnaval / orelhas de coelho / coração com flecha / boné de hélice na logo, cometa dourado, bandeirinhas, coelhinho pulando, flecha de cupido e aviãozinho de papel.",
+      "INTERATIVO: balões sobem de verdade — passe o mouse e eles desviam, clique num balão e ele ESTOURA (cacos + confete), clique no vazio e solta balões novos.",
+      "INTERATIVO: Ano Novo com fogos de artifício reais (círculo, anel, salgueiro e em formato de CORAÇÃO) — clique em qualquer lugar e um foguete sobe até ali.",
+      "INTERATIVO: neve do Natal com cristais desenhados, o mouse sopra os flocos e o clique solta uma rajada; corações flutuantes com brilho (clique chove corações); confete e serpentina (clique é um canhão); ovos de Páscoa desenhados com listras e bolinhas (clique quebra o ovo).",
+      "Enfeites do fio de luzes balançam quando você passa o mouse ou clica neles."
+    ]
+  },
+  {
+    "version": "0.85.0",
+    "date": "2026-11-03",
+    "changes": [
+      "NOVO: temas de DATAS COMEMORATIVAS — Natal, Ano Novo, Carnaval, Páscoa, Dia dos Namorados e Dia das Crianças, numa categoria própria da galeria.",
+      "Cada data tem fundo animado próprio (neve, fogos de artifício, confete, ovinhos, corações, balões), fonte, cores e uma DECORAÇÃO TEMÁTICA: fio de luzes piscando no topo com enfeites balançando, personagem que atravessa a tela (Papai Noel no trenó com renas no Natal), acessório na logo (gorro de Natal) e faixa listrada na barra lateral.",
+      "Liberação automática por data (Natal 01/12/2026, Ano Novo 26/12/2026, Carnaval 01/02/2027, Páscoa 15/03/2027, Namorados 01/06/2027, Crianças 01/10/2027) — o admin pode mudar a data no painel. Antes de liberar, dá pra ver ao vivo.",
+      "Admin: novo campo 'Decoração temática' e novas opções de fundo animado.",
+      "Tudo desliga no Modo desempenho e respeita 'reduzir movimento' do sistema."
+    ]
+  },
+  {
     "version": "0.84.1",
     "date": "2026-11-03",
     "changes": [

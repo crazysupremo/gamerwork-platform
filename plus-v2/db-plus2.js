@@ -167,6 +167,8 @@ async function ensurePlusV2Schema(db) {
   await ensureColumn('plus_v2_themes', 'tagline TEXT');
   await ensureColumn('plus_v2_themes', 'font_key TEXT');
   await ensureColumn('plus_v2_themes', 'scene TEXT');
+  // v0.85.0 — decoração temática de datas comemorativas (natal, ano-novo...).
+  await ensureColumn('plus_v2_themes', 'decor_key TEXT');
 }
 
 // ---------------------------------------------------------------------------
@@ -223,8 +225,22 @@ const DEFAULT_THEMES = [
   { key: 'sakura', name: 'Sakura', tagline: 'Pétalas caindo em rosa', category: 'natureza', primary: '#ff8fb8', secondary: '#c084fc', highlight: '#ffe4ef', text: '#fff4f8', button: '#241020', premium: true, effect: 'glow', scene: 'petals', font: 'soft', suggestedEffects: ['buttonGlow', 'messageReceive'] },
 
   // ===== SAZONAIS =====
-  { key: 'halloween', name: 'Halloween', tagline: 'Laranja-abóbora na escuridão', category: 'sazonal', primary: '#ff7a1a', secondary: '#0d0d0d', highlight: '#ff2e2e', text: '#f6efdc', button: '#07050c', premium: false, effect: 'glow', scene: 'embers', font: '', suggestedEffects: ['particles', 'buttonGlow'] },
+  { key: 'halloween', name: 'Halloween', tagline: 'Laranja-abóbora na escuridão', category: 'datas', primary: '#ff7a1a', secondary: '#0d0d0d', highlight: '#ff2e2e', text: '#f6efdc', button: '#07050c', premium: false, effect: 'glow', scene: 'embers', font: '', suggestedEffects: ['particles', 'buttonGlow'] },
   { key: 'winter-night', name: 'Winter Night', tagline: 'Noite de neve azulada', category: 'sazonal', primary: '#4f8fd6', secondary: '#1e3a5f', highlight: '#e0f2ff', text: '#eef7ff', button: '#0a1622', premium: true, effect: 'shine', scene: 'snow', font: 'modern', suggestedEffects: ['buttonGlow', 'transitions'] },
+
+  // ===== DATAS COMEMORATIVAS (v0.85.0) =====
+  // Cada um traz "decor": enfeites temáticos pelo site inteiro (luzes, bicho/
+  // objeto que atravessa a tela, acessório na logo, cantinho decorado, faixa
+  // na sidebar) além do fundo animado. Liberação automática por data
+  // (releaseAt) — o admin pode mudar a data a qualquer momento no painel;
+  // até lá, o tema aparece com cadeado "disponível em..." e dá pra ver
+  // ao vivo mesmo assim.
+  { key: 'natal', name: 'Natal', tagline: 'Neve, luzes piscando e Papai Noel', category: 'datas', primary: '#d62839', secondary: '#1f8a4c', highlight: '#ffd54a', text: '#fff7f0', button: '#1a0a0d', premium: false, effect: 'glow', scene: 'snow', font: 'soft', decor: 'natal', releaseAt: '2026-12-01T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'avatarGlow', 'messageReceive', 'callJoin'] },
+  { key: 'ano-novo', name: 'Ano Novo', tagline: 'Fogos de artifício e dourado', category: 'datas', primary: '#ffc83d', secondary: '#1b2a6b', highlight: '#ffffff', text: '#fff8e1', button: '#0a0d1f', premium: false, effect: 'shine', scene: 'fireworks', font: 'elegant', decor: 'ano-novo', releaseAt: '2026-12-26T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'avatarGlow'] },
+  { key: 'carnaval', name: 'Carnaval', tagline: 'Confete, serpentina e muita cor', category: 'datas', primary: '#ff2e93', secondary: '#00b85c', highlight: '#ffd600', text: '#fff4fb', button: '#1c0716', premium: false, effect: 'pulse', scene: 'confetti', font: 'soft', decor: 'carnaval', releaseAt: '2027-02-01T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'messageReceive', 'callJoin'] },
+  { key: 'pascoa', name: 'Páscoa', tagline: 'Ovinhos, coelhos e tons pastel', category: 'datas', primary: '#b388ff', secondary: '#ff9ec7', highlight: '#fff3a0', text: '#fbf6ff', button: '#1a1226', premium: false, effect: 'glow', scene: 'easter', font: 'soft', decor: 'pascoa', releaseAt: '2027-03-15T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'messageReceive'] },
+  { key: 'namorados', name: 'Dia dos Namorados', tagline: 'Corações flutuando em rosa', category: 'datas', primary: '#ff4d79', secondary: '#b0124a', highlight: '#ffc2d4', text: '#fff1f5', button: '#1f0711', premium: false, effect: 'glow', scene: 'hearts', font: 'soft', decor: 'namorados', releaseAt: '2027-06-01T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'avatarGlow', 'messageReceive'] },
+  { key: 'criancas', name: 'Dia das Crianças', tagline: 'Balões e cores alegres', category: 'datas', primary: '#22b8f0', secondary: '#ff7043', highlight: '#ffee58', text: '#f2fbff', button: '#08202e', premium: false, effect: 'pulse', scene: 'balloons', font: 'soft', decor: 'criancas', releaseAt: '2027-10-01T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'messageReceive', 'callJoin'] },
 
   // ===== PARCEIROS =====
   { key: 'magic-tank', name: 'Magic Tank', tagline: 'Azul neon + dourado (parceiro)', category: 'parceiros', primary: '#00a8ff', secondary: '#fbdc70', highlight: '#7fd9ff', text: '#e2e8f0', button: '#050810', premium: true, effect: 'glow', scene: 'none', font: '', suggestedEffects: ['buttonGlow'] },
@@ -348,7 +364,7 @@ async function seedPlusV2Defaults(db) {
   for (let i = 0; i < DEFAULT_THEMES.length; i++) {
     const t = DEFAULT_THEMES[i];
     const exists = await get('SELECT id FROM plus_v2_themes WHERE key = ?', [t.key]);
-    const extra = [t.category || null, t.tagline || null, t.font || null, t.scene || 'none'];
+    const extra = [t.category || null, t.tagline || null, t.font || null, t.scene || 'none', t.decor || null];
     if (exists) {
       // Tema já existia (site em produção já rodou o seed antes) — atualiza
       // o visual inteiro sem duplicar linha nem mexer no id (preserva a
@@ -357,7 +373,7 @@ async function seedPlusV2Defaults(db) {
         `UPDATE plus_v2_themes
            SET name = ?, primary_color = ?, secondary_color = ?, highlight_color = ?,
                text_color = ?, button_color = ?, effect = ?, is_premium = ?, sort_order = ?,
-               suggested_effects = ?, category = ?, tagline = ?, font_key = ?, scene = ?
+               suggested_effects = ?, category = ?, tagline = ?, font_key = ?, scene = ?, decor_key = ?
          WHERE key = ?`,
         [t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra, t.key]
       );
@@ -365,9 +381,9 @@ async function seedPlusV2Defaults(db) {
     }
     await run(
       `INSERT INTO plus_v2_themes
-        (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, suggested_effects, category, tagline, font_key, scene)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?)`,
-      [newId(), t.key, t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra]
+        (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, suggested_effects, category, tagline, font_key, scene, decor_key, release_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [newId(), t.key, t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra, t.releaseAt || null]
     );
   }
   // Aposenta os temas antigos: move quem usava pro Next Blue e apaga a linha.
