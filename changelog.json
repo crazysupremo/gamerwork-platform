@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.83.0",
+    "date": "2026-11-03",
+    "changes": [
+      "NOVO: 4 temas profissionais novos na galeria de Personalização — Platinum Pro (cinza/platina/azul-gelo, visual executivo), Vaporwave (rosa/roxo/ciano retrô-futurista), Emerald Elite (verde-esmeralda + dourado, luxo) e Phantom Red (preto/vermelho, estilo time pro de esports) — esse último gratuito, os outros 3 exclusivos NEXTGAME PLUS.",
+      "Temas agora podem ser 'interativos' de verdade: cada tema pode ter efeitos sugeridos (partículas, brilho nos botões, gradientes animados etc) que ligam SOZINHOS quando a pessoa escolhe aquele tema, com um aviso explicando o que mudou — em vez de só trocar cor e deixar a pessoa ter que ir na aba Efeitos ligar tudo na mão. Nunca desliga nada que já estava configurado, e nunca liga efeito PLUS pra quem não é PLUS. Aplicado nos 4 temas novos e em alguns temas flagship que já existiam (GAMEX, Cyberpunk, Inferno, Eclipse, Halloween). Tema com efeito sugerido ganha um selinho ✨ na galeria.",
+      "Criador de tema personalizado mais poderoso: 6 presets de paleta prontos (um clique aplica as 5 cores de uma vez) e um botão '🎲 Aleatorizar cores' que gera uma combinação nova sempre harmoniosa (gira o matiz em vez de sortear cor solta, pra nunca sair uma mistura feia).",
+      "Painel admin → Personalização → Temas ganhou o campo 'Efeitos sugeridos' (grupo de checkboxes) no formulário de criar/editar tema — dá pra configurar quais efeitos cada tema novo liga sozinho, sem precisar mexer em código."
+    ]
+  },
+  {
     "version": "0.82.0",
     "date": "2026-10-26",
     "changes": [

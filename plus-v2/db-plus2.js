@@ -150,6 +150,15 @@ async function ensurePlusV2Schema(db) {
   // antes). NULL = tema sempre disponível, sem data de lançamento. Formato
   // ISO completo (ex.: "2026-12-25T00:00:00"), comparado em UTC no servidor.
   await ensureColumn('plus_v2_themes', 'release_at TEXT');
+
+  // Efeitos visuais (os mesmos da aba "Efeitos" — particles, buttonGlow etc)
+  // que esse tema recomenda ligar sozinho quando a pessoa escolhe ele —
+  // pedido explícito: "deixar os temas mais interativos", em vez do tema só
+  // mudar cor e a pessoa ter que ir na outra aba ligar os efeitos na mão.
+  // Guardado como JSON (array de chaves, ex: '["particles","buttonGlow"]').
+  // NULL/vazio = tema não sugere nenhum efeito extra (comportamento de
+  // antes, continua funcionando igual pros temas que não configurarem isso).
+  await ensureColumn('plus_v2_themes', 'suggested_effects TEXT');
 }
 
 // ---------------------------------------------------------------------------
@@ -179,11 +188,11 @@ const DEFAULT_THEMES = [
   // ---- Premium — NEXTGAME PLUS (seção 3 + 12 do documento) ----
   { key: 'galaxy', name: 'Galaxy', primary: '#4b3fa0', secondary: '#7c5cff', highlight: '#00e5ff', text: '#f0f0ff', button: '#1a1433', premium: true, effect: 'shine' },
   { key: 'aurora', name: 'Aurora', primary: '#12c2a9', secondary: '#7d5fff', highlight: '#c2f9ff', text: '#eafff9', button: '#0d1f2e', premium: true, effect: 'shine' },
-  { key: 'cyberpunk', name: 'Cyberpunk', primary: '#ff2e88', secondary: '#00e5ff', highlight: '#f6ff3d', text: '#f5f5ff', button: '#160a24', premium: true, effect: 'glow' },
-  { key: 'inferno', name: 'Inferno', primary: '#ff4b2b', secondary: '#ff9f1c', highlight: '#ffe66d', text: '#fff2e6', button: '#2b0f0a', premium: true, effect: 'pulse' },
+  { key: 'cyberpunk', name: 'Cyberpunk', primary: '#ff2e88', secondary: '#00e5ff', highlight: '#f6ff3d', text: '#f5f5ff', button: '#160a24', premium: true, effect: 'glow', suggestedEffects: ['animatedGradients', 'buttonGlow'] },
+  { key: 'inferno', name: 'Inferno', primary: '#ff4b2b', secondary: '#ff9f1c', highlight: '#ffe66d', text: '#fff2e6', button: '#2b0f0a', premium: true, effect: 'pulse', suggestedEffects: ['particles', 'buttonGlow'] },
   { key: 'royal', name: 'Royal', primary: '#3d1f5c', secondary: '#c9a227', highlight: '#ffe08a', text: '#f7efe0', button: '#120a1a', premium: true, effect: 'shine' },
   { key: 'diamond', name: 'Diamond', primary: '#5fb8e0', secondary: '#e8f7ff', highlight: '#ffffff', text: '#eaf9ff', button: '#0d2733', premium: true, effect: 'shine' },
-  { key: 'eclipse', name: 'Eclipse', primary: '#1a0f2e', secondary: '#4b2e83', highlight: '#8a5cff', text: '#e8e0ff', button: '#050208', premium: true, effect: 'glow' },
+  { key: 'eclipse', name: 'Eclipse', primary: '#1a0f2e', secondary: '#4b2e83', highlight: '#8a5cff', text: '#e8e0ff', button: '#050208', premium: true, effect: 'glow', suggestedEffects: ['avatarGlow', 'transitions'] },
   // ---- Extras premium (fora do documento, mantidos) ----
   { key: 'neon-dreams', name: 'Neon Dreams', primary: '#ff00e5', secondary: '#00fff0', highlight: '#fefe00', text: '#f7f7ff', button: '#100a1f', premium: true, effect: 'glow' },
   { key: 'winter-night', name: 'Winter Night', primary: '#3b6fa0', secondary: '#8fd6ff', highlight: '#ffffff', text: '#eaf6ff', button: '#0e1b26', premium: true, effect: 'shine' },
@@ -194,7 +203,7 @@ const DEFAULT_THEMES = [
   // conta de toda a identidade de cor do app: sidebar, topo, botões, cards,
   // chat, avatar/badge, scrollbar e seleção de texto, sem precisar de
   // nenhum código extra além de entrar no catálogo.
-  { key: 'gamex', name: 'GAMEX', primary: '#39ff6a', secondary: '#7c3aed', highlight: '#ffe14d', text: '#eafff0', button: '#0a1f12', premium: true, effect: 'glow' },
+  { key: 'gamex', name: 'GAMEX', primary: '#39ff6a', secondary: '#7c3aed', highlight: '#ffe14d', text: '#eafff0', button: '#0a1f12', premium: true, effect: 'glow', suggestedEffects: ['particles', 'buttonGlow', 'avatarGlow'] },
   // Tema "Magic Tank" (jogo parceiro), reativado — paleta tirada direto da
   // arte VIP que eles mandaram: azul neon (#00a8ff) + dourado (#fbdc70)
   // sobre fundo escuro azulado.
@@ -216,7 +225,34 @@ const DEFAULT_THEMES = [
   // preto sim"): trocado o roxo por preto/quase-preto como cor secundária,
   // combinação clássica de Halloween de verdade. Vermelho-sangue entra como
   // destaque (highlight) no lugar do verde.
-  { key: 'halloween', name: 'Halloween · até 31/10', primary: '#ff7a1a', secondary: '#0d0d0d', highlight: '#ff2e2e', text: '#f1ecd8', button: '#07050c', premium: false, effect: 'glow' },
+  { key: 'halloween', name: 'Halloween · até 31/10', primary: '#ff7a1a', secondary: '#0d0d0d', highlight: '#ff2e2e', text: '#f1ecd8', button: '#07050c', premium: false, effect: 'glow', suggestedEffects: ['particles', 'buttonGlow'] },
+
+  // ---- Pedido: "sistema de temas mais bonitos, profissionais e
+  // interativos" — 4 temas novos, com paleta e personalidade próprias (sem
+  // repetir combinação de cor dos 20 que já existiam), cada um já vindo com
+  // efeitos sugeridos (ver suggestedEffects) que ligam sozinhos ao escolher
+  // o tema — a pessoa não precisa ir na aba "Efeitos" separadamente pra
+  // sentir o tema completo. Ver applyThemeEffects() em plus2.js.
+  {
+    key: 'platinum-pro', name: 'Platinum Pro',
+    primary: '#5b6b7d', secondary: '#c7cdd6', highlight: '#5ec8ff', text: '#f3f6f9', button: '#1b2228',
+    premium: true, effect: 'shine', suggestedEffects: ['buttonGlow', 'transitions'],
+  },
+  {
+    key: 'vaporwave', name: 'Vaporwave',
+    primary: '#ff6ec7', secondary: '#7b2ff7', highlight: '#01cdfe', text: '#fdf0ff', button: '#1a0b2e',
+    premium: true, effect: 'glow', suggestedEffects: ['particles', 'animatedGradients', 'buttonGlow'],
+  },
+  {
+    key: 'emerald-elite', name: 'Emerald Elite',
+    primary: '#0f9b6e', secondary: '#0a3d2e', highlight: '#d4af37', text: '#eafff5', button: '#07211a',
+    premium: true, effect: 'shine', suggestedEffects: ['buttonGlow', 'avatarGlow'],
+  },
+  {
+    key: 'phantom-red', name: 'Phantom Red',
+    primary: '#e21818', secondary: '#1a1a1a', highlight: '#ff5757', text: '#fff0f0', button: '#0c0c0c',
+    premium: false, effect: 'pulse', suggestedEffects: ['buttonGlow', 'messageReceive', 'callJoin'],
+  },
 ];
 
 const DEFAULT_BADGES = [
@@ -339,17 +375,18 @@ async function seedPlusV2Defaults(db) {
       await run(
         `UPDATE plus_v2_themes
            SET name = ?, primary_color = ?, secondary_color = ?, highlight_color = ?,
-               text_color = ?, button_color = ?, effect = ?, is_premium = ?, sort_order = ?
+               text_color = ?, button_color = ?, effect = ?, is_premium = ?, sort_order = ?,
+               suggested_effects = ?
          WHERE key = ?`,
-        [t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, t.key]
+        [t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), t.key]
       );
       continue;
     }
     await run(
       `INSERT INTO plus_v2_themes
-        (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 1, NULL, ?)`,
-      [newId(), t.key, t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i]
+        (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, suggested_effects)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 1, NULL, ?, ?)`,
+      [newId(), t.key, t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || [])]
     );
   }
   for (let i = 0; i < DEFAULT_BADGES.length; i++) {

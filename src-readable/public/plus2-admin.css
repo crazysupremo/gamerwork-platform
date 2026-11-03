@@ -42,6 +42,17 @@
 .pv2a-create-field { display: flex; flex-direction: column; gap: 4px; min-width: 100px; }
 .pv2a-create-field label { font-size: 10.5px; color: #8b909a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
 
+/* Campo "Efeitos sugeridos" do tema (checkboxGroup) — usado tanto na linha
+   da tabela quanto no form "Adicionar novo". */
+.pv2a-checkbox-group {
+  display: flex; flex-direction: column; gap: 3px; background: #14151a; border: 1px solid #35373c;
+  border-radius: 6px; padding: 6px 8px; min-width: 170px; max-height: 110px; overflow-y: auto;
+}
+.pv2a-checkbox-group-item {
+  display: flex; align-items: center; gap: 6px; font-size: 11px; color: #cfd2d8; cursor: pointer;
+}
+.pv2a-checkbox-group-item input { margin: 0; cursor: pointer; }
+
 .pv2a-pack-card { background: #17181d; border: 1px solid #24252c; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
 .pv2a-pack-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .pv2a-sticker-admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; margin-bottom: 10px; }

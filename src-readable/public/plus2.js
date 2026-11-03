@@ -411,6 +411,12 @@
           el('div', { class: 'pv2-theme-name' }, [
             theme.name,
             theme.premium ? el('span', { class: 'pv2-premium-pill' }, ['PLUS']) : null,
+            // Pedido: "temas mais interativos" — avisa de cara, na galeria,
+            // que esse tema já vem com efeitos extras (ver
+            // applyThemeSuggestedEffects), sem precisar escolher pra descobrir.
+            theme.suggestedEffects && theme.suggestedEffects.length
+              ? el('span', { class: 'pv2-interactive-pill', title: 'Já vem com efeitos ligados' }, ['✨'])
+              : null,
           ]),
         ]);
         // A cor de brilho do hover/seleção (CSS, ver .pv2-theme-card:hover em
@@ -446,7 +452,36 @@
       data.current.themeId = theme.id;
       renderThemesPanel();
       await saveMe({ themeId: theme.id });
+      await applyThemeSuggestedEffects(theme);
       if (opts.onThemeApplied) opts.onThemeApplied(theme);
+    }
+
+    // Liga sozinho os efeitos que esse tema recomenda (pedido: "temas mais
+    // interativos", em vez da pessoa escolher o tema e ainda ter que ir na
+    // aba Efeitos ligar cada coisa na mão). Duas travas importantes:
+    // 1) só liga quem ainda está DESLIGADO — nunca desliga nada que a pessoa
+    //    já tinha ajustado do jeito dela;
+    // 2) um efeito que é exclusivo PLUS só liga sozinho se a conta for PLUS
+    //    de verdade — senão ficaria "ligado" no banco mas sem aparecer pra
+    //    quem não pode usar, dando a entender que tem algo quebrado.
+    async function applyThemeSuggestedEffects(theme) {
+      const suggested = Array.isArray(theme.suggestedEffects) ? theme.suggestedEffects : [];
+      if (!suggested.length) return;
+      const toEnable = suggested.filter((key) => {
+        if (data.visualPrefs.effects[key]) return false;
+        const def = EFFECT_DEFS.find((d) => d.key === key);
+        if (!def) return false;
+        if (!def.free && !data.isPlusUser) return false;
+        return true;
+      });
+      if (!toEnable.length) return;
+      const patch = {};
+      toEnable.forEach((key) => { data.visualPrefs.effects[key] = true; patch[key] = true; });
+      await saveMe({ visualPrefs: { effects: patch } });
+      if (opts.onEffectsAutoApplied) {
+        const labels = toEnable.map((key) => (EFFECT_DEFS.find((d) => d.key === key) || {}).label || key);
+        opts.onEffectsAutoApplied(labels);
+      }
     }
 
     // ---------------- ABA: criar tema ----------------
@@ -485,6 +520,11 @@
         ['text', 'Cor dos textos'], ['button', 'Cor dos botões'],
       ];
       const frame = buildPreviewFrame();
+      // Guarda a função update() de cada campo de cor, indexada pela chave —
+      // é o que deixa os presets/aleatorizar abaixo preencherem as 5 cores
+      // de uma vez só (inclusive atualizando o color picker + campo de texto
+      // de cada uma), sem duplicar a lógica de validação/preview.
+      const fieldUpdaters = {};
       colorFields.forEach(([key, label]) => {
         const colorPicker = el('input', { type: 'color', value: draft[key], disabled: data.isPlusUser ? undefined : 'disabled' });
         const textInput = el('input', { type: 'text', value: draft[key], disabled: data.isPlusUser ? undefined : 'disabled' });
@@ -494,6 +534,7 @@
           textInput.value = v;
           updatePreview();
         }
+        fieldUpdaters[key] = update;
         colorPicker.addEventListener('input', () => update(colorPicker.value));
         textInput.addEventListener('change', () => {
           if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(textInput.value)) update(textInput.value);
@@ -504,6 +545,68 @@
           el('div', { class: 'pv2-color-input-wrap' }, [colorPicker, textInput]),
         ]));
       });
+
+      // Pedido: "criador de tema mais poderoso" — presets de paleta (combos
+      // já testados e harmoniosos, um clique aplica as 5 cores de uma vez) e
+      // um botão de aleatorizar (gera uma paleta nova, sempre com bom
+      // contraste, pra quem não sabe por onde começar ou só quer inspiração).
+      const PALETTE_PRESETS = [
+        { name: 'Esmeralda', primary: '#0f9b6e', secondary: '#0a3d2e', highlight: '#d4af37', text: '#eafff5', button: '#07211a' },
+        { name: 'Vaporwave', primary: '#ff6ec7', secondary: '#7b2ff7', highlight: '#01cdfe', text: '#fdf0ff', button: '#1a0b2e' },
+        { name: 'Platina', primary: '#5b6b7d', secondary: '#c7cdd6', highlight: '#5ec8ff', text: '#f3f6f9', button: '#1b2228' },
+        { name: 'Fantasma', primary: '#e21818', secondary: '#1a1a1a', highlight: '#ff5757', text: '#fff0f0', button: '#0c0c0c' },
+        { name: 'Oceano', primary: '#0e4d92', secondary: '#00b8d9', highlight: '#7fe7ff', text: '#e6f7ff', button: '#08283f' },
+        { name: 'Pôr do sol', primary: '#8e44ad', secondary: '#ff7e33', highlight: '#ff6fa3', text: '#fff0f5', button: '#2b1a2e' },
+      ];
+      function applyPalette(p) {
+        fieldUpdaters.primary(p.primary);
+        fieldUpdaters.secondary(p.secondary);
+        fieldUpdaters.highlight(p.highlight);
+        fieldUpdaters.text(p.text);
+        fieldUpdaters.button(p.button);
+      }
+      const presetsRow = el('div', { class: 'pv2-presets-row' });
+      PALETTE_PRESETS.forEach((p) => {
+        const swatch = el('button', {
+          type: 'button', class: 'pv2-preset-swatch', title: p.name,
+          disabled: data.isPlusUser ? undefined : 'disabled',
+          style: `background:linear-gradient(135deg, ${p.primary}, ${p.secondary} 60%, ${p.highlight});`,
+          onclick: () => applyPalette(p),
+        });
+        presetsRow.appendChild(swatch);
+      });
+      controls.appendChild(el('label', { style: 'font-size:12.5px;font-weight:600;color:#cfd2d8;margin-top:4px;' }, ['Presets rápidos']));
+      controls.appendChild(presetsRow);
+
+      // Aleatoriza por matiz (HSL) em vez de RGB puro — gira um matiz
+      // aleatório e deriva secundária/destaque dele com saturação/luz
+      // diferentes, então a combinação sempre fica harmoniosa (nunca duas
+      // cores "brigando" sem nenhuma relação entre si, que é o problema
+      // comum de sortear RGB totalmente solto).
+      function hslToHexLocal(h, s, l) {
+        s /= 100; l /= 100;
+        const k = (n) => (n + h / 30) % 12;
+        const a = s * Math.min(l, 1 - l);
+        const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+        const toHex = (x) => Math.round(255 * x).toString(16).padStart(2, '0');
+        return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
+      }
+      function randomizePalette() {
+        const baseHue = Math.floor(Math.random() * 360);
+        const dark = draft.darkMode;
+        applyPalette({
+          primary: hslToHexLocal(baseHue, 70, 55),
+          secondary: hslToHexLocal((baseHue + 40) % 360, 65, 50),
+          highlight: hslToHexLocal((baseHue + 200) % 360, 85, 65),
+          text: dark ? '#eef0f5' : '#1a1b20',
+          button: dark ? hslToHexLocal(baseHue, 35, 12) : hslToHexLocal(baseHue, 20, 92),
+        });
+      }
+      const randomizeBtn = el('button', {
+        type: 'button', class: 'pv2-randomize-btn', disabled: data.isPlusUser ? undefined : 'disabled',
+        onclick: randomizePalette,
+      }, ['🎲 Aleatorizar cores']);
+      controls.appendChild(randomizeBtn);
 
       const effectSelect = el('select', { class: 'pv2-effect-select', disabled: data.isPlusUser ? undefined : 'disabled' }, [
         el('option', { value: 'none' }, ['Sem efeito']),

@@ -17,6 +17,25 @@ const { newId, mergeVisualPrefs } = require('./db-plus2');
 
 const HEX_COLOR_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const EFFECTS = new Set(['none', 'shine', 'glow', 'pulse']);
+// Efeitos "de verdade" (os da aba Efeitos — particles, buttonGlow etc, ver
+// DEFAULT_VISUAL_PREFS em db-plus2.js), diferentes do EFFECTS acima (que é só
+// a animação do CARD do tema na galeria). Usado pra validar o campo
+// suggestedEffects de cada tema — os efeitos que ligam sozinhos quando a
+// pessoa escolhe esse tema (pedido: "temas mais interativos").
+const SITE_EFFECTS = new Set(['particles', 'buttonGlow', 'animatedGradients', 'messageReceive', 'callJoin', 'avatarGlow', 'transitions']);
+
+// Faz parse seguro do JSON gravado em suggested_effects, descartando
+// qualquer chave que não seja um efeito válido (proteção contra dado velho/
+// corrompido no banco nunca quebrar a resposta da API).
+function parseSuggestedEffects(json) {
+  if (!json) return [];
+  try {
+    const arr = JSON.parse(json);
+    return Array.isArray(arr) ? arr.filter((e) => SITE_EFFECTS.has(e)) : [];
+  } catch (_) {
+    return [];
+  }
+}
 const BACKGROUND_TYPES = new Set(['solid', 'gradient', 'image', 'gif', 'effect']);
 const STICKER_TYPES = new Set(['emoji', 'image']);
 const HTTPS_URL_RE = /^https:\/\/\S+$/;
@@ -67,6 +86,9 @@ function themeOut(t, unlocked, now) {
     },
     darkMode: !!t.dark_mode,
     effect: t.effect,
+    // Efeitos que esse tema recomenda ligar sozinho ao ser escolhido (ver
+    // applyThemeEffects() em plus2.js) — [] pra tema sem nenhum sugerido.
+    suggestedEffects: parseSuggestedEffects(t.suggested_effects),
     premium: !!t.is_premium,
     preset: !!t.is_preset,
     custom: !t.is_preset,
@@ -485,6 +507,9 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
           premium: !!t.is_premium, sortOrder: t.sort_order,
           // Data exata de lançamento (null = sem data, já disponível).
           releaseAt: t.release_at || null,
+          // Efeitos que ligam sozinhos quando o usuário escolhe esse tema —
+          // editável no admin (ver campo "Efeitos sugeridos" no formulário).
+          suggestedEffects: parseSuggestedEffects(t.suggested_effects),
         })),
         backgrounds: backgrounds.map((b) => ({ id: b.id, key: b.key, name: b.name, type: b.type, value: b.value, premium: !!b.is_premium, sortOrder: b.sort_order })),
         banners: banners.map((b) => ({ id: b.id, key: b.key, name: b.name, style: b.style, value: b.value, premium: !!b.is_premium, sortOrder: b.sort_order })),
@@ -613,7 +638,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
     requireAuth,
     requireAdmin,
     asyncHandler(async (req, res) => {
-      const { key, name, primary, secondary, highlight, text, button, darkMode, effect, premium, sortOrder, releaseAt } = req.body || {};
+      const { key, name, primary, secondary, highlight, text, button, darkMode, effect, premium, sortOrder, releaseAt, suggestedEffects } = req.body || {};
       const colors = { primary, secondary, highlight, text, button };
       for (const [k, v] of Object.entries(colors)) {
         if (typeof v !== 'string' || !HEX_COLOR_RE.test(v)) {
@@ -623,12 +648,15 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
       if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Nome é obrigatório' });
       const releaseAtResult = normalizeReleaseAt(releaseAt);
       if (!releaseAtResult.ok) return res.status(400).json({ error: 'Data de lançamento inválida' });
+      // Filtra pra só aceitar chaves de efeito que a gente conhece — mesma
+      // lógica defensiva do parseSuggestedEffects usado na leitura.
+      const suggestedEffectsClean = Array.isArray(suggestedEffects) ? suggestedEffects.filter((e) => SITE_EFFECTS.has(e)) : [];
       const id = newId();
       await db.run(
         `INSERT INTO plus_v2_themes
-          (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, release_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, ?)`,
-        [id, key || null, name.trim(), primary, secondary, highlight, text, button, darkMode ? 1 : 0, EFFECTS.has(effect) ? effect : 'none', premium ? 1 : 0, sortOrder || 0, releaseAtResult.value]
+          (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, release_at, suggested_effects)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, ?, ?)`,
+        [id, key || null, name.trim(), primary, secondary, highlight, text, button, darkMode ? 1 : 0, EFFECTS.has(effect) ? effect : 'none', premium ? 1 : 0, sortOrder || 0, releaseAtResult.value, JSON.stringify(suggestedEffectsClean)]
       );
       res.json({ ok: true, id });
     })
@@ -662,6 +690,11 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
         if (!releaseAtResult.ok) return res.status(400).json({ error: 'Data de lançamento inválida' });
         sets.push('release_at = ?');
         values.push(releaseAtResult.value);
+      }
+      if (Array.isArray(fields.suggestedEffects)) {
+        const clean = fields.suggestedEffects.filter((e) => SITE_EFFECTS.has(e));
+        sets.push('suggested_effects = ?');
+        values.push(JSON.stringify(clean));
       }
       if (!sets.length) return res.json({ ok: true });
       values.push(req.params.id);

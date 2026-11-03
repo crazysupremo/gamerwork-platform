@@ -1,0 +1,11 @@
+Essa pasta não é mais usada pra hospedar o instalador — o arquivo .exe é
+grande demais pra viver dentro deste repositório (a área de upload do
+GitHub aceita no máximo 25MB por arquivo arrastado, e o instalador passa
+bem disso).
+
+O jeito certo: publicar o .exe como "Release" no GitHub do próprio
+repositório do NEXT GAME (aceita arquivo grande, sem esse limite) e colar
+o link direto no arquivo public/app.js, na constante DESKTOP_DOWNLOAD_URL
+(procure por "Botão de baixar o app de desktop" perto do fim do arquivo).
+
+Veja o passo a passo completo no README.md do projeto next-game-desktop.

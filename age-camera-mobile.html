@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>NEXT GAME · Verificação de idade pelo celular</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100dvh; background: #0a0b0d; color: #d8fff0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px 18px; text-align: center;
+  }
+  .logo { height: 40px; margin-bottom: 18px; }
+  h1 { font-size: 17px; margin: 0 0 8px; }
+  p.hint { font-size: 13px; color: #8b909a; line-height: 1.5; max-width: 320px; margin: 0 0 20px; }
+  video {
+    width: 100%; max-width: 320px; aspect-ratio: 4/3; border-radius: 12px; background: #111;
+    border: 1px solid rgba(0,255,157,0.3); object-fit: cover; margin-bottom: 16px;
+  }
+  button {
+    font-family: inherit; font-size: 14px; font-weight: 700; padding: 13px 22px; border: none;
+    border-radius: 8px; cursor: pointer; width: 100%; max-width: 320px; margin-bottom: 10px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .btn-primary { background: linear-gradient(135deg, #00ff9d 0%, #00e5ff 100%); color: #05100a; }
+  .btn-secondary { background: #16181a; color: #d8fff0; border: 1px solid rgba(0,255,157,0.25); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #status { font-size: 13px; color: #00ff9d; min-height: 1.4em; margin-bottom: 6px; }
+  .hidden { display: none !important; }
+  .success-box {
+    background: #0d0f10; border: 1px solid rgba(0,255,157,0.4); border-radius: 12px;
+    padding: 20px; max-width: 320px; font-size: 14px; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<img src="/assets/logo.png" alt="NEXT GAME" class="logo" />
+<h1>Verificação de idade pela câmera</h1>
+<p class="hint">
+  Isso é opcional e só reforça a segurança de contas de menores de idade (ECA Digital).
+  A foto nunca sai do seu celular — só o número da idade estimada é enviado de volta pro computador.
+</p>
+
+<div id="screen-start">
+  <p id="status"></p>
+  <button type="button" id="btn-start" class="btn-primary">Ligar câmera</button>
+</div>
+
+<div id="screen-camera" class="hidden">
+  <video id="video" autoplay muted playsinline></video>
+  <p id="status-camera"></p>
+  <button type="button" id="btn-capture" class="btn-primary">Capturar</button>
+  <button type="button" id="btn-cancel" class="btn-secondary">Cancelar</button>
+</div>
+
+<div id="screen-done" class="hidden">
+  <div class="success-box">
+    ✅ Prontinho! Pode voltar pro computador — o resultado já apareceu lá.
+  </div>
+</div>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  const statusEl = document.getElementById('status');
+  const statusCameraEl = document.getElementById('status-camera');
+  const video = document.getElementById('video');
+  let stream = null;
+
+  if (!token) {
+    statusEl.textContent = 'Link inválido — volta pro computador e gera um novo QR Code.';
+    document.getElementById('btn-start').disabled = true;
+  }
+
+  const FACE_API_CDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js';
+  const FACE_API_MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
+  let faceApiLoadPromise = null;
+  function loadFaceApi() {
+    if (faceApiLoadPromise) return faceApiLoadPromise;
+    faceApiLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = FACE_API_CDN;
+      script.onload = async () => {
+        try {
+          await window.faceapi.nets.tinyFaceDetector.loadFromUri(FACE_API_MODELS_URL);
+          await window.faceapi.nets.ageGenderNet.loadFromUri(FACE_API_MODELS_URL);
+          resolve();
+        } catch (err) { reject(err); }
+      };
+      script.onerror = () => reject(new Error('Não deu pra carregar a verificação'));
+      document.head.appendChild(script);
+    });
+    return faceApiLoadPromise;
+  }
+
+  document.getElementById('btn-start').onclick = async () => {
+    document.getElementById('screen-start').classList.add('hidden');
+    document.getElementById('screen-camera').classList.remove('hidden');
+    statusCameraEl.textContent = 'Pedindo acesso à câmera...';
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 480, height: 360 } });
+      video.srcObject = stream;
+      statusCameraEl.textContent = 'Carregando verificação (só na primeira vez)...';
+      await loadFaceApi();
+      statusCameraEl.textContent = 'Posicione seu rosto e toque em Capturar.';
+    } catch (err) {
+      statusCameraEl.textContent = 'Não foi possível acessar a câmera ou carregar a verificação.';
+    }
+  };
+
+  document.getElementById('btn-capture').onclick = async () => {
+    statusCameraEl.textContent = 'Analisando...';
+    try {
+      const result = await window.faceapi
+        .detectSingleFace(video, new window.faceapi.TinyFaceDetectorOptions())
+        .withAgeAndGender();
+      if (!result) {
+        statusCameraEl.textContent = 'Não encontrei um rosto — tenta de novo com mais luz.';
+        return;
+      }
+      const age = Math.round(result.age);
+      const res = await fetch(`/api/age-camera-pair/${encodeURIComponent(token)}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ age }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        statusCameraEl.textContent = data.error || 'Erro ao enviar o resultado — o QR Code pode ter expirado.';
+        return;
+      }
+      stopCamera();
+      document.getElementById('screen-camera').classList.add('hidden');
+      document.getElementById('screen-done').classList.remove('hidden');
+    } catch (err) {
+      statusCameraEl.textContent = 'Erro na verificação. Tenta de novo.';
+    }
+  };
+
+  document.getElementById('btn-cancel').onclick = () => {
+    stopCamera();
+    document.getElementById('screen-camera').classList.add('hidden');
+    document.getElementById('screen-start').classList.remove('hidden');
+  };
+
+  function stopCamera() {
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      stream = null;
+    }
+  }
+</script>
+</body>
+</html>

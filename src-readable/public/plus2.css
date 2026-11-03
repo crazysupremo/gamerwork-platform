@@ -106,6 +106,12 @@
   font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.04em;
   background: linear-gradient(90deg, #00e5ff, #00ff9d); color: #fff;
 }
+/* Selo "✨" na galeria — avisa que esse tema já liga efeitos sozinho ao ser
+   escolhido (ver suggestedEffects/applyThemeSuggestedEffects). */
+.pv2-interactive-pill {
+  font-size: 10px; margin-left: 2px; animation: pv2InteractivePulse 1.8s ease-in-out infinite;
+}
+@keyframes pv2InteractivePulse { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
 
 /* ---------- efeitos visuais dos temas premium ---------- */
 .pv2-effect-shine .pv2-theme-mini-btn { animation: pv2Shine 2.2s linear infinite; background-size: 200% auto; }
@@ -152,6 +158,24 @@
 }
 .pv2-save-btn:hover { filter: brightness(1.1); }
 .pv2-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Presets rápidos + aleatorizar (criador de tema) — pedido: "criador de
+   tema mais poderoso". */
+.pv2-presets-row { display: flex; gap: 8px; margin: 6px 0 14px; flex-wrap: wrap; }
+.pv2-preset-swatch {
+  width: 34px; height: 34px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.12);
+  cursor: pointer; transition: transform 0.12s ease, border-color 0.15s ease; padding: 0;
+}
+.pv2-preset-swatch:hover { transform: translateY(-2px) scale(1.06); border-color: rgba(255,255,255,0.4); }
+.pv2-preset-swatch:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.pv2-randomize-btn {
+  background: #2a2b32; color: #e6e6e6; border: 1px solid #3a3c42; border-radius: 20px;
+  padding: 8px 16px; font-size: 12.5px; font-weight: 700; cursor: pointer; margin: 2px 0 14px;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.pv2-randomize-btn:hover { background: #35373f; }
+.pv2-randomize-btn:active { transform: scale(0.97); }
+.pv2-randomize-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .pv2-locked-note {
   background: rgba(145,70,255,0.12); border: 1px solid rgba(145,70,255,0.4); color: #cbb2ff;
   border-radius: 10px; padding: 12px 14px; font-size: 12.5px; margin-bottom: 16px; line-height: 1.5;
