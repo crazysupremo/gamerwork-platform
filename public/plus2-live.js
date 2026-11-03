@@ -126,6 +126,197 @@
     return () => { cancelAnimationFrame(raf); global.removeEventListener('resize', size); };
   }
 
+  // =========================================================================
+  // v0.84.0 — FONTES E FUNDOS ANIMADOS DOS TEMAS ("scene")
+  // =========================================================================
+  // Cada tema pode trazer uma fonte própria (corpo + títulos) e um fundo
+  // animado. As fontes vêm do Google Fonts, carregadas sob demanda (só a do
+  // tema escolhido) — se estiver offline, cai nas fontes do sistema sem
+  // quebrar nada. Os fundos CSS (aurora/grid/waves) são só gradientes
+  // animados; os de canvas (stars/embers/matrix/petals/snow) são leves e
+  // pausam sozinhos quando a aba fica escondida ou no "modo desempenho".
+  const FONT_PACKS = {
+    modern: { body: "'Inter', 'Segoe UI', system-ui, sans-serif", display: "'Sora', 'Inter', sans-serif", google: 'family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800' },
+    tech: { body: "'Exo 2', 'Segoe UI', system-ui, sans-serif", display: "'Orbitron', 'Exo 2', sans-serif", google: 'family=Exo+2:wght@400;500;600;700&family=Orbitron:wght@500;700;800' },
+    retro: { body: "'Space Grotesk', 'Segoe UI', system-ui, sans-serif", display: "'Audiowide', 'Space Grotesk', sans-serif", google: 'family=Space+Grotesk:wght@400;500;600;700&family=Audiowide' },
+    elegant: { body: "'Inter', 'Segoe UI', system-ui, sans-serif", display: "'Playfair Display', Georgia, serif", google: 'family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800' },
+    soft: { body: "'Nunito', 'Segoe UI', system-ui, sans-serif", display: "'Fredoka', 'Nunito', sans-serif", google: 'family=Nunito:wght@400;600;700;800&family=Fredoka:wght@500;600;700' },
+  };
+  const loadedFonts = {};
+  function applyFont(fontKey) {
+    const pack = FONT_PACKS[fontKey];
+    const root = document.documentElement;
+    document.body.classList.toggle('pv2-has-font', !!pack);
+    if (!pack) {
+      root.style.removeProperty('--pv2-font-body');
+      root.style.removeProperty('--pv2-font-display');
+      return;
+    }
+    if (!loadedFonts[fontKey]) {
+      loadedFonts[fontKey] = true;
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?' + pack.google + '&display=swap';
+      document.head.appendChild(link);
+    }
+    root.style.setProperty('--pv2-font-body', pack.body);
+    root.style.setProperty('--pv2-font-display', pack.display);
+  }
+
+  const CANVAS_SCENES = new Set(['stars', 'embers', 'matrix', 'petals', 'snow']);
+  const CSS_SCENES = new Set(['aurora', 'grid', 'waves']);
+  let sceneStop = null;
+  let currentScene = 'none';
+
+  function ensureSceneLayer() {
+    let layer = document.getElementById('plus2-scene');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = 'plus2-scene';
+      const bg = document.getElementById('plus2-bg-layer');
+      if (bg && bg.nextSibling) document.body.insertBefore(layer, bg.nextSibling);
+      else document.body.insertBefore(layer, document.body.firstChild);
+    }
+    return layer;
+  }
+
+  // Motor de canvas único — cada cena é só um "modo" de desenhar. Usa as
+  // cores do próprio tema (CSS vars --accent/--accent-2/--accent-3).
+  function startCanvasScene(canvas, mode, colors) {
+    const ctx = canvas.getContext && canvas.getContext('2d');
+    if (!ctx) return () => {};
+    const dpr = Math.min(global.devicePixelRatio || 1, 2);
+    let W = 0, H = 0;
+    function size() {
+      W = canvas.width = Math.floor(canvas.clientWidth * dpr);
+      H = canvas.height = Math.floor(canvas.clientHeight * dpr);
+    }
+    size();
+    global.addEventListener('resize', size);
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const COUNT = { stars: 90, embers: 46, petals: 34, snow: 70 }[mode] || 0;
+    let items = [];
+    let cols = [];
+    if (mode === 'matrix') {
+      const fs = 16 * dpr;
+      const n = Math.ceil(W / fs);
+      cols = Array.from({ length: n }, () => Math.random() * -50);
+    } else {
+      items = Array.from({ length: COUNT }, () => ({
+        x: rnd(0, W), y: rnd(0, H), r: rnd(0.6, mode === 'stars' ? 1.8 : 3.2) * dpr,
+        v: rnd(0.2, 1), p: rnd(0, Math.PI * 2), c: colors[Math.floor(Math.random() * colors.length)],
+      }));
+    }
+    let raf = 0;
+    let last = 0;
+    let running = true;
+    function frame(t) {
+      if (!running) return;
+      raf = requestAnimationFrame(frame);
+      if (t - last < 33) return; // ~30fps — leve de propósito
+      last = t;
+      if (mode === 'matrix') {
+        ctx.fillStyle = 'rgba(0,0,0,0.08)';
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillRect(0, 0, W, H);
+        ctx.globalCompositeOperation = 'source-over';
+        const fs = 16 * dpr;
+        ctx.font = fs + 'px monospace';
+        for (let i = 0; i < cols.length; i++) {
+          const ch = String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96));
+          ctx.fillStyle = colors[0];
+          ctx.globalAlpha = 0.85;
+          ctx.fillText(ch, i * fs, cols[i] * fs);
+          ctx.globalAlpha = 1;
+          if (cols[i] * fs > H && Math.random() > 0.975) cols[i] = 0;
+          cols[i] += 0.5;
+        }
+        return;
+      }
+      ctx.clearRect(0, 0, W, H);
+      for (const it of items) {
+        if (mode === 'stars') {
+          it.p += 0.03 * it.v;
+          ctx.globalAlpha = 0.25 + 0.75 * Math.abs(Math.sin(it.p));
+          ctx.fillStyle = it.c;
+          ctx.beginPath(); ctx.arc(it.x, it.y, it.r, 0, 6.283); ctx.fill();
+        } else if (mode === 'embers') {
+          it.y -= (0.4 + it.v * 1.2) * dpr; it.x += Math.sin(it.p += 0.04) * 0.5 * dpr;
+          if (it.y < -10) { it.y = H + 10; it.x = rnd(0, W); }
+          ctx.globalAlpha = Math.max(0, Math.min(0.9, it.y / H + 0.1));
+          ctx.fillStyle = it.c;
+          ctx.shadowColor = it.c; ctx.shadowBlur = 8 * dpr;
+          ctx.beginPath(); ctx.arc(it.x, it.y, it.r, 0, 6.283); ctx.fill();
+          ctx.shadowBlur = 0;
+        } else if (mode === 'petals' || mode === 'snow') {
+          const speed = mode === 'snow' ? 0.5 : 0.7;
+          it.y += (speed + it.v * 0.9) * dpr; it.x += Math.sin(it.p += 0.02) * (mode === 'snow' ? 0.4 : 0.9) * dpr;
+          if (it.y > H + 10) { it.y = -10; it.x = rnd(0, W); }
+          ctx.globalAlpha = 0.75;
+          ctx.fillStyle = it.c;
+          ctx.beginPath();
+          if (mode === 'petals') ctx.ellipse(it.x, it.y, it.r * 1.6, it.r, it.p, 0, 6.283);
+          else ctx.arc(it.x, it.y, it.r, 0, 6.283);
+          ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+    raf = requestAnimationFrame(frame);
+    function onVis() {
+      if (document.hidden) { running = false; cancelAnimationFrame(raf); }
+      else if (!running) { running = true; raf = requestAnimationFrame(frame); }
+    }
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      running = false; cancelAnimationFrame(raf);
+      global.removeEventListener('resize', size);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }
+
+  function sceneColors(theme, mode) {
+    const c = theme.colors;
+    if (mode === 'matrix') return [c.primary];
+    if (mode === 'snow') return ['#ffffff', c.highlight];
+    if (mode === 'embers') return [c.primary, c.highlight, c.secondary];
+    if (mode === 'petals') return [c.primary, c.highlight];
+    return [c.highlight, '#ffffff', c.primary];
+  }
+
+  function applyScene(theme) {
+    const key = theme && theme.scene ? theme.scene : 'none';
+    const layer = ensureSceneLayer();
+    if (sceneStop) { sceneStop(); sceneStop = null; }
+    layer.innerHTML = '';
+    layer.className = '';
+    currentScene = key;
+    const off = key === 'none' || state.performanceMode;
+    document.body.classList.toggle('pv2-scene-active', !off);
+    document.body.dataset.pv2Scene = off ? '' : key;
+    if (off) return;
+    if (CSS_SCENES.has(key)) {
+      layer.className = 'pv2-scene-' + key;
+      if (key === 'aurora') layer.innerHTML = '<i></i><i></i><i></i>';
+    } else if (CANVAS_SCENES.has(key)) {
+      const canvas = document.createElement('canvas');
+      canvas.style.cssText = 'width:100%;height:100%;display:block;';
+      layer.appendChild(canvas);
+      sceneStop = startCanvasScene(canvas, key, sceneColors(theme, key));
+    }
+  }
+
+  // ---- Pré-visualização ao vivo: aplica um tema no site de verdade SEM
+  // salvar; cancelPreview() volta pro que está salvo.
+  let lastData = null;
+  function previewTheme(theme) {
+    if (!theme) return;
+    applyTheme(theme);
+  }
+  function cancelPreview() {
+    if (lastData) applyAll(lastData);
+  }
+
   // ---------------- Tema: cores viram CSS vars usadas no site inteiro ----------------
   function applyTheme(theme) {
     if (!theme) return;
@@ -181,6 +372,11 @@
     root.style.setProperty('--bg-sidebar', surfaces.sidebar);
     root.style.setProperty('--bg-panel', surfaces.panel);
     root.style.setProperty('--bg-modal', surfaces.modal);
+    // v0.84.0 — fonte e fundo animado do tema + variáveis do visual "glass".
+    root.style.setProperty('--pv2-glass-bg', `rgba(${rgb.r},${rgb.g},${rgb.b},0.10)`);
+    root.style.setProperty('--pv2-glass-border', `rgba(${rgb3.r},${rgb3.g},${rgb3.b},0.28)`);
+    applyFont(theme.font);
+    applyScene(theme);
   }
 
   // ---------------- Fundo personalizado ----------------
@@ -320,6 +516,7 @@
   }
 
   function applyAll(data) {
+    lastData = data;
     const theme = [...data.themes, ...data.myCustomThemes].find((t) => t.id === data.current.themeId);
     applyTheme(theme);
     // CORRIGIDO ("fundo com imagem/GIF não funciona"): fundo com upload
@@ -331,6 +528,7 @@
       : data.backgrounds.find((b) => b.id === data.current.backgroundId);
     applyBackground(bg, data.visualPrefs.background);
     applyEffects(data.visualPrefs.effects, data.visualPrefs.performanceMode);
+    if (theme) applyScene(theme); // respeita o modo desempenho
     applyChatState(data.visualPrefs.chat);
     applyIdentity(data);
     state.loaded = true;
@@ -356,5 +554,5 @@
     return inFlight;
   }
 
-  global.PlusV2Live = { state, refresh, applyAll };
+  global.PlusV2Live = { state, refresh, applyAll, previewTheme, cancelPreview };
 })(typeof window !== 'undefined' ? window : globalThis);

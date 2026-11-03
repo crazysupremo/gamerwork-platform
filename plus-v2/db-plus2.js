@@ -159,6 +159,14 @@ async function ensurePlusV2Schema(db) {
   // NULL/vazio = tema não sugere nenhum efeito extra (comportamento de
   // antes, continua funcionando igual pros temas que não configurarem isso).
   await ensureColumn('plus_v2_themes', 'suggested_effects TEXT');
+
+  // v0.84.0 — repaginada dos temas: categoria da galeria, frase curta, fonte
+  // e fundo animado ("scene") de cada tema. Todos opcionais (NULL = padrão),
+  // então temas antigos/personalizados continuam funcionando sem mudança.
+  await ensureColumn('plus_v2_themes', 'category TEXT');
+  await ensureColumn('plus_v2_themes', 'tagline TEXT');
+  await ensureColumn('plus_v2_themes', 'font_key TEXT');
+  await ensureColumn('plus_v2_themes', 'scene TEXT');
 }
 
 // ---------------------------------------------------------------------------
@@ -166,94 +174,67 @@ async function ensurePlusV2Schema(db) {
 // quem é NEXTGAME PLUS), igual à referência de design, e um punhado de
 // badges/banners padrão. Roda uma vez só (INSERT OR IGNORE por key).
 // ---------------------------------------------------------------------------
-// Catálogo alinhado ao documento de referência "Projeto de Personalização
-// Completa" (NEXT GAME): galeria com os temas oficiais do projeto (Next Blue,
-// Midnight, Ocean, Crimson, Sunset + os 7 temas PLUS: Galaxy, Aurora,
-// Cyberpunk, Inferno, Royal, Diamond, Eclipse), mantendo também os temas
-// extras que já existiam (Nebula, Cyber Green, Gold, Neon Dreams, Winter
-// Night) como variedade a mais — nada do que já funcionava foi removido, só
-// ampliado, seguindo a regra do documento de reorganizar/expandir em vez de
-// tirar recursos que já funcionam.
+// ---------------------------------------------------------------------------
+// v0.84.0 — CATÁLOGO REPAGINADO (estilo neon/glass). Pedido: "repaginar os
+// temas, atualização grande, temas incríveis, não quero tema feio".
+//
+// Cada tema agora é um "pacote" completo, não só 5 cores:
+//   - category: aba da galeria (essenciais, gamer, espaco, luxo, natureza,
+//               sazonal, parceiros)
+//   - tagline:  frase curta mostrada no card
+//   - font:     família de fonte do tema (modern/tech/retro/elegant/soft ou
+//               '' = fonte padrão do site) — ver FONT_PACKS em plus2-live.js
+//   - scene:    fundo animado do tema (aurora/grid/waves = CSS puro;
+//               stars/embers/matrix/petals/snow = canvas leve; 'none' = sem)
+//   - suggestedEffects: efeitos da aba "Efeitos" que ligam sozinhos
+//
+// As cores foram escolhidas à mão (não sorteadas): fundo escuro profundo
+// tingido pela cor primária (ver deriveSurfaces) + um acento saturado + um
+// destaque de contraste, que é a receita do visual neon/glass.
+// ---------------------------------------------------------------------------
 const DEFAULT_THEMES = [
-  // ---- Prontos, gratuitos (seção 3 do documento) ----
-  { key: 'blue', name: 'Next Blue', primary: '#5865f2', secondary: '#9147ff', highlight: '#00d4ff', text: '#e6e6e6', button: '#1e1e2f', premium: false, effect: 'none' },
-  { key: 'midnight', name: 'Midnight', primary: '#3a3d52', secondary: '#5c6082', highlight: '#8f9bff', text: '#e6e6e6', button: '#1a1b26', premium: false, effect: 'none' },
-  { key: 'ocean', name: 'Ocean', primary: '#0e4d92', secondary: '#00b8d9', highlight: '#7fe7ff', text: '#e6f7ff', button: '#08283f', premium: false, effect: 'none' },
-  { key: 'crimson', name: 'Crimson', primary: '#c81e2c', secondary: '#e63946', highlight: '#ff4d4d', text: '#e6e6e6', button: '#120607', premium: false, effect: 'none' },
-  { key: 'sunset', name: 'Sunset', primary: '#8e44ad', secondary: '#ff7e33', highlight: '#ff6fa3', text: '#fff0f5', button: '#2b1a2e', premium: true, effect: 'shine' },
-  // ---- Extras (variedade a mais, fora do documento, mantidos) ----
-  { key: 'nebula', name: 'Nebula', primary: '#9146ff', secondary: '#c04fff', highlight: '#ff6ec7', text: '#e6e6e6', button: '#241a33', premium: false, effect: 'none' },
-  { key: 'cyber-green', name: 'Cyber Green', primary: '#00c896', secondary: '#00e6a8', highlight: '#7dffcb', text: '#e6e6e6', button: '#0f2a22', premium: false, effect: 'none' },
-  { key: 'gold', name: 'Gold', primary: '#c9982f', secondary: '#ffd93d', highlight: '#fff2b8', text: '#e6e6e6', button: '#2b2410', premium: false, effect: 'none' },
-  // ---- Premium — NEXTGAME PLUS (seção 3 + 12 do documento) ----
-  { key: 'galaxy', name: 'Galaxy', primary: '#4b3fa0', secondary: '#7c5cff', highlight: '#00e5ff', text: '#f0f0ff', button: '#1a1433', premium: true, effect: 'shine' },
-  { key: 'aurora', name: 'Aurora', primary: '#12c2a9', secondary: '#7d5fff', highlight: '#c2f9ff', text: '#eafff9', button: '#0d1f2e', premium: true, effect: 'shine' },
-  { key: 'cyberpunk', name: 'Cyberpunk', primary: '#ff2e88', secondary: '#00e5ff', highlight: '#f6ff3d', text: '#f5f5ff', button: '#160a24', premium: true, effect: 'glow', suggestedEffects: ['animatedGradients', 'buttonGlow'] },
-  { key: 'inferno', name: 'Inferno', primary: '#ff4b2b', secondary: '#ff9f1c', highlight: '#ffe66d', text: '#fff2e6', button: '#2b0f0a', premium: true, effect: 'pulse', suggestedEffects: ['particles', 'buttonGlow'] },
-  { key: 'royal', name: 'Royal', primary: '#3d1f5c', secondary: '#c9a227', highlight: '#ffe08a', text: '#f7efe0', button: '#120a1a', premium: true, effect: 'shine' },
-  { key: 'diamond', name: 'Diamond', primary: '#5fb8e0', secondary: '#e8f7ff', highlight: '#ffffff', text: '#eaf9ff', button: '#0d2733', premium: true, effect: 'shine' },
-  { key: 'eclipse', name: 'Eclipse', primary: '#1a0f2e', secondary: '#4b2e83', highlight: '#8a5cff', text: '#e8e0ff', button: '#050208', premium: true, effect: 'glow', suggestedEffects: ['avatarGlow', 'transitions'] },
-  // ---- Extras premium (fora do documento, mantidos) ----
-  { key: 'neon-dreams', name: 'Neon Dreams', primary: '#ff00e5', secondary: '#00fff0', highlight: '#fefe00', text: '#f7f7ff', button: '#100a1f', premium: true, effect: 'glow' },
-  { key: 'winter-night', name: 'Winter Night', primary: '#3b6fa0', secondary: '#8fd6ff', highlight: '#ffffff', text: '#eaf6ff', button: '#0e1b26', premium: true, effect: 'shine' },
-  // ---- GAMEX — tema flagship exclusivo PLUS, criado à parte a pedido do
-  // dono do projeto. Paleta própria (verde elétrico + violeta + dourado),
-  // sem repetir nenhuma combinação já usada nos outros temas. Herda o mesmo
-  // motor de aplicação dos demais (plus2-live.js) — ao ser escolhido, toma
-  // conta de toda a identidade de cor do app: sidebar, topo, botões, cards,
-  // chat, avatar/badge, scrollbar e seleção de texto, sem precisar de
-  // nenhum código extra além de entrar no catálogo.
-  { key: 'gamex', name: 'GAMEX', primary: '#39ff6a', secondary: '#7c3aed', highlight: '#ffe14d', text: '#eafff0', button: '#0a1f12', premium: true, effect: 'glow', suggestedEffects: ['particles', 'buttonGlow', 'avatarGlow'] },
-  // Tema "Magic Tank" (jogo parceiro), reativado — paleta tirada direto da
-  // arte VIP que eles mandaram: azul neon (#00a8ff) + dourado (#fbdc70)
-  // sobre fundo escuro azulado.
-  { key: 'magic-tank', name: 'Magic Tank', primary: '#00a8ff', secondary: '#fbdc70', highlight: '#7fd9ff', text: '#e2e8f0', button: '#050810', premium: true, effect: 'glow' },
-  // Tema "DDTank" (jogo parceiro), a pedido — paleta fofa/pastel tirada da
-  // identidade visual do jogo: rosa choque + azul-céu + amarelo-ouro, sobre
-  // fundo escuro arroxeado bem profundo (pra não perder contraste/leitura
-  // mesmo com cores claras). Igual qualquer outro tema do catálogo, ao ser
-  // escolhido ele assume a identidade visual inteira (sidebar, topo, botões,
-  // chat, glow etc.) via plus2-live.js — não precisa de nenhum código extra.
-  { key: 'ddtank', name: 'DDTank', primary: '#ff5fa0', secondary: '#5fd4ff', highlight: '#ffd34d', text: '#fff2f8', button: '#210c1c', premium: true, effect: 'shine' },
-  // Tema sazonal "Halloween" — laranja-abóbora + roxo escuro + verde-zumbi,
-  // sobre fundo quase preto. Além da cor (que já se aplica em tudo sozinha,
-  // igual qualquer tema), o app.js liga uma classe `theme-halloween` no
-  // <body> quando esse tema está ativo (ver applyTheme() em plus2-live.js),
-  // que o style.css usa pra mostrar os extras exclusivos dele (morcegos
-  // voando, lua, neblina) só quando a pessoa escolhe esse tema específico.
-  // AJUSTADO (a pedido — "laranja com roxo não tem nada a ver, laranja com
-  // preto sim"): trocado o roxo por preto/quase-preto como cor secundária,
-  // combinação clássica de Halloween de verdade. Vermelho-sangue entra como
-  // destaque (highlight) no lugar do verde.
-  { key: 'halloween', name: 'Halloween · até 31/10', primary: '#ff7a1a', secondary: '#0d0d0d', highlight: '#ff2e2e', text: '#f1ecd8', button: '#07050c', premium: false, effect: 'glow', suggestedEffects: ['particles', 'buttonGlow'] },
+  // ===== ESSENCIAIS (gratuitos) =====
+  { key: 'blue', name: 'Next Blue', tagline: 'A cara do NEXT GAME', category: 'essenciais', primary: '#5b6cff', secondary: '#8b5cf6', highlight: '#22d3ee', text: '#eef0ff', button: '#12142b', premium: false, effect: 'glow', scene: 'aurora', font: 'modern', suggestedEffects: ['buttonGlow', 'transitions'] },
+  { key: 'obsidian', name: 'Obsidian', tagline: 'Preto vidro, zero distração', category: 'essenciais', primary: '#94a3b8', secondary: '#475569', highlight: '#7dd3fc', text: '#f1f5f9', button: '#0b0f16', premium: false, effect: 'shine', scene: 'none', font: 'modern', suggestedEffects: ['transitions'] },
+  { key: 'ocean', name: 'Ocean Deep', tagline: 'Mergulho azul-turquesa', category: 'essenciais', primary: '#0ea5e9', secondary: '#2563eb', highlight: '#67e8f9', text: '#e8f8ff', button: '#06182b', premium: false, effect: 'shine', scene: 'waves', font: 'modern', suggestedEffects: ['buttonGlow', 'transitions'] },
 
-  // ---- Pedido: "sistema de temas mais bonitos, profissionais e
-  // interativos" — 4 temas novos, com paleta e personalidade próprias (sem
-  // repetir combinação de cor dos 20 que já existiam), cada um já vindo com
-  // efeitos sugeridos (ver suggestedEffects) que ligam sozinhos ao escolher
-  // o tema — a pessoa não precisa ir na aba "Efeitos" separadamente pra
-  // sentir o tema completo. Ver applyThemeEffects() em plus2.js.
-  {
-    key: 'platinum-pro', name: 'Platinum Pro',
-    primary: '#5b6b7d', secondary: '#c7cdd6', highlight: '#5ec8ff', text: '#f3f6f9', button: '#1b2228',
-    premium: true, effect: 'shine', suggestedEffects: ['buttonGlow', 'transitions'],
-  },
-  {
-    key: 'vaporwave', name: 'Vaporwave',
-    primary: '#ff6ec7', secondary: '#7b2ff7', highlight: '#01cdfe', text: '#fdf0ff', button: '#1a0b2e',
-    premium: true, effect: 'glow', suggestedEffects: ['particles', 'animatedGradients', 'buttonGlow'],
-  },
-  {
-    key: 'emerald-elite', name: 'Emerald Elite',
-    primary: '#0f9b6e', secondary: '#0a3d2e', highlight: '#d4af37', text: '#eafff5', button: '#07211a',
-    premium: true, effect: 'shine', suggestedEffects: ['buttonGlow', 'avatarGlow'],
-  },
-  {
-    key: 'phantom-red', name: 'Phantom Red',
-    primary: '#e21818', secondary: '#1a1a1a', highlight: '#ff5757', text: '#fff0f0', button: '#0c0c0c',
-    premium: false, effect: 'pulse', suggestedEffects: ['buttonGlow', 'messageReceive', 'callJoin'],
-  },
+  // ===== GAMER =====
+  { key: 'cyber-green', name: 'Matrix', tagline: 'Chuva de código verde', category: 'gamer', primary: '#00e08a', secondary: '#047857', highlight: '#b6ffd9', text: '#e8fff4', button: '#04170f', premium: false, effect: 'glow', scene: 'matrix', font: 'tech', suggestedEffects: ['buttonGlow'] },
+  { key: 'crimson', name: 'Crimson', tagline: 'Brasa vermelha no escuro', category: 'gamer', primary: '#ef233c', secondary: '#7f1d1d', highlight: '#ff6b81', text: '#fff1f2', button: '#14070a', premium: false, effect: 'pulse', scene: 'embers', font: 'tech', suggestedEffects: ['buttonGlow', 'messageReceive'] },
+  { key: 'gamex', name: 'GAMEX', tagline: 'Verde elétrico + violeta', category: 'gamer', primary: '#39ff6a', secondary: '#7c3aed', highlight: '#ffe14d', text: '#eafff0', button: '#08180f', premium: true, effect: 'glow', scene: 'grid', font: 'tech', suggestedEffects: ['particles', 'buttonGlow', 'avatarGlow'] },
+  { key: 'cyberpunk', name: 'Cyberpunk', tagline: 'Rosa neon, ciano e amarelo', category: 'gamer', primary: '#ff2a8a', secondary: '#00e5ff', highlight: '#fcee0a', text: '#fbf4ff', button: '#12081f', premium: true, effect: 'glow', scene: 'grid', font: 'tech', suggestedEffects: ['animatedGradients', 'buttonGlow', 'avatarGlow'] },
+  { key: 'vaporwave', name: 'Vaporwave', tagline: 'Pôr do sol retrô anos 80', category: 'gamer', primary: '#ff71ce', secondary: '#b967ff', highlight: '#01cdfe', text: '#fff0fc', button: '#190a2e', premium: true, effect: 'glow', scene: 'grid', font: 'retro', suggestedEffects: ['animatedGradients', 'buttonGlow'] },
+  { key: 'inferno', name: 'Inferno', tagline: 'Fogo vivo subindo da tela', category: 'gamer', primary: '#ff5a1f', secondary: '#b91c1c', highlight: '#ffd166', text: '#fff4ea', button: '#1c0a05', premium: true, effect: 'pulse', scene: 'embers', font: 'tech', suggestedEffects: ['particles', 'buttonGlow'] },
+
+  // ===== ESPAÇO =====
+  { key: 'galaxy', name: 'Galaxy', tagline: 'Estrelas e nebulosa roxa', category: 'espaco', primary: '#6d5dfc', secondary: '#a855f7', highlight: '#38bdf8', text: '#f1f0ff', button: '#110d2b', premium: true, effect: 'shine', scene: 'stars', font: 'modern', suggestedEffects: ['buttonGlow', 'transitions'] },
+  { key: 'eclipse', name: 'Eclipse', tagline: 'Quase preto, brilho violeta', category: 'espaco', primary: '#7c3aed', secondary: '#312e81', highlight: '#c4b5fd', text: '#ede9fe', button: '#07040f', premium: true, effect: 'glow', scene: 'stars', font: 'modern', suggestedEffects: ['avatarGlow', 'transitions'] },
+  { key: 'nebula', name: 'Nebula', tagline: 'Lilás cósmico suave', category: 'espaco', primary: '#a855f7', secondary: '#6366f1', highlight: '#f0abfc', text: '#f8f0ff', button: '#160e29', premium: false, effect: 'shine', scene: 'stars', font: 'modern', suggestedEffects: ['buttonGlow'] },
+
+  // ===== LUXO (premium) =====
+  { key: 'royal', name: 'Royal', tagline: 'Roxo imperial e ouro', category: 'luxo', primary: '#7c3aed', secondary: '#d4af37', highlight: '#ffe08a', text: '#faf3e0', button: '#0f0818', premium: true, effect: 'shine', scene: 'stars', font: 'elegant', suggestedEffects: ['buttonGlow', 'avatarGlow'] },
+  { key: 'diamond', name: 'Diamond', tagline: 'Cristal gelado e cintilante', category: 'luxo', primary: '#7dd3fc', secondary: '#c7d2fe', highlight: '#ffffff', text: '#f0f9ff', button: '#0a1c28', premium: true, effect: 'shine', scene: 'snow', font: 'elegant', suggestedEffects: ['buttonGlow', 'transitions'] },
+  { key: 'emerald-elite', name: 'Emerald Elite', tagline: 'Esmeralda com detalhes dourados', category: 'luxo', primary: '#10b981', secondary: '#065f46', highlight: '#e6c35c', text: '#ecfff7', button: '#06201a', premium: true, effect: 'shine', scene: 'aurora', font: 'elegant', suggestedEffects: ['buttonGlow', 'avatarGlow'] },
+  { key: 'platinum-pro', name: 'Platinum Pro', tagline: 'Aço escovado, estilo executivo', category: 'luxo', primary: '#8fa3b8', secondary: '#cbd5e1', highlight: '#5ec8ff', text: '#f4f7fa', button: '#141b22', premium: true, effect: 'shine', scene: 'grid', font: 'modern', suggestedEffects: ['buttonGlow', 'transitions'] },
+
+  // ===== NATUREZA =====
+  { key: 'aurora', name: 'Aurora', tagline: 'Luzes do norte em movimento', category: 'natureza', primary: '#10d9a8', secondary: '#7c5cff', highlight: '#b8f5ff', text: '#eafff9', button: '#08181f', premium: true, effect: 'shine', scene: 'aurora', font: 'modern', suggestedEffects: ['animatedGradients', 'buttonGlow'] },
+  { key: 'sunset', name: 'Sunset', tagline: 'Entardecer laranja e magenta', category: 'natureza', primary: '#ff7a59', secondary: '#c026d3', highlight: '#ffd166', text: '#fff3ee', button: '#240f26', premium: true, effect: 'shine', scene: 'waves', font: 'soft', suggestedEffects: ['animatedGradients', 'buttonGlow'] },
+  { key: 'sakura', name: 'Sakura', tagline: 'Pétalas caindo em rosa', category: 'natureza', primary: '#ff8fb8', secondary: '#c084fc', highlight: '#ffe4ef', text: '#fff4f8', button: '#241020', premium: true, effect: 'glow', scene: 'petals', font: 'soft', suggestedEffects: ['buttonGlow', 'messageReceive'] },
+
+  // ===== SAZONAIS =====
+  { key: 'halloween', name: 'Halloween', tagline: 'Laranja-abóbora na escuridão', category: 'sazonal', primary: '#ff7a1a', secondary: '#0d0d0d', highlight: '#ff2e2e', text: '#f6efdc', button: '#07050c', premium: false, effect: 'glow', scene: 'embers', font: '', suggestedEffects: ['particles', 'buttonGlow'] },
+  { key: 'winter-night', name: 'Winter Night', tagline: 'Noite de neve azulada', category: 'sazonal', primary: '#4f8fd6', secondary: '#1e3a5f', highlight: '#e0f2ff', text: '#eef7ff', button: '#0a1622', premium: true, effect: 'shine', scene: 'snow', font: 'modern', suggestedEffects: ['buttonGlow', 'transitions'] },
+
+  // ===== PARCEIROS =====
+  { key: 'magic-tank', name: 'Magic Tank', tagline: 'Azul neon + dourado (parceiro)', category: 'parceiros', primary: '#00a8ff', secondary: '#fbdc70', highlight: '#7fd9ff', text: '#e2e8f0', button: '#050810', premium: true, effect: 'glow', scene: 'none', font: '', suggestedEffects: ['buttonGlow'] },
+  { key: 'ddtank', name: 'DDTank', tagline: 'Fofo e vibrante (parceiro)', category: 'parceiros', primary: '#ff5fa0', secondary: '#5fd4ff', highlight: '#ffd34d', text: '#fff2f8', button: '#210c1c', premium: true, effect: 'shine', scene: 'none', font: '', suggestedEffects: ['buttonGlow'] },
 ];
+
+// Temas antigos aposentados nessa repaginada (visual repetido/sem graça).
+// Quem estava usando um deles é migrado pro "Next Blue" na hora do seed —
+// nada fica quebrado nem sem tema. Ver seedPlusV2Defaults().
+const RETIRED_THEME_KEYS = ['midnight', 'gold', 'neon-dreams', 'phantom-red'];
 
 const DEFAULT_BADGES = [
   { key: 'founder', name: 'Fundador', icon: '👑', premium: false },
@@ -367,27 +348,35 @@ async function seedPlusV2Defaults(db) {
   for (let i = 0; i < DEFAULT_THEMES.length; i++) {
     const t = DEFAULT_THEMES[i];
     const exists = await get('SELECT id FROM plus_v2_themes WHERE key = ?', [t.key]);
+    const extra = [t.category || null, t.tagline || null, t.font || null, t.scene || 'none'];
     if (exists) {
       // Tema já existia (site em produção já rodou o seed antes) — atualiza
-      // nome/cores/efeito pra ficar de acordo com o documento de referência
-      // mais recente, sem duplicar linha nem mexer no id (preserva a escolha
-      // de quem já tinha esse tema selecionado — só o visual dele é atualizado).
+      // o visual inteiro sem duplicar linha nem mexer no id (preserva a
+      // escolha de quem já tinha esse tema selecionado).
       await run(
         `UPDATE plus_v2_themes
            SET name = ?, primary_color = ?, secondary_color = ?, highlight_color = ?,
                text_color = ?, button_color = ?, effect = ?, is_premium = ?, sort_order = ?,
-               suggested_effects = ?
+               suggested_effects = ?, category = ?, tagline = ?, font_key = ?, scene = ?
          WHERE key = ?`,
-        [t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), t.key]
+        [t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra, t.key]
       );
       continue;
     }
     await run(
       `INSERT INTO plus_v2_themes
-        (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, suggested_effects)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 1, NULL, ?, ?)`,
-      [newId(), t.key, t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || [])]
+        (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, suggested_effects, category, tagline, font_key, scene)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?)`,
+      [newId(), t.key, t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra]
     );
+  }
+  // Aposenta os temas antigos: move quem usava pro Next Blue e apaga a linha.
+  const fallback = await get('SELECT id FROM plus_v2_themes WHERE key = ?', ['blue']);
+  for (const oldKey of RETIRED_THEME_KEYS) {
+    const old = await get('SELECT id FROM plus_v2_themes WHERE key = ? AND is_preset = 1', [oldKey]);
+    if (!old) continue;
+    if (fallback) await run('UPDATE users SET plus2_theme_id = ? WHERE plus2_theme_id = ?', [fallback.id, old.id]);
+    await run('DELETE FROM plus_v2_themes WHERE id = ?', [old.id]);
   }
   for (let i = 0; i < DEFAULT_BADGES.length; i++) {
     const b = DEFAULT_BADGES[i];
@@ -462,6 +451,7 @@ module.exports = {
   mergeVisualPrefs,
   newId,
   DEFAULT_THEMES,
+  RETIRED_THEME_KEYS,
   DEFAULT_BADGES,
   DEFAULT_BANNERS,
   DEFAULT_BACKGROUNDS,

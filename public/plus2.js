@@ -303,7 +303,7 @@
     }
 
     const tabs = [
-      { key: 'themes', label: 'Temas prontos' },
+      { key: 'themes', label: 'Temas' },
       { key: 'creator', label: 'Criar tema' },
       { key: 'backgrounds', label: 'Fundos' },
       { key: 'effects', label: 'Efeitos' },
@@ -369,76 +369,250 @@
       if (stickersData) { stickersData = await adapter.getStickers(); renderStickersPanel(); }
     }
 
-    // ---------------- ABA: temas prontos ----------------
+    // ---------------- ABA: temas prontos (v0.84.0 — galeria repaginada) ----------------
+    // Busca por nome, filtro por categoria, "Ver ao vivo" (aplica no site de
+    // verdade sem salvar) e importar/exportar tema em JSON.
+    const CATEGORY_LABELS = {
+      essenciais: 'Essenciais', gamer: 'Gamer', espaco: 'Espaço', luxo: 'Luxo',
+      natureza: 'Natureza', sazonal: 'Sazonais', parceiros: 'Parceiros', meus: 'Meus temas',
+    };
+    const CATEGORY_ORDER = ['essenciais', 'gamer', 'espaco', 'luxo', 'natureza', 'sazonal', 'parceiros', 'meus'];
+    const FONT_LABELS = { '': 'Padrão', modern: 'Moderna', tech: 'Tech', retro: 'Retrô', elegant: 'Elegante', soft: 'Suave' };
+    const SCENE_LABELS = {
+      none: 'Sem fundo animado', aurora: 'Aurora', grid: 'Grade neon', waves: 'Ondas',
+      stars: 'Estrelas', embers: 'Brasas', matrix: 'Chuva de código', petals: 'Pétalas', snow: 'Neve',
+    };
+    const galleryState = { search: '', category: 'todos', ieOpen: false };
+    let previewingTheme = null;
+    let previewBar = null;
+
+    function themeToShareJson(theme) {
+      return JSON.stringify({
+        nextgameTheme: 1,
+        name: theme.name,
+        colors: theme.colors,
+        darkMode: theme.darkMode !== false,
+        effect: theme.effect || 'none',
+        font: theme.font || '',
+        scene: theme.scene || 'none',
+      });
+    }
+
+    function parseSharedTheme(text) {
+      let obj;
+      try { obj = JSON.parse(String(text).trim()); } catch (_) { throw new Error('Esse código não é um JSON válido.'); }
+      if (!obj || obj.nextgameTheme !== 1 || !obj.colors) throw new Error('Esse JSON não é um tema do NEXT GAME.');
+      const hex = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+      for (const k of ['primary', 'secondary', 'highlight', 'text', 'button']) {
+        if (!hex.test(obj.colors[k] || '')) throw new Error('Cor inválida no tema: ' + k);
+      }
+      return {
+        name: String(obj.name || 'Tema importado').slice(0, 40),
+        primary: obj.colors.primary, secondary: obj.colors.secondary, highlight: obj.colors.highlight,
+        text: obj.colors.text, button: obj.colors.button,
+        darkMode: obj.darkMode !== false,
+        effect: ['none', 'shine', 'glow', 'pulse'].includes(obj.effect) ? obj.effect : 'none',
+        font: Object.prototype.hasOwnProperty.call(FONT_LABELS, obj.font) ? obj.font : '',
+        scene: Object.prototype.hasOwnProperty.call(SCENE_LABELS, obj.scene) ? obj.scene : 'none',
+      };
+    }
+
+    function overlayAncestor() {
+      let n = container.parentElement;
+      while (n && n !== document.body) {
+        if (getComputedStyle(n).position === 'fixed') return n;
+        n = n.parentElement;
+      }
+      return null;
+    }
+
+    function startPreview(theme) {
+      if (!global.PlusV2Live || !global.PlusV2Live.previewTheme) return;
+      previewingTheme = theme;
+      global.PlusV2Live.previewTheme(theme);
+      const overlay = overlayAncestor();
+      if (overlay) overlay.classList.add('pv2-hide-for-preview');
+      if (previewBar) previewBar.remove();
+      previewBar = el('div', { class: 'pv2-preview-bar' }, [
+        el('span', {}, ['👁 Vendo ao vivo: ' + theme.name]),
+        theme.key === 'custom-draft' ? null : el('button', {
+          type: 'button', class: 'pv2-card-btn primary',
+          style: `--pv2-mini-primary:${theme.colors.primary};--pv2-mini-secondary:${theme.colors.secondary};`,
+          onclick: async () => { const t = previewingTheme; endPreview(!!t.locked); await selectTheme(t); },
+        }, [theme.locked ? '🔒 PLUS' : 'Aplicar']),
+        el('button', { type: 'button', class: 'pv2-card-btn', onclick: () => endPreview(true) }, [theme.key === 'custom-draft' ? 'Voltar ao criador' : 'Cancelar']),
+      ]);
+      document.body.appendChild(previewBar);
+    }
+
+    function endPreview(restore) {
+      if (previewBar) { previewBar.remove(); previewBar = null; }
+      const overlay = overlayAncestor() || document.querySelector('.pv2-hide-for-preview');
+      if (overlay) overlay.classList.remove('pv2-hide-for-preview');
+      document.querySelectorAll('.pv2-hide-for-preview').forEach((n) => n.classList.remove('pv2-hide-for-preview'));
+      if (restore && global.PlusV2Live && global.PlusV2Live.cancelPreview) global.PlusV2Live.cancelPreview();
+      previewingTheme = null;
+    }
+
     function renderThemesPanel() {
       panelThemes.innerHTML = '';
-      panelThemes.appendChild(el('div', { class: 'pv2-section-title' }, ['Temas prontos']));
+      panelThemes.appendChild(el('div', { class: 'pv2-section-title' }, ['Temas']));
       panelThemes.appendChild(el('p', { class: 'pv2-section-hint' }, [
-        'Escolha um tema e aplique na hora. Os marcados com 🔒 são exclusivos de quem tem NEXTGAME PLUS.',
+        'Cada tema traz cores, fonte e fundo animado próprios. Use "Ver ao vivo" para testar no site inteiro antes de aplicar. Os marcados com 🔒 são exclusivos de quem tem NEXTGAME PLUS.',
       ]));
-      const grid = el('div', { class: 'pv2-theme-grid' });
+
       const allThemes = [...data.themes, ...data.myCustomThemes];
-      allThemes.forEach((theme) => {
-        const selected = data.current.themeId === theme.id;
-        // Prévia real em miniatura (não só duas linhas coloridas): uma
-        // mini-interface de verdade — barra de servidores, topo, bolhas de
-        // chat (outra pessoa + eu) e campo de mensagem — toda pintada com a
-        // paleta do tema, pra dar uma ideia de como o app inteiro vai ficar.
-        const mini = el('div', { class: 'pv2-theme-mini ' + effectClass(theme.effect) }, [
-          el('div', { class: 'pv2-theme-mini-body' }, [
-            el('div', { class: 'pv2-theme-mini-side' }, [
-              el('div', { class: 'pv2-theme-mini-server' }),
-              el('div', { class: 'pv2-theme-mini-server active' }),
-              el('div', { class: 'pv2-theme-mini-server' }),
-            ]),
-            el('div', { class: 'pv2-theme-mini-main' }, [
-              el('div', { class: 'pv2-theme-mini-topbar' }),
-              el('div', { class: 'pv2-theme-mini-chat' }, [
-                el('div', { class: 'pv2-theme-mini-bubble other' }),
-                el('div', { class: 'pv2-theme-mini-bubble mine' }),
-              ]),
-              el('div', { class: 'pv2-theme-mini-input' }),
-            ]),
+      const catOf = (t) => (t.custom ? 'meus' : (t.category || 'essenciais'));
+      const counts = { todos: allThemes.length };
+      allThemes.forEach((t) => { const c = catOf(t); counts[c] = (counts[c] || 0) + 1; });
+
+      // ---- toolbar: busca + importar/exportar + chips de categoria ----
+      const searchInput = el('input', { class: 'pv2-search', type: 'search', placeholder: '🔎 Buscar tema…', value: galleryState.search });
+      const toolbar = el('div', { class: 'pv2-gal-toolbar' });
+      const top = el('div', { class: 'pv2-gal-top' }, [
+        searchInput,
+        el('button', {
+          type: 'button', class: 'pv2-ghost-btn',
+          onclick: () => { galleryState.ieOpen = !galleryState.ieOpen; ieBox.classList.toggle('open', galleryState.ieOpen); },
+        }, ['⇄ Importar / Exportar']),
+      ]);
+      const chips = el('div', { class: 'pv2-chips' });
+      [['todos', 'Todos'], ...CATEGORY_ORDER.filter((c) => counts[c]).map((c) => [c, CATEGORY_LABELS[c]])].forEach(([key, label]) => {
+        chips.appendChild(el('button', {
+          type: 'button', class: 'pv2-chip' + (galleryState.category === key ? ' active' : ''),
+          onclick: () => { galleryState.category = key; renderThemesPanel(); },
+        }, [label, el('span', { class: 'pv2-chip-n' }, [String(counts[key] || 0)])]));
+      });
+
+      // ---- caixa de importar/exportar ----
+      const ieText = el('textarea', { placeholder: 'Cole aqui o código de um tema para importar, ou clique em "Copiar tema atual" para compartilhar o seu.' });
+      const ieMsg = el('span', { class: 'pv2-ie-msg' });
+      const currentTheme = allThemes.find((t) => t.id === data.current.themeId);
+      const ieBox = el('div', { class: 'pv2-ie-box' + (galleryState.ieOpen ? ' open' : '') }, [
+        ieText,
+        el('div', { class: 'pv2-ie-row' }, [
+          el('button', {
+            type: 'button', class: 'pv2-ghost-btn',
+            onclick: async () => {
+              if (!currentTheme) return;
+              const json = themeToShareJson(currentTheme);
+              ieText.value = json;
+              try { await navigator.clipboard.writeText(json); ieMsg.className = 'pv2-ie-msg'; ieMsg.textContent = 'Código do tema "' + currentTheme.name + '" copiado ✓'; }
+              catch (_) { ieText.select(); ieMsg.className = 'pv2-ie-msg'; ieMsg.textContent = 'Selecione e copie o código acima.'; }
+            },
+          }, ['Copiar tema atual']),
+          el('button', {
+            type: 'button', class: 'pv2-ghost-btn',
+            disabled: data.isPlusUser ? undefined : 'disabled',
+            onclick: async () => {
+              try {
+                const draftTheme = parseSharedTheme(ieText.value);
+                await adapter.saveCustomTheme(draftTheme);
+                ieMsg.className = 'pv2-ie-msg'; ieMsg.textContent = 'Tema "' + draftTheme.name + '" importado ✓';
+                galleryState.category = 'meus';
+                await refresh();
+              } catch (err) { ieMsg.className = 'pv2-ie-msg err'; ieMsg.textContent = err.message || 'Erro ao importar.'; }
+            },
+          }, ['Importar como meu tema']),
+          data.isPlusUser ? null : el('span', { class: 'pv2-ie-msg' }, ['🔒 Importar é exclusivo do NEXTGAME PLUS']),
+          ieMsg,
+        ]),
+      ]);
+
+      toolbar.appendChild(top);
+      toolbar.appendChild(chips);
+      panelThemes.appendChild(toolbar);
+      panelThemes.appendChild(ieBox);
+
+      // ---- grade ----
+      const grid = el('div', { class: 'pv2-theme-grid' });
+      panelThemes.appendChild(grid);
+      function paintGrid() {
+        grid.innerHTML = '';
+        const q = galleryState.search.trim().toLowerCase();
+        const list = allThemes.filter((t) => {
+          if (galleryState.category !== 'todos' && catOf(t) !== galleryState.category) return false;
+          if (!q) return true;
+          return (t.name + ' ' + (t.tagline || '') + ' ' + (CATEGORY_LABELS[catOf(t)] || '') + ' ' + (SCENE_LABELS[t.scene] || '')).toLowerCase().includes(q);
+        });
+        if (!list.length) {
+          grid.appendChild(el('div', { class: 'pv2-gal-empty', style: 'grid-column:1/-1;' }, ['Nenhum tema encontrado.']));
+          return;
+        }
+        list.forEach((theme) => grid.appendChild(buildThemeCard(theme)));
+      }
+      searchInput.addEventListener('input', () => { galleryState.search = searchInput.value; paintGrid(); });
+      paintGrid();
+    }
+
+    function buildThemeCard(theme) {
+      const selected = data.current.themeId === theme.id;
+      // Prévia em miniatura: mini-interface (servidores, topo, chat, input)
+      // pintada com a paleta do tema, sobre um brilho com as cores dele.
+      const mini = el('div', { class: 'pv2-theme-mini ' + effectClass(theme.effect) }, [
+        el('div', { class: 'pv2-theme-mini-body' }, [
+          el('div', { class: 'pv2-theme-mini-side' }, [
+            el('div', { class: 'pv2-theme-mini-server' }),
+            el('div', { class: 'pv2-theme-mini-server active' }),
+            el('div', { class: 'pv2-theme-mini-server' }),
           ]),
-          el('div', { class: 'pv2-theme-mini-btn' }, ['Aplicar']),
-        ]);
-        applyMiniVars(mini, theme);
-        const card = el('div', {
-          class: 'pv2-theme-card' + (selected ? ' selected' : '') + (theme.locked ? ' locked' : ''),
-          onclick: () => selectTheme(theme),
-        }, [
-          mini,
-          el('div', { class: 'pv2-theme-name' }, [
+          el('div', { class: 'pv2-theme-mini-main' }, [
+            el('div', { class: 'pv2-theme-mini-topbar' }),
+            el('div', { class: 'pv2-theme-mini-chat' }, [
+              el('div', { class: 'pv2-theme-mini-bubble other' }),
+              el('div', { class: 'pv2-theme-mini-bubble mine' }),
+            ]),
+            el('div', { class: 'pv2-theme-mini-input' }),
+          ]),
+        ]),
+      ]);
+      applyMiniVars(mini, theme);
+
+      const metaTags = [];
+      if (theme.scene && theme.scene !== 'none') metaTags.push('🎬 ' + (SCENE_LABELS[theme.scene] || theme.scene));
+      if (theme.font) metaTags.push('Aa ' + (FONT_LABELS[theme.font] || theme.font));
+      if (theme.suggestedEffects && theme.suggestedEffects.length) metaTags.push('✨ ' + theme.suggestedEffects.length + ' efeitos');
+
+      const card = el('div', {
+        class: 'pv2-theme-card' + (selected ? ' selected' : '') + (theme.locked ? ' locked' : ''),
+      }, [
+        mini,
+        el('div', { class: 'pv2-theme-name' }, [
+          el('div', { class: 'pv2-theme-name-row' }, [
             theme.name,
             theme.premium ? el('span', { class: 'pv2-premium-pill' }, ['PLUS']) : null,
+            selected ? el('span', { class: 'pv2-meta-tag' }, ['em uso']) : null,
           ]),
-        ]);
-        // A cor de brilho do hover/seleção (CSS, ver .pv2-theme-card:hover em
-        // plus2.css) lê var(--pv2-mini-primary) do próprio elemento do card —
-        // CSS var só desce pra filho, não sobe do "mini" (que é filho do
-        // card) pro card em si, então precisa ser aplicada aqui também pra
-        // cada carta brilhar com a cor certa do seu próprio tema.
-        card.style.setProperty('--pv2-mini-primary', theme.colors.primary);
-        if (theme.comingSoon) {
-          // Tema com lançamento programado — mostra "disponível em XX/XX" em
-          // vez do cadeado genérico de PLUS, pra deixar claro que é questão
-          // de tempo, não de assinatura.
-          const d = theme.releaseAt ? new Date(theme.releaseAt) : null;
-          const formatted = d && !Number.isNaN(d.getTime())
-            ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-            : null;
-          card.appendChild(el('div', { class: 'pv2-lock-badge pv2-lock-badge-soon' }, [
-            formatted ? ('⏳ em ' + formatted) : '⏳ em breve',
-          ]));
-        } else if (theme.locked) {
-          card.appendChild(el('div', { class: 'pv2-lock-badge' }, ['🔒 PLUS']));
-        }
-        grid.appendChild(card);
-      });
-      panelThemes.appendChild(grid);
+          theme.tagline ? el('div', { class: 'pv2-theme-tagline' }, [theme.tagline]) : null,
+          metaTags.length ? el('div', { class: 'pv2-theme-meta' }, metaTags.map((m) => el('span', { class: 'pv2-meta-tag' }, [m]))) : null,
+        ]),
+        el('div', { class: 'pv2-theme-actions' }, [
+          el('button', { type: 'button', class: 'pv2-card-btn', onclick: (e) => { e.stopPropagation(); startPreview(theme); } }, ['👁 Ver ao vivo']),
+          el('button', {
+            type: 'button', class: 'pv2-card-btn primary',
+            onclick: (e) => { e.stopPropagation(); selectTheme(theme); },
+          }, [selected ? '✓ Em uso' : (theme.locked ? '🔒' : 'Aplicar')]),
+        ]),
+      ]);
+      // CSS var só desce pra filho — o brilho do hover/seleção e os botões do
+      // card leem estas variáveis do próprio card.
+      card.style.setProperty('--pv2-mini-primary', theme.colors.primary);
+      card.style.setProperty('--pv2-mini-secondary', theme.colors.secondary);
+      card.addEventListener('click', () => startPreview(theme));
+      if (theme.comingSoon) {
+        const d = theme.releaseAt ? new Date(theme.releaseAt) : null;
+        const formatted = d && !Number.isNaN(d.getTime())
+          ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : null;
+        card.appendChild(el('div', { class: 'pv2-lock-badge pv2-lock-badge-soon' }, [formatted ? ('⏳ em ' + formatted) : '⏳ em breve']));
+      } else if (theme.locked) {
+        card.appendChild(el('div', { class: 'pv2-lock-badge' }, ['🔒 PLUS']));
+      }
+      return card;
     }
 
     async function selectTheme(theme) {
+      if (previewingTheme) endPreview(false);
       if (theme.locked) {
         if (opts.onLockedClick) opts.onLockedClick('theme', theme);
         return;
@@ -446,7 +620,36 @@
       data.current.themeId = theme.id;
       renderThemesPanel();
       await saveMe({ themeId: theme.id });
+      await applyThemeSuggestedEffects(theme);
       if (opts.onThemeApplied) opts.onThemeApplied(theme);
+    }
+
+    // Liga sozinho os efeitos que esse tema recomenda (pedido: "temas mais
+    // interativos", em vez da pessoa escolher o tema e ainda ter que ir na
+    // aba Efeitos ligar cada coisa na mão). Duas travas importantes:
+    // 1) só liga quem ainda está DESLIGADO — nunca desliga nada que a pessoa
+    //    já tinha ajustado do jeito dela;
+    // 2) um efeito que é exclusivo PLUS só liga sozinho se a conta for PLUS
+    //    de verdade — senão ficaria "ligado" no banco mas sem aparecer pra
+    //    quem não pode usar, dando a entender que tem algo quebrado.
+    async function applyThemeSuggestedEffects(theme) {
+      const suggested = Array.isArray(theme.suggestedEffects) ? theme.suggestedEffects : [];
+      if (!suggested.length) return;
+      const toEnable = suggested.filter((key) => {
+        if (data.visualPrefs.effects[key]) return false;
+        const def = EFFECT_DEFS.find((d) => d.key === key);
+        if (!def) return false;
+        if (!def.free && !data.isPlusUser) return false;
+        return true;
+      });
+      if (!toEnable.length) return;
+      const patch = {};
+      toEnable.forEach((key) => { data.visualPrefs.effects[key] = true; patch[key] = true; });
+      await saveMe({ visualPrefs: { effects: patch } });
+      if (opts.onEffectsAutoApplied) {
+        const labels = toEnable.map((key) => (EFFECT_DEFS.find((d) => d.key === key) || {}).label || key);
+        opts.onEffectsAutoApplied(labels);
+      }
     }
 
     // ---------------- ABA: criar tema ----------------
@@ -466,7 +669,7 @@
       const draft = {
         name: 'Meu tema',
         primary: '#00ff9d', secondary: '#00e5ff', highlight: '#00d4ff', text: '#e6e6e6', button: '#1e1e2f',
-        darkMode: true, effect: 'none',
+        darkMode: true, effect: 'none', font: '', scene: 'none',
       };
 
       const layout = el('div', { class: 'pv2-creator-layout' });
@@ -485,6 +688,11 @@
         ['text', 'Cor dos textos'], ['button', 'Cor dos botões'],
       ];
       const frame = buildPreviewFrame();
+      // Guarda a função update() de cada campo de cor, indexada pela chave —
+      // é o que deixa os presets/aleatorizar abaixo preencherem as 5 cores
+      // de uma vez só (inclusive atualizando o color picker + campo de texto
+      // de cada uma), sem duplicar a lógica de validação/preview.
+      const fieldUpdaters = {};
       colorFields.forEach(([key, label]) => {
         const colorPicker = el('input', { type: 'color', value: draft[key], disabled: data.isPlusUser ? undefined : 'disabled' });
         const textInput = el('input', { type: 'text', value: draft[key], disabled: data.isPlusUser ? undefined : 'disabled' });
@@ -494,6 +702,7 @@
           textInput.value = v;
           updatePreview();
         }
+        fieldUpdaters[key] = update;
         colorPicker.addEventListener('input', () => update(colorPicker.value));
         textInput.addEventListener('change', () => {
           if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(textInput.value)) update(textInput.value);
@@ -505,6 +714,68 @@
         ]));
       });
 
+      // Pedido: "criador de tema mais poderoso" — presets de paleta (combos
+      // já testados e harmoniosos, um clique aplica as 5 cores de uma vez) e
+      // um botão de aleatorizar (gera uma paleta nova, sempre com bom
+      // contraste, pra quem não sabe por onde começar ou só quer inspiração).
+      const PALETTE_PRESETS = [
+        { name: 'Esmeralda', primary: '#0f9b6e', secondary: '#0a3d2e', highlight: '#d4af37', text: '#eafff5', button: '#07211a' },
+        { name: 'Vaporwave', primary: '#ff6ec7', secondary: '#7b2ff7', highlight: '#01cdfe', text: '#fdf0ff', button: '#1a0b2e' },
+        { name: 'Platina', primary: '#5b6b7d', secondary: '#c7cdd6', highlight: '#5ec8ff', text: '#f3f6f9', button: '#1b2228' },
+        { name: 'Fantasma', primary: '#e21818', secondary: '#1a1a1a', highlight: '#ff5757', text: '#fff0f0', button: '#0c0c0c' },
+        { name: 'Oceano', primary: '#0e4d92', secondary: '#00b8d9', highlight: '#7fe7ff', text: '#e6f7ff', button: '#08283f' },
+        { name: 'Pôr do sol', primary: '#8e44ad', secondary: '#ff7e33', highlight: '#ff6fa3', text: '#fff0f5', button: '#2b1a2e' },
+      ];
+      function applyPalette(p) {
+        fieldUpdaters.primary(p.primary);
+        fieldUpdaters.secondary(p.secondary);
+        fieldUpdaters.highlight(p.highlight);
+        fieldUpdaters.text(p.text);
+        fieldUpdaters.button(p.button);
+      }
+      const presetsRow = el('div', { class: 'pv2-presets-row' });
+      PALETTE_PRESETS.forEach((p) => {
+        const swatch = el('button', {
+          type: 'button', class: 'pv2-preset-swatch', title: p.name,
+          disabled: data.isPlusUser ? undefined : 'disabled',
+          style: `background:linear-gradient(135deg, ${p.primary}, ${p.secondary} 60%, ${p.highlight});`,
+          onclick: () => applyPalette(p),
+        });
+        presetsRow.appendChild(swatch);
+      });
+      controls.appendChild(el('label', { style: 'font-size:12.5px;font-weight:600;color:#cfd2d8;margin-top:4px;' }, ['Presets rápidos']));
+      controls.appendChild(presetsRow);
+
+      // Aleatoriza por matiz (HSL) em vez de RGB puro — gira um matiz
+      // aleatório e deriva secundária/destaque dele com saturação/luz
+      // diferentes, então a combinação sempre fica harmoniosa (nunca duas
+      // cores "brigando" sem nenhuma relação entre si, que é o problema
+      // comum de sortear RGB totalmente solto).
+      function hslToHexLocal(h, s, l) {
+        s /= 100; l /= 100;
+        const k = (n) => (n + h / 30) % 12;
+        const a = s * Math.min(l, 1 - l);
+        const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+        const toHex = (x) => Math.round(255 * x).toString(16).padStart(2, '0');
+        return '#' + toHex(f(0)) + toHex(f(8)) + toHex(f(4));
+      }
+      function randomizePalette() {
+        const baseHue = Math.floor(Math.random() * 360);
+        const dark = draft.darkMode;
+        applyPalette({
+          primary: hslToHexLocal(baseHue, 70, 55),
+          secondary: hslToHexLocal((baseHue + 40) % 360, 65, 50),
+          highlight: hslToHexLocal((baseHue + 200) % 360, 85, 65),
+          text: dark ? '#eef0f5' : '#1a1b20',
+          button: dark ? hslToHexLocal(baseHue, 35, 12) : hslToHexLocal(baseHue, 20, 92),
+        });
+      }
+      const randomizeBtn = el('button', {
+        type: 'button', class: 'pv2-randomize-btn', disabled: data.isPlusUser ? undefined : 'disabled',
+        onclick: randomizePalette,
+      }, ['🎲 Aleatorizar cores']);
+      controls.appendChild(randomizeBtn);
+
       const effectSelect = el('select', { class: 'pv2-effect-select', disabled: data.isPlusUser ? undefined : 'disabled' }, [
         el('option', { value: 'none' }, ['Sem efeito']),
         el('option', { value: 'shine' }, ['Brilho (shine)']),
@@ -515,6 +786,30 @@
       effectSelect.addEventListener('change', () => { draft.effect = effectSelect.value; updatePreview(); });
       controls.appendChild(el('label', { style: 'font-size:12.5px;font-weight:600;color:#cfd2d8;' }, ['Efeito visual']));
       controls.appendChild(effectSelect);
+
+      const fontSelect = el('select', { class: 'pv2-effect-select', disabled: data.isPlusUser ? undefined : 'disabled' },
+        Object.entries(FONT_LABELS).map(([v, l]) => el('option', { value: v }, [l])));
+      fontSelect.value = draft.font;
+      fontSelect.addEventListener('change', () => { draft.font = fontSelect.value; updatePreview(); });
+      controls.appendChild(el('label', { class: 'pv2-lbl' }, ['Fonte do tema']));
+      controls.appendChild(fontSelect);
+
+      const sceneSelect = el('select', { class: 'pv2-effect-select', disabled: data.isPlusUser ? undefined : 'disabled' },
+        Object.entries(SCENE_LABELS).map(([v, l]) => el('option', { value: v }, [l])));
+      sceneSelect.value = draft.scene;
+      sceneSelect.addEventListener('change', () => { draft.scene = sceneSelect.value; updatePreview(); });
+      controls.appendChild(el('label', { class: 'pv2-lbl' }, ['Fundo animado']));
+      controls.appendChild(sceneSelect);
+
+      const liveBtn = el('button', {
+        type: 'button', class: 'pv2-ghost-btn', style: 'margin-top:10px;',
+        onclick: () => startPreview({
+          key: 'custom-draft', name: draft.name || 'Meu tema', custom: true, locked: !data.isPlusUser,
+          colors: { primary: draft.primary, secondary: draft.secondary, highlight: draft.highlight, text: draft.text, button: draft.button },
+          darkMode: draft.darkMode, effect: draft.effect, font: draft.font, scene: draft.scene,
+        }),
+      }, ['👁 Ver no site inteiro']);
+      controls.appendChild(liveBtn);
 
       const darkToggleLabel = el('label', { class: 'pv2-toggle-row' }, [
         el('span', { style: 'font-size:12.5px;font-weight:600;color:#cfd2d8;' }, ['Modo escuro']),
@@ -540,6 +835,11 @@
       controls.appendChild(saveBtn);
 
       function updatePreview() {
+        let sceneEl = frame.root.querySelector('.pv2-preview-scene');
+        if (!sceneEl) { sceneEl = el('div', { class: 'pv2-preview-scene' }); frame.root.insertBefore(sceneEl, frame.root.firstChild); }
+        sceneEl.style.background = draft.scene === 'none'
+          ? 'none'
+          : `radial-gradient(circle at 20% 10%, ${draft.primary}66, transparent 55%), radial-gradient(circle at 90% 90%, ${draft.secondary}55, transparent 55%), radial-gradient(circle at 60% 40%, ${draft.highlight}22, transparent 50%)`;
         frame.mini.className = 'pv2-theme-mini ' + effectClass(draft.effect);
         applyThemeVars(frame.root, {
           colors: { primary: draft.primary, secondary: draft.secondary, highlight: draft.highlight, text: draft.text, button: draft.button },

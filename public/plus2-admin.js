@@ -55,6 +55,22 @@
       const input = el('input', { type: 'datetime-local', class: 'pv2a-input', value: isoToDatetimeLocal(value) });
       return input;
     }
+    if (field.type === 'checkboxGroup') {
+      // Grupo de checkboxes pra campo multivalorado (ex: "Efeitos sugeridos"
+      // do tema) — o valor é um array de chaves marcadas. Guarda a lista de
+      // checkboxes direto no elemento (wrap._boxes) pra fieldValue() ler de
+      // volta sem precisar de nenhuma estrutura externa.
+      const wrap = el('div', { class: 'pv2a-checkbox-group' });
+      const selected = Array.isArray(value) ? value : [];
+      wrap._boxes = field.options.map((o) => {
+        const cb = el('input', { type: 'checkbox' });
+        cb.checked = selected.includes(o.value);
+        cb.dataset.value = o.value;
+        wrap.appendChild(el('label', { class: 'pv2a-checkbox-group-item' }, [cb, ' ' + o.label]));
+        return cb;
+      });
+      return wrap;
+    }
     const input = el('input', { type: 'text', class: 'pv2a-input', value: value || '' });
     return input;
   }
@@ -72,6 +88,7 @@
 
   function fieldValue(field, input) {
     if (field.type === 'checkbox') return input.checked;
+    if (field.type === 'checkboxGroup') return (input._boxes || []).filter((cb) => cb.checked).map((cb) => cb.dataset.value);
     if (field.type === 'number') return Number(input.value) || 0;
     if (field.type === 'datetime-local') return input.value || null; // vazio = sem data de lançamento
     return input.value;
@@ -174,7 +191,11 @@
         addBtn.disabled = true;
         try {
           await config.onCreate(data);
-          config.fields.forEach((f) => { createInputs[f.key].value = f.type === 'checkbox' ? undefined : (f.default || ''); if (f.type === 'checkbox') createInputs[f.key].checked = !!f.default; });
+          config.fields.forEach((f) => {
+            if (f.type === 'checkbox') { createInputs[f.key].checked = !!f.default; return; }
+            if (f.type === 'checkboxGroup') { (createInputs[f.key]._boxes || []).forEach((cb) => { cb.checked = false; }); return; }
+            createInputs[f.key].value = f.default || '';
+          });
           showAdminToast('Criado ✓');
         } catch (err) {
           showAdminToast('Erro: ' + err.message);
@@ -206,6 +227,12 @@
     { key: 'text', label: 'Texto', type: 'color', default: '#e6e6e6' },
     { key: 'button', label: 'Botão', type: 'color', default: '#1e1e2f' },
     { key: 'effect', label: 'Efeito', type: 'select', options: [{ value: 'none', label: 'Nenhum' }, { value: 'shine', label: 'Shine' }, { value: 'glow', label: 'Glow' }, { value: 'pulse', label: 'Pulse' }] },
+    // v0.84.0 — pacote visual do tema: categoria da galeria, frase do card,
+    // fonte e fundo animado.
+    { key: 'category', label: 'Categoria', type: 'select', default: 'essenciais', options: [{ value: 'essenciais', label: 'Essenciais' }, { value: 'gamer', label: 'Gamer' }, { value: 'espaco', label: 'Espaço' }, { value: 'luxo', label: 'Luxo' }, { value: 'natureza', label: 'Natureza' }, { value: 'sazonal', label: 'Sazonais' }, { value: 'parceiros', label: 'Parceiros' }] },
+    { key: 'tagline', label: 'Frase do card', type: 'text' },
+    { key: 'font', label: 'Fonte', type: 'select', default: '', options: [{ value: '', label: 'Padrão' }, { value: 'modern', label: 'Moderna' }, { value: 'tech', label: 'Tech' }, { value: 'retro', label: 'Retrô' }, { value: 'elegant', label: 'Elegante' }, { value: 'soft', label: 'Suave' }] },
+    { key: 'scene', label: 'Fundo animado', type: 'select', default: 'none', options: [{ value: 'none', label: 'Nenhum' }, { value: 'aurora', label: 'Aurora' }, { value: 'grid', label: 'Grade neon' }, { value: 'waves', label: 'Ondas' }, { value: 'stars', label: 'Estrelas' }, { value: 'embers', label: 'Brasas' }, { value: 'matrix', label: 'Chuva de código' }, { value: 'petals', label: 'Pétalas' }, { value: 'snow', label: 'Neve' }] },
     { key: 'premium', label: 'PLUS', type: 'checkbox' },
     { key: 'sortOrder', label: 'Ordem', type: 'number', default: 0 },
     // Tema especial com lançamento programado: vazio = disponível na hora;
@@ -213,6 +240,22 @@
     // usuários a partir desse momento exato (até lá, aparece com cadeado e a
     // data "disponível em..."). Ex.: tema de Natal, só libera 25/12 00:00.
     { key: 'releaseAt', label: 'Lançamento em (vazio = já disponível)', type: 'datetime-local' },
+    // Pedido: "temas mais interativos" — quais efeitos (da aba Efeitos do
+    // usuário) ligam sozinhos quando alguém escolhe esse tema, em vez da
+    // pessoa precisar ir ligar cada um na mão depois. Ver
+    // applyThemeSuggestedEffects() em plus2.js.
+    {
+      key: 'suggestedEffects', label: 'Efeitos sugeridos (ligam sozinhos ao escolher)', type: 'checkboxGroup',
+      options: [
+        { value: 'particles', label: 'Partículas' },
+        { value: 'buttonGlow', label: 'Brilho nos botões' },
+        { value: 'animatedGradients', label: 'Gradientes animados' },
+        { value: 'messageReceive', label: 'Efeito ao receber mensagem' },
+        { value: 'callJoin', label: 'Efeito ao entrar em call' },
+        { value: 'avatarGlow', label: 'Glow no avatar' },
+        { value: 'transitions', label: 'Transições' },
+      ],
+    },
   ];
   const BACKGROUND_FIELDS = [
     { key: 'name', label: 'Nome', type: 'text' },

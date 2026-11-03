@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.84.0",
+    "date": "2026-11-03",
+    "changes": [
+      "TEMAS REPAGINADOS (visual neon/glass): catálogo novo com 23 temas feitos à mão, organizados em categorias — Essenciais, Gamer, Espaço, Luxo, Natureza, Sazonais e Parceiros. Cada tema agora é um pacote completo: cores, fonte própria e fundo animado.",
+      "NOVO: fundos animados por tema — Aurora, Grade neon, Ondas, Estrelas cintilantes, Brasas, Chuva de código (Matrix), Pétalas e Neve. Leves (pausam com a aba escondida) e desligam sozinhos no Modo desempenho.",
+      "NOVO: fonte por tema (Moderna, Tech, Retrô, Elegante, Suave), carregada só quando o tema é usado.",
+      "NOVO galeria: busca por nome, filtro por categoria, cards em vidro com frase, fundo e fonte do tema, e botão 'Ver ao vivo' que aplica o tema no site inteiro antes de você decidir (Aplicar ou Cancelar).",
+      "NOVO: importar/exportar tema — copie o código do seu tema atual para compartilhar e cole o de um amigo para importar como tema seu (PLUS).",
+      "Criador de temas: agora também escolhe fonte e fundo animado, e tem 'Ver no site inteiro'.",
+      "Admin: temas ganharam categoria, frase do card, fonte e fundo animado.",
+      "Temas antigos repetidos (Midnight, Gold, Neon Dreams, Phantom Red) foram aposentados — quem usava passa automaticamente para o Next Blue.",
+      "Projeto enxugado: removida a pasta src-readable (cópia duplicada) e arquivos velhos de preview — agora o projeto tem menos de 100 arquivos, dá para subir tudo de uma vez no GitHub."
+    ]
+  },
+  {
     "version": "0.83.0",
     "date": "2026-11-03",
     "changes": [

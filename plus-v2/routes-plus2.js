@@ -36,6 +36,16 @@ function parseSuggestedEffects(json) {
     return [];
   }
 }
+// v0.84.0 — catálogo repaginado: categorias da galeria, fontes e fundos
+// animados ("scene") que cada tema pode ter (ver plus2-live.js).
+const THEME_CATEGORIES = new Set(['essenciais', 'gamer', 'espaco', 'luxo', 'natureza', 'sazonal', 'parceiros']);
+const THEME_FONTS = new Set(['', 'modern', 'tech', 'retro', 'elegant', 'soft']);
+const THEME_SCENES = new Set(['none', 'aurora', 'grid', 'waves', 'stars', 'embers', 'matrix', 'petals', 'snow']);
+const cleanFont = (v) => (typeof v === 'string' && THEME_FONTS.has(v) ? v : '');
+const cleanScene = (v) => (typeof v === 'string' && THEME_SCENES.has(v) ? v : 'none');
+const cleanCategory = (v) => (typeof v === 'string' && THEME_CATEGORIES.has(v) ? v : null);
+const cleanTagline = (v) => (typeof v === 'string' ? v.trim().slice(0, 60) : '');
+
 const BACKGROUND_TYPES = new Set(['solid', 'gradient', 'image', 'gif', 'effect']);
 const STICKER_TYPES = new Set(['emoji', 'image']);
 const HTTPS_URL_RE = /^https:\/\/\S+$/;
@@ -86,6 +96,10 @@ function themeOut(t, unlocked, now) {
     },
     darkMode: !!t.dark_mode,
     effect: t.effect,
+    category: t.category || (t.is_preset ? 'essenciais' : 'meus'),
+    tagline: t.tagline || '',
+    font: t.font_key || '',
+    scene: t.scene || 'none',
     // Efeitos que esse tema recomenda ligar sozinho ao ser escolhido (ver
     // applyThemeEffects() em plus2.js) — [] pra tema sem nenhum sugerido.
     suggestedEffects: parseSuggestedEffects(t.suggested_effects),
@@ -231,7 +245,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
       if (!isPlusAccount(req.user)) {
         return res.status(403).json({ error: 'Criar tema personalizado é exclusivo de quem tem NEXTGAME PLUS' });
       }
-      const { id, name, primary, secondary, highlight, text, button, darkMode, effect } = req.body || {};
+      const { id, name, primary, secondary, highlight, text, button, darkMode, effect, font, scene } = req.body || {};
       const colors = { primary, secondary, highlight, text, button };
       for (const [k, v] of Object.entries(colors)) {
         if (typeof v !== 'string' || !HEX_COLOR_RE.test(v)) {
@@ -248,9 +262,9 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
         const existing = await db.get('SELECT * FROM plus_v2_themes WHERE id = ? AND owner_user_id = ?', [id, req.user.id]);
         if (!existing) return res.status(404).json({ error: 'Tema não encontrado' });
         await db.run(
-          `UPDATE plus_v2_themes SET name=?, primary_color=?, secondary_color=?, highlight_color=?, text_color=?, button_color=?, dark_mode=?, effect=?
+          `UPDATE plus_v2_themes SET name=?, primary_color=?, secondary_color=?, highlight_color=?, text_color=?, button_color=?, dark_mode=?, effect=?, font_key=?, scene=?
            WHERE id = ?`,
-          [cleanName, primary, secondary, highlight, text, button, darkMode ? 1 : 0, cleanEffect, id]
+          [cleanName, primary, secondary, highlight, text, button, darkMode ? 1 : 0, cleanEffect, cleanFont(font), cleanScene(scene), id]
         );
         return res.json({ ok: true, id });
       }
@@ -258,9 +272,9 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
       const newThemeId = newId();
       await db.run(
         `INSERT INTO plus_v2_themes
-          (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order)
-         VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 0)`,
-        [newThemeId, cleanName, primary, secondary, highlight, text, button, darkMode ? 1 : 0, cleanEffect, req.user.id]
+          (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, font_key, scene)
+         VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 0, ?, ?)`,
+        [newThemeId, cleanName, primary, secondary, highlight, text, button, darkMode ? 1 : 0, cleanEffect, req.user.id, cleanFont(font), cleanScene(scene)]
       );
       res.json({ ok: true, id: newThemeId });
     })
@@ -510,6 +524,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
           // Efeitos que ligam sozinhos quando o usuário escolhe esse tema —
           // editável no admin (ver campo "Efeitos sugeridos" no formulário).
           suggestedEffects: parseSuggestedEffects(t.suggested_effects),
+          category: t.category || '', tagline: t.tagline || '', font: t.font_key || '', scene: t.scene || 'none',
         })),
         backgrounds: backgrounds.map((b) => ({ id: b.id, key: b.key, name: b.name, type: b.type, value: b.value, premium: !!b.is_premium, sortOrder: b.sort_order })),
         banners: banners.map((b) => ({ id: b.id, key: b.key, name: b.name, style: b.style, value: b.value, premium: !!b.is_premium, sortOrder: b.sort_order })),
@@ -638,7 +653,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
     requireAuth,
     requireAdmin,
     asyncHandler(async (req, res) => {
-      const { key, name, primary, secondary, highlight, text, button, darkMode, effect, premium, sortOrder, releaseAt, suggestedEffects } = req.body || {};
+      const { key, name, primary, secondary, highlight, text, button, darkMode, effect, premium, sortOrder, releaseAt, suggestedEffects, category, tagline, font, scene } = req.body || {};
       const colors = { primary, secondary, highlight, text, button };
       for (const [k, v] of Object.entries(colors)) {
         if (typeof v !== 'string' || !HEX_COLOR_RE.test(v)) {
@@ -654,9 +669,9 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
       const id = newId();
       await db.run(
         `INSERT INTO plus_v2_themes
-          (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, release_at, suggested_effects)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, ?, ?)`,
-        [id, key || null, name.trim(), primary, secondary, highlight, text, button, darkMode ? 1 : 0, EFFECTS.has(effect) ? effect : 'none', premium ? 1 : 0, sortOrder || 0, releaseAtResult.value, JSON.stringify(suggestedEffectsClean)]
+          (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, release_at, suggested_effects, category, tagline, font_key, scene)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, key || null, name.trim(), primary, secondary, highlight, text, button, darkMode ? 1 : 0, EFFECTS.has(effect) ? effect : 'none', premium ? 1 : 0, sortOrder || 0, releaseAtResult.value, JSON.stringify(suggestedEffectsClean), cleanCategory(category), cleanTagline(tagline), cleanFont(font), cleanScene(scene)]
       );
       res.json({ ok: true, id });
     })
@@ -696,6 +711,10 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
         sets.push('suggested_effects = ?');
         values.push(JSON.stringify(clean));
       }
+      if (fields.category !== undefined) { sets.push('category = ?'); values.push(cleanCategory(fields.category)); }
+      if (fields.tagline !== undefined) { sets.push('tagline = ?'); values.push(cleanTagline(fields.tagline)); }
+      if (fields.font !== undefined) { sets.push('font_key = ?'); values.push(cleanFont(fields.font)); }
+      if (fields.scene !== undefined) { sets.push('scene = ?'); values.push(cleanScene(fields.scene)); }
       if (!sets.length) return res.json({ ok: true });
       values.push(req.params.id);
       await db.run(`UPDATE plus_v2_themes SET ${sets.join(', ')} WHERE id = ?`, values);

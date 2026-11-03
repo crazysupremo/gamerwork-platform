@@ -6148,6 +6148,13 @@ async function mountPlusV2Personalization() {
     const adapter = PlusV2.createHttpAdapter({ fetch: window.fetch.bind(window) });
     await PlusV2.mount(root, adapter, {
       onThemeApplied: (t) => showCopyToast('Tema "' + t.name + '" aplicado ✓'),
+      // Pedido: "temas mais interativos" — quando o tema escolhido liga
+      // algum efeito sozinho (ver applyThemeSuggestedEffects em plus2.js),
+      // avisa o que mudou em vez de fazer isso silenciosamente.
+      onEffectsAutoApplied: (labels) => {
+        if (!labels || !labels.length) return;
+        showCopyToast('✨ Efeitos ativados: ' + labels.join(', '));
+      },
       onLockedClick: (kind, item) => {
         // Tema com lançamento programado (comingSoon) tem uma mensagem
         // diferente de "é PLUS" — mostra a data exata em que vai liberar,

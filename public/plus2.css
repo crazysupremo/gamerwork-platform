@@ -106,6 +106,12 @@
   font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.04em;
   background: linear-gradient(90deg, #00e5ff, #00ff9d); color: #fff;
 }
+/* Selo "✨" na galeria — avisa que esse tema já liga efeitos sozinho ao ser
+   escolhido (ver suggestedEffects/applyThemeSuggestedEffects). */
+.pv2-interactive-pill {
+  font-size: 10px; margin-left: 2px; animation: pv2InteractivePulse 1.8s ease-in-out infinite;
+}
+@keyframes pv2InteractivePulse { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
 
 /* ---------- efeitos visuais dos temas premium ---------- */
 .pv2-effect-shine .pv2-theme-mini-btn { animation: pv2Shine 2.2s linear infinite; background-size: 200% auto; }
@@ -152,6 +158,24 @@
 }
 .pv2-save-btn:hover { filter: brightness(1.1); }
 .pv2-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Presets rápidos + aleatorizar (criador de tema) — pedido: "criador de
+   tema mais poderoso". */
+.pv2-presets-row { display: flex; gap: 8px; margin: 6px 0 14px; flex-wrap: wrap; }
+.pv2-preset-swatch {
+  width: 34px; height: 34px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.12);
+  cursor: pointer; transition: transform 0.12s ease, border-color 0.15s ease; padding: 0;
+}
+.pv2-preset-swatch:hover { transform: translateY(-2px) scale(1.06); border-color: rgba(255,255,255,0.4); }
+.pv2-preset-swatch:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.pv2-randomize-btn {
+  background: #2a2b32; color: #e6e6e6; border: 1px solid #3a3c42; border-radius: 20px;
+  padding: 8px 16px; font-size: 12.5px; font-weight: 700; cursor: pointer; margin: 2px 0 14px;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.pv2-randomize-btn:hover { background: #35373f; }
+.pv2-randomize-btn:active { transform: scale(0.97); }
+.pv2-randomize-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .pv2-locked-note {
   background: rgba(145,70,255,0.12); border: 1px solid rgba(145,70,255,0.4); color: #cbb2ff;
   border-radius: 10px; padding: 12px 14px; font-size: 12.5px; margin-bottom: 16px; line-height: 1.5;
@@ -544,3 +568,174 @@ body.pv2-fx-transitions .home-panel {
 }
 .pv2-sticker-msg { font-size: 64px; line-height: 1; padding: 2px 0; background: transparent !important; }
 .pv2-sticker-msg-img img { width: 128px; height: 128px; object-fit: contain; display: block; }
+
+/* ============================================================================
+   v0.84.0 — REPAGINADA DOS TEMAS (neon / glass)
+   Fundos animados (scenes), fonte do tema, galeria nova com busca/categorias,
+   pré-visualização ao vivo e importar/exportar.
+============================================================================ */
+
+/* ---------- fonte do tema ---------- */
+body.pv2-has-font { font-family: var(--pv2-font-body), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+body.pv2-has-font button, body.pv2-has-font input, body.pv2-has-font textarea, body.pv2-has-font select { font-family: inherit; }
+body.pv2-has-font h1, body.pv2-has-font h2, body.pv2-has-font h3,
+body.pv2-has-font .pv2-section-title, body.pv2-has-font .pv2-theme-name { font-family: var(--pv2-font-display), var(--pv2-font-body), sans-serif; letter-spacing: 0.01em; }
+
+/* ---------- fundo animado do tema ---------- */
+#plus2-scene {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+  background: var(--bg-app, #0e0f13);
+}
+body.pv2-custom-bg-active #plus2-scene { background: transparent; }
+body.pv2-scene-active { background: transparent !important; }
+html:has(body.pv2-scene-active) { background: var(--bg-app, #0e0f13); }
+/* painéis levemente translúcidos pra cena aparecer por trás (sem
+   backdrop-filter de propósito — ver comentário lá em cima sobre o menu do
+   chip de perfil preso atrás da página). */
+body.pv2-scene-active .app-sidebar { background: color-mix(in srgb, var(--bg-rail) 80%, transparent) !important; }
+body.pv2-scene-active .top-navbar { background: color-mix(in srgb, var(--bg-sidebar) 78%, transparent) !important; }
+body.pv2-scene-active .app-main { background: color-mix(in srgb, var(--bg-app) 70%, transparent) !important; }
+body.pv2-scene-active .sidebar,
+body.pv2-scene-active .members-panel { background: color-mix(in srgb, var(--bg-sidebar) 78%, transparent) !important; }
+
+/* aurora — três manchas desfocadas que se movem devagar */
+#plus2-scene.pv2-scene-aurora i {
+  position: absolute; width: 70vmax; height: 70vmax; border-radius: 50%; filter: blur(90px); opacity: 0.38;
+  will-change: transform; animation: pv2AuroraMove 26s ease-in-out infinite alternate;
+}
+#plus2-scene.pv2-scene-aurora i:nth-child(1) { background: rgb(var(--accent-rgb)); top: -30vmax; left: -20vmax; }
+#plus2-scene.pv2-scene-aurora i:nth-child(2) { background: rgb(var(--accent-2-rgb)); bottom: -35vmax; right: -25vmax; animation-duration: 32s; animation-delay: -8s; }
+#plus2-scene.pv2-scene-aurora i:nth-child(3) { background: rgb(var(--accent-3-rgb)); top: 20vmax; left: 30vmax; width: 45vmax; height: 45vmax; opacity: 0.2; animation-duration: 38s; animation-delay: -15s; }
+@keyframes pv2AuroraMove {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(10vmax, 6vmax, 0) scale(1.15); }
+  100% { transform: translate3d(-6vmax, 12vmax, 0) scale(0.95); }
+}
+
+/* grid — chão em perspectiva estilo synthwave + brilho no horizonte */
+#plus2-scene.pv2-scene-grid::before {
+  content: ''; position: absolute; left: -50%; right: -50%; bottom: 0; height: 55%;
+  background-image:
+    linear-gradient(rgba(var(--accent-2-rgb), 0.55) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-2-rgb), 0.55) 1px, transparent 1px);
+  background-size: 64px 64px; transform: perspective(380px) rotateX(62deg); transform-origin: bottom;
+  animation: pv2GridMove 3.2s linear infinite;
+  -webkit-mask-image: linear-gradient(to top, #000 10%, transparent 90%); mask-image: linear-gradient(to top, #000 10%, transparent 90%);
+}
+#plus2-scene.pv2-scene-grid::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 18%; height: 40%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(var(--accent-rgb), 0.28), transparent 65%);
+}
+@keyframes pv2GridMove { from { background-position: 0 0, 0 0; } to { background-position: 0 64px, 0 0; } }
+
+/* waves — faixas de gradiente ondulando */
+#plus2-scene.pv2-scene-waves::before, #plus2-scene.pv2-scene-waves::after {
+  content: ''; position: absolute; left: -10%; width: 120%; height: 60%; border-radius: 45%;
+  opacity: 0.22; will-change: transform;
+}
+#plus2-scene.pv2-scene-waves::before { bottom: -38%; background: rgb(var(--accent-rgb)); animation: pv2Wave 18s linear infinite; }
+#plus2-scene.pv2-scene-waves::after { bottom: -44%; background: rgb(var(--accent-2-rgb)); opacity: 0.3; animation: pv2Wave 26s linear infinite reverse; }
+@keyframes pv2Wave { from { transform: translateX(0) rotate(0deg); } 50% { transform: translateX(6%) rotate(180deg); } to { transform: translateX(0) rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  #plus2-scene * , #plus2-scene::before, #plus2-scene::after { animation: none !important; }
+}
+
+/* ---------- galeria nova ---------- */
+.pv2-gal-toolbar { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+.pv2-gal-top { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.pv2-search {
+  flex: 1 1 200px; min-width: 160px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px; color: #fff; padding: 10px 14px; font-size: 13px; outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.pv2-search:focus { border-color: var(--pv2-accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 0,255,157), 0.18); }
+.pv2-ghost-btn {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #e6e8ee; border-radius: 10px;
+  font-size: 12px; font-weight: 700; padding: 9px 13px; cursor: pointer; transition: background 0.2s ease, transform 0.15s ease;
+}
+.pv2-ghost-btn:hover { background: rgba(255,255,255,0.12); transform: translateY(-1px); }
+.pv2-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.pv2-chip {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #b9bdc9; font-size: 12px;
+  font-weight: 700; padding: 7px 13px; border-radius: 999px; cursor: pointer; transition: all 0.2s ease;
+}
+.pv2-chip:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+.pv2-chip.active {
+  color: #fff; border-color: transparent;
+  background: linear-gradient(120deg, var(--accent, #00ff9d), var(--accent-2, #00e5ff));
+  box-shadow: 0 0 16px -3px var(--accent, #00ff9d);
+}
+.pv2-chip .pv2-chip-n { opacity: 0.65; margin-left: 5px; font-weight: 600; }
+.pv2-gal-empty { color: #9aa0ab; font-size: 13px; padding: 30px 0; text-align: center; }
+
+.pv2-theme-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+/* card glass: vidro fosco com borda que acende na cor do tema */
+.pv2-theme-card {
+  border-radius: 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.pv2-theme-card:hover { border-color: var(--pv2-mini-primary); }
+.pv2-theme-card.selected { border: 2px solid var(--pv2-mini-primary); }
+.pv2-theme-mini { position: relative; height: 128px; overflow: hidden; }
+.pv2-theme-mini::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(circle at 15% 0%, color-mix(in srgb, var(--pv2-mini-primary) 45%, transparent), transparent 55%),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--pv2-mini-secondary) 38%, transparent), transparent 55%);
+}
+.pv2-theme-mini > * { position: relative; }
+.pv2-theme-name { flex-direction: column; align-items: flex-start; gap: 3px; background: rgba(0,0,0,0.28); }
+.pv2-theme-name-row { display: flex; align-items: center; gap: 6px; width: 100%; font-size: 13px; font-weight: 800; }
+.pv2-theme-tagline { font-size: 11px; font-weight: 500; color: #9aa0ab; line-height: 1.35; }
+.pv2-theme-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.pv2-meta-tag {
+  font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; color: #cfd3dc;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.08);
+}
+.pv2-theme-actions { display: flex; gap: 6px; padding: 0 10px 10px; background: rgba(0,0,0,0.28); }
+.pv2-card-btn {
+  flex: 1; font-size: 11.5px; font-weight: 800; padding: 7px 0; border-radius: 9px; cursor: pointer; border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06); color: #e6e8ee; transition: all 0.18s ease;
+}
+.pv2-card-btn:hover { background: rgba(255,255,255,0.14); }
+.pv2-card-btn.primary {
+  border-color: transparent; color: #fff;
+  background: linear-gradient(120deg, var(--pv2-mini-primary), var(--pv2-mini-secondary));
+}
+.pv2-card-btn.primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
+.pv2-card-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.pv2-theme-card.locked .pv2-theme-actions .pv2-card-btn.primary { opacity: 0.55; }
+
+/* barra de pré-visualização ao vivo (flutua no site de verdade) */
+.pv2-preview-bar {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 100000;
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 18px; border-radius: 16px;
+  background: rgba(14,15,19,0.82); border: 1px solid var(--pv2-glass-border, rgba(255,255,255,0.2));
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 12px 40px -8px rgba(0,0,0,0.7), 0 0 30px -6px var(--accent, #00ff9d);
+  color: #fff; font-size: 13px; font-weight: 700; animation: pv2BarIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes pv2BarIn { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.pv2-preview-bar .pv2-card-btn { flex: none; padding: 8px 16px; }
+
+/* importar / exportar */
+.pv2-ie-box {
+  margin-bottom: 18px; padding: 14px; border-radius: 14px; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1); display: none;
+}
+.pv2-ie-box.open { display: block; }
+.pv2-ie-box textarea {
+  width: 100%; min-height: 90px; resize: vertical; background: rgba(0,0,0,0.3); color: #e6e8ee;
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 10px; font-family: monospace; font-size: 11.5px; box-sizing: border-box;
+}
+.pv2-ie-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+.pv2-ie-msg { font-size: 12px; color: #9aa0ab; }
+.pv2-ie-msg.err { color: #ff8a8a; }
+
+/* criador: seletores de fonte/fundo */
+.pv2-creator-controls label.pv2-lbl { display: block; font-size: 12.5px; font-weight: 600; color: #cfd2d8; margin-top: 6px; }
+.pv2-preview-frame { position: relative; overflow: hidden; }
+.pv2-preview-scene { position: absolute; inset: 0; pointer-events: none; opacity: 0.9; transition: background 0.4s ease; }
+.pv2-preview-frame > :not(.pv2-preview-scene) { position: relative; }
+.pv2-hide-for-preview { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.2s ease; }
