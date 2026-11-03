@@ -739,3 +739,39 @@ body.pv2-scene-active .members-panel { background: color-mix(in srgb, var(--bg-s
 .pv2-preview-scene { position: absolute; inset: 0; pointer-events: none; opacity: 0.9; transition: background 0.4s ease; }
 .pv2-preview-frame > :not(.pv2-preview-scene) { position: relative; }
 .pv2-hide-for-preview { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.2s ease; }
+
+/* ============================================================================
+   v0.84.1 — AJUSTE DE LAYOUT DENTRO DO MODAL REAL DE CONFIGURAÇÕES
+   No site de verdade a galeria vive dentro de ".modal-card" (Configurações →
+   NEXTGAME PLUS), que tem regras genéricas pra label/input/select/textarea e
+   um estilo global de botão/fonte com !important. Essas regras passavam por
+   cima dos campos novos (busca, importar, chips) e deixavam a galeria
+   bagunçada comparada ao preview. Aqui tudo é reforçado com o prefixo
+   ".pv2-root" (mais específico que ".modal-card input") pra ficar IGUAL.
+============================================================================ */
+.pv2-root .pv2-search {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
+  color: #fff; padding: 10px 14px; font-size: 13px; width: auto; margin: 0; resize: none;
+}
+.pv2-root .pv2-search:focus { border-color: var(--pv2-accent); }
+.pv2-root .pv2-ie-box textarea {
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px;
+  padding: 10px; width: 100%; margin: 0;
+}
+.pv2-root .pv2-chip { border-radius: 999px !important; font-size: 12px; padding: 7px 13px; margin: 0; }
+.pv2-root .pv2-ghost-btn { border-radius: 10px !important; margin: 0; }
+.pv2-root .pv2-card-btn { border-radius: 9px !important; margin: 0; }
+.pv2-root .pv2-theme-card { margin: 0; }
+.pv2-root .pv2-gal-toolbar, .pv2-root .pv2-gal-top, .pv2-root .pv2-chips { margin-top: 0; }
+.pv2-root .pv2-gal-toolbar { margin-bottom: 18px; }
+.pv2-root .pv2-lbl, .pv2-root .pv2-creator-controls label { margin-top: 6px; font-size: 12.5px; color: #cfd2d8; }
+.pv2-root select.pv2-effect-select { width: 100%; margin: 2px 0 6px; }
+.pv2-root .pv2-theme-grid { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); }
+@media (max-width: 640px) {
+  .pv2-root .pv2-theme-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .pv2-root .pv2-gal-top { flex-direction: column; align-items: stretch; }
+}
+/* fonte do tema vence o estilo global de botões/títulos (que usa !important) */
+body.pv2-has-font button, body.pv2-has-font h1, body.pv2-has-font h2, body.pv2-has-font h3,
+body.pv2-has-font .modal-card h2, body.pv2-has-font .modal-card h3 { font-family: var(--pv2-font-display), var(--pv2-font-body), sans-serif !important; }
+body.pv2-has-font input, body.pv2-has-font select, body.pv2-has-font textarea { font-family: var(--pv2-font-body), sans-serif !important; }

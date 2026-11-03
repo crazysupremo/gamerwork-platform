@@ -144,7 +144,7 @@
         const id = data.id || 'custom-' + Math.random().toString(36).slice(2, 9);
         const theme = {
           id, key: null, name: data.name, colors: { primary: data.primary, secondary: data.secondary, highlight: data.highlight, text: data.text, button: data.button },
-          darkMode: data.darkMode, effect: data.effect, premium: false, preset: false, custom: true, locked: false,
+          darkMode: data.darkMode, effect: data.effect, font: data.font || '', scene: data.scene || 'none', category: 'meus', tagline: '', suggestedEffects: [], premium: false, preset: false, custom: true, locked: false,
         };
         const idx = state.myCustomThemes.findIndex((t) => t.id === id);
         if (idx >= 0) state.myCustomThemes[idx] = theme;

@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.84.1",
+    "date": "2026-11-03",
+    "changes": [
+      "Galeria de temas: corrigido o layout dentro do modal de Configurações — busca, filtros, importar/exportar e botões agora ficam iguais ao preview (antes os estilos genéricos do modal bagunçavam esses campos).",
+      "A fonte do tema agora também vale para botões e títulos do site."
+    ]
+  },
+  {
     "version": "0.84.0",
     "date": "2026-11-03",
     "changes": [
