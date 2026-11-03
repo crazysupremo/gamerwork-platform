@@ -98,6 +98,21 @@ app.use((req, res, next) => {
 // ative e ajuste se quiser uma política mais restrita.
 app.use(helmet({ contentSecurityPolicy: false }));
 
+// voice-widget.html é feito DE PROPÓSITO pra ser carregado dentro de um
+// <iframe> de OUTRO site (jogo externo integrando a call de voz — ver
+// docs/INTEGRACAO-AUDIO.md e public/sdk/). O X-Frame-Options padrão que o
+// helmet acabou de setar (SAMEORIGIN) bloquearia exatamente isso — todo
+// navegador recusa mostrar a página dentro do iframe de outra origem. Só
+// essa página específica abre mão dessa proteção; o resto do site continua
+// protegido contra clickjacking normalmente. É seguro porque o widget não
+// herda sessão nenhuma de outra aba — ele faz login próprio (ver
+// /api/integration/voice/me) e só expõe presença/áudio da call, nada de
+// senha/token circula por ali.
+app.use((req, res, next) => {
+  if (req.path === '/voice-widget.html') res.removeHeader('X-Frame-Options');
+  next();
+});
+
 // 100kb era pouco pra imagem em base64 (avatar/evidência de torneio somados
 // ao resto do corpo da requisição já passam disso) — 700kb dá folga
 // confortável sem abrir espaço pra abuso.
@@ -115,20 +130,42 @@ app.use(
 );
 
 // Limite de tentativas de login/registro por IP, pra dificultar força bruta
+// CORRIGIDO ("login e cadastro não funcionam no celular", em todo aparelho/
+// navegador testado): esse limite conta por IP, e operadora de celular no
+// Brasil usa CGNAT — milhares de clientes diferentes saem pra internet
+// compartilhando o MESMO punhado de IPs públicos ao mesmo tempo. Com o
+// limite de 20 a cada 15 min, bastava um punhado de pessoas tentando entrar
+// pela mesma operadora/região pra esse limite estourar pra TODO MUNDO que
+// estivesse atrás daquele IP — explicava "acontece em todo celular", já que
+// o que importa aqui é a rede (dados móveis x Wi-Fi/banda fixa), não o
+// aparelho. Subiu pra 60 (ainda protege contra força bruta de verdade: 60
+// tentativas erradas seguidas já é bem acima do que um ataque de senha
+// precisaria pra funcionar, mas dá bastante folga pra gente real dividindo
+// IP de operadora). "validate: false" desliga uma checagem interna da
+// biblioteca (express-rate-limit v7) que, dependendo de como o proxy do
+// Render formata o cabeçalho de IP em alguns casos, podia soltar avisos/
+// erros por conta própria — já confirmamos que "trust proxy" está
+// configurado certo pro Render (ver app.set('trust proxy', 1) acima), então
+// essa checagem extra só atrapalhava sem necessidade.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
   message: { error: 'Muitas tentativas. Aguarde alguns minutos e tente de novo.' },
 });
 
 // Limite geral pras rotas de API, evita abuso/flood
+// Mesmo ajuste "validate: false" do authLimiter acima, pelo mesmo motivo —
+// esse limite também conta por IP e sofre do mesmo risco com CGNAT de
+// operadora de celular.
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 120,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
 });
 app.use('/api/', apiLimiter);
 // Limite extra e mais apertado só pro painel admin (definido logo abaixo,
@@ -1529,6 +1566,42 @@ app.post(
       requiresTermsAcceptance: user.terms_version !== CURRENT_TERMS_VERSION,
     });
     updateStreakAndRewards(user).catch((err) => console.error('Erro ao atualizar streak:', err));
+  })
+);
+
+// ---------- API DE ÁUDIO PRA INTEGRAÇÃO EXTERNA ----------
+// Pedido: "separar a API de áudio pra integrar no jogo de um amigo" — em vez
+// de reinventar sinalização/WebRTC do zero, o jogo externo reaproveita a
+// MESMA infraestrutura de sala de voz que o NEXT GAME já usa (socket.io
+// 'rtc:join'/'rtc:signal', ver mais abaixo), só que "embrulhada" num widget
+// próprio (public/voice-widget.html) que roda dentro de um <iframe>/WebView
+// do jogo do amigo. Isso é bem mais simples e seguro do que expor
+// cookie/sessão do NEXT GAME pro código de outro site: o jogo externo nunca
+// vê a sessão em si, só o resultado (userId/username/avatar) através desse
+// endpoint — e só depois que a PESSOA mesmo fez login de verdade no widget.
+//
+// Convenção de nome de sala pros três modos pedidos (qualquer string
+// funciona como roomId no 'rtc:join' — não precisa existir como canal no
+// banco, ver esse handler abaixo):
+//   geral        -> 'ext-geral'                        (uma sala só, compartilhada)
+//   lobby        -> 'ext-lobby-<gameKey>'               (lobby por jogo externo)
+//   sala de jogo -> 'ext-match-<gameKey>-<matchId>'     (uma por partida)
+// gameKey identifica o jogo externo (ex: "jogodoamigo"); matchId é gerado
+// pelo próprio backend/jogo do amigo (precisa ser igual pra todo mundo
+// naquela partida, pra caírem na mesma sala).
+app.get(
+  '/api/integration/voice/me',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    // Só o mínimo necessário pro widget/SDK externo montar a tile da pessoa
+    // na call — de propósito NÃO manda e-mail, plano, pontos etc (perfil
+    // interno completo fica só pro próprio NEXT GAME).
+    res.json({
+      userId: req.user.id,
+      username: req.user.username,
+      avatar: req.user.avatar,
+      avatar_frame: req.user.avatar_frame,
+    });
   })
 );
 

@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.82.0",
+    "date": "2026-10-26",
+    "changes": [
+      "NOVO: API de áudio separada pra integração externa (pedido — usar a call de voz do NEXT GAME dentro do jogo de um amigo). Criado um widget embutível (voice-widget.html) que roda num <iframe>, exige login de verdade na conta NEXT GAME, e entra na sala certa — geral (ext-geral), lobby do jogo externo (ext-lobby-<jogo>) ou sala de uma partida específica (ext-match-<jogo>-<partida>). Reaproveita o mesmo protocolo de sinalização (socket.io) que a sala de voz do app principal já usa — implementação independente, não mexe em nada do app.js existente.",
+      "Novo endpoint GET /api/integration/voice/me — retorna só userId/username/avatar da pessoa logada (sem expor e-mail, plano, pontos etc), usado pelo widget pra saber quem é quem.",
+      "Novo SDK JavaScript (public/sdk/nextgame-voice.js) pra sites/jogos em navegador (incluindo Unity WebGL) montarem o widget com poucas linhas: NextGameVoice.init({mode, game, match}).",
+      "Novo wrapper C# pra Unity (public/sdk/unity/NextGameVoice.cs + .jslib) chamando o SDK JS por baixo — métodos JoinGeral()/JoinLobby()/JoinMatch() e eventos OnPeerJoined/OnPeerLeft/OnConnected etc.",
+      "Documentação completa da integração em docs/INTEGRACAO-AUDIO.md (autenticação, convenção de salas, eventos, exemplos JS e C#, e a limitação conhecida de cookie de terceiro no Safari)."
+    ]
+  },
+  {
+    "version": "0.81.0",
+    "date": "2026-10-26",
+    "changes": [
+      "BUG CORRIGIDO (login/cadastro continuavam sem funcionar no celular, em qualquer aparelho/navegador, mesmo depois do ajuste de tela da v0.80.0): o limite de tentativas de login/cadastro contava por IP, e operadora de celular usa CGNAT — milhares de clientes diferentes saem pra internet dividindo o mesmo punhado de IPs públicos ao mesmo tempo. Com o limite de 20 tentativas a cada 15 minutos, bastava um punhado de pessoas tentando entrar pela mesma operadora/região pra esse limite estourar pra TODO MUNDO atrás daquele IP — exatamente o padrão relatado (rede, não aparelho). Limite subido pra 60 (ainda protege contra força bruta de verdade, só dá mais folga pra gente real dividindo IP de operadora)."
+    ]
+  },
+  {
     "version": "0.80.0",
     "date": "2026-10-26",
     "changes": [
