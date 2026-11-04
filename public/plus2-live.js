@@ -249,12 +249,12 @@
   // ---------- preferências de efeitos/mascote (salvas no navegador) ----------
   const PREFS_KEY = 'pv2_fx_prefs_v1';
   const prefsState = { mascot: true, decor: true, scene: true, drops: true, talk: true, quiz: true, intensity: 'normal', name: '', variant: {} };
-  try { Object.assign(prefsState, JSON.parse(global.localStorage.getItem(PREFS_KEY) || '{}')); } catch (_) { /* sem storage */ }
+  if (!global.__PV2_STAGE) { try { Object.assign(prefsState, JSON.parse(global.localStorage.getItem(PREFS_KEY) || '{}')); } catch (_) { /* sem storage */ } }
   const getPrefs = () => prefsState;
   function setPrefs(patch) {
     if (patch.variant) patch.variant = Object.assign({}, prefsState.variant, patch.variant);
     Object.assign(prefsState, patch);
-    try { global.localStorage.setItem(PREFS_KEY, JSON.stringify(prefsState)); } catch (_) { /* sem storage */ }
+    if (!global.__PV2_STAGE) { try { global.localStorage.setItem(PREFS_KEY, JSON.stringify(prefsState)); } catch (_) { /* sem storage */ } }
     const th = global.PlusV2LiveCurrentTheme;
     if (th) { applyScene(th); applyDecor(th); }
   }

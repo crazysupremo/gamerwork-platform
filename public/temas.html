@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Estúdio de Temas — NEXT GAME</title>
+<style>
+  :root { --bg:#0e0f14; --panel:#16171e; --panel2:#1d1e27; --line:#2b2c38; --txt:#eceef6; --mut:#8e93a6; --ac:#5b6cff; --ok:#2ee59d; --bad:#ff5d6c; --warn:#ffc24a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  .hidden { display:none !important; }
+  #guard { padding:40px; text-align:center; color:var(--mut); }
+  #studio { display:grid; grid-template-columns:280px minmax(340px,400px) 1fr; height:100vh; }
+  .col { overflow:auto; border-right:1px solid var(--line); min-height:0; }
+  .col:last-child { border-right:0; }
+  header.top { display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); z-index:5; }
+  header.top h1 { font-size:15px; margin:0; flex:1; }
+  a.back { color:var(--mut); text-decoration:none; font-size:12px; }
+  button, select, input, textarea { font:inherit; color:var(--txt); }
+  button { background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:7px 12px; cursor:pointer; font-weight:600; }
+  button:hover { border-color:var(--ac); }
+  button.pri { background:var(--ac); border-color:var(--ac); color:#fff; }
+  button.dan { color:var(--bad); }
+  button:disabled { opacity:.5; cursor:default; }
+  input[type=text], input[type=datetime-local], select, textarea { width:100%; background:var(--panel); border:1px solid var(--line); border-radius:9px; padding:8px 10px; }
+  input[type=color] { width:38px; height:34px; padding:0; border:1px solid var(--line); border-radius:8px; background:none; cursor:pointer; }
+  .tools { padding:10px 12px; display:grid; gap:8px; }
+  .chips { display:flex; flex-wrap:wrap; gap:5px; }
+  .chip { padding:3px 9px; font-size:12px; border-radius:99px; }
+  .chip.on { background:var(--ac); border-color:var(--ac); color:#fff; }
+  .item { display:flex; align-items:center; gap:9px; padding:9px 12px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .item:hover { background:var(--panel); } .item.sel { background:var(--panel2); box-shadow:inset 3px 0 var(--ac); }
+  .sw { display:flex; flex-shrink:0; border-radius:7px; overflow:hidden; width:42px; height:26px; border:1px solid var(--line); }
+  .sw i { flex:1; }
+  .item .nm { flex:1; min-width:0; } .item .nm b { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .item .nm small { color:var(--mut); font-size:11px; }
+  .tag { font-size:10px; padding:1px 6px; border-radius:6px; background:var(--panel2); border:1px solid var(--line); color:var(--mut); }
+  .tag.draft { color:var(--warn); border-color:var(--warn); } .tag.sched { color:#7dd3fc; border-color:#7dd3fc; }
+  .form { padding:12px 14px 40px; display:grid; gap:12px; }
+  .tabs { display:flex; gap:4px; padding:8px 12px 0; border-bottom:1px solid var(--line); }
+  .tabs button { border-radius:9px 9px 0 0; border-bottom:0; background:transparent; }
+  .tabs button.on { background:var(--panel2); color:#fff; }
+  label.f { display:grid; gap:4px; font-size:12px; color:var(--mut); font-weight:600; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .crow { display:grid; grid-template-columns:90px 38px 1fr; gap:8px; align-items:center; }
+  .crow span { font-size:12px; color:var(--mut); font-weight:600; }
+  .switch { display:flex; align-items:center; gap:8px; font-size:13px; }
+  .presets { display:flex; flex-wrap:wrap; gap:6px; }
+  .presets button { padding:0; width:56px; height:26px; display:flex; overflow:hidden; border-radius:7px; }
+  .presets button i { flex:1; }
+  .audit { background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:10px 12px; display:grid; gap:6px; }
+  .audit div { display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); }
+  .actions { position:sticky; bottom:0; background:var(--bg); border-top:1px solid var(--line); padding:10px 14px; display:flex; gap:8px; flex-wrap:wrap; }
+  .preview { display:flex; flex-direction:column; min-width:0; }
+  .pbar { display:flex; gap:6px; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .pwrap { flex:1; display:grid; place-items:center; padding:14px; min-height:0; overflow:auto; background:repeating-conic-gradient(#12131a 0 25%, #0e0f14 0 50%) 0 0/24px 24px; }
+  .frame { background:#000; border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.5); height:min(640px,100%); width:100%; transition:width .25s; }
+  .frame.tablet { width:820px; max-width:100%; } .frame.phone { width:390px; max-width:100%; }
+  .frame iframe { width:100%; height:100%; border:0; display:block; }
+  pre.code { background:#0a0b10; border:1px solid var(--line); border-radius:10px; padding:10px; overflow:auto; font:12px/1.5 ui-monospace,Menlo,monospace; white-space:pre-wrap; word-break:break-all; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--panel2); border:1px solid var(--ac); padding:10px 16px; border-radius:11px; z-index:50; }
+  .note { font-size:12px; color:var(--mut); }
+  @media (max-width:1100px) { #studio { grid-template-columns:240px 1fr; height:auto; } .preview { grid-column:1 / -1; min-height:640px; } .col { max-height:none; } }
+  @media (max-width:700px) { #studio { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div id="guard">Verificando acesso…</div>
+<div id="studio" class="hidden">
+  <section class="col">
+    <header class="top"><a class="back" href="/admin.html">← Admin</a><h1>Estúdio de Temas</h1><button id="btn-new" class="pri">+ Novo</button></header>
+    <div class="tools">
+      <input type="text" id="q" placeholder="Buscar tema…" />
+      <div class="chips" id="cats"></div>
+      <div class="row2"><button id="btn-import">Importar JSON</button><button id="btn-export-all">Exportar tudo</button></div>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <section class="col" id="editor-col">
+    <div class="tabs" id="tabs">
+      <button data-tab="basic" class="on">Tema</button><button data-tab="fx">Efeitos</button><button data-tab="pub">Publicar</button><button data-tab="api">Integração</button>
+    </div>
+    <div class="form" id="tab-basic"></div>
+    <div class="form hidden" id="tab-fx"></div>
+    <div class="form hidden" id="tab-pub"></div>
+    <div class="form hidden" id="tab-api"></div>
+    <div class="actions">
+      <button id="btn-save" class="pri">Salvar</button>
+      <button id="btn-dup">Duplicar</button>
+      <button id="btn-exp">Exportar</button>
+      <button id="btn-del" class="dan">Excluir</button>
+    </div>
+  </section>
+
+  <section class="col preview">
+    <div class="pbar">
+      <button data-dev="" class="on chip">Computador</button><button data-dev="tablet" class="chip">Tablet</button><button data-dev="phone" class="chip">Celular</button>
+      <span style="flex:1"></span>
+      <button id="btn-summon">Chamar mascote</button>
+      <button id="btn-fullscreen">Ver em tela cheia</button>
+    </div>
+    <div class="pwrap"><div class="frame" id="frame"><iframe id="stage" src="/temas-stage.html" title="Preview"></iframe></div></div>
+  </section>
+</div>
+<input type="file" id="file-in" accept="application/json,.json" class="hidden" />
+<script src="/temas.js?v=0.88.0"></script>
+</body>
+</html>

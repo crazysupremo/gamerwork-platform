@@ -261,8 +261,9 @@
   }
   const fill = (t) => String(t).replace(/\{n\}/g, userName());
   function scoreKey() { return 'pv2_score_' + cfgKey; }
-  function getScore() { try { return parseInt(global.localStorage.getItem(scoreKey()) || '0', 10) || 0; } catch (_) { return 0; } }
-  function setScore(v) { try { global.localStorage.setItem(scoreKey(), String(v)); } catch (_) { /* sem storage */ } }
+  const memScore = {};
+  function getScore() { if (global.__PV2_STAGE) return memScore[cfgKey] || 0; try { return parseInt(global.localStorage.getItem(scoreKey()) || '0', 10) || 0; } catch (_) { return 0; } }
+  function setScore(v) { if (global.__PV2_STAGE) { memScore[cfgKey] = v; return; } try { global.localStorage.setItem(scoreKey(), String(v)); } catch (_) { /* sem storage */ } }
 
   function variantsFor(key) { return THEMES[key] ? THEMES[key].variants.map((v) => ({ value: v, label: THEMES[key].names[v] })) : []; }
   function currentVariant() {

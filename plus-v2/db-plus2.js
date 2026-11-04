@@ -169,6 +169,9 @@ async function ensurePlusV2Schema(db) {
   await ensureColumn('plus_v2_themes', 'scene TEXT');
   // v0.85.0 — decoração temática de datas comemorativas (natal, ano-novo...).
   await ensureColumn('plus_v2_themes', 'decor_key TEXT');
+  // v0.88.0 — Estúdio de Temas: rascunho x publicado. 1 = publicado (aparece
+  // na galeria e na API pública), 0 = rascunho (só o admin vê no Estúdio).
+  await ensureColumn('plus_v2_themes', 'published INTEGER DEFAULT 1');
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.88.0",
+    "date": "2026-11-04",
+    "changes": [
+      "NOVO: ESTÚDIO DE TEMAS (/temas.html, link no Admin) — só para administradores com 2FA. Lista com busca e categorias, editor completo (nome, chave, frase, categoria, 5 cores com paletas e sorteio, fonte, fundo animado, decoração/mascote, efeitos sugeridos), checagem de contraste, rascunho/publicado, agendamento de lançamento, duplicar, excluir, importar/exportar JSON.",
+      "Preview ao vivo no Estúdio com o site real em miniatura, em modo Computador, Tablet e Celular, com botão para chamar o mascote.",
+      "NOVO: API pública de temas (GET /api/plus2/public/themes) e SDK para parceiros: <script src=\"/sdk/nextgame-themes.js\"> + NextGameThemes.apply('natal'). Documentação em docs/INTEGRACAO-TEMAS.md."
+    ]
+  },
+  {
     "version": "0.87.0",
     "date": "2026-11-03",
     "changes": [

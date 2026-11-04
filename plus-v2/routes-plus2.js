@@ -160,6 +160,47 @@ function stickerOut(s) {
 function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlusAccount }) {
   const router = express.Router();
 
+
+  // ---------------------------------------------------------------------
+  // v0.88.0 — API PÚBLICA DE TEMAS (parceiros / jogos integrados).
+  // Sem login, com CORS aberto (só leitura): devolve os temas oficiais já
+  // PUBLICADOS e LIBERADOS. Usada pelo SDK /sdk/nextgame-themes.js.
+  // ---------------------------------------------------------------------
+  function publicTheme(t) {
+    return {
+      key: t.key, name: t.name, tagline: t.tagline || '', category: t.category || 'essenciais',
+      colors: { primary: t.primary_color, secondary: t.secondary_color, highlight: t.highlight_color, text: t.text_color, button: t.button_color },
+      darkMode: !!t.dark_mode, effect: t.effect, font: t.font_key || '', scene: t.scene || 'none', decor: t.decor_key || '',
+      premium: !!t.is_premium, releaseAt: t.release_at || null,
+    };
+  }
+  function openCors(res) {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Cache-Control', 'public, max-age=60');
+  }
+  router.options('/public/themes', (req, res) => { openCors(res); res.sendStatus(204); });
+  router.options('/public/themes/:key', (req, res) => { openCors(res); res.sendStatus(204); });
+  router.get(
+    '/public/themes',
+    asyncHandler(async (req, res) => {
+      openCors(res);
+      const rows = await db.all('SELECT * FROM plus_v2_themes WHERE is_preset = 1 AND COALESCE(published, 1) = 1 ORDER BY sort_order ASC');
+      const now = new Date();
+      const themes = rows.filter((t) => t.key && isThemeReleased(t, now)).map(publicTheme);
+      res.json({ version: 1, generatedAt: now.toISOString(), count: themes.length, themes });
+    })
+  );
+  router.get(
+    '/public/themes/:key',
+    asyncHandler(async (req, res) => {
+      openCors(res);
+      const t = await db.get('SELECT * FROM plus_v2_themes WHERE is_preset = 1 AND key = ? AND COALESCE(published, 1) = 1', [req.params.key]);
+      if (!t || !isThemeReleased(t, new Date())) return res.status(404).json({ error: 'Tema não encontrado' });
+      res.json(publicTheme(t));
+    })
+  );
+
   // ---------------------------------------------------------------------
   // Catálogo público (autenticado) — temas, badges e banners disponíveis,
   // já marcando `locked` de acordo com o plano da própria pessoa.
@@ -170,7 +211,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
     asyncHandler(async (req, res) => {
       const unlocked = isPlusAccount(req.user);
       let themes = await db.all(
-        'SELECT * FROM plus_v2_themes WHERE is_preset = 1 ORDER BY sort_order ASC'
+        'SELECT * FROM plus_v2_themes WHERE is_preset = 1 AND COALESCE(published, 1) = 1 ORDER BY sort_order ASC'
       );
       // O tema sazonal fica disponível até 31 de outubro (inclusive), no
       // fuso da Espanha. Depois disso some do catálogo para novas escolhas.
@@ -527,7 +568,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
           // Efeitos que ligam sozinhos quando o usuário escolhe esse tema —
           // editável no admin (ver campo "Efeitos sugeridos" no formulário).
           suggestedEffects: parseSuggestedEffects(t.suggested_effects),
-          category: t.category || '', tagline: t.tagline || '', font: t.font_key || '', scene: t.scene || 'none', decor: t.decor_key || '',
+          category: t.category || '', tagline: t.tagline || '', font: t.font_key || '', scene: t.scene || 'none', decor: t.decor_key || '', published: t.published === null || t.published === undefined ? true : !!t.published,
         })),
         backgrounds: backgrounds.map((b) => ({ id: b.id, key: b.key, name: b.name, type: b.type, value: b.value, premium: !!b.is_premium, sortOrder: b.sort_order })),
         banners: banners.map((b) => ({ id: b.id, key: b.key, name: b.name, style: b.style, value: b.value, premium: !!b.is_premium, sortOrder: b.sort_order })),
@@ -656,7 +697,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
     requireAuth,
     requireAdmin,
     asyncHandler(async (req, res) => {
-      const { key, name, primary, secondary, highlight, text, button, darkMode, effect, premium, sortOrder, releaseAt, suggestedEffects, category, tagline, font, scene, decor } = req.body || {};
+      const { key, name, primary, secondary, highlight, text, button, darkMode, effect, premium, sortOrder, releaseAt, suggestedEffects, category, tagline, font, scene, decor, published } = req.body || {};
       const colors = { primary, secondary, highlight, text, button };
       for (const [k, v] of Object.entries(colors)) {
         if (typeof v !== 'string' || !HEX_COLOR_RE.test(v)) {
@@ -672,9 +713,9 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
       const id = newId();
       await db.run(
         `INSERT INTO plus_v2_themes
-          (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, release_at, suggested_effects, category, tagline, font_key, scene, decor_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, key || null, name.trim(), primary, secondary, highlight, text, button, darkMode ? 1 : 0, EFFECTS.has(effect) ? effect : 'none', premium ? 1 : 0, sortOrder || 0, releaseAtResult.value, JSON.stringify(suggestedEffectsClean), cleanCategory(category), cleanTagline(tagline), cleanFont(font), cleanScene(scene), cleanDecor(decor)]
+          (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, release_at, suggested_effects, category, tagline, font_key, scene, decor_key, published)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, key || null, name.trim(), primary, secondary, highlight, text, button, darkMode ? 1 : 0, EFFECTS.has(effect) ? effect : 'none', premium ? 1 : 0, sortOrder || 0, releaseAtResult.value, JSON.stringify(suggestedEffectsClean), cleanCategory(category), cleanTagline(tagline), cleanFont(font), cleanScene(scene), cleanDecor(decor), published === false ? 0 : 1]
       );
       res.json({ ok: true, id });
     })
@@ -719,6 +760,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
       if (fields.font !== undefined) { sets.push('font_key = ?'); values.push(cleanFont(fields.font)); }
       if (fields.scene !== undefined) { sets.push('scene = ?'); values.push(cleanScene(fields.scene)); }
       if (fields.decor !== undefined) { sets.push('decor_key = ?'); values.push(cleanDecor(fields.decor)); }
+      if (typeof fields.published === 'boolean') { sets.push('published = ?'); values.push(fields.published ? 1 : 0); }
       if (!sets.length) return res.json({ ok: true });
       values.push(req.params.id);
       await db.run(`UPDATE plus_v2_themes SET ${sets.join(', ')} WHERE id = ?`, values);
