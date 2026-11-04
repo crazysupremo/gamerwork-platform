@@ -223,7 +223,7 @@ const DEFAULT_THEMES = [
   { key: 'ocean', name: 'Ocean Deep', tagline: 'Mergulho azul-turquesa', category: 'essenciais', primary: '#0ea5e9', secondary: '#2563eb', highlight: '#67e8f9', text: '#e8f8ff', button: '#06182b', premium: false, effect: 'shine', scene: 'waves', font: 'modern', suggestedEffects: ['buttonGlow', 'transitions'] },
 
   // ===== GAMER =====
-  { key: 'cyber-green', name: 'Matrix', tagline: 'Chuva de código verde', category: 'gamer', primary: '#00e08a', secondary: '#047857', highlight: '#b6ffd9', text: '#e8fff4', button: '#04170f', premium: false, effect: 'glow', scene: 'matrix', font: 'tech', suggestedEffects: ['buttonGlow'], fx: mkFx({ items: '01', frame: 'neon', chatStyle: { bubble: 'neon', entry: 'glow', radius: 6 } }) },
+  { key: 'cyber-green', name: 'Matrix', tagline: 'Chuva de código verde', category: 'gamer', primary: '#00e08a', secondary: '#047857', highlight: '#b6ffd9', text: '#e8fff4', button: '#04170f', premium: false, effect: 'glow', scene: 'matrix', font: 'tech', suggestedEffects: ['buttonGlow'] },
   { key: 'crimson', name: 'Crimson', tagline: 'Brasa vermelha no escuro', category: 'gamer', primary: '#ef233c', secondary: '#7f1d1d', highlight: '#ff6b81', text: '#fff1f2', button: '#14070a', premium: false, effect: 'pulse', scene: 'embers', font: 'tech', suggestedEffects: ['buttonGlow', 'messageReceive'] },
   { key: 'gamex', name: 'GAMEX', tagline: 'Verde elétrico + violeta', category: 'gamer', primary: '#39ff6a', secondary: '#7c3aed', highlight: '#ffe14d', text: '#eafff0', button: '#08180f', premium: true, effect: 'glow', scene: 'grid', font: 'tech', suggestedEffects: ['particles', 'buttonGlow', 'avatarGlow'] },
   { key: 'cyberpunk', name: 'Cyberpunk', tagline: 'Rosa neon, ciano e amarelo', category: 'gamer', primary: '#ff2a8a', secondary: '#00e5ff', highlight: '#fcee0a', text: '#fbf4ff', button: '#12081f', premium: true, effect: 'glow', scene: 'grid', font: 'tech', suggestedEffects: ['animatedGradients', 'buttonGlow', 'avatarGlow'] },
@@ -418,6 +418,8 @@ async function seedPlusV2Defaults(db) {
       [newId(), t.key, t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra, t.releaseAt || null, t.fx ? JSON.stringify(t.fx) : null]
     );
   }
+  // v0.90.4: o Matrix ficou só com a chuva de código (sem moldura/balões neon).
+  await run(`UPDATE plus_v2_themes SET fx_json = NULL WHERE key = 'cyber-green' AND is_preset = 1 AND fx_json LIKE '%"neon"%'`);
   // Aposenta os temas antigos: move quem usava pro Next Blue e apaga a linha.
   const fallback = await get('SELECT id FROM plus_v2_themes WHERE key = ?', ['blue']);
   for (const oldKey of RETIRED_THEME_KEYS) {

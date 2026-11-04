@@ -1050,8 +1050,38 @@ body.pv2-cs-in-glow .message .content { animation: pv2csGlow 1.2s ease-out; }
 .pv2-quick .pq-foot button.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
 @media (max-width: 700px) { .pv2-quick { right: 8px; left: 8px; width: auto; bottom: 70px; } }
 
-/* v0.90.3 — logo do NEXT GAME acompanha a cor do tema (ver applyLogoTint) */
+/* v0.90.4 — logo do NEXT GAME acompanha a cor do tema (ver applyLogoTint) */
 body .app-sidebar-logo-img, body .downloads-item-icon img {
   filter: var(--pv2-logo-filter, none) drop-shadow(0 2px 8px rgba(var(--accent-rgb), .5)) !important;
   transition: filter .4s ease;
 }
+
+/* v0.90.4 — MENOS BRILHO: tira o neon/glow exagerado (botões, item ativo, balões,
+   moldura). Mantém só um destaque suave na cor do tema. */
+body .home-btn-primary, body .plus-promo-cta, body #form-message button[type="submit"] { box-shadow: 0 2px 8px rgba(0,0,0,.28) !important; }
+body .server-row.active, body .sidebar-nav-item.active, body .sidebar-nav-item-solo { box-shadow: none !important; }
+body .app-sidebar, body .top-navbar { box-shadow: none !important; }
+body .stage-bubble { box-shadow: none !important; }
+body.pv2-cs-neon { --pv2-cs-sh: 0 0 0 transparent; }
+body #pv2-cfx-frame.neon { box-shadow: inset 0 0 0 1px var(--fx-c), inset 0 0 22px 0 color-mix(in srgb, var(--fx-c) 30%, transparent) !important; animation: none !important; opacity: .55 !important; }
+body #pv2-cfx-frame.glow { box-shadow: inset 0 0 40px 0 color-mix(in srgb, var(--fx-c) 28%, transparent) !important; animation: none !important; opacity: .6 !important; }
+body .app-sidebar-logo-img { filter: var(--pv2-logo-filter, none) !important; }
+body.pv2-scene-active .app-main, body.pv2-scene-active .sidebar { backdrop-filter: none !important; }
+
+/* v0.90.4 — bordas neon e brilhos: contorno fino e discreto, sem halo. */
+body .auth-hero-cta-primary, body .auth-tab.active, body .auth-form button, body .wizard-next-btn, body .navbar-create-btn,
+body .btn-primary, body .btn-register, body .message-form button, body .message-form button[type="submit"], body .modal-actions button[type="submit"],
+body .modal-actions button.primary, body #btn-save-profile, body .friends-tab.active, body .beta-tag,
+body .navbar-create-btn:hover, body .wizard-next-btn:hover, body .btn-primary:hover, body .btn-register:hover, body .message-form button:hover,
+body .auth-hero-cta-primary:hover, body .home-btn-primary:hover { box-shadow: 0 2px 6px rgba(0,0,0,.3) !important; }
+body .server-icon.active, body .server-icon:hover, body .server-icon-add:hover, body .channel-item.active, body .server-row:hover,
+body .sidebar-nav-item.active, body .sidebar-nav-item-solo.active, body .member-avatar, body .member-status-dot.member-status-online,
+body .video-tile.speaking .tile-avatar, body .incoming-call-avatar { box-shadow: 0 0 0 1px rgba(var(--accent-rgb), .45) !important; }
+body .home-server-card, body .home-quick-action, body .tournament-card, body .explore-card, body .home-header-stat, body .home-tournament-banner,
+body .home-partner-game, body .auth-card, body .footer-more-menu, body .stage-card { border-color: rgba(var(--accent-rgb), .22) !important; box-shadow: none !important; }
+body .home-server-card:hover, body .home-quick-action:hover, body .tournament-card:hover, body .explore-card:hover, body .home-header-stat:hover,
+body .home-tournament-banner:hover, body .home-partner-game:hover, body .auth-card:hover { border-color: rgba(var(--accent-rgb), .45) !important; box-shadow: 0 4px 12px rgba(0,0,0,.3) !important; }
+body input:focus, body textarea:focus, body select:focus, body #message-input:focus, body .message-form input:focus, body .message-form input[type="text"]:focus,
+body .input-icon-wrap:focus-within, body input:focus-visible, body select:focus-visible, body textarea:focus-visible { box-shadow: 0 0 0 1px rgba(var(--accent-rgb), .55) !important; }
+body .message.mention-me, body .message.pv2-mention-glow { box-shadow: none !important; }
+body .app-sidebar-logo-img { filter: var(--pv2-logo-filter, none) !important; }

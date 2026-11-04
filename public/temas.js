@@ -218,6 +218,7 @@
   let themes = [], sel = null, draft = null, isNew = false, filterCat = '', dirty = false;
   const stage = $('#stage');
   let stageReady = false;
+  stage.addEventListener('load', () => { [100, 500, 1500].forEach((ms) => setTimeout(() => { try { pushStage(); } catch (_) { /* ainda carregando */ } }, ms)); });
 
   function toast(msg) {
     const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
@@ -274,7 +275,9 @@
     return { key: t.key, name: t.name, colors: { primary: t.primary, secondary: t.secondary, highlight: t.highlight, text: t.text, button: t.button }, darkMode: true, effect: t.effect, font: t.font, scene: t.scene, decor: t.decor || '', fx: t.fx || null, suggestedEffects: t.suggestedEffects || [] };
   }
   function pushStage(extra) {
-    if (!stageReady || !draft || !okHexAll(draft)) return;
+    // v0.90.4: não depende mais do aviso "pronto" do palco (se ele se perdia, o
+    // preview ficava com o visual padrão); envia sempre e reenvia ao carregar.
+    if (!draft || !okHexAll(draft) || !stage.contentWindow) return;
     stage.contentWindow.postMessage(Object.assign({ type: 'pv2-stage', theme: toStageTheme(draft), name: 'Admin' }, extra || {}), location.origin);
   }
   const okHexAll = (t) => COLORS.every(([k]) => okHex(t[k]));
