@@ -1050,7 +1050,7 @@ body.pv2-cs-in-glow .message .content { animation: pv2csGlow 1.2s ease-out; }
 .pv2-quick .pq-foot button.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
 @media (max-width: 700px) { .pv2-quick { right: 8px; left: 8px; width: auto; bottom: 70px; } }
 
-/* v0.90.2 — logo do NEXT GAME acompanha a cor do tema (ver applyLogoTint) */
+/* v0.90.3 — logo do NEXT GAME acompanha a cor do tema (ver applyLogoTint) */
 body .app-sidebar-logo-img, body .downloads-item-icon img {
   filter: var(--pv2-logo-filter, none) drop-shadow(0 2px 8px rgba(var(--accent-rgb), .5)) !important;
   transition: filter .4s ease;

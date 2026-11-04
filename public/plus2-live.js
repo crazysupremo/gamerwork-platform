@@ -318,20 +318,35 @@
       if (t - last < 33) return; // ~30fps — leve de propósito
       last = t;
       if (mode === 'matrix') {
-        ctx.fillStyle = 'rgba(0,0,0,0.08)';
+        // v0.90.3: colunas recalculadas a cada quadro (antes ficavam vazias se a
+        // tela ainda tinha largura 0 quando o tema era aplicado) e canvas
+        // redimensionado sozinho se o layout mudou depois.
+        if (!W || !H || canvas.width !== Math.floor(canvas.clientWidth * dpr)) size();
+        if (!W || !H) return;
+        const fs = 16 * dpr;
+        const need = Math.ceil(W / fs);
+        while (cols.length < need) cols.push(Math.random() * -40);
+        cols.length = need;
         ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillStyle = 'rgba(0,0,0,0.10)';
         ctx.fillRect(0, 0, W, H);
         ctx.globalCompositeOperation = 'source-over';
-        const fs = 16 * dpr;
         ctx.font = fs + 'px monospace';
+        ctx.textBaseline = 'top';
+        const col = colors[0] || '#00ff66';
         for (let i = 0; i < cols.length; i++) {
           const ch = String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96));
-          ctx.fillStyle = colors[0];
-          ctx.globalAlpha = 0.85;
-          ctx.fillText(ch, i * fs, cols[i] * fs);
+          const y = cols[i] * fs;
+          if (y >= -fs) {
+            // cabeça clara + rastro na cor do tema
+            ctx.globalAlpha = 1; ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 6 * dpr;
+            ctx.fillText(ch, i * fs, y);
+            ctx.shadowBlur = 0; ctx.fillStyle = '#e8fff0'; ctx.globalAlpha = 0.9;
+            ctx.fillText(ch, i * fs, y);
+          }
           ctx.globalAlpha = 1;
-          if (cols[i] * fs > H && Math.random() > 0.975) cols[i] = 0;
-          cols[i] += 0.5;
+          if (y > H && Math.random() > 0.975) cols[i] = Math.random() * -12;
+          cols[i] += 0.5 + (i % 5) * 0.1;
         }
         return;
       }
@@ -1010,7 +1025,7 @@
     if (lastData) applyAll(lastData);
   }
 
-  // v0.90.2 — o logo do NEXT GAME (disco azul com X branco) também muda de cor
+  // v0.90.3 — o logo do NEXT GAME (disco azul com X branco) também muda de cor
   // com o tema: gira o matiz do azul original (~215°) até o matiz da cor
   // principal, ajustando saturação/brilho (tema cinza => logo cinza).
   function applyLogoTint(theme) {
