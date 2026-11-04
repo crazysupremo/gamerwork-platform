@@ -6005,6 +6005,7 @@ document.getElementById('minor-banner-close').onclick = () => {
 
 function updatePlusBadgeUI() {
   const isPlus = isPlusUser();
+  if (window.PlusV2Quick) PlusV2Quick.setAccess(isPlus || !!(me && me.is_admin));
   document.getElementById('navbar-plus-badge').classList.toggle('hidden', !isPlus);
   const menuLabel = document.getElementById('plus-menu-label');
   if (menuLabel) menuLabel.textContent = isPlus ? 'NEXTGAME PLUS (ativo)' : 'NEXTGAME PLUS';
@@ -8387,7 +8388,7 @@ function renderMessage(msg) {
   if (!isOwn && pv2 && !pv2.performanceMode && pv2.effects.messageReceive) pv2Classes.push('pv2-live-msg-in');
 
   el.className =
-    'message' + (isBot ? ' bot-message' : '') + (isDm ? ' dm-message' + (isOwn ? ' dm-message-own' : ' dm-message-their') : '') +
+    'message' + (isOwn ? ' msg-own' : '') + (isBot ? ' bot-message' : '') + (isDm ? ' dm-message' + (isOwn ? ' dm-message-own' : ' dm-message-their') : '') +
     (pv2Classes.length ? ' ' + pv2Classes.join(' ') : '');
   // CORRIGIDO: faltava esse atributo — é o que os eventos chat:edited e
   // chat:deleted usam (document.querySelector('.message[data-id="..."]'))
@@ -8987,6 +8988,8 @@ document.getElementById('form-message').onsubmit = (e) => {
   e.preventDefault();
   const input = document.getElementById('message-input');
   const content = input.value.trim();
+  // v0.90.0 — comandos /tema (editar o tema direto do chat; não são enviados)
+  if (content && window.PlusV2Quick && /^\/tema(\s|$)/i.test(content) && PlusV2Quick.handleCommand(content)) { input.value = ''; return; }
   if (!content && !pendingAttachment) return;
   if (!currentChannel) return;
   // Anexo de imagem passa por verificação no servidor ANTES de aparecer pra
@@ -9043,6 +9046,8 @@ function registerSocketHandlers() {
     if (msg.user_id === me.id && msg.attachment) hideAnalyzingImageToast();
     if (currentChannel && msg.channel_id === currentChannel.id) {
       renderMessage(msg);
+      // v0.89.0 — o tema reage a cada mensagem (figurinhas, mascote, bichinhos).
+      try { window.dispatchEvent(new CustomEvent('pv2:chat', { detail: { own: msg.user_id === me.id, mention: !!(msg.content && me.username && msg.content.toLowerCase().includes('@' + me.username.toLowerCase())) } })); } catch (_) { /* sem efeito */ }
       // Já está com essa DM aberta na tela — a mensagem que acabou de
       // chegar não deve contar como "não lida" no contador.
       if (msg.channel_id.startsWith('dm::') && msg.user_id !== me.id) markChannelRead(msg.channel_id);
@@ -11898,3 +11903,9 @@ tryResumeSession()
   }
   maybeOpenResetPasswordFromUrl();
 });
+
+// v0.90.0 — botão de paleta no chat abre o mini-editor de tema
+(function () {
+  const b = document.getElementById('btn-quick-theme');
+  if (b) b.onclick = () => { if (window.PlusV2Quick) PlusV2Quick.toggle(); };
+})();

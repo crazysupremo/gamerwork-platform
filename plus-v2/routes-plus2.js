@@ -46,6 +46,48 @@ const THEME_SCENES = new Set(['none', 'aurora', 'grid', 'waves', 'stars', 'ember
 const cleanFont = (v) => (typeof v === 'string' && THEME_FONTS.has(v) ? v : '');
 const cleanScene = (v) => (typeof v === 'string' && THEME_SCENES.has(v) ? v : 'none');
 const cleanCategory = (v) => (typeof v === 'string' && THEME_CATEGORIES.has(v) ? v : null);
+
+// v0.89.0 — efeitos personalizados do tema (Estúdio): itens (emoji ou imagem
+// pequena em data URL), chuva/subida, varal, moldura (fogo/neon/gelo...),
+// bichinhos andando/brigando, mascote próprio e reação ao chat.
+const FX_FRAMES = new Set(['none', 'fire', 'neon', 'ice', 'sparkle', 'glow']);
+const FX_FALL = new Set(['fall', 'rise', 'float']);
+const FX_CRIT = new Set(['walk', 'fight']);
+const num = (v, lo, hi, d) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+function cleanFxItem(it) {
+  if (!it || typeof it !== 'object' || typeof it.v !== 'string') return null;
+  if (it.t === 'emoji') { const v = it.v.trim().slice(0, 16); return v ? { t: 'emoji', v } : null; }
+  if (it.t === 'img') {
+    const v = it.v.trim();
+    if (/^data:image\/(png|webp|jpeg|gif);base64,[A-Za-z0-9+/=]+$/.test(v) && v.length <= 90000) return { t: 'img', v };
+    if (/^https:\/\/[^\s"'<>]{4,400}$/.test(v)) return { t: 'img', v };
+  }
+  return null;
+}
+function cleanFx(fx) {
+  if (!fx || typeof fx !== 'object') return null;
+  const items = (Array.isArray(fx.items) ? fx.items : []).map(cleanFxItem).filter(Boolean).slice(0, 14);
+  const pick = (a) => (Array.isArray(a) ? a.map((i) => Math.floor(Number(i))).filter((i) => i >= 0 && i < items.length).slice(0, 14) : []);
+  const out = {
+    items,
+    fall: { on: !!(fx.fall && fx.fall.on), mode: FX_FALL.has(fx.fall && fx.fall.mode) ? fx.fall.mode : 'fall', count: num(fx.fall && fx.fall.count, 3, 80, 24), size: num(fx.fall && fx.fall.size, 12, 64, 28), speed: num(fx.fall && fx.fall.speed, 0.3, 3, 1) },
+    garland: { on: !!(fx.garland && fx.garland.on), size: num(fx.garland && fx.garland.size, 18, 56, 30) },
+    frame: { type: FX_FRAMES.has(fx.frame && fx.frame.type) ? fx.frame.type : 'none', color: /^#[0-9a-fA-F]{6}$/.test((fx.frame && fx.frame.color) || '') ? fx.frame.color : '' , power: num(fx.frame && fx.frame.power, 0.3, 2, 1) },
+    critters: { on: !!(fx.critters && fx.critters.on), mode: FX_CRIT.has(fx.critters && fx.critters.mode) ? fx.critters.mode : 'walk', count: num(fx.critters && fx.critters.count, 1, 8, 4), size: num(fx.critters && fx.critters.size, 24, 80, 44), items: pick(fx.critters && fx.critters.items) },
+    mascot: fx.mascot && typeof fx.mascot === 'object' ? { on: !!fx.mascot.on, item: Math.max(0, Math.min(items.length - 1, Math.floor(Number(fx.mascot.item) || 0))), name: String(fx.mascot.name || '').trim().slice(0, 24), lines: (Array.isArray(fx.mascot.lines) ? fx.mascot.lines : []).map((l) => String(l).trim().slice(0, 90)).filter(Boolean).slice(0, 10) } : { on: false, item: 0, name: '', lines: [] },
+    chat: { burst: !(fx.chat && fx.chat.burst === false) },
+    chatStyle: (() => { const c = fx.chatStyle || {}; const hx = (v) => (/^#[0-9a-fA-F]{6}$/.test(v || '') ? v : ''); return { bubble: ['default', 'glass', 'solid', 'outline', 'neon', 'round'].includes(c.bubble) ? c.bubble : 'default', entry: ['none', 'pop', 'slide', 'glow'].includes(c.entry) ? c.entry : 'none', radius: num(c.radius, 0, 28, 14), own: hx(c.own), other: hx(c.other) }; })(),
+    tsp: { preset: ['fire', 'snow', 'stars', 'fireflies', 'bubbles', 'links', 'confetti'].includes(fx.tsp && fx.tsp.preset) ? fx.tsp.preset : '', color: /^#[0-9a-fA-F]{6}$/.test((fx.tsp && fx.tsp.color) || '') ? fx.tsp.color : '' },
+    googleFont: typeof fx.googleFont === 'string' && /^[A-Za-z0-9 ]{2,40}$/.test(fx.googleFont.trim()) ? fx.googleFont.trim() : '',
+  };
+  const json = JSON.stringify(out);
+  if (json.length > 420000) return null;
+  return out;
+}
+function parseFx(s) {
+  if (!s) return null;
+  try { return cleanFx(JSON.parse(s)); } catch (_) { return null; }
+}
 const cleanTagline = (v) => (typeof v === 'string' ? v.trim().slice(0, 60) : '');
 
 const BACKGROUND_TYPES = new Set(['solid', 'gradient', 'image', 'gif', 'effect']);
@@ -83,8 +125,8 @@ function isThemeReleased(t, now) {
   return new Date(t.release_at).getTime() <= now.getTime();
 }
 
-function themeOut(t, unlocked, now) {
-  const released = isThemeReleased(t, now || new Date());
+function themeOut(t, unlocked, now, isAdmin) {
+  const released = isThemeReleased(t, now || new Date()) || !!isAdmin;
   return {
     id: t.id,
     key: t.key,
@@ -103,6 +145,8 @@ function themeOut(t, unlocked, now) {
     font: t.font_key || '',
     scene: t.scene || 'none',
     decor: t.decor_key || '',
+    fx: parseFx(t.fx_json),
+    draft: t.published === 0,
     // Efeitos que esse tema recomenda ligar sozinho ao ser escolhido (ver
     // applyThemeEffects() em plus2.js) — [] pra tema sem nenhum sugerido.
     suggestedEffects: parseSuggestedEffects(t.suggested_effects),
@@ -114,7 +158,7 @@ function themeOut(t, unlocked, now) {
     // não chegou — o frontend usa isso pra mostrar "disponível em XX/XX".
     releaseAt: t.release_at || null,
     comingSoon: !released,
-    locked: (!!t.is_premium && !unlocked) || !released,
+    locked: (!!t.is_premium && !unlocked && !isAdmin) || !released,
   };
 }
 
@@ -170,7 +214,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
     return {
       key: t.key, name: t.name, tagline: t.tagline || '', category: t.category || 'essenciais',
       colors: { primary: t.primary_color, secondary: t.secondary_color, highlight: t.highlight_color, text: t.text_color, button: t.button_color },
-      darkMode: !!t.dark_mode, effect: t.effect, font: t.font_key || '', scene: t.scene || 'none', decor: t.decor_key || '',
+      darkMode: !!t.dark_mode, effect: t.effect, font: t.font_key || '', scene: t.scene || 'none', decor: t.decor_key || '', fx: parseFx(t.fx_json),
       premium: !!t.is_premium, releaseAt: t.release_at || null,
     };
   }
@@ -211,15 +255,15 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
     asyncHandler(async (req, res) => {
       const unlocked = isPlusAccount(req.user);
       let themes = await db.all(
-        'SELECT * FROM plus_v2_themes WHERE is_preset = 1 AND COALESCE(published, 1) = 1 ORDER BY sort_order ASC'
+        req.user.is_admin
+          ? 'SELECT * FROM plus_v2_themes WHERE is_preset = 1 ORDER BY sort_order ASC'
+          : 'SELECT * FROM plus_v2_themes WHERE is_preset = 1 AND COALESCE(published, 1) = 1 ORDER BY sort_order ASC'
       );
       // O tema sazonal fica disponível até 31 de outubro (inclusive), no
       // fuso da Espanha. Depois disso some do catálogo para novas escolhas.
       const madridDate = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit'
       }).format(new Date());
-      const halloweenAvailable = madridDate <= `${new Date().getFullYear()}-10-31`;
-      themes = themes.filter((theme) => theme.key !== 'halloween' || halloweenAvailable);
       const myCustomThemes = await db.all(
         'SELECT * FROM plus_v2_themes WHERE is_preset = 0 AND owner_user_id = ? ORDER BY created_at DESC',
         [req.user.id]
@@ -230,7 +274,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
 
       res.json({
         isPlusUser: unlocked,
-        themes: themes.map((t) => themeOut(t, unlocked)),
+        themes: themes.map((t) => themeOut(t, unlocked, undefined, !!req.user.is_admin)),
         myCustomThemes: myCustomThemes.map((t) => themeOut(t, unlocked)),
         badges: badges.map((b) => badgeOut(b, unlocked)),
         banners: banners.map((b) => bannerOut(b, unlocked)),
@@ -358,13 +402,13 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
             [themeId, req.user.id]
           );
           if (!theme) return res.status(404).json({ error: 'Tema não encontrado' });
-          if (theme.is_premium && !unlocked) {
+          if (theme.is_premium && !unlocked && !req.user.is_admin) {
             return res.status(403).json({ error: 'Esse tema é exclusivo de quem tem NEXTGAME PLUS' });
           }
           // Reforça no servidor a data de lançamento (release_at) definida
           // pelo admin — sem isso, dava pra escolher um tema "ainda não
           // lançado" direto pela API, mesmo que a galeria mostrasse cadeado.
-          if (!isThemeReleased(theme, new Date())) {
+          if (!isThemeReleased(theme, new Date()) && !req.user.is_admin) {
             return res.status(403).json({
               error: 'Esse tema ainda não foi lançado.',
               releaseAt: theme.release_at,
@@ -568,7 +612,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
           // Efeitos que ligam sozinhos quando o usuário escolhe esse tema —
           // editável no admin (ver campo "Efeitos sugeridos" no formulário).
           suggestedEffects: parseSuggestedEffects(t.suggested_effects),
-          category: t.category || '', tagline: t.tagline || '', font: t.font_key || '', scene: t.scene || 'none', decor: t.decor_key || '', published: t.published === null || t.published === undefined ? true : !!t.published,
+          category: t.category || '', tagline: t.tagline || '', font: t.font_key || '', scene: t.scene || 'none', decor: t.decor_key || '', fx: parseFx(t.fx_json), published: t.published === null || t.published === undefined ? true : !!t.published,
         })),
         backgrounds: backgrounds.map((b) => ({ id: b.id, key: b.key, name: b.name, type: b.type, value: b.value, premium: !!b.is_premium, sortOrder: b.sort_order })),
         banners: banners.map((b) => ({ id: b.id, key: b.key, name: b.name, style: b.style, value: b.value, premium: !!b.is_premium, sortOrder: b.sort_order })),
@@ -697,7 +741,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
     requireAuth,
     requireAdmin,
     asyncHandler(async (req, res) => {
-      const { key, name, primary, secondary, highlight, text, button, darkMode, effect, premium, sortOrder, releaseAt, suggestedEffects, category, tagline, font, scene, decor, published } = req.body || {};
+      const { key, name, primary, secondary, highlight, text, button, darkMode, effect, premium, sortOrder, releaseAt, suggestedEffects, category, tagline, font, scene, decor, published, fx } = req.body || {};
       const colors = { primary, secondary, highlight, text, button };
       for (const [k, v] of Object.entries(colors)) {
         if (typeof v !== 'string' || !HEX_COLOR_RE.test(v)) {
@@ -713,9 +757,9 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
       const id = newId();
       await db.run(
         `INSERT INTO plus_v2_themes
-          (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, release_at, suggested_effects, category, tagline, font_key, scene, decor_key, published)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, key || null, name.trim(), primary, secondary, highlight, text, button, darkMode ? 1 : 0, EFFECTS.has(effect) ? effect : 'none', premium ? 1 : 0, sortOrder || 0, releaseAtResult.value, JSON.stringify(suggestedEffectsClean), cleanCategory(category), cleanTagline(tagline), cleanFont(font), cleanScene(scene), cleanDecor(decor), published === false ? 0 : 1]
+          (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, release_at, suggested_effects, category, tagline, font_key, scene, decor_key, published, fx_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, key || null, name.trim(), primary, secondary, highlight, text, button, darkMode ? 1 : 0, EFFECTS.has(effect) ? effect : 'none', premium ? 1 : 0, sortOrder || 0, releaseAtResult.value, JSON.stringify(suggestedEffectsClean), cleanCategory(category), cleanTagline(tagline), cleanFont(font), cleanScene(scene), cleanDecor(decor), published === false ? 0 : 1, (() => { const c = cleanFx(fx); return c ? JSON.stringify(c) : null; })()]
       );
       res.json({ ok: true, id });
     })
@@ -760,6 +804,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
       if (fields.font !== undefined) { sets.push('font_key = ?'); values.push(cleanFont(fields.font)); }
       if (fields.scene !== undefined) { sets.push('scene = ?'); values.push(cleanScene(fields.scene)); }
       if (fields.decor !== undefined) { sets.push('decor_key = ?'); values.push(cleanDecor(fields.decor)); }
+      if (fields.fx !== undefined) { const c = cleanFx(fields.fx); sets.push('fx_json = ?'); values.push(c ? JSON.stringify(c) : null); }
       if (typeof fields.published === 'boolean') { sets.push('published = ?'); values.push(fields.published ? 1 : 0); }
       if (!sets.length) return res.json({ ok: true });
       values.push(req.params.id);

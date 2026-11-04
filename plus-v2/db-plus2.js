@@ -172,6 +172,8 @@ async function ensurePlusV2Schema(db) {
   // v0.88.0 — Estúdio de Temas: rascunho x publicado. 1 = publicado (aparece
   // na galeria e na API pública), 0 = rascunho (só o admin vê no Estúdio).
   await ensureColumn('plus_v2_themes', 'published INTEGER DEFAULT 1');
+  // v0.89.0 — efeitos personalizados (JSON: emojis/imagens, queda, moldura, bichinhos, mascote).
+  await ensureColumn('plus_v2_themes', 'fx_json TEXT');
 }
 
 // ---------------------------------------------------------------------------
@@ -197,6 +199,23 @@ async function ensurePlusV2Schema(db) {
 // tingido pela cor primária (ver deriveSurfaces) + um acento saturado + um
 // destaque de contraste, que é a receita do visual neon/glass.
 // ---------------------------------------------------------------------------
+
+// v0.90.1 — figurinhas dos temas de data prontos (emojis). mkFx monta o JSON de
+// efeitos (itens, chuva, moldura, bichinhos, mascote, tsParticles).
+const seg = (s) => (typeof Intl !== 'undefined' && Intl.Segmenter ? Array.from(new Intl.Segmenter('pt', { granularity: 'grapheme' }).segment(s), (x) => x.segment) : Array.from(s)).filter((c) => c.trim());
+function mkFx(o) {
+  const items = seg(o.items).map((v) => ({ t: 'emoji', v }));
+  const idx = (s) => seg(s || '').map((e) => items.findIndex((x) => x.v === e)).filter((i) => i >= 0);
+  const fx = { items, chat: { burst: true } };
+  if (o.fall) fx.fall = { on: true, mode: o.fall[0], count: o.fall[1], size: o.fall[2], speed: 1 };
+  if (o.garland) fx.garland = { on: true, size: o.garland };
+  if (o.frame) fx.frame = { type: o.frame, color: '', power: 1 };
+  if (o.crit) fx.critters = { on: true, mode: o.crit[0], count: o.crit[1], size: 44, items: idx(o.crit[2]) };
+  if (o.mascot) fx.mascot = { on: true, item: Math.max(0, items.findIndex((x) => x.v === o.mascot[0])), name: o.mascot[1], lines: o.mascot[2].split('|') };
+  if (o.tsp) fx.tsp = { preset: o.tsp, color: '' };
+  if (o.chatStyle) fx.chatStyle = o.chatStyle;
+  return fx;
+}
 const DEFAULT_THEMES = [
   // ===== ESSENCIAIS (gratuitos) =====
   { key: 'blue', name: 'Next Blue', tagline: 'A cara do NEXT GAME', category: 'essenciais', primary: '#5b6cff', secondary: '#8b5cf6', highlight: '#22d3ee', text: '#eef0ff', button: '#12142b', premium: false, effect: 'glow', scene: 'aurora', font: 'modern', suggestedEffects: ['buttonGlow', 'transitions'] },
@@ -228,7 +247,7 @@ const DEFAULT_THEMES = [
   { key: 'sakura', name: 'Sakura', tagline: 'Pétalas caindo em rosa', category: 'natureza', primary: '#ff8fb8', secondary: '#c084fc', highlight: '#ffe4ef', text: '#fff4f8', button: '#241020', premium: true, effect: 'glow', scene: 'petals', font: 'soft', suggestedEffects: ['buttonGlow', 'messageReceive'] },
 
   // ===== SAZONAIS =====
-  { key: 'halloween', name: 'Halloween', tagline: 'Laranja-abóbora na escuridão', category: 'datas', primary: '#ff7a1a', secondary: '#0d0d0d', highlight: '#ff2e2e', text: '#f6efdc', button: '#07050c', premium: false, effect: 'glow', scene: 'embers', font: '', suggestedEffects: ['particles', 'buttonGlow'] },
+  { key: 'halloween', name: 'Halloween', tagline: 'Laranja-abóbora na escuridão', category: 'datas', primary: '#ff7a1a', secondary: '#0d0d0d', highlight: '#ff2e2e', text: '#f6efdc', button: '#07050c', premium: false, effect: 'glow', scene: 'embers', font: '', releaseAt: '2027-10-15T03:00:00.000Z', suggestedEffects: ['particles', 'buttonGlow'], fx: mkFx({ items: '🎃👻🦇🕷️', fall: ['fall', 20, 28], frame: 'fire', crit: ['fight', 4, '👻🎃'], mascot: ['🎃', 'Abóbora', 'Buuu, {nome}!|Cuidado com o fogo!|Doce ou travessura?'], chatStyle: { bubble: 'neon', entry: 'glow', radius: 10 } }) },
   { key: 'winter-night', name: 'Winter Night', tagline: 'Noite de neve azulada', category: 'sazonal', primary: '#4f8fd6', secondary: '#1e3a5f', highlight: '#e0f2ff', text: '#eef7ff', button: '#0a1622', premium: true, effect: 'shine', scene: 'snow', font: 'modern', suggestedEffects: ['buttonGlow', 'transitions'] },
 
   // ===== DATAS COMEMORATIVAS (v0.85.0) =====
@@ -244,6 +263,15 @@ const DEFAULT_THEMES = [
   { key: 'pascoa', name: 'Páscoa', tagline: 'Ovinhos, coelhos e tons pastel', category: 'datas', primary: '#b388ff', secondary: '#ff9ec7', highlight: '#fff3a0', text: '#fbf6ff', button: '#1a1226', premium: false, effect: 'glow', scene: 'easter', font: 'soft', decor: 'pascoa', releaseAt: '2027-03-15T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'messageReceive'] },
   { key: 'namorados', name: 'Dia dos Namorados', tagline: 'Corações flutuando em rosa', category: 'datas', primary: '#ff4d79', secondary: '#b0124a', highlight: '#ffc2d4', text: '#fff1f5', button: '#1f0711', premium: false, effect: 'glow', scene: 'hearts', font: 'soft', decor: 'namorados', releaseAt: '2027-06-01T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'avatarGlow', 'messageReceive'] },
   { key: 'criancas', name: 'Dia das Crianças', tagline: 'Balões e cores alegres', category: 'datas', primary: '#22b8f0', secondary: '#ff7043', highlight: '#ffee58', text: '#f2fbff', button: '#08202e', premium: false, effect: 'pulse', scene: 'balloons', font: 'soft', decor: 'criancas', releaseAt: '2027-10-01T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'messageReceive', 'callJoin'] },
+
+  // ===== DATAS EXTRAS (v0.90.1) =====
+  { key: 'dia-das-maes', name: 'Dia das Mães', tagline: 'Flores, borboletas e carinho', category: 'datas', primary: '#ff6fa5', secondary: '#c77dff', highlight: '#ffd6a5', text: '#fff0f6', button: '#2a0d1c', premium: false, effect: 'glow', scene: 'petals', font: 'elegant', releaseAt: '2027-04-25T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'avatarGlow'], fx: mkFx({ items: '🌸💐❤️🌷🦋', fall: ['rise', 18, 30], garland: 28, frame: 'sparkle', mascot: ['💐', 'Florzinha', 'Feliz Dia das Mães!|Ligou pra sua mãe, {nome}?|Com muito carinho!'], chatStyle: { bubble: 'round', entry: 'pop', radius: 22 } }) },
+  { key: 'dia-dos-pais', name: 'Dia dos Pais', tagline: 'Azul, troféus e churrasco', category: 'datas', primary: '#3b82f6', secondary: '#0ea5e9', highlight: '#fbbf24', text: '#eff6ff', button: '#08142b', premium: false, effect: 'shine', scene: 'aurora', font: 'modern', releaseAt: '2027-07-25T03:00:00.000Z', suggestedEffects: ['buttonGlow'], fx: mkFx({ items: '🏆👔⚽🎣🍖', fall: ['float', 14, 30], frame: 'neon', tsp: 'links', mascot: ['🏆', 'Super Pai', 'Feliz Dia dos Pais!|Hoje o campeão é você!|Bora jogar, {nome}?'], chatStyle: { bubble: 'solid', entry: 'slide', radius: 10 } }) },
+  { key: 'festa-junina', name: 'Festa Junina', tagline: 'Fogueira, bandeirinhas e quadrilha', category: 'datas', primary: '#ffb300', secondary: '#e53935', highlight: '#7cb342', text: '#fff8e1', button: '#2a1405', premium: false, effect: 'glow', scene: 'confetti', font: 'soft', releaseAt: '2027-06-13T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'messageReceive'], fx: mkFx({ items: '🌽🎈🔥🪅🎆', fall: ['float', 20, 30], garland: 30, frame: 'sparkle', tsp: 'fire', mascot: ['🌽', 'Caipira', 'Arraiá do {nome}!|Bora dançar quadrilha!|Pé de moleque!'], chatStyle: { bubble: 'solid', entry: 'pop', radius: 16 } }) },
+  { key: 'black-friday', name: 'Black Friday', tagline: 'Preto, amarelo e ofertas relâmpago', category: 'datas', primary: '#ffd600', secondary: '#ff1744', highlight: '#00e5ff', text: '#fffde7', button: '#0d0d0d', premium: false, effect: 'pulse', scene: 'grid', font: 'tech', releaseAt: '2026-11-20T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'animatedGradients'], fx: mkFx({ items: '💸🛒🔥⚡🏷️', fall: ['fall', 24, 26], frame: 'neon', mascot: ['🛒', 'Ofertinha', 'Tudo 80% off!|Corre, {nome}!|Só hoje!'], chatStyle: { bubble: 'neon', entry: 'glow', radius: 6 } }) },
+  { key: 'dia-do-gamer', name: 'Dia do Gamer', tagline: 'Pixels, neon e fases secretas', category: 'datas', primary: '#a855f7', secondary: '#22d3ee', highlight: '#f472b6', text: '#f5f3ff', button: '#12071f', premium: false, effect: 'glow', scene: 'matrix', font: 'tech', releaseAt: '2027-09-15T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'avatarGlow', 'callJoin'], fx: mkFx({ items: '🎮🕹️👾🤖🏆⚡', fall: ['fall', 20, 28], frame: 'neon', crit: ['fight', 4, '👾🤖'], tsp: 'stars', mascot: ['👾', 'Pixel', 'Player {nome} entrou!|Bora de ranked?|Fase secreta liberada!'], chatStyle: { bubble: 'neon', entry: 'pop', radius: 8 } }) },
+  { key: 'sete-de-setembro', name: 'Sete de Setembro', tagline: 'Verde, amarelo e muito orgulho', category: 'datas', primary: '#16a34a', secondary: '#facc15', highlight: '#2563eb', text: '#f0fdf4', button: '#04180b', premium: false, effect: 'shine', scene: 'confetti', font: 'modern', releaseAt: '2027-08-30T03:00:00.000Z', suggestedEffects: ['buttonGlow'], fx: mkFx({ items: '🇧🇷⚽🥁🌴🎉', fall: ['fall', 18, 28], frame: 'glow', mascot: ['🇧🇷', 'Brasil', 'Vai, Brasil!|Feliz Independência!|Orgulho de jogar com você, {nome}!'] }) },
+  { key: 'dia-do-amigo', name: 'Dia do Amigo', tagline: 'Quem joga junto, fica junto', category: 'datas', primary: '#fb7185', secondary: '#60a5fa', highlight: '#fcd34d', text: '#fff1f2', button: '#1f0a14', premium: false, effect: 'glow', scene: 'hearts', font: 'soft', releaseAt: '2027-07-10T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'avatarGlow', 'messageReceive'], fx: mkFx({ items: '🤝💛🎮🎁🫶', fall: ['rise', 16, 30], garland: 28, frame: 'sparkle', mascot: ['🤝', 'Parça', 'Feliz Dia do Amigo, {nome}!|Chama a galera!|Amigo bom joga junto.'], chatStyle: { bubble: 'round', entry: 'pop', radius: 22 } }) },
 
   // ===== PARCEIROS =====
   { key: 'magic-tank', name: 'Magic Tank', tagline: 'Azul neon + dourado (parceiro)', category: 'parceiros', primary: '#00a8ff', secondary: '#fbdc70', highlight: '#7fd9ff', text: '#e2e8f0', button: '#050810', premium: true, effect: 'glow', scene: 'none', font: '', suggestedEffects: ['buttonGlow'] },
@@ -376,17 +404,18 @@ async function seedPlusV2Defaults(db) {
         `UPDATE plus_v2_themes
            SET name = ?, primary_color = ?, secondary_color = ?, highlight_color = ?,
                text_color = ?, button_color = ?, effect = ?, is_premium = ?, sort_order = ?,
-               suggested_effects = ?, category = ?, tagline = ?, font_key = ?, scene = ?, decor_key = ?
+               suggested_effects = ?, category = ?, tagline = ?, font_key = ?, scene = ?, decor_key = ?,
+               fx_json = COALESCE(fx_json, ?), release_at = COALESCE(release_at, ?)
          WHERE key = ?`,
-        [t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra, t.key]
+        [t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra, t.fx ? JSON.stringify(t.fx) : null, t.releaseAt || null, t.key]
       );
       continue;
     }
     await run(
       `INSERT INTO plus_v2_themes
-        (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, suggested_effects, category, tagline, font_key, scene, decor_key, release_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [newId(), t.key, t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra, t.releaseAt || null]
+        (id, key, name, primary_color, secondary_color, highlight_color, text_color, button_color, dark_mode, effect, is_premium, is_preset, owner_user_id, sort_order, suggested_effects, category, tagline, font_key, scene, decor_key, release_at, fx_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [newId(), t.key, t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra, t.releaseAt || null, t.fx ? JSON.stringify(t.fx) : null]
     );
   }
   // Aposenta os temas antigos: move quem usava pro Next Blue e apaga a linha.

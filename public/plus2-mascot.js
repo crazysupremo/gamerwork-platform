@@ -588,10 +588,15 @@
     if (S.phase === 'wait') startEnter(now);
     else if (S.phase === 'perch') depart(now);
   }
+  function cheer(big) {
+    if (!running || !cfg || S.quizOpen || (global.PlusV2Live && global.PlusV2Live.prefs && global.PlusV2Live.prefs().talk === false)) return;
+    if (Math.random() < (big ? 1 : 0.3)) say(fill(pick(cfg.react)), 2200);
+    burst(S.x, S.y, big ? 16 : 6);
+  }
   function resetScore() { if (cfgKey) { setScore(0); updateHud(); } }
 
   global.PlusV2Mascot = {
-    set, stop, summon, resetScore, variantsFor, refresh: () => { const k = cfgKey; stop(); if (k) set(k); },
+    set, stop, summon, cheer, resetScore, variantsFor, refresh: () => { const k = cfgKey; stop(); if (k) set(k); },
     themes: THEMES, active: () => cfgKey,
     preview: (key, v) => (v === 'santa' ? L().art.sleigh().replace("class='pv2-art-sleigh'", '') : mascotMarkup(v, key)),
   };

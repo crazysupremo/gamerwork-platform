@@ -61,7 +61,7 @@
     if (fxLoaded) return fxLoaded;
     var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = BASE + '/plus2.css'; document.head.appendChild(l);
     global.__PV2_STAGE = true; // não grava preferências no site do parceiro
-    fxLoaded = loadScript(BASE + '/plus2-live.js').then(function () { return loadScript(BASE + '/plus2-mascot.js'); });
+    fxLoaded = loadScript(BASE + '/plus2-live.js').then(function () { return loadScript(BASE + '/plus2-mascot.js'); }).then(function () { return loadScript(BASE + '/plus2-fx.js'); });
     return fxLoaded;
   }
   function clearVars() {
@@ -88,7 +88,7 @@
         applied = t.key;
         if (!opts.effects) return t;
         return loadEffects().then(function () {
-          global.PlusV2Live.previewTheme({ key: t.key, name: t.name, colors: c, darkMode: true, effect: t.effect, font: t.font, scene: t.scene, decor: t.decor, suggestedEffects: [] });
+          global.PlusV2Live.previewTheme({ key: t.key, name: t.name, colors: c, darkMode: true, effect: t.effect, font: t.font, scene: t.scene, decor: t.decor, fx: t.fx || null, suggestedEffects: [] });
           return t;
         });
       });

@@ -963,6 +963,7 @@
   }
 
   function applyDecor(theme) {
+    if (global.PlusV2Fx) global.PlusV2Fx.set(theme && theme.fx ? theme.fx : null);
     const key = theme && theme.decor ? theme.decor : '';
     const cfg = DECORS[key];
     const root = document.documentElement;
@@ -1001,15 +1002,34 @@
   let lastData = null;
   function previewTheme(theme) {
     if (!theme) return;
-    applyTheme(theme);
+    applyTheme(theme, true);
   }
+  // v0.90.0 — reaplica o tema atual (usado pelo mini-editor do chat)
+  function reapply() { const t = global.PlusV2LiveBaseTheme; if (t) applyTheme(t); }
   function cancelPreview() {
     if (lastData) applyAll(lastData);
   }
 
+  // v0.90.2 — o logo do NEXT GAME (disco azul com X branco) também muda de cor
+  // com o tema: gira o matiz do azul original (~215°) até o matiz da cor
+  // principal, ajustando saturação/brilho (tema cinza => logo cinza).
+  function applyLogoTint(theme) {
+    const root = document.documentElement;
+    const c = theme && theme.colors && theme.colors.primary;
+    if (!c || !/^#[0-9a-fA-F]{6}$/.test(c) || theme.key === 'blue') { root.style.removeProperty('--pv2-logo-filter'); return; }
+    const rgb = hexToRgb(c), hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    const s = hsl.s / 100, l = hsl.l / 100;
+    let rot = Math.round(hsl.h - 215); if (rot > 180) rot -= 360; if (rot < -180) rot += 360;
+    const sat = Math.max(0.12, Math.min(1.5, s / 0.72)).toFixed(2);
+    const bri = Math.max(0.75, Math.min(1.3, 0.85 + (l - 0.5) * 0.8)).toFixed(2);
+    root.style.setProperty('--pv2-logo-filter', `hue-rotate(${rot}deg) saturate(${sat}) brightness(${bri})`);
+  }
+
   // ---------------- Tema: cores viram CSS vars usadas no site inteiro ----------------
-  function applyTheme(theme) {
+  function applyTheme(theme, isPreview) {
     if (!theme) return;
+    if (!isPreview) global.PlusV2LiveBaseTheme = theme;
+    if (global.PlusV2Quick) theme = isPreview ? Object.assign({}, theme, { chatStyle: theme.fx && theme.fx.chatStyle ? theme.fx.chatStyle : null }) : global.PlusV2Quick.merge(theme);
     const root = document.documentElement;
     // Expõe o tema atual pro app.js conseguir ler o nome/cor sem duplicar
     // esse dado — usado pela faixa de identidade genérica no menu lateral
@@ -1065,9 +1085,11 @@
     // v0.84.0 — fonte e fundo animado do tema + variáveis do visual "glass".
     root.style.setProperty('--pv2-glass-bg', `rgba(${rgb.r},${rgb.g},${rgb.b},0.10)`);
     root.style.setProperty('--pv2-glass-border', `rgba(${rgb3.r},${rgb3.g},${rgb3.b},0.28)`);
+    applyLogoTint(theme);
     applyFont(theme.font);
     applyScene(theme);
     applyDecor(theme);
+    if (global.PlusV2Quick) global.PlusV2Quick.applyChat(theme);
   }
 
   // ---------------- Fundo personalizado ----------------
@@ -1245,5 +1267,5 @@
     return inFlight;
   }
 
-  global.PlusV2Live = { state, refresh, applyAll, previewTheme, cancelPreview, prefs: getPrefs, setPrefs, art: ART, poke: (x, y) => { if (sceneApi) sceneApi.hit(x * (Math.min(global.devicePixelRatio || 1, 2)), y * (Math.min(global.devicePixelRatio || 1, 2))); } };
+  global.PlusV2Live = { state, refresh, applyAll, previewTheme, cancelPreview, reapply, prefs: getPrefs, setPrefs, art: ART, poke: (x, y) => { if (sceneApi) sceneApi.hit(x * (Math.min(global.devicePixelRatio || 1, 2)), y * (Math.min(global.devicePixelRatio || 1, 2))); } };
 })(typeof window !== 'undefined' ? window : globalThis);

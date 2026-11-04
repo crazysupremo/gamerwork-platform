@@ -1,5 +1,56 @@
 [
   {
+    "version": "0.90.2",
+    "date": "2026-11-04",
+    "changes": [
+      "O logo do NEXT GAME agora muda de cor junto com o tema (Matrix fica verde, Crimson vermelho, tema cinza fica cinza...) — inclusive com os ajustes feitos no chat e no Estúdio de Temas."
+    ]
+  },
+  {
+    "version": "0.90.1",
+    "date": "2026-11-04",
+    "changes": [
+      "NOVO: motor de partículas tsParticles (open source, MIT) integrado — efeitos de fogo, neve, estrelas, vagalumes, bolhas, rede de pontos e confete que reagem ao mouse. Escolha no Estúdio (aba Figurinhas e FX). Carrega da internet só quando o tema é usado.",
+      "NOVO: 7 temas de data prontos — Dia das Mães, Dia dos Pais, Festa Junina, Black Friday (libera em 20/11), Dia do Gamer, Sete de Setembro e Dia do Amigo — todos com figurinhas, moldura, mascote e estilo de mensagem. Halloween ganhou fogo na tela, bichinhos brigando e mascote.",
+      "CORRIGIDO: o Halloween estava escondido por uma regra de data antiga; agora segue a data de liberação como os outros (admin vê todos).",
+      "Versões agora sobem de 0.90.1 em 0.90.1 até a 1.0."
+    ]
+  },
+  {
+    "version": "0.90.0",
+    "date": "2026-11-04",
+    "changes": [
+      "NOVO: editar o tema direto no chat. Botão de paleta ao lado da caixa de mensagem abre um mini-editor (3 cores, fundo animado, fonte, balão das mensagens, animação de entrada, cantos, cor das mensagens, mascote) e dá para salvar o resultado como seu tema.",
+      "NOVO: comandos no chat — /tema (ajuda), /tema lista, /tema natal (aplica pelo nome), /tema editar, /tema cor #ff0066, /tema fundo neve, /tema balao neon, /tema entrada pulinho, /tema fonte tech, /tema mascote on|off, /tema reset. Os comandos não são enviados para ninguém. Ajustes de cor/fundo/balão são exclusivos do PLUS.",
+      "NOVO: estilo das mensagens como parte do tema (balão vidro, sólido, contorno, neon ou redondo; cantos; entrada pulinho/deslizar/brilho; cor das mensagens) — configurado no Estúdio, aba Figurinhas e FX, cartão 'Mensagens do chat'."
+    ]
+  },
+  {
+    "version": "0.89.2",
+    "date": "2026-11-04",
+    "changes": [
+      "Estúdio de Temas agora é uma página por vez (sem as 3 colunas): 1. Temas (grade de cards), 2. Editar (abas em tela cheia) e 3. Preview (tela inteira com Computador/Tablet/Celular)."
+    ]
+  },
+  {
+    "version": "0.89.1",
+    "date": "2026-11-04",
+    "changes": [
+      "Estúdio de Temas reorganizado: abas Cores / Estilo / Figurinhas / Publicar / API, cada uma em cartões com títulos, controles compactos (sliders com valor ao lado), botões Salvar/Duplicar/Exportar/Excluir fixos no rodapé do editor e sem rolagem lateral."
+    ]
+  },
+  {
+    "version": "0.89.0",
+    "date": "2026-11-04",
+    "changes": [
+      "NOVO: Criador de Efeitos no Estúdio de Temas — monte temas para QUALQUER data ou ideia: escolha emojis, envie figurinhas/imagens do computador, cole uma imagem (Ctrl+V) ou baixe de um link. As imagens são reduzidas e ficam salvas dentro do tema (não aumentam o número de arquivos do projeto).",
+      "NOVO: chuva, subida (balões) ou flutuação de figurinhas; varal no topo; MOLDURA em volta da tela (fogo, neon, gelo, estrelinhas, brilho); bichinhos passeando ou BRIGANDO no rodapé; mascote próprio com falas; fonte do Google Fonts por tema; 8 receitas prontas (Halloween com fogo, Festa Junina, Copa, Dia das Mães, Black Friday, Réveillon, Dragões vs Cavaleiros, Reino do Gelo).",
+      "NOVO: o chat agora interage com o tema — cada mensagem solta figurinhas, os bichinhos pulam e o mascote reage (inclusive nos temas de Natal, Ano Novo etc.).",
+      "CORRIGIDO: agora existe o botão Excluir nos temas que você cria na galeria. Tema salvo no Estúdio já nasce publicado e aparece no NEXT GAME.",
+      "Só o admin vê e testa temas ainda agendados (ex.: Natal antes de 1º/12) e rascunhos, marcados na galeria."
+    ]
+  },
+  {
     "version": "0.88.0",
     "date": "2026-11-04",
     "changes": [

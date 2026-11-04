@@ -996,3 +996,62 @@ body.pv2-has-decor .app-sidebar-logo::after {
 .pv2-seg { display: inline-flex; background: rgba(255,255,255,0.06); border-radius: 12px; padding: 3px; gap: 2px; }
 .pv2-root .pv2-seg-btn { background: none; border: none; color: #b9bdc9; font-weight: 800; font-size: 12px; padding: 7px 16px; cursor: pointer; margin: 0; border-radius: 9px !important; }
 .pv2-root .pv2-seg-btn.active { background: linear-gradient(120deg, var(--accent, #00ff9d), var(--accent-2, #00e5ff)); color: #fff; }
+
+/* ===== v0.90.0 — estilo das mensagens (tema) + mini-editor no chat ===== */
+#btn-quick-theme { background: #26272e; color: #dbdee1; border: none; border-radius: 50%; width: 40px; height: 40px; padding: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+#btn-quick-theme:hover { background: #2f3037; filter: none; border-color: var(--accent); }
+
+/* balão base — só liga quando o tema (ou o ajuste pessoal) escolhe um estilo */
+body.pv2-cs-on { --pv2-cs-bg: rgba(var(--accent-rgb), .13); --pv2-cs-bd: rgba(var(--accent-rgb), .30); --pv2-cs-sh: none; }
+body.pv2-cs-solid { --pv2-cs-bg: color-mix(in srgb, var(--accent) 30%, var(--bg-panel, #1b1c22)); --pv2-cs-bd: transparent; }
+body.pv2-cs-outline { --pv2-cs-bg: transparent; --pv2-cs-bd: var(--accent); }
+body.pv2-cs-neon { --pv2-cs-bg: rgba(var(--accent-rgb), .08); --pv2-cs-bd: var(--accent); --pv2-cs-sh: 0 0 14px rgba(var(--accent-rgb), .55), inset 0 0 10px rgba(var(--accent-rgb), .18); }
+body.pv2-cs-round { --pv2-cs-r: 22px; }
+body.pv2-cs-on .message .content,
+body.pv2-cs-on .stage-bubble {
+  display: inline-block; max-width: min(100%, 640px); padding: 7px 13px !important;
+  border-radius: var(--pv2-cs-r, 14px) !important;
+  background: var(--pv2-cs-other, var(--pv2-cs-bg)) !important;
+  border: 1px solid var(--pv2-cs-bd) !important; box-shadow: var(--pv2-cs-sh) !important;
+}
+body.pv2-cs-on .message.msg-own .content,
+body.pv2-cs-on .message.dm-message-own .content,
+body.pv2-cs-on .stage-msg.mine .stage-bubble {
+  background: var(--pv2-cs-own, linear-gradient(135deg, rgba(var(--accent-rgb), .55), rgba(var(--accent-2-rgb, var(--accent-rgb)), .45))) !important;
+  border-color: transparent !important; color: #fff;
+}
+body.pv2-cs-in-pop .message { animation: pv2csPop .38s cubic-bezier(.2, 1.5, .4, 1); }
+body.pv2-cs-in-slide .message { animation: pv2csSlide .3s ease-out; }
+body.pv2-cs-in-glow .message .content { animation: pv2csGlow 1.2s ease-out; }
+@keyframes pv2csPop { 0% { transform: scale(.85); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes pv2csSlide { 0% { transform: translateX(-18px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes pv2csGlow { 0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), .9); } 100% { box-shadow: 0 0 0 14px rgba(var(--accent-rgb), 0); } }
+@media (prefers-reduced-motion: reduce) { body[class*="pv2-cs-in-"] .message, body[class*="pv2-cs-in-"] .message .content { animation: none; } }
+
+.pv2-local-notice { margin: 8px 16px; padding: 9px 13px; border-radius: 12px; background: rgba(var(--accent-rgb), .12); border: 1px dashed rgba(var(--accent-rgb), .45); color: #dfe3ff; font-size: 12.5px; line-height: 1.5; transition: opacity .6s; }
+.pv2-local-notice.old { opacity: .5; }
+
+.pv2-quick { position: fixed; right: 18px; bottom: 84px; width: 290px; max-height: calc(100vh - 120px); overflow-y: auto; z-index: 9500; display: none; flex-direction: column; gap: 9px;
+  background: color-mix(in srgb, var(--bg-modal, #1c1d24) 96%, transparent); border: 1px solid rgba(var(--accent-rgb), .4); border-radius: 16px; padding: 13px; box-shadow: 0 18px 50px rgba(0, 0, 0, .55); color: #e8eaf4; font-size: 12.5px; }
+.pv2-quick.open { display: flex; }
+.pv2-quick .pq-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+.pv2-quick .pq-x { background: transparent !important; border: 0 !important; color: #aaa; font-size: 20px; cursor: pointer; line-height: 1; padding: 0 4px; }
+.pv2-quick .pq-note, .pv2-quick .pq-hint { color: #8e93a6; font-size: 11.5px; }
+.pv2-quick .pq-body { display: grid; gap: 8px; }
+.pv2-quick .pq-sep { margin-top: 4px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-3, #8ef); }
+.pv2-quick .pq-f { display: grid; gap: 3px; color: #9aa0b5; font-weight: 600; }
+.pv2-quick .pq-colors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pv2-quick input[type=color] { width: 100%; height: 30px; padding: 0; border: 1px solid #343642; border-radius: 8px; background: none; cursor: pointer; }
+.pv2-quick select { width: 100%; background: #14151a; color: #e8eaf4; border: 1px solid #343642; border-radius: 8px; padding: 6px 8px; font: inherit; }
+.pv2-quick input[type=range] { width: 100%; accent-color: var(--accent); }
+.pv2-quick .pq-chk { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.pv2-quick .pq-foot { display: flex; gap: 8px; }
+.pv2-quick .pq-foot button { flex: 1; padding: 7px 6px; border-radius: 9px; border: 1px solid #343642; background: #25262e; color: #e8eaf4; cursor: pointer; font: 600 12px inherit; }
+.pv2-quick .pq-foot button.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+@media (max-width: 700px) { .pv2-quick { right: 8px; left: 8px; width: auto; bottom: 70px; } }
+
+/* v0.90.2 — logo do NEXT GAME acompanha a cor do tema (ver applyLogoTint) */
+body .app-sidebar-logo-img, body .downloads-item-icon img {
+  filter: var(--pv2-logo-filter, none) drop-shadow(0 2px 8px rgba(var(--accent-rgb), .5)) !important;
+  transition: filter .4s ease;
+}

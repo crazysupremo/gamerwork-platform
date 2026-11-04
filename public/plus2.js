@@ -588,12 +588,27 @@
             theme.name,
             theme.premium ? el('span', { class: 'pv2-premium-pill' }, ['PLUS']) : null,
             selected ? el('span', { class: 'pv2-meta-tag' }, ['em uso']) : null,
+            theme.draft ? el('span', { class: 'pv2-meta-tag' }, ['rascunho (só admin)']) : null,
+            (theme.comingSoon && theme.locked === false) ? el('span', { class: 'pv2-meta-tag' }, ['agendado (só admin)']) : null,
           ]),
           theme.tagline ? el('div', { class: 'pv2-theme-tagline' }, [theme.tagline]) : null,
           metaTags.length ? el('div', { class: 'pv2-theme-meta' }, metaTags.map((m) => el('span', { class: 'pv2-meta-tag' }, [m]))) : null,
         ]),
         el('div', { class: 'pv2-theme-actions' }, [
           el('button', { type: 'button', class: 'pv2-card-btn', onclick: (e) => { e.stopPropagation(); startPreview(theme); } }, ['👁 Ver ao vivo']),
+          theme.custom ? el('button', {
+            type: 'button', class: 'pv2-card-btn', title: 'Excluir este tema',
+            onclick: async (e) => {
+              e.stopPropagation();
+              if (!global.confirm('Excluir o tema "' + theme.name + '"?')) return;
+              try {
+                if (previewingTheme) endPreview(false);
+                await adapter.deleteCustomTheme(theme.id);
+                if (opts.onChange) opts.onChange({ themeId: null });
+                await refresh();
+              } catch (err) { global.alert('Não consegui excluir: ' + (err && err.message ? err.message : err)); }
+            },
+          }, ['🗑 Excluir']) : null,
           el('button', {
             type: 'button', class: 'pv2-card-btn primary',
             onclick: (e) => { e.stopPropagation(); selectTheme(theme); },

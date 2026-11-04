@@ -23,7 +23,7 @@ Variáveis: `--ng-primary`, `--ng-secondary`, `--ng-highlight`, `--ng-text`, `--
 NextGameThemes.apply('natal', { effects: true })
 ```
 
-Carrega fundo animado, decoração e mascote da data (precisa de `<body>`). Para só as cores, omita `effects`.
+Carrega fundo animado, decoração, mascote da data e os efeitos personalizados do tema (figurinhas, moldura, bichinhos) (precisa de `<body>`). Para só as cores, omita `effects`.
 
 ## Funções
 
