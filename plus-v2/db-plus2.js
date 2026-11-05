@@ -418,7 +418,7 @@ async function seedPlusV2Defaults(db) {
       [newId(), t.key, t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra, t.releaseAt || null, t.fx ? JSON.stringify(t.fx) : null]
     );
   }
-  // v0.90.5: o Matrix ficou só com a chuva de código (sem moldura/balões neon).
+  // v0.90.7: o Matrix ficou só com a chuva de código (sem moldura/balões neon).
   await run(`UPDATE plus_v2_themes SET fx_json = NULL WHERE key = 'cyber-green' AND is_preset = 1 AND fx_json LIKE '%"neon"%'`);
   // Aposenta os temas antigos: move quem usava pro Next Blue e apaga a linha.
   const fallback = await get('SELECT id FROM plus_v2_themes WHERE key = ?', ['blue']);

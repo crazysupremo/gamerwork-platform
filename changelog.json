@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.90.7",
+    "date": "2026-11-05",
+    "changes": [
+      "Windows: efeitos dos temas (fogos, luzes, mascote) não somem mais quando o PC está com animações reduzidas/economia de bateria. O relatório de erro agora inclui o diagnóstico de temas."
+    ]
+  },
+  {
+    "version": "0.90.6",
+    "date": "2026-11-04",
+    "changes": [
+      "Pré-visualização de temas agora mostra todos os efeitos (fogos, mascote, chuva Matrix) mesmo com o Modo desempenho ligado."
+    ]
+  },
+  {
     "version": "0.90.5",
     "date": "2026-11-04",
     "changes": [

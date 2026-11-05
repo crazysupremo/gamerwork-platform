@@ -21,12 +21,12 @@
   const reduce = () => !!(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const factor = () => {
     const p = L() && L().prefs ? L().prefs() : {};
-    return ({ leve: 0.5, normal: 1, intenso: 1.5 }[p.intensity] || 1) * (reduce() ? 0.3 : 1) * ((global.innerWidth || 1200) < 700 ? 0.6 : 1);
+    return ({ leve: 0.5, normal: 1, intenso: 1.5 }[p.intensity] || 1) * (reduce() ? 0.6 : 1) * ((global.innerWidth || 1200) < 700 ? 0.6 : 1);
   };
   const allowed = () => {
     const l = L();
     if (!l) return true;
-    if (l.state && l.state.performanceMode) return false;
+    if (l.state && l.state.performanceMode && !l.state.previewing) return false;
     const p = l.prefs ? l.prefs() : {};
     return p.scene !== false;
   };

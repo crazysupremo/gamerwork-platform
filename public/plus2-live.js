@@ -318,7 +318,7 @@
       if (t - last < 33) return; // ~30fps — leve de propósito
       last = t;
       if (mode === 'matrix') {
-        // v0.90.5: colunas recalculadas a cada quadro (antes ficavam vazias se a
+        // v0.90.7: colunas recalculadas a cada quadro (antes ficavam vazias se a
         // tela ainda tinha largura 0 quando o tema era aplicado) e canvas
         // redimensionado sozinho se o layout mudou depois.
         if (!W || !H || canvas.width !== Math.floor(canvas.clientWidth * dpr)) size();
@@ -802,7 +802,7 @@
     layer.innerHTML = '';
     layer.className = '';
     currentScene = key;
-    const off = key === 'none' || state.performanceMode || prefsState.scene === false;
+    const off = key === 'none' || (state.performanceMode && !state.previewing) || prefsState.scene === false;
     document.body.classList.toggle('pv2-scene-active', !off);
     document.body.dataset.pv2Scene = off ? '' : key;
     if (off) return;
@@ -985,7 +985,7 @@
     DECOR_CLASSES.forEach((c) => document.body.classList.remove(c));
     const layer = ensureDecorLayer();
     clearInterval(cdTimer);
-    if (!cfg || state.performanceMode) {
+    if (!cfg || (state.performanceMode && !state.previewing)) {
       document.body.classList.remove('pv2-has-decor');
       layer.innerHTML = '';
       if (global.PlusV2Mascot) global.PlusV2Mascot.set('');
@@ -1017,15 +1017,19 @@
   let lastData = null;
   function previewTheme(theme) {
     if (!theme) return;
+    // v0.90.7: a pré-visualização mostra os efeitos mesmo com o "modo desempenho"
+    // ligado (senão parecia que o tema não tinha efeito nenhum).
+    state.previewing = true;
     applyTheme(theme, true);
   }
   // v0.90.0 — reaplica o tema atual (usado pelo mini-editor do chat)
   function reapply() { const t = global.PlusV2LiveBaseTheme; if (t) applyTheme(t); }
   function cancelPreview() {
+    state.previewing = false;
     if (lastData) applyAll(lastData);
   }
 
-  // v0.90.5 — o logo do NEXT GAME (disco azul com X branco) também muda de cor
+  // v0.90.7 — o logo do NEXT GAME (disco azul com X branco) também muda de cor
   // com o tema: gira o matiz do azul original (~215°) até o matiz da cor
   // principal, ajustando saturação/brilho (tema cinza => logo cinza).
   function applyLogoTint(theme) {
@@ -1245,6 +1249,7 @@
 
   function applyAll(data) {
     lastData = data;
+    state.previewing = false;
     const theme = [...data.themes, ...data.myCustomThemes].find((t) => t.id === data.current.themeId);
     applyTheme(theme);
     // CORRIGIDO ("fundo com imagem/GIF não funciona"): fundo com upload
