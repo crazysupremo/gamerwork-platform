@@ -274,7 +274,7 @@ const DEFAULT_THEMES = [
   { key: 'dia-do-amigo', name: 'Dia do Amigo', tagline: 'Quem joga junto, fica junto', category: 'datas', primary: '#fb7185', secondary: '#60a5fa', highlight: '#fcd34d', text: '#fff1f2', button: '#1f0a14', premium: false, effect: 'glow', scene: 'hearts', font: 'soft', releaseAt: '2027-07-10T03:00:00.000Z', suggestedEffects: ['buttonGlow', 'avatarGlow', 'messageReceive'], fx: mkFx({ items: '🤝💛🎮🎁🫶', fall: ['rise', 16, 30], garland: 28, frame: 'sparkle', mascot: ['🤝', 'Parça', 'Feliz Dia do Amigo, {nome}!|Chama a galera!|Amigo bom joga junto.'], chatStyle: { bubble: 'round', entry: 'pop', radius: 22 } }) },
 
   // ===== PARCEIROS =====
-  { key: 'magic-tank', name: 'Magic Tank', tagline: 'Azul neon + dourado (parceiro)', category: 'parceiros', primary: '#00a8ff', secondary: '#fbdc70', highlight: '#7fd9ff', text: '#e2e8f0', button: '#050810', premium: true, effect: 'glow', scene: 'none', font: '', suggestedEffects: ['buttonGlow'] },
+  { key: 'magic-tank', name: 'Magic Tank', tagline: 'Azul neon + dourado (parceiro)', category: 'parceiros', primary: '#00a8ff', secondary: '#fbdc70', highlight: '#7fd9ff', text: '#e2e8f0', button: '#050810', premium: true, effect: 'glow', scene: 'embers', font: '', suggestedEffects: ['buttonGlow'], fx: mkFx({ items: '💥⭐🛡️🎯🪖', fall: ['rise', 14, 28], crit: ['fight', 3, '🪖💥'], tsp: 'stars', mascot: ['🛡️', 'Tanque', 'Bem-vindo à Magic Tank, {nome}!|Mira, atira e vence!|Recarga full vale 1 mês de PLUS!'], chatStyle: { bubble: 'solid', entry: 'slide', radius: 8 } }) },
   { key: 'ddtank', name: 'DDTank', tagline: 'Fofo e vibrante (parceiro)', category: 'parceiros', primary: '#ff5fa0', secondary: '#5fd4ff', highlight: '#ffd34d', text: '#fff2f8', button: '#210c1c', premium: true, effect: 'shine', scene: 'none', font: '', suggestedEffects: ['buttonGlow'] },
 ];
 
@@ -418,7 +418,7 @@ async function seedPlusV2Defaults(db) {
       [newId(), t.key, t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra, t.releaseAt || null, t.fx ? JSON.stringify(t.fx) : null]
     );
   }
-  // v0.90.8: o Matrix ficou só com a chuva de código (sem moldura/balões neon).
+  // v0.90.9: o Matrix ficou só com a chuva de código (sem moldura/balões neon).
   await run(`UPDATE plus_v2_themes SET fx_json = NULL WHERE key = 'cyber-green' AND is_preset = 1 AND fx_json LIKE '%"neon"%'`);
   // Aposenta os temas antigos: move quem usava pro Next Blue e apaga a linha.
   const fallback = await get('SELECT id FROM plus_v2_themes WHERE key = ?', ['blue']);

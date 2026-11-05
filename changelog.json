@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.90.9",
+    "date": "2026-11-05",
+    "changes": [
+      "Tema Magic Tank: agora com brasas azuis e douradas, estrelas, figurinhas de tanque/explosão subindo, soldadinhos lutando, mascote Tanque com falas do jogo e mensagens do chat em estilo sólido."
+    ]
+  },
+  {
     "version": "0.90.8",
     "date": "2026-11-05",
     "changes": [

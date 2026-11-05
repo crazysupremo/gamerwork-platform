@@ -637,7 +637,7 @@ body.pv2-scene-active .members-panel { background: color-mix(in srgb, var(--bg-s
 #plus2-scene.pv2-scene-waves::after { bottom: -44%; background: rgb(var(--accent-2-rgb)); opacity: 0.3; animation: pv2Wave 26s linear infinite reverse; }
 @keyframes pv2Wave { from { transform: translateX(0) rotate(0deg); } 50% { transform: translateX(6%) rotate(180deg); } to { transform: translateX(0) rotate(360deg); } }
 
-/* (v0.90.8: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
+/* (v0.90.9: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
 
 /* ---------- galeria nova ---------- */
 .pv2-gal-toolbar { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
@@ -837,7 +837,7 @@ body.pv2-decor-namorados .app-sidebar-logo-img { filter: drop-shadow(0 0 10px rg
   .pv2-flyer { font-size: 30px; top: 52px; }
   .pv2-lights b { font-size: 17px; }
 }
-/* (v0.90.8: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
+/* (v0.90.9: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
 
 /* ============================================================================
    v0.86.0 — DESENHOS (SVG) + CENAS INTERATIVAS
@@ -879,8 +879,8 @@ body.pv2-has-decor .app-sidebar-logo::after {
   background: var(--pv2-logo-img) center / contain no-repeat;
 }
 @media (max-width: 640px) { .pv2-flyer svg { width: calc(var(--w, 300px) * 0.7); } .pv2-lights b { width: 20px; height: 30px; } }
-/* (v0.90.8: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
-/* v0.90.8: o Windows liga "movimento reduzido" sozinho (economia de bateria / animações desligadas) e isso escondia os fogos nos PCs — agora os efeitos continuam, só mais calmos. */
+/* (v0.90.9: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
+/* v0.90.9: o Windows liga "movimento reduzido" sozinho (economia de bateria / animações desligadas) e isso escondia os fogos nos PCs — agora os efeitos continuam, só mais calmos. */
 
 /* ============================================================================
    v0.87.0 — MASCOTES + DECORAÇÃO ÚNICA DO TOPO POR DATA
@@ -977,7 +977,7 @@ body.pv2-has-decor .app-sidebar-logo::after {
 .pv2-hegg { overflow: visible; transform-origin: 50% 0; animation: pv2Swing 3.4s ease-in-out infinite; }
 
 @media (max-width: 760px) { .pv2-streamer { display: none; } .pv2-cd-time { font-size: 16px; } .pv2-hud { right: 10px; bottom: 10px; } }
-/* (v0.90.8: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
+/* (v0.90.9: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
 
 /* aba Mascote */
 .pv2-root .pv2-char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin: 6px 0 4px; }
@@ -1047,13 +1047,13 @@ body.pv2-cs-in-glow .message .content { animation: pv2csGlow 1.2s ease-out; }
 .pv2-quick .pq-foot button.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
 @media (max-width: 700px) { .pv2-quick { right: 8px; left: 8px; width: auto; bottom: 70px; } }
 
-/* v0.90.8 — logo do NEXT GAME acompanha a cor do tema (ver applyLogoTint) */
+/* v0.90.9 — logo do NEXT GAME acompanha a cor do tema (ver applyLogoTint) */
 body .app-sidebar-logo-img, body .downloads-item-icon img {
   filter: var(--pv2-logo-filter, none) drop-shadow(0 2px 8px rgba(var(--accent-rgb), .5)) !important;
   transition: filter .4s ease;
 }
 
-/* v0.90.8 — MENOS BRILHO: tira o neon/glow exagerado (botões, item ativo, balões,
+/* v0.90.9 — MENOS BRILHO: tira o neon/glow exagerado (botões, item ativo, balões,
    moldura). Mantém só um destaque suave na cor do tema. */
 body .home-btn-primary, body .plus-promo-cta, body #form-message button[type="submit"] { box-shadow: 0 2px 8px rgba(0,0,0,.28) !important; }
 body .server-row.active, body .sidebar-nav-item.active, body .sidebar-nav-item-solo { box-shadow: none !important; }
@@ -1065,7 +1065,7 @@ body #pv2-cfx-frame.glow { box-shadow: inset 0 0 40px 0 color-mix(in srgb, var(-
 body .app-sidebar-logo-img { filter: var(--pv2-logo-filter, none) !important; }
 body.pv2-scene-active .app-main, body.pv2-scene-active .sidebar { backdrop-filter: none !important; }
 
-/* v0.90.8 — bordas neon e brilhos: contorno fino e discreto, sem halo. */
+/* v0.90.9 — bordas neon e brilhos: contorno fino e discreto, sem halo. */
 body .auth-hero-cta-primary, body .auth-tab.active, body .auth-form button, body .wizard-next-btn, body .navbar-create-btn,
 body .btn-primary, body .btn-register, body .message-form button, body .message-form button[type="submit"], body .modal-actions button[type="submit"],
 body .modal-actions button.primary, body #btn-save-profile, body .friends-tab.active, body .beta-tag,
@@ -1083,6 +1083,6 @@ body .input-icon-wrap:focus-within, body input:focus-visible, body select:focus-
 body .message.mention-me, body .message.pv2-mention-glow { box-shadow: none !important; }
 body .app-sidebar-logo-img { filter: var(--pv2-logo-filter, none) !important; }
 
-/* v0.90.8 — chuva de código do Matrix por cima dos painéis (suave), para aparecer
+/* v0.90.9 — chuva de código do Matrix por cima dos painéis (suave), para aparecer
    mesmo onde o app tem fundo opaco; não atrapalha cliques. */
 body[data-pv2-scene="matrix"] #plus2-scene { z-index: 40 !important; background: transparent !important; opacity: .38; mix-blend-mode: screen; pointer-events: none; }
