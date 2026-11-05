@@ -125,8 +125,25 @@ function isThemeReleased(t, now) {
   return new Date(t.release_at).getTime() <= now.getTime();
 }
 
-function themeOut(t, unlocked, now, isAdmin) {
+// Acesso a temas exclusivos por cupom (ex.: Magic Tank). users.partner_magic_tank
+// = NULL | 'forever' | data ISO de expiração. Admin sempre tem acesso.
+function hasCouponAccess(user, coupon) {
+  if (!user) return false;
+  if (user.is_admin) return true;
+  if (coupon === 'magic_tank') {
+    const v = user.partner_magic_tank;
+    if (!v) return false;
+    if (v === 'forever') return true;
+    const ts = new Date(v).getTime();
+    return !Number.isNaN(ts) && ts > Date.now();
+  }
+  return false;
+}
+
+function themeOut(t, unlocked, now, isAdmin, user) {
   const released = isThemeReleased(t, now || new Date()) || !!isAdmin;
+  const exclusive = t.exclusive_coupon || null;
+  const couponLocked = !!exclusive && !hasCouponAccess(user, exclusive);
   return {
     id: t.id,
     key: t.key,
@@ -158,7 +175,9 @@ function themeOut(t, unlocked, now, isAdmin) {
     // não chegou — o frontend usa isso pra mostrar "disponível em XX/XX".
     releaseAt: t.release_at || null,
     comingSoon: !released,
-    locked: (!!t.is_premium && !unlocked && !isAdmin) || !released,
+    exclusive,
+    couponLocked,
+    locked: (!!t.is_premium && !unlocked && !isAdmin) || !released || couponLocked,
   };
 }
 
@@ -231,7 +250,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
       openCors(res);
       const rows = await db.all('SELECT * FROM plus_v2_themes WHERE is_preset = 1 AND COALESCE(published, 1) = 1 ORDER BY sort_order ASC');
       const now = new Date();
-      const themes = rows.filter((t) => t.key && isThemeReleased(t, now)).map(publicTheme);
+      const themes = rows.filter((t) => t.key && !t.exclusive_coupon && isThemeReleased(t, now)).map(publicTheme);
       res.json({ version: 1, generatedAt: now.toISOString(), count: themes.length, themes });
     })
   );
@@ -240,7 +259,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
     asyncHandler(async (req, res) => {
       openCors(res);
       const t = await db.get('SELECT * FROM plus_v2_themes WHERE is_preset = 1 AND key = ? AND COALESCE(published, 1) = 1', [req.params.key]);
-      if (!t || !isThemeReleased(t, new Date())) return res.status(404).json({ error: 'Tema não encontrado' });
+      if (!t || t.exclusive_coupon || !isThemeReleased(t, new Date())) return res.status(404).json({ error: 'Tema não encontrado' });
       res.json(publicTheme(t));
     })
   );
@@ -272,10 +291,21 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
       const banners = await db.all('SELECT * FROM plus_v2_banners ORDER BY sort_order ASC');
       const backgrounds = await db.all('SELECT * FROM plus_v2_backgrounds ORDER BY sort_order ASC');
 
+      // Perdeu o acesso (cupom expirou)? Volta pro tema padrão em vez de manter
+      // um tema exclusivo que não é mais dele.
+      if (req.user.plus2_theme_id) {
+        const cur = themes.find((t) => t.id === req.user.plus2_theme_id);
+        if (cur && cur.exclusive_coupon && !hasCouponAccess(req.user, cur.exclusive_coupon)) {
+          await db.run('UPDATE users SET plus2_theme_id = NULL WHERE id = ?', [req.user.id]);
+          req.user.plus2_theme_id = null;
+        }
+      }
+
       res.json({
         isPlusUser: unlocked,
-        themes: themes.map((t) => themeOut(t, unlocked, undefined, !!req.user.is_admin)),
+        themes: themes.map((t) => themeOut(t, unlocked, undefined, !!req.user.is_admin, req.user)),
         myCustomThemes: myCustomThemes.map((t) => themeOut(t, unlocked)),
+        partnerAccess: { magicTank: hasCouponAccess(req.user, 'magic_tank') },
         badges: badges.map((b) => badgeOut(b, unlocked)),
         banners: banners.map((b) => bannerOut(b, unlocked)),
         backgrounds: backgrounds.map((b) => backgroundOut(b, unlocked)),
@@ -402,6 +432,12 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
             [themeId, req.user.id]
           );
           if (!theme) return res.status(404).json({ error: 'Tema não encontrado' });
+          if (theme.exclusive_coupon && !hasCouponAccess(req.user, theme.exclusive_coupon)) {
+            return res.status(403).json({
+              error: 'Tema exclusivo — resgate o cupom do parceiro em NEXTGAME PLUS > Resgatar cupom.',
+              exclusive: theme.exclusive_coupon,
+            });
+          }
           if (theme.is_premium && !unlocked && !req.user.is_admin) {
             return res.status(403).json({ error: 'Esse tema é exclusivo de quem tem NEXTGAME PLUS' });
           }

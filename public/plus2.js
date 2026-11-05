@@ -445,7 +445,7 @@
           style: `--pv2-mini-primary:${theme.colors.primary};--pv2-mini-secondary:${theme.colors.secondary};`,
           onclick: async () => {
             const t = previewingTheme; endPreview(!!t.locked); await selectTheme(t);
-            // v0.90.9: com "Modo desempenho" ligado o tema aplicado ficava SEM os efeitos
+            // v0.91.1: com "Modo desempenho" ligado o tema aplicado ficava SEM os efeitos
             // que apareciam no preview — avisa e oferece desligar na hora.
             try {
               if (!t.locked && data.visualPrefs && data.visualPrefs.performanceMode && ((t.scene && t.scene !== 'none') || t.decor || t.fx)) {

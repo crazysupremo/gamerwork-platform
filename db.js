@@ -1161,6 +1161,19 @@ async function initDb() {
   await ensurePlusV2Schema({ run, get, all, ensureColumn });
   await seedPlusV2Defaults({ run, get, all, ensureColumn });
 
+  // ---------- EXCLUSIVIDADE POR CUPOM (tema Magic Tank) ----------
+  // redeem_codes.grants  = o que o cupom libera além do PLUS ('magic_tank' = PLUS + tema;
+  //                        'magic_tank_only' = só o tema). NULL = cupom comum de PLUS.
+  // users.partner_magic_tank = NULL | 'forever' | data ISO de expiração do acesso ao tema.
+  // plus_v2_themes.exclusive_coupon = tema só aparece liberado pra quem resgatou esse cupom.
+  await ensureColumn('redeem_codes', 'grants TEXT');
+  await ensureColumn('users', 'partner_magic_tank TEXT');
+  await ensureColumn('plus_v2_themes', 'exclusive_coupon TEXT');
+  await run("UPDATE plus_v2_themes SET exclusive_coupon = 'magic_tank' WHERE key = 'magic-tank'");
+  await run(
+    "UPDATE redeem_codes SET grants = 'magic_tank' WHERE grants IS NULL AND created_by = 'seed' AND note LIKE 'Magic Tank%'"
+  );
+
   // ---------- CUPONS PRÉ-GERADOS (Magic Tank — recarga full -> 1 mês de PLUS) ----------
   // Lote pronto pra entregar direto ao parceiro (ele distribui pra quem
   // compra a recarga full) — sem precisar entrar no /admin.html toda vez.
@@ -1264,8 +1277,8 @@ async function seedMagicTankCoupons({ run, get }) {
     const existing = await get('SELECT id FROM redeem_codes WHERE code = ?', [code]);
     if (existing) continue;
     await run(
-      'INSERT INTO redeem_codes (id, code, plan, days, note, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-      [crypto.randomUUID(), code, 'plus', 30, 'Magic Tank — recarga full', 'seed']
+      'INSERT INTO redeem_codes (id, code, plan, days, note, created_by, grants) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [crypto.randomUUID(), code, 'plus', 30, 'Magic Tank — recarga full', 'seed', 'magic_tank']
     );
   }
 }

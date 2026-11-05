@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.91.1",
+    "date": "2026-11-05",
+    "changes": [
+      "Magic Tank agora é EXCLUSIVO: só aparece liberado para quem resgatar o cupom emitido pelo dono (aba NEXTGAME PLUS › Resgatar cupom). Sem cupom o tema fica com cadeado e o servidor bloqueia a escolha.",
+      "Cupom Magic Tank libera PLUS + tema (ou só o tema); acesso expira junto com o cupom e o tema volta ao padrão. Os 100 cupons pré-gerados já valem como cupom Magic Tank.",
+      "Admin: ao gerar cupons dá pra escolher 'Só PLUS', 'PLUS + tema Magic Tank' ou 'Só tema Magic Tank'.",
+      "Mais edições no tema: cantoneiras douradas de placa, selo MEMBRO MAGIC TANK, foco/seleção dourados, cartões que levantam, avisos em madeira, abas com sublinhado dourado."
+    ]
+  },
+  {
+    "version": "0.91.0",
+    "date": "2026-11-05",
+    "changes": [
+      "Magic Tank ESPECIAL: tema completo do jogo parceiro em todas as abas — placa com o logo na barra lateral, bordas madeira+ouro, botões azul/dourado, chat, cards e barras personalizados; mascote Mago Tank, chapéus e varinhas subindo, estrelas e brasas mágicas."
+    ]
+  },
+  {
     "version": "0.90.9",
     "date": "2026-11-05",
     "changes": [

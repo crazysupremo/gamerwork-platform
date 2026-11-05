@@ -566,7 +566,7 @@ const tr = document.createElement('tr');
 tr.innerHTML = `
 <td style="font-family:monospace; font-weight:700;">${escapeHtml(c.code)}</td>
 <td>${c.days > 0 ? c.days + ' dias' : 'sem prazo'}</td>
-<td>${escapeHtml(c.note || '—')}</td>
+<td>${c.grants ? '🎁 ' + (c.grants === 'magic_tank_only' ? 'Tema Magic Tank' : 'PLUS + Magic Tank') + ' · ' : ''}${escapeHtml(c.note || '—')}</td>
 <td>${
 c.used_by
 ? `<span style="color:#949ba4;">Resgatado por ${escapeHtml(c.used_by_username || '?')}</span>`
@@ -598,7 +598,7 @@ const res = await fetch('/api/admin/redeem-codes', {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 credentials: 'include',
-body: JSON.stringify({ days, note, quantity }),
+body: JSON.stringify({ days, note, quantity, grants: document.getElementById('redeem-new-grants').value || null }),
 });
 const data = await res.json();
 if (!res.ok) return alert(data.error || 'Erro ao gerar código(s)');

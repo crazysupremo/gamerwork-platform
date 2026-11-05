@@ -637,7 +637,7 @@ body.pv2-scene-active .members-panel { background: color-mix(in srgb, var(--bg-s
 #plus2-scene.pv2-scene-waves::after { bottom: -44%; background: rgb(var(--accent-2-rgb)); opacity: 0.3; animation: pv2Wave 26s linear infinite reverse; }
 @keyframes pv2Wave { from { transform: translateX(0) rotate(0deg); } 50% { transform: translateX(6%) rotate(180deg); } to { transform: translateX(0) rotate(360deg); } }
 
-/* (v0.90.9: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
+/* (v0.91.1: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
 
 /* ---------- galeria nova ---------- */
 .pv2-gal-toolbar { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
@@ -837,7 +837,7 @@ body.pv2-decor-namorados .app-sidebar-logo-img { filter: drop-shadow(0 0 10px rg
   .pv2-flyer { font-size: 30px; top: 52px; }
   .pv2-lights b { font-size: 17px; }
 }
-/* (v0.90.9: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
+/* (v0.91.1: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
 
 /* ============================================================================
    v0.86.0 — DESENHOS (SVG) + CENAS INTERATIVAS
@@ -879,8 +879,8 @@ body.pv2-has-decor .app-sidebar-logo::after {
   background: var(--pv2-logo-img) center / contain no-repeat;
 }
 @media (max-width: 640px) { .pv2-flyer svg { width: calc(var(--w, 300px) * 0.7); } .pv2-lights b { width: 20px; height: 30px; } }
-/* (v0.90.9: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
-/* v0.90.9: o Windows liga "movimento reduzido" sozinho (economia de bateria / animações desligadas) e isso escondia os fogos nos PCs — agora os efeitos continuam, só mais calmos. */
+/* (v0.91.1: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
+/* v0.91.1: o Windows liga "movimento reduzido" sozinho (economia de bateria / animações desligadas) e isso escondia os fogos nos PCs — agora os efeitos continuam, só mais calmos. */
 
 /* ============================================================================
    v0.87.0 — MASCOTES + DECORAÇÃO ÚNICA DO TOPO POR DATA
@@ -977,7 +977,7 @@ body.pv2-has-decor .app-sidebar-logo::after {
 .pv2-hegg { overflow: visible; transform-origin: 50% 0; animation: pv2Swing 3.4s ease-in-out infinite; }
 
 @media (max-width: 760px) { .pv2-streamer { display: none; } .pv2-cd-time { font-size: 16px; } .pv2-hud { right: 10px; bottom: 10px; } }
-/* (v0.90.9: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
+/* (v0.91.1: efeitos do tema não são mais desligados pelo "movimento reduzido" do Windows) */
 
 /* aba Mascote */
 .pv2-root .pv2-char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin: 6px 0 4px; }
@@ -1047,13 +1047,13 @@ body.pv2-cs-in-glow .message .content { animation: pv2csGlow 1.2s ease-out; }
 .pv2-quick .pq-foot button.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
 @media (max-width: 700px) { .pv2-quick { right: 8px; left: 8px; width: auto; bottom: 70px; } }
 
-/* v0.90.9 — logo do NEXT GAME acompanha a cor do tema (ver applyLogoTint) */
+/* v0.91.1 — logo do NEXT GAME acompanha a cor do tema (ver applyLogoTint) */
 body .app-sidebar-logo-img, body .downloads-item-icon img {
   filter: var(--pv2-logo-filter, none) drop-shadow(0 2px 8px rgba(var(--accent-rgb), .5)) !important;
   transition: filter .4s ease;
 }
 
-/* v0.90.9 — MENOS BRILHO: tira o neon/glow exagerado (botões, item ativo, balões,
+/* v0.91.1 — MENOS BRILHO: tira o neon/glow exagerado (botões, item ativo, balões,
    moldura). Mantém só um destaque suave na cor do tema. */
 body .home-btn-primary, body .plus-promo-cta, body #form-message button[type="submit"] { box-shadow: 0 2px 8px rgba(0,0,0,.28) !important; }
 body .server-row.active, body .sidebar-nav-item.active, body .sidebar-nav-item-solo { box-shadow: none !important; }
@@ -1065,7 +1065,7 @@ body #pv2-cfx-frame.glow { box-shadow: inset 0 0 40px 0 color-mix(in srgb, var(-
 body .app-sidebar-logo-img { filter: var(--pv2-logo-filter, none) !important; }
 body.pv2-scene-active .app-main, body.pv2-scene-active .sidebar { backdrop-filter: none !important; }
 
-/* v0.90.9 — bordas neon e brilhos: contorno fino e discreto, sem halo. */
+/* v0.91.1 — bordas neon e brilhos: contorno fino e discreto, sem halo. */
 body .auth-hero-cta-primary, body .auth-tab.active, body .auth-form button, body .wizard-next-btn, body .navbar-create-btn,
 body .btn-primary, body .btn-register, body .message-form button, body .message-form button[type="submit"], body .modal-actions button[type="submit"],
 body .modal-actions button.primary, body #btn-save-profile, body .friends-tab.active, body .beta-tag,
@@ -1083,6 +1083,199 @@ body .input-icon-wrap:focus-within, body input:focus-visible, body select:focus-
 body .message.mention-me, body .message.pv2-mention-glow { box-shadow: none !important; }
 body .app-sidebar-logo-img { filter: var(--pv2-logo-filter, none) !important; }
 
-/* v0.90.9 — chuva de código do Matrix por cima dos painéis (suave), para aparecer
+/* v0.91.1 — chuva de código do Matrix por cima dos painéis (suave), para aparecer
    mesmo onde o app tem fundo opaco; não atrapalha cliques. */
 body[data-pv2-scene="matrix"] #plus2-scene { z-index: 40 !important; background: transparent !important; opacity: .38; mix-blend-mode: screen; pointer-events: none; }
+
+/* =============================================================================
+   v0.91.1 — MAGIC TANK ESPECIAL: pele completa do tema do jogo parceiro.
+   Azul mágico + dourado + "madeira" da placa do logo. Vale para TODAS as abas
+   (início, chat, amigos, servidores, torneios, loja, configurações, modais).
+   Sem brilho exagerado: contornos finos, gradientes e detalhes dourados.
+   ============================================================================= */
+body.theme-magic-tank {
+  --mt-blue: #00a8ff; --mt-blue-2: #0b6fd6; --mt-gold: #fbdc70; --mt-gold-2: #c9962b;
+  --mt-wood: #6b3f1d; --mt-wood-2: #3a2210; --mt-night: #050a18; --mt-night-2: #0a1428;
+  --mt-border: linear-gradient(135deg, #fbdc70, #8a5a24 45%, #00a8ff);
+  background-image:
+    radial-gradient(ellipse at 10% 0%, rgba(0,168,255,.16), transparent 42%),
+    radial-gradient(ellipse at 95% 100%, rgba(251,220,112,.10), transparent 45%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.012) 0 2px, transparent 2px 14px) !important;
+  background-attachment: fixed;
+  scrollbar-color: #1b5fa8 #07101f;
+}
+body.theme-magic-tank ::selection { background: rgba(251,220,112,.35); color: #fff; }
+body.theme-magic-tank ::-webkit-scrollbar { width: 11px; height: 11px; }
+body.theme-magic-tank ::-webkit-scrollbar-track { background: #07101f; }
+body.theme-magic-tank ::-webkit-scrollbar-thumb { background: linear-gradient(#1b7fd0, #0a3f7a); border: 2px solid #07101f; border-radius: 8px; }
+body.theme-magic-tank ::-webkit-scrollbar-thumb:hover { background: linear-gradient(#fbdc70, #c9962b); }
+
+/* ---- barra lateral: placa de madeira com o logo do jogo ---- */
+body.theme-magic-tank .app-sidebar {
+  background-image: linear-gradient(180deg, rgba(10,20,40,.92), rgba(5,10,24,.96)) !important;
+  border-right: 2px solid transparent !important;
+  border-image: linear-gradient(180deg, #fbdc70, #6b3f1d 40%, #0b6fd6) 1 !important;
+}
+body.theme-magic-tank .app-sidebar::after {
+  content: "" !important; display: block; height: 78px; margin: 10px 12px 14px; border-radius: 12px;
+  background: url('/assets/partner-magic-tank.png') center / contain no-repeat,
+              linear-gradient(135deg, rgba(107,63,29,.55), rgba(10,20,40,.7)) !important;
+  border: 1px solid rgba(251,220,112,.45); box-shadow: inset 0 0 0 1px rgba(0,0,0,.4); animation: none !important;
+}
+body.theme-magic-tank .sidebar-nav-item, body.theme-magic-tank .server-row { border-radius: 10px; }
+body.theme-magic-tank .sidebar-nav-item.active, body.theme-magic-tank .sidebar-nav-item-solo.active,
+body.theme-magic-tank .server-row.active, body.theme-magic-tank .channel-item.active {
+  background: linear-gradient(90deg, rgba(251,220,112,.20), rgba(0,168,255,.18)) !important;
+  box-shadow: inset 3px 0 0 var(--mt-gold) !important; color: #fff !important;
+}
+body.theme-magic-tank .sidebar-nav-item:hover, body.theme-magic-tank .server-row:hover, body.theme-magic-tank .channel-item:hover {
+  background: rgba(0,168,255,.12) !important; box-shadow: inset 3px 0 0 rgba(251,220,112,.6) !important;
+}
+body.theme-magic-tank .app-sidebar-section-label, body.theme-magic-tank .sidebar-section-title { color: var(--mt-gold) !important; letter-spacing: .12em; }
+
+/* ---- barra do topo ---- */
+body.theme-magic-tank .top-navbar {
+  background: linear-gradient(90deg, rgba(10,20,40,.92), rgba(7,14,30,.92)) !important;
+  border-bottom: 2px solid transparent !important; border-image: linear-gradient(90deg, #6b3f1d, #fbdc70 50%, #0b6fd6) 1 !important;
+}
+body.theme-magic-tank .navbar-create-btn { background: linear-gradient(180deg, #19a0ff, #0b5fb8) !important; color: #fff !important; border: 1px solid var(--mt-gold) !important; }
+
+/* ---- botões principais: azul mágico com borda dourada ---- */
+body.theme-magic-tank .home-btn-primary, body.theme-magic-tank .btn-primary, body.theme-magic-tank .btn-register,
+body.theme-magic-tank .wizard-next-btn, body.theme-magic-tank .modal-actions button[type="submit"], body.theme-magic-tank .modal-actions button.primary,
+body.theme-magic-tank .message-form button[type="submit"], body.theme-magic-tank #btn-save-profile, body.theme-magic-tank .auth-hero-cta-primary {
+  background: linear-gradient(180deg, #2bb0ff 0%, #0b6fd6 55%, #084a96 100%) !important; color: #fff !important;
+  border: 1px solid var(--mt-gold) !important; text-shadow: 0 1px 0 rgba(0,0,0,.5); box-shadow: 0 2px 0 #6b3f1d, 0 4px 8px rgba(0,0,0,.35) !important;
+}
+body.theme-magic-tank .home-btn-primary:hover, body.theme-magic-tank .btn-primary:hover, body.theme-magic-tank .message-form button[type="submit"]:hover {
+  background: linear-gradient(180deg, #fbdc70, #c9962b) !important; color: #2a1706 !important; text-shadow: none;
+}
+
+/* ---- cards, painéis e modais: moldura "madeira + ouro" ---- */
+body.theme-magic-tank .home-server-card, body.theme-magic-tank .home-quick-action, body.theme-magic-tank .tournament-card,
+body.theme-magic-tank .explore-card, body.theme-magic-tank .home-header-stat, body.theme-magic-tank .home-partner-game,
+body.theme-magic-tank .home-tournament-banner, body.theme-magic-tank .auth-card, body.theme-magic-tank .modal-content,
+body.theme-magic-tank .friend-card, body.theme-magic-tank .shop-card {
+  background: linear-gradient(160deg, rgba(14,28,56,.88), rgba(6,12,28,.92)) !important;
+  border: 1px solid rgba(251,220,112,.30) !important; border-top: 2px solid #8a5a24 !important; border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(0,0,0,.4), inset 0 1px 0 rgba(251,220,112,.08) !important;
+}
+body.theme-magic-tank .home-server-card:hover, body.theme-magic-tank .home-quick-action:hover, body.theme-magic-tank .tournament-card:hover, body.theme-magic-tank .explore-card:hover {
+  border-color: var(--mt-gold) !important; transform: translateY(-2px);
+}
+body.theme-magic-tank h1, body.theme-magic-tank h2, body.theme-magic-tank .home-section-title, body.theme-magic-tank .section-title { color: var(--mt-gold); }
+body.theme-magic-tank a { color: #6cc8ff; }
+body.theme-magic-tank a:hover { color: var(--mt-gold); }
+
+/* ---- chat: mensagens, entrada e menções ---- */
+body.theme-magic-tank .message .content, body.theme-magic-tank .message-bubble {
+  background: rgba(11,111,214,.16); border: 1px solid rgba(0,168,255,.30); border-radius: 12px;
+}
+body.theme-magic-tank .message.msg-own .content { background: linear-gradient(135deg, rgba(251,220,112,.20), rgba(11,111,214,.22)); border-color: rgba(251,220,112,.45); }
+body.theme-magic-tank .message .author, body.theme-magic-tank .message-author { color: var(--mt-gold) !important; }
+body.theme-magic-tank .message-form, body.theme-magic-tank #message-form { background: rgba(7,14,30,.9) !important; border-top: 2px solid #6b3f1d !important; }
+body.theme-magic-tank .message-form input[type="text"], body.theme-magic-tank #message-input {
+  background: #07101f !important; border: 1px solid rgba(251,220,112,.30) !important; border-radius: 10px;
+}
+body.theme-magic-tank input:focus, body.theme-magic-tank textarea:focus, body.theme-magic-tank select:focus, body.theme-magic-tank #message-input:focus {
+  border-color: var(--mt-gold) !important; box-shadow: 0 0 0 1px rgba(251,220,112,.55) !important;
+}
+
+/* ---- amigos, membros, abas ---- */
+body.theme-magic-tank .friends-tab.active, body.theme-magic-tank .auth-tab.active { background: linear-gradient(180deg, #2bb0ff, #0b6fd6) !important; border-color: var(--mt-gold) !important; color: #fff !important; }
+body.theme-magic-tank .member-avatar, body.theme-magic-tank .navbar-chip-avatar, body.theme-magic-tank #navbar-chip-avatar { box-shadow: 0 0 0 2px var(--mt-gold) !important; }
+body.theme-magic-tank .beta-tag { background: linear-gradient(180deg, #fbdc70, #c9962b) !important; color: #2a1706 !important; border: 0 !important; }
+body.theme-magic-tank .app-sidebar-logo-img { filter: none !important; }
+body.theme-magic-tank .home-partner-game { border-top-color: var(--mt-gold) !important; }
+body.theme-magic-tank .home-partner-game-img { filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
+
+/* ---- v0.91.1 (cap. 2): mais capricho — todas as abas, painéis e detalhes ---- */
+/* títulos de seção com ornamento dourado */
+body.theme-magic-tank .home-section-title { display: flex; align-items: center; gap: 8px; color: var(--mt-gold) !important; text-transform: uppercase; letter-spacing: .12em; }
+body.theme-magic-tank .home-section-title::after { content: ""; flex: 1; height: 2px; margin-left: 8px; background: linear-gradient(90deg, #8a5a24, rgba(251,220,112,.0)); border-radius: 2px; }
+/* cartões laterais e eventos (home) */
+body.theme-magic-tank .home-side-card, body.theme-magic-tank .home-activity, body.theme-magic-tank .home-playing-now, body.theme-magic-tank .home-partner-game-card, body.theme-magic-tank .modal-card {
+  background: linear-gradient(160deg, rgba(14,28,56,.9), rgba(6,12,28,.94)) !important;
+  border: 1px solid rgba(251,220,112,.28) !important; border-top: 2px solid #8a5a24 !important; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,.4) !important;
+}
+body.theme-magic-tank .home-partner-game-btn { background: linear-gradient(180deg, #fbdc70, #c9962b) !important; color: #2a1706 !important; border: 1px solid #6b3f1d !important; font-weight: 800; }
+/* banner principal: moldura dourada e fita */
+body.theme-magic-tank .home-tournament-banner { border: 2px solid #8a5a24 !important; outline: 1px solid rgba(251,220,112,.55); outline-offset: -6px; }
+/* configurações */
+body.theme-magic-tank .settings-sidebar { background: linear-gradient(180deg, rgba(10,20,40,.94), rgba(5,10,24,.96)) !important; border-right: 2px solid #6b3f1d !important; }
+body.theme-magic-tank .settings-sidebar-item { border-radius: 10px; }
+body.theme-magic-tank .settings-sidebar-item.active, body.theme-magic-tank .settings-sidebar-item:hover { background: linear-gradient(90deg, rgba(251,220,112,.18), rgba(0,168,255,.14)) !important; box-shadow: inset 3px 0 0 var(--mt-gold) !important; color: #fff !important; }
+body.theme-magic-tank .settings-content { background: rgba(6,12,28,.55) !important; }
+body.theme-magic-tank .settings-fixed-actions { background: rgba(7,14,30,.95) !important; border-top: 2px solid #6b3f1d !important; }
+/* modais: fundo escuro azulado, título dourado, botão fechar */
+body.theme-magic-tank .modal-content h2, body.theme-magic-tank .modal-content h3, body.theme-magic-tank .modal-card h2, body.theme-magic-tank .modal-card h3 { color: var(--mt-gold); border-bottom: 1px solid rgba(251,220,112,.25); padding-bottom: 8px; }
+body.theme-magic-tank .modal-actions button:not([type="submit"]):not(.primary) { background: rgba(255,255,255,.06) !important; border: 1px solid rgba(251,220,112,.35) !important; color: #e2e8f0 !important; }
+/* painéis de chat/voz/membros */
+body.theme-magic-tank #text-panel, body.theme-magic-tank .text-panel, body.theme-magic-tank #voice-panel, body.theme-magic-tank .members-panel, body.theme-magic-tank #members-panel {
+  background: linear-gradient(180deg, rgba(8,16,34,.78), rgba(5,10,24,.82)) !important;
+}
+body.theme-magic-tank .members-panel { border-left: 2px solid #6b3f1d !important; }
+body.theme-magic-tank .message:hover { background: rgba(251,220,112,.05) !important; }
+body.theme-magic-tank .video-tile.speaking, body.theme-magic-tank .video-tile.speaking .tile-avatar { box-shadow: 0 0 0 2px var(--mt-gold) !important; }
+/* menus flutuantes, tooltips e chips */
+body.theme-magic-tank .footer-more-menu, body.theme-magic-tank [class*="menu"][class*="popup"], body.theme-magic-tank [role="menu"] {
+  background: linear-gradient(160deg, #0e1c38, #060c1c) !important; border: 1px solid rgba(251,220,112,.4) !important; border-radius: 12px;
+}
+body.theme-magic-tank [class*="chip"], body.theme-magic-tank [class*="badge"]:not(.beta-tag) { border-color: rgba(251,220,112,.4); }
+/* toggles, barras de progresso e sliders em dourado */
+body.theme-magic-tank input[type="checkbox"], body.theme-magic-tank input[type="radio"], body.theme-magic-tank input[type="range"] { accent-color: #fbdc70; }
+body.theme-magic-tank progress, body.theme-magic-tank [class*="progress"] > div, body.theme-magic-tank [class*="progress-fill"] { background: linear-gradient(90deg, #8a5a24, #fbdc70) !important; }
+/* ícones de servidor: anel dourado quando ativo */
+body.theme-magic-tank .server-icon.active, body.theme-magic-tank .server-icon:hover { box-shadow: 0 0 0 2px var(--mt-gold) !important; }
+/* barra de busca do topo */
+body.theme-magic-tank .top-navbar input[type="search"], body.theme-magic-tank .navbar-search, body.theme-magic-tank .navbar-search input {
+  background: #07101f !important; border: 1px solid rgba(251,220,112,.30) !important; border-radius: 12px !important;
+}
+/* placa do logo da barra lateral com brilho sutil que passa (sem exagero) */
+body.theme-magic-tank .app-sidebar::after { background-size: contain, 100% 100% !important; }
+@media (prefers-reduced-motion: no-preference) {
+  body.theme-magic-tank .app-sidebar-logo-img { animation: mtFloat 5s ease-in-out infinite; }
+}
+@keyframes mtFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+/* celular: placa menor */
+@media (max-width: 760px) { body.theme-magic-tank .app-sidebar::after { height: 60px; } }
+
+/* ===== v0.91.1 — MAGIC TANK: mais edições (exclusivo por cupom) ===== */
+body.theme-magic-tank ::selection{background:rgba(245,196,81,.35);color:#fff}
+body.theme-magic-tank :focus-visible{outline:2px solid var(--mt-gold,#f5c451)!important;outline-offset:2px;border-radius:8px}
+body.theme-magic-tank input:focus,body.theme-magic-tank textarea:focus,body.theme-magic-tank select:focus{
+  border-color:var(--mt-gold,#f5c451)!important;box-shadow:0 0 0 3px rgba(245,196,81,.18)!important}
+/* cantoneiras douradas nos 4 cantos da tela, como moldura de placa */
+body.theme-magic-tank::before,body.theme-magic-tank::after{
+  content:"";position:fixed;width:46px;height:46px;pointer-events:none;z-index:2147483000;opacity:.85;
+  border:3px solid var(--mt-gold,#f5c451);filter:drop-shadow(0 0 3px rgba(0,0,0,.6))}
+body.theme-magic-tank::before{top:6px;left:6px;border-right:0;border-bottom:0;border-top-left-radius:12px}
+body.theme-magic-tank::after{bottom:6px;right:6px;border-left:0;border-top:0;border-bottom-right-radius:12px}
+/* cartões e botões "levantam" ao passar o mouse */
+body.theme-magic-tank .home-card,body.theme-magic-tank .server-card,body.theme-magic-tank .pv2-theme-card,
+body.theme-magic-tank .friend-row,body.theme-magic-tank .channel-item{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+body.theme-magic-tank .home-card:hover,body.theme-magic-tank .server-card:hover,body.theme-magic-tank .pv2-theme-card:hover{
+  transform:translateY(-3px);border-color:var(--mt-gold,#f5c451)!important;box-shadow:0 8px 18px rgba(0,0,0,.45)}
+body.theme-magic-tank button:active{transform:scale(.97)}
+/* abas / itens ativos com sublinhado dourado */
+body.theme-magic-tank .tab.active,body.theme-magic-tank .settings-tab.active,body.theme-magic-tank [role="tab"][aria-selected="true"]{
+  box-shadow:inset 0 -3px 0 var(--mt-gold,#f5c451)}
+/* avisos (toast) em placa de madeira */
+body.theme-magic-tank .copy-toast,body.theme-magic-tank .toast{
+  background:linear-gradient(180deg,#5a3a1c,#3b2410)!important;color:#ffe9a8!important;
+  border:2px solid var(--mt-gold,#f5c451)!important;border-radius:12px!important;box-shadow:0 6px 18px rgba(0,0,0,.5)!important}
+/* barra de rolagem dourada fina + separadores com losango */
+body.theme-magic-tank hr{border:0;height:2px;background:linear-gradient(90deg,transparent,var(--mt-gold,#f5c451),transparent);opacity:.7}
+/* mensagens próprias com filete dourado */
+body.theme-magic-tank .message.own,body.theme-magic-tank .msg.own{border-left:3px solid var(--mt-gold,#f5c451)}
+/* tooltips */
+body.theme-magic-tank [data-tooltip]::after,body.theme-magic-tank .tooltip{
+  background:#3b2410!important;color:#ffe9a8!important;border:1px solid var(--mt-gold,#f5c451)!important}
+/* selo MEMBRO MAGIC TANK flutuante (canto inferior esquerdo) */
+body.theme-magic-tank #mt-member-tag{position:fixed;left:14px;bottom:12px;z-index:2147483001;pointer-events:none;
+  font:800 10px/1 system-ui,sans-serif;letter-spacing:.14em;color:#3b2410;background:linear-gradient(180deg,#ffe08a,#f5c451);
+  padding:5px 9px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.5);animation:mtFloat 3.2s ease-in-out infinite}
+#mt-member-tag{display:none}
+body.theme-magic-tank #mt-member-tag{display:block}
+@media(max-width:700px){body.theme-magic-tank::before,body.theme-magic-tank::after{display:none}
+  body.theme-magic-tank #mt-member-tag{bottom:70px}}

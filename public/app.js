@@ -5895,7 +5895,7 @@ function currentScreenContext() {
   parts.push('Navegador: ' + navigator.userAgent);
   parts.push('Resolução: ' + window.innerWidth + 'x' + window.innerHeight);
   try {
-    // v0.90.9 — diagnóstico de temas (ajuda a ver diferenças Windows/Mac)
+    // v0.91.1 — diagnóstico de temas (ajuda a ver diferenças Windows/Mac)
     const L = window.PlusV2Live;
     parts.push('Sistema: ' + (navigator.platform || '?') + ' | movimento reduzido: ' + (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'sim' : 'não') + ' | tela ' + Math.round(window.devicePixelRatio * 100) / 100 + 'x');
     if (L) parts.push('Temas: plano=' + (typeof me !== 'undefined' && me ? me.plan : '?') + ' | modo desempenho=' + (L.state.performanceMode ? 'LIGADO' : 'desligado') + ' | cena=' + (document.body.dataset.pv2Scene || 'nenhuma') + ' | carregado=' + L.state.loaded);
@@ -6039,15 +6039,22 @@ document.getElementById('btn-redeem-code').onclick = async () => {
       msgEl.textContent = data.error || 'Código inválido';
       return;
     }
-    me.plan = 'plus';
-    updatePlusBadgeUI();
-    loadUploadLimits();
+    if (data.plusGranted !== false) {
+      me.plan = 'plus';
+      updatePlusBadgeUI();
+      loadUploadLimits();
+      document.getElementById('plus-already-active').classList.remove('hidden');
+      document.getElementById('paypal-button-container').innerHTML = '';
+    }
     mountPlusV2Personalization();
     SFX.reward && SFX.reward();
     input.value = '';
-    document.getElementById('plus-already-active').classList.remove('hidden');
-    document.getElementById('paypal-button-container').innerHTML = '';
-    document.getElementById('redeem-code-box').classList.add('hidden');
+    // Cupom de tema exclusivo: mantém a caixa aberta (pode resgatar outro) e
+    // avisa onde achar o tema.
+    if (!data.grants) document.getElementById('redeem-code-box').classList.add('hidden');
+    if (data.grants && typeof showCopyToast === 'function') {
+      showCopyToast('🎁 Tema MAGIC TANK liberado — escolha em Personalização › Temas');
+    }
     msgEl.style.color = '#3ba55c';
     msgEl.textContent = '🎉 ' + (data.message || 'NEXTGAME PLUS liberado!');
   } catch (err) {
@@ -6087,8 +6094,9 @@ async function openPlusUpgradeModal() {
   buttonContainer.innerHTML = '';
   alreadyEl.classList.add('hidden');
   notConfiguredEl.classList.add('hidden');
-  // Cupom de resgate só faz sentido pra quem ainda não é Plus.
-  document.getElementById('redeem-code-box').classList.toggle('hidden', isPlusUser());
+  // Cupom de resgate fica sempre disponível: além do PLUS, existem cupons de
+  // parceiros que liberam temas exclusivos (ex.: Magic Tank).
+  document.getElementById('redeem-code-box').classList.remove('hidden');
   document.getElementById('redeem-code-msg').textContent = '';
 
   if (isPlusUser()) {
@@ -6172,6 +6180,10 @@ async function mountPlusV2Personalization() {
             ? ''
             : d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
           showCopyToast('⏳ "' + item.name + '" ainda não foi lançado' + (formatted ? ' — disponível em ' + formatted : ''));
+          return;
+        }
+        if (item && item.exclusive) {
+          showCopyToast('🔒 "' + item.name + '" é exclusivo de quem tem o cupom do parceiro — resgate em NEXTGAME PLUS › Resgatar cupom');
           return;
         }
         showCopyToast('🔒 "' + item.name + '" é exclusivo do NEXTGAME PLUS');

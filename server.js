@@ -2021,17 +2021,37 @@ app.post(
     if (found.used_by) return res.status(409).json({ error: 'Esse código já foi resgatado' });
     const expiresAt =
       found.days > 0 ? new Date(Date.now() + found.days * 24 * 60 * 60 * 1000).toISOString() : null;
-    await setUserPlan(req.user.id, found.plan, { source: 'coupon', expiresAt });
+    const grantsMT = found.grants === 'magic_tank' || found.grants === 'magic_tank_only';
+    const giveTheme = grantsMT;
+    const givePlus = found.grants !== 'magic_tank_only';
+    if (givePlus) await setUserPlan(req.user.id, found.plan, { source: 'coupon', expiresAt });
+    if (giveTheme) {
+      // Acesso ao tema exclusivo: soma ao tempo que a pessoa já tem (ou vira "forever").
+      const cur = req.user.partner_magic_tank;
+      let next;
+      if (cur === 'forever' || !expiresAt) next = 'forever';
+      else {
+        const base = cur && new Date(cur).getTime() > Date.now() ? new Date(cur).getTime() : Date.now();
+        next = new Date(base + found.days * 24 * 60 * 60 * 1000).toISOString();
+      }
+      await db.run('UPDATE users SET partner_magic_tank = ? WHERE id = ?', [next, req.user.id]);
+    }
     await db.run("UPDATE redeem_codes SET used_by = ?, used_at = datetime('now') WHERE id = ?", [
       req.user.id,
       found.id,
     ]);
+    const dur = found.days > 0 ? ` por ${found.days} dias` : '';
     res.json({
       ok: true,
-      plan: found.plan,
+      plan: givePlus ? found.plan : req.user.plan,
+      plusGranted: givePlus,
+      grants: found.grants || null,
       days: found.days,
-      message:
-        found.days > 0
+      message: giveTheme
+        ? givePlus
+          ? `Tema exclusivo MAGIC TANK + NEXTGAME PLUS liberados${dur}!`
+          : `Tema exclusivo MAGIC TANK liberado${dur}!`
+        : found.days > 0
           ? `NEXTGAME PLUS liberado por ${found.days} dias!`
           : 'NEXTGAME PLUS liberado!',
     });
@@ -2058,7 +2078,8 @@ app.post(
   requireAuth,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const { days, note, quantity } = req.body || {};
+    const { days, note, quantity, grants } = req.body || {};
+    const cleanGrants = ['magic_tank', 'magic_tank_only'].includes(grants) ? grants : null;
     const cleanDays = Math.max(0, Math.min(3650, parseInt(days, 10) || 30));
     const cleanNote = (note || '').toString().slice(0, 200) || null;
     const qty = Math.max(1, Math.min(50, parseInt(quantity, 10) || 1));
@@ -2072,12 +2093,12 @@ app.post(
       } while (await db.get('SELECT id FROM redeem_codes WHERE code = ?', [code]));
       const id = uuidv4();
       await db.run(
-        'INSERT INTO redeem_codes (id, code, plan, days, note, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, code, 'plus', cleanDays, cleanNote, req.user.username]
+        'INSERT INTO redeem_codes (id, code, plan, days, note, created_by, grants) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [id, code, 'plus', cleanDays, cleanNote, req.user.username, cleanGrants]
       );
       codes.push(code);
     }
-    logAudit(req.user, 'create_redeem_codes', 'redeem_code', null, { quantity: qty, days: cleanDays, note: cleanNote });
+    logAudit(req.user, 'create_redeem_codes', 'redeem_code', null, { quantity: qty, days: cleanDays, note: cleanNote, grants: cleanGrants });
     res.json({ ok: true, codes });
   })
 );
