@@ -443,7 +443,19 @@
         theme.key === 'custom-draft' ? null : el('button', {
           type: 'button', class: 'pv2-card-btn primary',
           style: `--pv2-mini-primary:${theme.colors.primary};--pv2-mini-secondary:${theme.colors.secondary};`,
-          onclick: async () => { const t = previewingTheme; endPreview(!!t.locked); await selectTheme(t); },
+          onclick: async () => {
+            const t = previewingTheme; endPreview(!!t.locked); await selectTheme(t);
+            // v0.90.8: com "Modo desempenho" ligado o tema aplicado ficava SEM os efeitos
+            // que apareciam no preview — avisa e oferece desligar na hora.
+            try {
+              if (!t.locked && data.visualPrefs && data.visualPrefs.performanceMode && ((t.scene && t.scene !== 'none') || t.decor || t.fx)) {
+                if (global.confirm('O "Modo desempenho" está LIGADO e esconde os efeitos deste tema (por isso ele fica diferente do preview). Desligar o Modo desempenho agora?')) {
+                  await saveMe({ visualPrefs: { performanceMode: false } });
+                  data.visualPrefs.performanceMode = false;
+                }
+              }
+            } catch (_) { /* segue sem o aviso */ }
+          },
         }, [theme.locked ? '🔒 PLUS' : 'Aplicar']),
         el('button', { type: 'button', class: 'pv2-card-btn', onclick: () => endPreview(true) }, [theme.key === 'custom-draft' ? 'Voltar ao criador' : 'Cancelar']),
       ]);

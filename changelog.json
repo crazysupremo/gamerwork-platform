@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.90.8",
+    "date": "2026-11-05",
+    "changes": [
+      "Ao aplicar um tema com o Modo desempenho ligado, o site avisa que os efeitos ficam escondidos (por isso diferia do preview) e oferece desligar na hora."
+    ]
+  },
+  {
     "version": "0.90.7",
     "date": "2026-11-05",
     "changes": [
