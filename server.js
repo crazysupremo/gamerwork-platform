@@ -1,3 +1,5 @@
+// BLUEX SHIELD — proteção contra flood/DDoS (BLUEX_SHIELD=off desliga numa emergência)
+require('./bluex-shield');
 // server.js - servidor principal
 const path = require('path');
 const crypto = require('crypto');

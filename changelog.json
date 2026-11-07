@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.91.2",
+    "date": "2026-11-07",
+    "changes": [
+      "Proteção anti-DDoS BLUEX SHIELD ligada no site: limita pedidos por IP, bane quem faz flood (10 min até 24h), modo 'sob ataque' para muitos IPs, limite de WebSockets por IP e timeouts contra conexões lentas. Limites ajustados para celulares atrás de CGNAT. Desligar em emergência: variável BLUEX_SHIELD=off no Render."
+    ]
+  },
+  {
     "version": "0.91.1",
     "date": "2026-11-05",
     "changes": [

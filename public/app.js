@@ -5895,7 +5895,7 @@ function currentScreenContext() {
   parts.push('Navegador: ' + navigator.userAgent);
   parts.push('Resolução: ' + window.innerWidth + 'x' + window.innerHeight);
   try {
-    // v0.91.1 — diagnóstico de temas (ajuda a ver diferenças Windows/Mac)
+    // v0.91.2 — diagnóstico de temas (ajuda a ver diferenças Windows/Mac)
     const L = window.PlusV2Live;
     parts.push('Sistema: ' + (navigator.platform || '?') + ' | movimento reduzido: ' + (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'sim' : 'não') + ' | tela ' + Math.round(window.devicePixelRatio * 100) / 100 + 'x');
     if (L) parts.push('Temas: plano=' + (typeof me !== 'undefined' && me ? me.plan : '?') + ' | modo desempenho=' + (L.state.performanceMode ? 'LIGADO' : 'desligado') + ' | cena=' + (document.body.dataset.pv2Scene || 'nenhuma') + ' | carregado=' + L.state.loaded);
