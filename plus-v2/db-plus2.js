@@ -427,9 +427,9 @@ async function seedPlusV2Defaults(db) {
       [newId(), t.key, t.name, t.primary, t.secondary, t.highlight, t.text, t.button, t.effect, t.premium ? 1 : 0, i, JSON.stringify(t.suggestedEffects || []), ...extra, t.releaseAt || null, t.fx ? JSON.stringify(t.fx) : null]
     );
   }
-  // v0.91.2: o Matrix ficou só com a chuva de código (sem moldura/balões neon).
+  // v0.91.3: o Matrix ficou só com a chuva de código (sem moldura/balões neon).
   await run(`UPDATE plus_v2_themes SET fx_json = NULL WHERE key = 'cyber-green' AND is_preset = 1 AND fx_json LIKE '%"neon"%'`);
-  // v0.91.2: Magic Tank especial — troca a decoração antiga (soldadinho) pela do mago.
+  // v0.91.3: Magic Tank especial — troca a decoração antiga (soldadinho) pela do mago.
   await run(`UPDATE plus_v2_themes SET fx_json = ?, scene = 'embers' WHERE key = 'magic-tank' AND is_preset = 1 AND (fx_json IS NULL OR fx_json LIKE '%"Tanque"%')`, [JSON.stringify(MAGIC_TANK_FX)]);
   // Aposenta os temas antigos: move quem usava pro Next Blue e apaga a linha.
   const fallback = await get('SELECT id FROM plus_v2_themes WHERE key = ?', ['blue']);

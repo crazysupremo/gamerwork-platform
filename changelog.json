@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.91.3",
+    "date": "2026-11-07",
+    "changes": [
+      "BLUEX SHIELD v2: rotas de login/cadastro/senha com limite próprio, armadilhas contra scanners (.env, wp-login, phpmyadmin...), cobrança extra para varredura de URLs (404), peso para pedidos sem User-Agent, modo proteção quando o servidor engasga e timeouts/keep-alive mais curtos.",
+      "Admin: GET /api/admin/shield mostra IPs banidos e bans recentes; POST /api/admin/shield/unban libera um IP."
+    ]
+  },
+  {
     "version": "0.91.2",
     "date": "2026-11-07",
     "changes": [

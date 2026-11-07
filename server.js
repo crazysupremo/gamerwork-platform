@@ -2060,6 +2060,21 @@ app.post(
   })
 );
 
+// Painel rápido do BLUEX SHIELD: IPs banidos agora, bans recentes e se está sob ataque.
+app.get('/api/admin/shield', requireAuth, requireAdmin, (req, res) => {
+  const sh = global[Symbol.for('bluex.shield.patched')];
+  if (!sh) return res.json({ active: false });
+  res.json({ active: true, ...sh.stats() });
+});
+
+app.post('/api/admin/shield/unban', requireAuth, requireAdmin, (req, res) => {
+  const sh = global[Symbol.for('bluex.shield.patched')];
+  const ip = (req.body && req.body.ip) || '';
+  if (!sh || !ip) return res.status(400).json({ error: 'IP obrigatório' });
+  sh.unban(ip);
+  res.json({ ok: true });
+});
+
 app.get(
   '/api/admin/redeem-codes',
   requireAuth,

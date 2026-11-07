@@ -42,7 +42,7 @@ const shield = createShield({
       try {
         if (event === 'request') {
           const [req, res] = args;
-          const r = shield.checkRequest(req);
+          const r = shield.checkRequest(req, res);
           if (!r.ok) {
             shield.reject(res, r);
             return true; // o jogo nem fica sabendo

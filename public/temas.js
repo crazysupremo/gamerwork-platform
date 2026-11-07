@@ -275,7 +275,7 @@
     return { key: t.key, name: t.name, colors: { primary: t.primary, secondary: t.secondary, highlight: t.highlight, text: t.text, button: t.button }, darkMode: true, effect: t.effect, font: t.font, scene: t.scene, decor: t.decor || '', fx: t.fx || null, suggestedEffects: t.suggestedEffects || [] };
   }
   function pushStage(extra) {
-    // v0.91.2: não depende mais do aviso "pronto" do palco (se ele se perdia, o
+    // v0.91.3: não depende mais do aviso "pronto" do palco (se ele se perdia, o
     // preview ficava com o visual padrão); envia sempre e reenvia ao carregar.
     if (!draft || !okHexAll(draft) || !stage.contentWindow) return;
     stage.contentWindow.postMessage(Object.assign({ type: 'pv2-stage', theme: toStageTheme(draft), name: 'Admin' }, extra || {}), location.origin);

@@ -21,6 +21,18 @@ const DEFAULTS = {
   trustProxy: 'auto',
   allowlist: [], // IPs que nunca são bloqueados (ex: o teu)
   skipPaths: [], // caminhos que não contam (ex: ['/health'])
+  // --- v2: mais eficaz ---
+  // Rotas sensíveis (login, cadastro, senha, cupom...): limite BEM menor por IP.
+  sensitivePaths: ['/api/login', '/api/register', '/api/signup', '/api/redeem-code', '/api/forgot', '/api/reset', '/api/verify', '/api/auth'],
+  sensitiveMaxPerMinute: 60, // POSTs nessas rotas por IP por minuto (acima disso = strike)
+  // Scanners/bots procurando brecha: tocar nisso já conta forte (e 3 vezes = ban).
+  trapPaths: ['/.env', '/.git', '/wp-login', '/wp-admin', '/xmlrpc.php', '/phpmyadmin', '/phpinfo', '/vendor/phpunit', '/cgi-bin', '/boaform', '/actuator', '/.aws', '/config.json', '/server-status'],
+  trapWeight: 400, // peso de cada toque em armadilha (limite é 600 por janela)
+  notFoundWeight: 4, // cada resposta 404 custa mais (varredura de URLs)
+  // Proteção por sobrecarga: se o servidor está "engasgado" (event loop lento),
+  // recusa IPs novos/pesados em vez de cair tudo.
+  lagShedMs: 400, // atraso do event loop que liga o modo proteção
+  maxRequestsPerSocket: 1000, // conexão keep-alive reciclada depois disso
   log: true,
   logIntervalMs: 60_000,
   maxTrackedIps: 200_000, // limite de memória
@@ -70,6 +82,19 @@ function createShield(options = {}) {
   let underAttack = false;
   let normalPerSecond = 0;
   const minute = { total: 0, blocked: 0, newBans: 0, perIp: new Map() };
+  const recent = []; // últimos bans (pro painel admin)
+  const sensitive = new Map(); // ip -> { n, start }
+  let loadShed = false; // servidor engasgado
+  let lastTick = Date.now();
+  const lagTimer = setInterval(() => {
+    const now = Date.now();
+    const lag = now - lastTick - 250;
+    lastTick = now;
+    const was = loadShed;
+    loadShed = lag > cfg.lagShedMs;
+    if (cfg.log && loadShed !== was) console.warn(loadShed ? `[BLUEX SHIELD] ⚠️ servidor sobrecarregado (atraso ${lag}ms) — protegendo` : '[BLUEX SHIELD] servidor normalizado');
+  }, 250);
+  lagTimer.unref();
 
   function normalizeIp(ip) {
     if (!ip) return 'desconhecido';
@@ -156,7 +181,7 @@ function createShield(options = {}) {
 
     if (s.bannedUntil > now) return block(s, 'banido');
 
-    if (underAttack && now - s.firstSeen < cfg.trustedAfterMs) {
+    if ((underAttack || loadShed) && now - s.firstSeen < cfg.trustedAfterMs) {
       return block(s, 'sob_ataque', 5);
     }
 
@@ -179,6 +204,8 @@ function createShield(options = {}) {
         const dur = Math.min(cfg.banMs * 2 ** (s.bans - 1), cfg.maxBanMs);
         s.bannedUntil = now + dur;
         minute.newBans++;
+        recent.unshift({ ip, at: new Date(now).toISOString(), minutes: Math.round(dur / 60000), n: s.bans });
+        if (recent.length > 50) recent.pop();
         if (cfg.log) console.warn(`[BLUEX SHIELD] 🚫 IP ${ip} banido por ${Math.round(dur / 60000)} min (ban nº ${s.bans})`);
         return block(s, 'banido');
       }
@@ -244,6 +271,8 @@ function createShield(options = {}) {
   function setTimeouts(server) {
     if (!server.headersTimeout || server.headersTimeout > 10_000) server.headersTimeout = 10_000; // cabeçalhos em 10s
     if (!server.requestTimeout || server.requestTimeout > 30_000) server.requestTimeout = 30_000; // pedido inteiro em 30s
+    try { server.maxRequestsPerSocket = cfg.maxRequestsPerSocket; } catch (_) {}
+    try { if (!server.keepAliveTimeout || server.keepAliveTimeout > 65_000) server.keepAliveTimeout = 65_000; } catch (_) {}
   }
 
   function protectServer(server) {
@@ -274,10 +303,33 @@ function createShield(options = {}) {
     return true;
   }
 
-  function checkRequest(req) {
+  function checkRequest(req, res) {
     const url = req.url || '';
     if (cfg.skipPaths.some((p) => url === p || url.startsWith(p + '?'))) return { ok: true };
-    return check(getIp(req));
+    const ip = getIp(req);
+    const path = url.split('?')[0].toLowerCase();
+    let weight = 1;
+    if (!allow.has(ip)) {
+      // Armadilhas: scanner procurando .env, wp-login, phpmyadmin...
+      if (cfg.trapPaths.some((p) => path.startsWith(p))) weight = cfg.trapWeight;
+      // Sem User-Agent = quase sempre script de ataque (navegador sempre manda).
+      else if (!req.headers || !req.headers['user-agent']) weight = 3;
+      // Rotas sensíveis: limite próprio por minuto.
+      if (req.method === 'POST' && cfg.sensitivePaths.some((p) => path.startsWith(p))) {
+        const now = Date.now();
+        let q = sensitive.get(ip);
+        if (!q || now - q.start > 60_000) { q = { n: 0, start: now }; sensitive.set(ip, q); }
+        if (++q.n > cfg.sensitiveMaxPerMinute) weight = Math.max(weight, 150);
+        if (sensitive.size > cfg.maxTrackedIps) sensitive.clear();
+      }
+      // Muitos 404 seguidos = varredura de URLs: cobra a mais na resposta.
+      if (res && typeof res.once === 'function') {
+        res.once('finish', () => {
+          if (res.statusCode === 404) check(ip, cfg.notFoundWeight - 1);
+        });
+      }
+    }
+    return check(ip, weight);
   }
 
   // ---------- WebSocket (biblioteca "ws") ----------
@@ -360,7 +412,7 @@ function createShield(options = {}) {
     const now = Date.now();
     const banned = [];
     for (const [ip, s] of ips) if (s.bannedUntil > now) banned.push({ ip, minutesLeft: Math.ceil((s.bannedUntil - now) / 60000), bans: s.bans });
-    return { underAttack, trackedIps: ips.size, banned };
+    return { underAttack, loadShed, trackedIps: ips.size, banned, recentBans: recent.slice(0, 20) };
   }
 
   function unban(ip) {
