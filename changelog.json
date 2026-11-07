@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.92.0",
+    "date": "2026-11-07",
+    "changes": [
+      "Temas de data (Natal, Halloween etc.) ficam BLOQUEADOS até a data de lançamento; antes disso só admin com selo de verificado pode usar, para teste.",
+      "Fim do \"coisa em cima de coisa\": nova escala de camadas — menus e janelas ficam sempre acima do botão Reportar erro e dos efeitos; o menu ⋯ da coluna de canais abre solto e nunca mais é cortado; o botão Reportar erro some enquanto há menu/janela aberta.",
+      "Pré-visualização agora é IGUAL ao tema aplicado: os ajustes pessoais não vazam mais de um tema para outro e o preview passa pelo mesmo caminho do tema aplicado.",
+      "Mais personalização (/tema editar): brilho dos botões, cantos dos cartões, força do fundo animado, moldura da tela (fina, neon, dourada, vidro) e estilo dos botões. Novos comandos /tema moldura e /tema botao.",
+      "Magic Tank refeito: moldura de placa única, títulos dourados com brilho, botões de moeda dourada em relevo, rolagem dourada, menus sólidos, selo MEMBRO dentro da barra do topo (sem nada flutuando por cima)."
+    ]
+  },
+  {
     "version": "0.91.5",
     "date": "2026-11-07",
     "changes": [

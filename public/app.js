@@ -1717,6 +1717,19 @@ document.getElementById('btn-close-channel-sidebar').onclick = () => setChannelS
   btn.onclick = (e) => {
     e.stopPropagation();
     menu.classList.toggle('hidden');
+    // v0.92.0: o menu ficava preso/cortado dentro da coluna (overflow) e por
+    // baixo de outros elementos. Agora abre "solto" (fixed), alinhado ao botão
+    // e sempre dentro da tela.
+    if (!menu.classList.contains('hidden')) {
+      const r = btn.getBoundingClientRect();
+      const w = Math.min(248, window.innerWidth - 16);
+      menu.classList.add('pv2-fixed');
+      menu.style.width = w + 'px';
+      menu.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
+      menu.style.top = (r.bottom + 8) + 'px';
+    } else {
+      menu.classList.remove('pv2-fixed');
+    }
     // CORRIGIDO: sem isso, o navegador desenhava o anel azul padrão de foco
     // em volta do botão redondo, que ficava "cortado" bem em cima do menu
     // que abre logo abaixo. Agora o próprio botão fica destacado (mesmo

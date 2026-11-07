@@ -601,7 +601,7 @@
             theme.premium ? el('span', { class: 'pv2-premium-pill' }, ['PLUS']) : null,
             selected ? el('span', { class: 'pv2-meta-tag' }, ['em uso']) : null,
             theme.draft ? el('span', { class: 'pv2-meta-tag' }, ['rascunho (só admin)']) : null,
-            (theme.comingSoon && theme.locked === false) ? el('span', { class: 'pv2-meta-tag' }, ['agendado (só admin)']) : null,
+            (theme.comingSoon && theme.locked === false) ? el('span', { class: 'pv2-meta-tag' }, ['teste antecipado (admin verificado)']) : null,
           ]),
           theme.tagline ? el('div', { class: 'pv2-theme-tagline' }, [theme.tagline]) : null,
           metaTags.length ? el('div', { class: 'pv2-theme-meta' }, metaTags.map((m) => el('span', { class: 'pv2-meta-tag' }, [m]))) : null,
@@ -632,12 +632,14 @@
       card.style.setProperty('--pv2-mini-primary', theme.colors.primary);
       card.style.setProperty('--pv2-mini-secondary', theme.colors.secondary);
       card.addEventListener('click', () => startPreview(theme));
-      if (theme.comingSoon) {
+      if (theme.comingSoon && theme.locked) {
         const d = theme.releaseAt ? new Date(theme.releaseAt) : null;
         const formatted = d && !Number.isNaN(d.getTime())
           ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
           : null;
         card.appendChild(el('div', { class: 'pv2-lock-badge pv2-lock-badge-soon' }, [formatted ? ('⏳ em ' + formatted) : '⏳ em breve']));
+      } else if (theme.comingSoon) {
+        card.appendChild(el('div', { class: 'pv2-lock-badge pv2-lock-badge-soon' }, ['🧪 teste']));
       } else if (theme.locked) {
         card.appendChild(el('div', { class: 'pv2-lock-badge' }, ['🔒 PLUS']));
       }

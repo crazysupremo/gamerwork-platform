@@ -140,8 +140,15 @@ function hasCouponAccess(user, coupon) {
   return false;
 }
 
+// Quem pode usar tema de data/agendado ANTES do lançamento (para teste):
+// só admin COM selo de verificado.
+function canTestEarly(user) {
+  return !!(user && user.is_admin && user.is_verified);
+}
+
 function themeOut(t, unlocked, now, isAdmin, user) {
-  const released = isThemeReleased(t, now || new Date()) || !!isAdmin;
+  const trulyReleased = isThemeReleased(t, now || new Date());
+  const released = trulyReleased || canTestEarly(user);
   const exclusive = t.exclusive_coupon || null;
   const couponLocked = !!exclusive && !hasCouponAccess(user, exclusive);
   return {
@@ -174,7 +181,8 @@ function themeOut(t, unlocked, now, isAdmin, user) {
     // disponível desde sempre). comingSoon fica true enquanto a data ainda
     // não chegou — o frontend usa isso pra mostrar "disponível em XX/XX".
     releaseAt: t.release_at || null,
-    comingSoon: !released,
+    comingSoon: !trulyReleased,
+    earlyAccess: !trulyReleased && released,
     exclusive,
     couponLocked,
     locked: (!!t.is_premium && !unlocked && !isAdmin) || !released || couponLocked,
@@ -444,7 +452,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
           // Reforça no servidor a data de lançamento (release_at) definida
           // pelo admin — sem isso, dava pra escolher um tema "ainda não
           // lançado" direto pela API, mesmo que a galeria mostrasse cadeado.
-          if (!isThemeReleased(theme, new Date()) && !req.user.is_admin) {
+          if (!isThemeReleased(theme, new Date()) && !canTestEarly(req.user)) {
             return res.status(403).json({
               error: 'Esse tema ainda não foi lançado.',
               releaseAt: theme.release_at,

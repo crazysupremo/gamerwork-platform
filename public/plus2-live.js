@@ -1048,7 +1048,7 @@
   function applyTheme(theme, isPreview) {
     if (!theme) return;
     if (!isPreview) global.PlusV2LiveBaseTheme = theme;
-    if (global.PlusV2Quick) theme = isPreview ? Object.assign({}, theme, { chatStyle: theme.fx && theme.fx.chatStyle ? theme.fx.chatStyle : null }) : global.PlusV2Quick.merge(theme);
+    if (global.PlusV2Quick) theme = global.PlusV2Quick.merge(theme); // v0.92.0: preview e tema aplicado passam pelo MESMO caminho
     const root = document.documentElement;
     // Expõe o tema atual pro app.js conseguir ler o nome/cor sem duplicar
     // esse dado — usado pela faixa de identidade genérica no menu lateral
@@ -1069,7 +1069,9 @@
       const tag = document.createElement('div');
       tag.id = 'mt-member-tag';
       tag.textContent = '★ MEMBRO MAGIC TANK';
-      document.body.appendChild(tag);
+      // v0.92.0: dentro da barra do topo (antes flutuava por cima de tudo)
+      const chip = document.querySelector('.navbar-profile-chip-wrap');
+      if (chip && chip.parentElement) chip.parentElement.insertBefore(tag, chip); else document.body.appendChild(tag);
     }
     // Mesma ideia pro tema DDTank — a pedido ("o mesmo do DDTank"): partículas
     // de brilho/coraçãozinho flutuando, combinando com a paleta fofa/pastel

@@ -1279,3 +1279,111 @@ body.theme-magic-tank #mt-member-tag{position:fixed;left:14px;bottom:12px;z-inde
 body.theme-magic-tank #mt-member-tag{display:block}
 @media(max-width:700px){body.theme-magic-tank::before,body.theme-magic-tank::after{display:none}
   body.theme-magic-tank #mt-member-tag{bottom:70px}}
+
+/* ==========================================================================
+   v0.92.0 — ESCALA ÚNICA DE CAMADAS (fim do "coisa em cima de coisa")
+   conteúdo 0-40 · botão Reportar erro 80 · efeitos de tema 90-98
+   barra do topo 200 · modais 1000 · menus/dropdowns 9600 · popups/toasts 10000+
+   Regra: menu e modal SEMPRE acima de botão flutuante e de efeitos.
+   ========================================================================== */
+.report-bug-fab { z-index: 80 !important; }
+body:has(.sidebar-more-menu:not(.hidden)) .report-bug-fab,
+body:has(.footer-more-menu:not(.hidden)) .report-bug-fab,
+body:has(.navbar-create-menu:not(.hidden)) .report-bug-fab,
+body:has(.modal-overlay:not(.hidden)) .report-bug-fab,
+body:has(.context-menu) .report-bug-fab,
+body:has(#plus2-panel:not(.hidden)) .report-bug-fab { opacity: 0; pointer-events: none; transform: scale(.85); }
+.report-bug-fab { transition: opacity .15s ease, transform .15s ease; }
+.top-navbar { z-index: 200 !important; }
+.navbar-profile-chip-wrap { z-index: 201 !important; }
+.modal-overlay { z-index: 1000 !important; }
+.sidebar-more-menu, .footer-more-menu, .navbar-create-menu, .navbar-search-dropdown { z-index: 9600 !important; max-height: calc(100vh - 90px); overflow-y: auto; }
+.sidebar-more-menu.pv2-fixed { position: fixed !important; top: auto; right: auto; }
+.context-menu { z-index: 10002 !important; }
+/* Tag do Magic Tank no canto: nunca cobre o menu/rodapé */
+body.theme-magic-tank #mt-member-tag { z-index: 79 !important; }
+
+/* ==========================================================================
+   v0.92.0 — PERSONALIZAÇÃO EXTRA (mini-editor /tema editar)
+   ========================================================================== */
+body.pv2-x-glow .primary, body.pv2-x-glow button[type="submit"], body.pv2-x-glow .sidebar-header-btn-primary,
+body.pv2-x-glow .home-partner-game-btn, body.pv2-x-glow .pv2-card-btn.primary, body.pv2-x-glow .btn-primary {
+  box-shadow: 0 0 calc(22px * var(--pv2-glow, .6)) rgba(var(--accent-rgb), calc(.7 * var(--pv2-glow, .6))) !important;
+}
+body.pv2-x-cr .modal-card, body.pv2-x-cr .home-card, body.pv2-x-cr .home-side-card, body.pv2-x-cr .server-card,
+body.pv2-x-cr .pv2-theme-card, body.pv2-x-cr .tournament-card, body.pv2-x-cr .explore-card, body.pv2-x-cr .home-activity {
+  border-radius: var(--pv2-card-r, 12px) !important;
+}
+body.pv2-x-so #plus2-scene { opacity: var(--pv2-scene-o, 1) !important; }
+body.pv2-btn-gradient .primary, body.pv2-btn-gradient button[type="submit"], body.pv2-btn-gradient .sidebar-header-btn-primary, body.pv2-btn-gradient .pv2-card-btn.primary {
+  background: var(--gradient-brand) !important; color: #fff !important; border-color: transparent !important;
+}
+body.pv2-btn-bevel .primary, body.pv2-btn-bevel button[type="submit"], body.pv2-btn-bevel .pv2-card-btn.primary {
+  background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0) 50%), var(--accent) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 -3px 0 rgba(0,0,0,.28), 0 3px 8px rgba(0,0,0,.35) !important;
+  border-radius: 10px !important; text-shadow: 0 1px 0 rgba(0,0,0,.35);
+}
+body.pv2-btn-flat .primary, body.pv2-btn-flat button[type="submit"], body.pv2-btn-flat .pv2-card-btn.primary {
+  background: var(--accent) !important; box-shadow: none !important; border-radius: 6px !important;
+}
+/* Moldura da tela: UMA camada abaixo de menus/modais (z 85), nunca por cima deles */
+html::before { content: none; position: fixed; inset: 0; pointer-events: none; z-index: 85; }
+body.pv2-frame-line, body.pv2-frame-neon, body.pv2-frame-gold, body.pv2-frame-glass { --pv2-frame-on: 1; }
+html:has(body.pv2-frame-line)::before  { content: ""; box-shadow: inset 0 0 0 2px rgba(var(--accent-rgb), .5); }
+html:has(body.pv2-frame-neon)::before  { content: ""; box-shadow: inset 0 0 0 2px rgba(var(--accent-rgb), .9), inset 0 0 36px rgba(var(--accent-rgb), .35), inset 0 0 90px rgba(var(--accent-2-rgb), .15); }
+html:has(body.pv2-frame-gold)::before  { content: ""; box-shadow: inset 0 0 0 3px #c9962b, inset 0 0 0 5px rgba(255,224,138,.55), inset 0 0 50px rgba(245,196,81,.12); }
+html:has(body.pv2-frame-glass)::before { content: ""; box-shadow: inset 0 0 0 1px rgba(255,255,255,.22), inset 0 0 90px rgba(255,255,255,.05); }
+
+/* ==========================================================================
+   v0.92.0 — MAGIC TANK, VISUAL REFEITO (limpo, sem nada por cima de nada)
+   Azul neon + dourado, placas metálicas, brilho de moeda. Tudo abaixo dos
+   menus e modais (usa só a escala de camadas acima).
+   ========================================================================== */
+/* remove as cantoneiras antigas (ficavam por cima de modais/menus) */
+body.theme-magic-tank::before, body.theme-magic-tank::after { content: none !important; display: none !important; }
+/* moldura única de placa: dourado fino + brilho azul interno */
+html:has(body.theme-magic-tank:not(.pv2-frame-line):not(.pv2-frame-neon):not(.pv2-frame-gold):not(.pv2-frame-glass))::before {
+  content: ""; box-shadow: inset 0 0 0 2px rgba(201,150,43,.9), inset 0 0 0 4px rgba(255,224,138,.25), inset 0 0 70px rgba(0,168,255,.14);
+}
+/* selo MEMBRO: agora vive DENTRO da barra do topo (nada flutuando por cima) */
+body.theme-magic-tank #mt-member-tag {
+  position: static !important; display: inline-flex !important; align-items: center; z-index: auto !important; margin: 0 10px; white-space: nowrap;
+  font: 800 10px/1 system-ui, sans-serif; letter-spacing: .14em; color: #3b2410;
+  background: linear-gradient(180deg, #fff0b3, #f5c451 55%, #c9962b); padding: 6px 11px; border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 2px 8px rgba(0,0,0,.45); animation: none;
+}
+/* títulos: dourado com brilho que passa */
+@keyframes mtShine { to { background-position: 200% center; } }
+body.theme-magic-tank .home-section-title, body.theme-magic-tank .sidebar-header-identity, body.theme-magic-tank .modal-card h2 {
+  background: linear-gradient(90deg, #c9962b 0%, #fff0b3 25%, #f5c451 50%, #c9962b 75%, #fff0b3 100%); background-size: 200% auto;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+  animation: mtShine 6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) { body.theme-magic-tank .home-section-title, body.theme-magic-tank .sidebar-header-identity, body.theme-magic-tank .modal-card h2 { animation: none; } }
+/* placas (cartões/painéis): metal azul-escuro com filete dourado e brilho no topo */
+body.theme-magic-tank .home-card, body.theme-magic-tank .server-card, body.theme-magic-tank .tournament-card, body.theme-magic-tank .explore-card {
+  background: linear-gradient(165deg, rgba(18,36,72,.92), rgba(6,12,28,.96)) !important;
+  border: 1px solid rgba(251,220,112,.30) !important; box-shadow: inset 0 1px 0 rgba(255,240,179,.18), 0 8px 20px rgba(0,0,0,.45) !important;
+}
+/* botão principal: moeda dourada com relevo */
+body.theme-magic-tank .primary, body.theme-magic-tank button[type="submit"], body.theme-magic-tank .pv2-card-btn.primary, body.theme-magic-tank .sidebar-header-btn-primary {
+  background: linear-gradient(180deg, #fff0b3 0%, #f5c451 45%, #c9962b 100%) !important; color: #2a1706 !important;
+  border: 1px solid #6b3f1d !important; font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.75), inset 0 -3px 0 rgba(107,63,29,.45), 0 3px 10px rgba(0,0,0,.45) !important;
+  text-shadow: 0 1px 0 rgba(255,255,255,.35);
+}
+body.theme-magic-tank .primary:hover, body.theme-magic-tank button[type="submit"]:hover { filter: brightness(1.08); transform: translateY(-1px); }
+/* item ativo da barra lateral: faixa dourada + brilho azul */
+body.theme-magic-tank .sidebar-nav-item.active, body.theme-magic-tank .channel-item.active {
+  background: linear-gradient(90deg, rgba(251,220,112,.20), rgba(0,168,255,.12)) !important; box-shadow: inset 3px 0 0 #f5c451 !important; color: #fff !important;
+}
+/* rolagem dourada fina */
+body.theme-magic-tank * { scrollbar-color: #c9962b rgba(6,12,28,.6); scrollbar-width: thin; }
+body.theme-magic-tank ::-webkit-scrollbar { width: 9px; height: 9px; }
+body.theme-magic-tank ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #f5c451, #8a5a24); border-radius: 8px; border: 2px solid rgba(6,12,28,.8); }
+body.theme-magic-tank ::-webkit-scrollbar-track { background: rgba(6,12,28,.6); }
+/* menus do Magic Tank: sólidos e acima de tudo */
+body.theme-magic-tank .sidebar-more-menu, body.theme-magic-tank .footer-more-menu, body.theme-magic-tank .navbar-create-menu, body.theme-magic-tank .navbar-search-dropdown {
+  background: linear-gradient(160deg, #0e1c38, #060c1c) !important; border: 1px solid rgba(251,220,112,.45) !important; border-radius: 12px !important;
+  box-shadow: 0 18px 44px rgba(0,0,0,.75), 0 0 0 1px rgba(0,0,0,.5) !important;
+}
