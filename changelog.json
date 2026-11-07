@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.92.2",
+    "date": "2026-11-07",
+    "changes": [
+      "Ano Novo: a contagem regressiva bonita voltou (a nova ordem de camadas tinha escondido ela atrás da barra do topo).",
+      "Temas sem nada na frente do que você clica: com o mouse sobre botão, link, campo ou item, os efeitos e a decoração ficam quase transparentes; ao abrir menu ou janela eles dão lugar por completo.",
+      "Matrix bem mais sutil: menos colunas, letras mais fracas, sem cabeça branca nem brilho e bem mais transparente."
+    ]
+  },
+  {
     "version": "0.92.1",
     "date": "2026-11-07",
     "changes": [

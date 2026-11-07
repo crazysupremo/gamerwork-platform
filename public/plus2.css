@@ -1387,3 +1387,30 @@ body.theme-magic-tank .sidebar-more-menu, body.theme-magic-tank .footer-more-men
   background: linear-gradient(160deg, #0e1c38, #060c1c) !important; border: 1px solid rgba(251,220,112,.45) !important; border-radius: 12px !important;
   box-shadow: 0 18px 44px rgba(0,0,0,.75), 0 0 0 1px rgba(0,0,0,.5) !important;
 }
+
+/* ==========================================================================
+   v0.92.2 — decoração sempre VISÍVEL (contagem do Ano Novo, luzes, mascote), mas
+   sai da frente do que você vai clicar. Camadas de efeito ficam acima da barra do
+   topo (a contagem voltou) e abaixo de menus/janelas.
+   ========================================================================== */
+.top-navbar { z-index: 30 !important; }
+.navbar-profile-chip-wrap { z-index: 31 !important; }
+#plus2-decor, #plus2-fx, #pv2-cfx, #pv2-cfx-frame, #pv2-cfx-garland, #pv2-cfx-mascot, #pv2-cfx-bubble, #plus2-mascot-layer, .pv2-drop, .pv2-spark {
+  transition: opacity .18s ease;
+}
+/* mouse em cima de algo clicável: efeitos quase somem (o que importa fica limpo) */
+body.pv2-clear #plus2-fx, body.pv2-clear #pv2-cfx, body.pv2-clear #pv2-cfx-frame, body.pv2-clear #pv2-cfx-garland,
+body.pv2-clear #pv2-cfx-mascot, body.pv2-clear #pv2-cfx-bubble, body.pv2-clear .pv2-spark, body.pv2-clear .pv2-drop,
+body.pv2-clear #plus2-mascot-layer { opacity: .10 !important; }
+body.pv2-clear #plus2-decor { opacity: .35 !important; }
+body.pv2-clear[data-pv2-scene="matrix"] #plus2-scene { opacity: .05 !important; }
+/* menu ou janela aberta: efeitos e decoração dão lugar totalmente */
+body:has(.footer-more-menu:not(.hidden)) #plus2-fx, body:has(.footer-more-menu:not(.hidden)) #plus2-decor, body:has(.footer-more-menu:not(.hidden)) #pv2-cfx, body:has(.footer-more-menu:not(.hidden)) #plus2-mascot-layer,
+body:has(.navbar-create-menu:not(.hidden)) #plus2-fx, body:has(.navbar-create-menu:not(.hidden)) #plus2-decor, body:has(.navbar-create-menu:not(.hidden)) #pv2-cfx, body:has(.navbar-create-menu:not(.hidden)) #plus2-mascot-layer,
+body:has(.sidebar-more-menu:not(.hidden)) #plus2-fx, body:has(.sidebar-more-menu:not(.hidden)) #plus2-decor, body:has(.sidebar-more-menu:not(.hidden)) #pv2-cfx, body:has(.sidebar-more-menu:not(.hidden)) #plus2-mascot-layer,
+body:has(.modal-overlay:not(.hidden)) #plus2-fx, body:has(.modal-overlay:not(.hidden)) #plus2-decor, body:has(.modal-overlay:not(.hidden)) #pv2-cfx, body:has(.modal-overlay:not(.hidden)) #plus2-mascot-layer { opacity: 0 !important; }
+/* a contagem do Ano Novo fica por cima da barra do topo, bem legível */
+#plus2-decor { z-index: 250 !important; }
+.pv2-countdown { z-index: 251; }
+/* Matrix mais SUTIL */
+body[data-pv2-scene="matrix"] #plus2-scene { opacity: .15 !important; }

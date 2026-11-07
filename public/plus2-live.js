@@ -328,25 +328,22 @@
         while (cols.length < need) cols.push(Math.random() * -40);
         cols.length = need;
         ctx.globalCompositeOperation = 'destination-out';
-        ctx.fillStyle = 'rgba(0,0,0,0.10)';
+        ctx.fillStyle = 'rgba(0,0,0,0.16)';
         ctx.fillRect(0, 0, W, H);
         ctx.globalCompositeOperation = 'source-over';
         ctx.font = fs + 'px monospace';
         ctx.textBaseline = 'top';
         const col = colors[0] || '#00ff66';
         for (let i = 0; i < cols.length; i++) {
-          const ch = String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96));
-          const y = cols[i] * fs;
-          if (y >= -fs) {
-            // cabeça clara + rastro na cor do tema
-            ctx.globalAlpha = 1; ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 6 * dpr;
-            ctx.fillText(ch, i * fs, y);
-            ctx.shadowBlur = 0; ctx.fillStyle = '#e8fff0'; ctx.globalAlpha = 0.9;
-            ctx.fillText(ch, i * fs, y);
+          // v0.92.2 — Matrix SUTIL: só 1 coluna a cada 3 desenha, sem cabeça branca e sem brilho
+          if (i % 3 === 0) {
+            const ch = String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96));
+            const y = cols[i] * fs;
+            if (y >= -fs) { ctx.globalAlpha = 0.55; ctx.fillStyle = col; ctx.shadowBlur = 0; ctx.fillText(ch, i * fs, y); }
           }
           ctx.globalAlpha = 1;
-          if (y > H && Math.random() > 0.975) cols[i] = Math.random() * -12;
-          cols[i] += 0.5 + (i % 5) * 0.1;
+          if (cols[i] * fs > H && Math.random() > 0.975) cols[i] = Math.random() * -12;
+          cols[i] += 0.35 + (i % 5) * 0.06;
         }
         return;
       }
@@ -1295,6 +1292,21 @@
     })();
     return inFlight;
   }
+
+  // v0.92.2 — quando o mouse está sobre algo clicável (botão, link, campo, item de lista),
+  // os efeitos/decoração por cima ficam quase transparentes: dá para ver e clicar sem nada na frente.
+  (function bindClearZone() {
+    if (global.__pv2ClearBound || typeof document === 'undefined') return;
+    global.__pv2ClearBound = true;
+    const SEL = 'button,a,input,textarea,select,label,summary,[role="button"],[role="menuitem"],[role="tab"],.channel-item,.message,.server-icon,.home-card,.server-card,.sidebar-nav-item,.navbar-icon-btn,.member-item,.friend-row,.modal-card,.footer-more-menu,.sidebar-more-menu,.navbar-create-menu';
+    let on = false;
+    document.addEventListener('pointerover', (e) => {
+      const t = e.target && e.target.closest ? e.target.closest(SEL) : null;
+      const want = !!t && !t.closest('#plus2-decor, #plus2-mascot-layer, .pv2-drop');
+      if (want !== on) { on = want; document.body.classList.toggle('pv2-clear', want); }
+    }, { passive: true });
+    document.addEventListener('pointerleave', () => { if (on) { on = false; document.body.classList.remove('pv2-clear'); } }, { passive: true });
+  })();
 
   global.PlusV2Live = { state, refresh, applyAll, previewTheme, cancelPreview, reapply, prefs: getPrefs, setPrefs, art: ART, poke: (x, y) => { if (sceneApi) sceneApi.hit(x * (Math.min(global.devicePixelRatio || 1, 2)), y * (Math.min(global.devicePixelRatio || 1, 2))); } };
 })(typeof window !== 'undefined' ? window : globalThis);
