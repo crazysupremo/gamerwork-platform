@@ -318,7 +318,7 @@
       if (t - last < 33) return; // ~30fps — leve de propósito
       last = t;
       if (mode === 'matrix') {
-        // v0.91.3: colunas recalculadas a cada quadro (antes ficavam vazias se a
+        // v0.91.5: colunas recalculadas a cada quadro (antes ficavam vazias se a
         // tela ainda tinha largura 0 quando o tema era aplicado) e canvas
         // redimensionado sozinho se o layout mudou depois.
         if (!W || !H || canvas.width !== Math.floor(canvas.clientWidth * dpr)) size();
@@ -1017,7 +1017,7 @@
   let lastData = null;
   function previewTheme(theme) {
     if (!theme) return;
-    // v0.91.3: a pré-visualização mostra os efeitos mesmo com o "modo desempenho"
+    // v0.91.5: a pré-visualização mostra os efeitos mesmo com o "modo desempenho"
     // ligado (senão parecia que o tema não tinha efeito nenhum).
     state.previewing = true;
     applyTheme(theme, true);
@@ -1029,7 +1029,7 @@
     if (lastData) applyAll(lastData);
   }
 
-  // v0.91.3 — o logo do NEXT GAME (disco azul com X branco) também muda de cor
+  // v0.91.5 — o logo do NEXT GAME (disco azul com X branco) também muda de cor
   // com o tema: gira o matiz do azul original (~215°) até o matiz da cor
   // principal, ajustando saturação/brilho (tema cinza => logo cinza).
   function applyLogoTint(theme) {

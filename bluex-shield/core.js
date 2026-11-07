@@ -3,6 +3,12 @@
 // (require('./bluex-shield') no topo do jogo). Os valores abaixo são os
 // padrões; só altera se souberes o que estás a fazer.
 
+// Máquina própria (sem painel tipo Render)? Basta um arquivo bluex-shield/config.json:
+// { "key": "bxs_...", "url": "https://seu-protection-bluex", "site": "Nome do jogo" }
+// Variáveis de ambiente, se existirem, têm prioridade.
+let FILE_CFG = {};
+try { FILE_CFG = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'config.json'), 'utf8')) || {}; } catch (_) {}
+
 const DEFAULTS = {
   windowMs: 10_000, // janela de contagem
   maxPerWindow: 120, // pedidos por IP por janela (120/10s = 12 por segundo)
@@ -33,6 +39,15 @@ const DEFAULTS = {
   // recusa IPs novos/pesados em vez de cair tudo.
   lagShedMs: 400, // atraso do event loop que liga o modo proteção
   maxRequestsPerSocket: 1000, // conexão keep-alive reciclada depois disso
+  // --- v3: monitoramento e relatório remoto ---
+  suspectPerMinute: 5_000, // provável DDoS: liga a DEFESA AUTOMÁTICA (limites 4x mais apertados)
+  alertPerMinute: 10_000, // EXTREMO: defesa máxima (limites 8x mais apertados) + alerta
+  elevatedPerMinute: 1_000, // "pedidos demais": sinaliza no painel (amarelo)
+  siteName: process.env.BLUEX_SHIELD_SITE || FILE_CFG.site || '', // nome do site no painel (ex.: "Jogo do João")
+  reportKey: process.env.BLUEX_SHIELD_KEY || FILE_CFG.key || '', // chave do site no Protection BLUEX (pedir ao dono)
+  reportUrl: process.env.BLUEX_SHIELD_URL || FILE_CFG.url || 'https://protection-bluex.onrender.com',
+  minAbusiveToReport: 200, // só manda IP pro painel se ele fez >= isto no minuto (IP normal NUNCA é enviado)
+  suspiciousKeep: 300, // quantos pedidos suspeitos guardar na memória
   log: true,
   logIntervalMs: 60_000,
   maxTrackedIps: 200_000, // limite de memória
@@ -82,7 +97,16 @@ function createShield(options = {}) {
   let underAttack = false;
   let normalPerSecond = 0;
   const minute = { total: 0, blocked: 0, newBans: 0, perIp: new Map() };
+  if (cfg.reportKey && cfg.log) console.log('[BLUEX SHIELD] 🔗 vinculado ao Protection BLUEX' + (cfg.siteName ? ' como "' + cfg.siteName + '"' : '') + '.');
   const recent = []; // últimos bans (pro painel admin)
+  const suspicious = []; // pedidos suspeitos/bloqueados (coleta completa: ip, rota, user-agent...)
+  const history = []; // 1 ponto por minuto (últimas 2h)
+  let minuteAlerted = false;
+  let minuteStart = Date.now();
+  let defense = 0; // 0 normal | 1 provável DDoS | 2 extremo
+  let defenseUntil = 0;
+  let lastAlertAt = 0;
+  let lastReportErr = '';
   const sensitive = new Map(); // ip -> { n, start }
   let loadShed = false; // servidor engasgado
   let lastTick = Date.now();
@@ -115,6 +139,8 @@ function createShield(options = {}) {
       // Proxy interno (Render, Heroku, nginx na mesma máquina): a conexão
       // vem de IP privado. Um atacante na internet nunca tem IP privado,
       // então não dá pra falsificar isto de fora.
+      // Túnel local (Cloudflare Tunnel / ngrok rodando na MESMA máquina): a conexão vem de 127.0.0.1.
+      if (isPrivateIp(remote) && !headers['x-forwarded-for'] && headers['cf-connecting-ip']) return normalizeIp(headers['cf-connecting-ip']);
       if (isPrivateIp(remote) && headers['x-forwarded-for']) {
         const xff = String(headers['x-forwarded-for']).split(',').map((s) => s.trim()).filter(Boolean);
         // Pula proxies internos no fim da lista (ex: Render tem mais de um).
@@ -150,10 +176,31 @@ function createShield(options = {}) {
   }
 
   // Núcleo: decide se um pedido do IP passa. weight = quanto "custa".
-  function check(ip, weight = 1) {
+  function check(ip, weight = 1, meta) {
     const now = Date.now();
     minute.total++;
     minute.perIp.set(ip, (minute.perIp.get(ip) || 0) + 1);
+    if (minute.total >= cfg.alertPerMinute && !minuteAlerted) {
+      minuteAlerted = true;
+      lastAlertAt = Date.now();
+      if (cfg.log) console.warn(`[BLUEX SHIELD] 🚨 CASO EXTREMO: ${minute.total} pedidos neste minuto (limite ${cfg.alertPerMinute})`);
+      sendReport(true);
+    }
+    // Defesa automática: estima pedidos/minuto e, se for DDoS provável, aperta os limites.
+    {
+      const el = Math.max(10_000, Date.now() - minuteStart);
+      const rate = (minute.total / el) * 60_000;
+      const lvl = rate >= cfg.alertPerMinute ? 2 : rate >= cfg.suspectPerMinute ? 1 : 0;
+      if (lvl > defense) {
+        defense = lvl;
+        if (cfg.log) console.warn(`[BLUEX SHIELD] ${lvl === 2 ? '🚨 DEFESA MÁXIMA' : '⚠️ DEFESA AUTOMÁTICA'} ligada (~${Math.round(rate)} pedidos/min)`);
+      }
+      if (lvl > 0) defenseUntil = Date.now() + 2 * 60_000;
+      else if (defense > 0 && Date.now() > defenseUntil) {
+        defense = 0;
+        if (cfg.log) console.warn('[BLUEX SHIELD] defesa automática desligada (tráfego normalizou)');
+      }
+    }
     if (allow.has(ip)) return { ok: true };
 
     // Contador global (modo sob ataque).
@@ -181,7 +228,7 @@ function createShield(options = {}) {
 
     if (s.bannedUntil > now) return block(s, 'banido');
 
-    if ((underAttack || loadShed) && now - s.firstSeen < cfg.trustedAfterMs) {
+    if ((underAttack || loadShed || defense > 0) && now - s.firstSeen < cfg.trustedAfterMs) {
       return block(s, 'sob_ataque', 5);
     }
 
@@ -190,14 +237,15 @@ function createShield(options = {}) {
       s.count = 0;
     }
     s.count += weight;
-    if (s.count > cfg.maxPerWindow) {
+    const limitNow = defense === 2 ? Math.max(60, cfg.maxPerWindow / 8) : defense === 1 ? Math.max(120, cfg.maxPerWindow / 4) : cfg.maxPerWindow;
+    if (s.count > limitNow) {
       // Conta 1 "strike" por janela estourada, não por pedido.
       if (!s.struckThisWindow || s.struckThisWindow !== s.windowStart) {
         s.struckThisWindow = s.windowStart;
         s.strikes++;
       }
       // Flood muito forte (3x o limite numa janela só) = ban na hora.
-      if (s.count > cfg.maxPerWindow * 3 && s.strikes < cfg.strikesToBan) s.strikes = cfg.strikesToBan;
+      if (s.count > limitNow * 3 && s.strikes < cfg.strikesToBan) s.strikes = cfg.strikesToBan;
       if (s.strikes >= cfg.strikesToBan) {
         s.bans++;
         s.strikes = 0;
@@ -211,13 +259,69 @@ function createShield(options = {}) {
       }
       return block(s, 'limite');
     }
+    if (weight > 1 && meta && meta.tag) record(ip, meta.tag, weight);
     return { ok: true };
 
     function block(st, reason, defaultRetry) {
       minute.blocked++;
+      record(ip, reason, weight);
       const retryAfter = st.bannedUntil > now ? Math.ceil((st.bannedUntil - now) / 1000) : defaultRetry || Math.ceil((st.windowStart + cfg.windowMs - now) / 1000);
       return { ok: false, reason, retryAfter: Math.max(1, retryAfter) };
     }
+  }
+
+  // PRIVACIDADE: só guarda IP abusivo + categoria do motivo. NUNCA rota, user-agent,
+  // host, referer, cookies, corpo do pedido ou qualquer dado de jogador.
+  function record(ip, reason, weight) {
+    suspicious.push({ t: new Date().toISOString(), ip, reason, weight });
+    if (suspicious.length > cfg.suspiciousKeep) suspicious.shift();
+  }
+
+  function levelOf(total) {
+    return total >= cfg.alertPerMinute ? 'extremo' : total >= cfg.suspectPerMinute ? 'suspeito' : total >= cfg.elevatedPerMinute ? 'elevado' : 'normal';
+  }
+
+  // Manda o resumo do minuto pro Protection BLUEX (se houver chave). Nunca derruba o jogo.
+  function sendReport(urgent) {
+    if (!cfg.reportKey || !cfg.reportUrl || typeof fetch !== 'function') return;
+    try {
+      // Só IPs claramente abusivos (>= minAbusiveToReport no minuto) — IP de jogador normal nunca sai daqui.
+      const top = [...minute.perIp.entries()].filter(([, n]) => n >= cfg.minAbusiveToReport).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([ip, n]) => ({ ip, n }));
+      const body = {
+        key: cfg.reportKey,
+        site: cfg.siteName || undefined,
+        urgent: !!urgent,
+        at: new Date().toISOString(),
+        total: minute.total,
+        blocked: minute.blocked,
+        newBans: minute.newBans,
+        level: levelOf(minute.total),
+        defense,
+        underAttack,
+        loadShed,
+        top,
+        banned: stats().banned.slice(0, 30),
+        suspicious: suspicious.slice(-40),
+      };
+      fetch(cfg.reportUrl.replace(/\/+$/, '') + '/shield/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined,
+      })
+        .then(async (r) => {
+          lastReportErr = r.ok ? '' : 'HTTP ' + r.status;
+          if (!r.ok) return;
+          const j = await r.json().catch(() => null);
+          // Comandos do painel (dono ou usuário do site): derrubar / liberar IP.
+          for (const c of (j && j.commands) || []) {
+            if (!c || net.isIP(String(c.ip || '')) === 0) continue;
+            if (c.type === 'ban') ban(c.ip, Math.min(Math.max(parseInt(c.minutes, 10) || 60, 1), 1440));
+            else if (c.type === 'unban') unban(c.ip);
+          }
+        })
+        .catch((e) => { lastReportErr = String((e && e.message) || e); });
+    } catch (_) {}
   }
 
   function isBanned(ip) {
@@ -325,11 +429,14 @@ function createShield(options = {}) {
       // Muitos 404 seguidos = varredura de URLs: cobra a mais na resposta.
       if (res && typeof res.once === 'function') {
         res.once('finish', () => {
-          if (res.statusCode === 404) check(ip, cfg.notFoundWeight - 1);
+          if (res.statusCode === 404) check(ip, cfg.notFoundWeight - 1, { tag: 'varredura_404' });
         });
       }
     }
-    return check(ip, weight);
+    const h = req.headers || {};
+    return check(ip, weight, {
+      tag: weight >= cfg.trapWeight ? 'armadilha_scanner' : weight >= 150 ? 'rota_sensivel_abuso' : !h['user-agent'] ? 'sem_user_agent' : weight > 1 ? 'peso_extra' : '',
+    });
   }
 
   // ---------- WebSocket (biblioteca "ws") ----------
@@ -412,7 +519,31 @@ function createShield(options = {}) {
     const now = Date.now();
     const banned = [];
     for (const [ip, s] of ips) if (s.bannedUntil > now) banned.push({ ip, minutesLeft: Math.ceil((s.bannedUntil - now) / 60000), bans: s.bans });
-    return { underAttack, loadShed, trackedIps: ips.size, banned, recentBans: recent.slice(0, 20) };
+    const total = minute.total;
+    return {
+      defense, underAttack, loadShed, trackedIps: ips.size, banned, recentBans: recent.slice(0, 20),
+      thresholds: { elevated: cfg.elevatedPerMinute, suspect: cfg.suspectPerMinute, extreme: cfg.alertPerMinute },
+      currentMinute: { total, blocked: minute.blocked, newBans: minute.newBans, level: levelOf(total) },
+      alertActive: Date.now() - lastAlertAt < 10 * 60_000,
+      lastAlertAt: lastAlertAt ? new Date(lastAlertAt).toISOString() : null,
+      history: history.slice(-120),
+      suspicious: suspicious.slice(-100).reverse(),
+      top: [...minute.perIp.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([ip, n]) => ({ ip, n })),
+      reporting: { enabled: !!cfg.reportKey, url: cfg.reportKey ? cfg.reportUrl : null, lastError: lastReportErr || null },
+    };
+  }
+
+  function ban(ip, minutes) {
+    ip = normalizeIp(ip);
+    if (allow.has(ip)) return;
+    const now = Date.now();
+    const s = state(ip, now);
+    s.bans++;
+    s.bannedUntil = now + minutes * 60_000;
+    minute.newBans++;
+    recent.unshift({ ip, at: new Date(now).toISOString(), minutes, n: s.bans, manual: true });
+    if (recent.length > 50) recent.pop();
+    if (cfg.log) console.warn(`[BLUEX SHIELD] 🚫 IP ${ip} derrubado manualmente por ${minutes} min (painel)`);
   }
 
   function unban(ip) {
@@ -433,12 +564,19 @@ function createShield(options = {}) {
           `${stats().banned.length} IPs banidos agora. Top: ${top}`
       );
     }
+    history.push({ t: new Date().toISOString(), total: minute.total, blocked: minute.blocked, newBans: minute.newBans, level: levelOf(minute.total), underAttack });
+    if (history.length > 120) history.shift();
+    if (minute.total >= cfg.alertPerMinute) lastAlertAt = Date.now();
+    if (minute.total > 0 || Date.now() % 300000 < cfg.logIntervalMs) sendReport(false);
+    minuteAlerted = false;
+    minuteStart = Date.now();
     minute.total = 0;
     minute.blocked = 0;
     minute.newBans = 0;
     minute.perIp.clear();
   }, cfg.logIntervalMs);
   timer.unref();
+  if (cfg.reportKey) { const first = setTimeout(() => sendReport(false), 3000); first.unref(); }
 
   return {
     middleware,
@@ -455,6 +593,7 @@ function createShield(options = {}) {
     getIp,
     stats,
     unban,
+    ban,
     config: cfg,
   };
 }

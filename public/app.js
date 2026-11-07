@@ -1295,6 +1295,7 @@ function startApp() {
   // isso, quem tinha só acesso de moderador (ex: selo dourado de parceiro)
   // não tinha como achar o painel, mesmo com permissão de entrar nele.
   if (me.is_admin || me.is_moderator) document.getElementById('admin-link').classList.remove('hidden');
+  if (me.is_admin) startShieldBadge();
 
   updateNavbarProfile();
   refreshStreakBadge();
@@ -5895,7 +5896,7 @@ function currentScreenContext() {
   parts.push('Navegador: ' + navigator.userAgent);
   parts.push('Resolução: ' + window.innerWidth + 'x' + window.innerHeight);
   try {
-    // v0.91.3 — diagnóstico de temas (ajuda a ver diferenças Windows/Mac)
+    // v0.91.5 — diagnóstico de temas (ajuda a ver diferenças Windows/Mac)
     const L = window.PlusV2Live;
     parts.push('Sistema: ' + (navigator.platform || '?') + ' | movimento reduzido: ' + (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'sim' : 'não') + ' | tela ' + Math.round(window.devicePixelRatio * 100) / 100 + 'x');
     if (L) parts.push('Temas: plano=' + (typeof me !== 'undefined' && me ? me.plan : '?') + ' | modo desempenho=' + (L.state.performanceMode ? 'LIGADO' : 'desligado') + ' | cena=' + (document.body.dataset.pv2Scene || 'nenhuma') + ' | carregado=' + L.state.loaded);
@@ -11927,3 +11928,55 @@ tryResumeSession()
   const b = document.getElementById('btn-quick-theme');
   if (b) b.onclick = () => { if (window.PlusV2Quick) PlusV2Quick.toggle(); };
 })();
+
+
+// Selo "🛡️" no perfil do admin: avisa quando o BLUEX SHIELD detecta requisições demais
+// (amarelo ≥1 mil/min, laranja ≥5 mil = provável DDoS, vermelho ≥10 mil = extremo).
+let shieldBadgeTimer = null;
+function startShieldBadge() {
+  if (shieldBadgeTimer) return;
+  const link = document.getElementById('admin-link');
+  if (!link || !link.parentNode) return;
+  const badge = document.createElement('a');
+  badge.id = 'shield-badge';
+  badge.className = 'hidden';
+  badge.target = '_blank';
+  badge.rel = 'noopener';
+  badge.style.cssText = 'margin-left:6px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;text-decoration:none;color:#111;cursor:pointer;';
+  link.parentNode.insertBefore(badge, link.nextSibling);
+  let lastLevel = 'normal';
+  const tick = async () => {
+    try {
+      let lv = 'normal', total = 0, label = '';
+      const r = await fetch('/api/admin/shield', { credentials: 'include' });
+      if (r.ok) {
+        const d = await r.json();
+        if (d.active && d.currentMinute) { lv = d.currentMinute.level; total = d.currentMinute.total; label = 'NEXT GAME'; }
+      }
+      // Sites vinculados (jogo do amigo etc.): mostra o NOME do site que começou a receber requisições.
+      let base = '';
+      const rr = await fetch('/api/admin/shield-remote', { credentials: 'include' }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+      const RANK = { normal: 0, elevado: 1, suspeito: 2, extremo: 3 };
+      if (rr && rr.base) base = rr.base;
+      for (const x of (rr && rr.underAttack) || []) {
+        if ((RANK[x.level] || 0) > (RANK[lv] || 0)) { lv = x.level; total = x.total; label = x.name; }
+      }
+      const colors = { elevado: '#facc15', suspeito: '#fb923c', extremo: '#ef4444' };
+      if (lv === 'normal') { badge.classList.add('hidden'); }
+      else {
+        badge.classList.remove('hidden');
+        badge.style.background = colors[lv];
+        badge.textContent = '🛡️ ' + label + ' · ' + lv.toUpperCase() + ' · ' + Number(total).toLocaleString('pt-BR') + '/min';
+        badge.href = (base || 'https://protection-bluex.onrender.com') + '/monitor.html';
+        badge.title = 'BLUEX SHIELD: requisições demais em "' + label + '". Clique para abrir o monitor.';
+      }
+      const key = lv + '|' + label;
+      if ((lv === 'suspeito' || lv === 'extremo') && key !== lastLevel && typeof showCopyToast === 'function') {
+        showCopyToast((lv === 'extremo' ? '🚨 CASO EXTREMO em ' : '🟠 Provável DDoS em ') + label + ' — ' + Number(total).toLocaleString('pt-BR') + ' pedidos/min');
+      }
+      lastLevel = key;
+    } catch (_) {}
+  };
+  tick();
+  shieldBadgeTimer = setInterval(tick, 60000);
+}

@@ -2067,6 +2067,23 @@ app.get('/api/admin/shield', requireAuth, requireAdmin, (req, res) => {
   res.json({ active: true, ...sh.stats() });
 });
 
+// Alertas dos sites vinculados (ex.: jogo do amigo) vindos do Protection BLUEX — o servidor
+// consulta com a chave de dono, assim a chave nunca vai pro navegador.
+// Variáveis no Render do NEXT GAME: PROTECTION_BLUEX_URL e BLUEX_OWNER_KEY.
+app.get('/api/admin/shield-remote', requireAuth, requireAdmin, async (req, res) => {
+  const base = process.env.PROTECTION_BLUEX_URL;
+  const key = process.env.BLUEX_OWNER_KEY;
+  if (!base || !key) return res.json({ configured: false, underAttack: [], alerts: [] });
+  try {
+    const r = await fetch(base.replace(/\/+$/, '') + '/monitor/alerts', { headers: { 'x-owner-key': key }, signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return res.json({ configured: true, error: 'HTTP ' + r.status, underAttack: [], alerts: [] });
+    const d = await r.json();
+    res.json({ configured: true, base, underAttack: d.underAttack || [], alerts: (d.alerts || []).slice(0, 10) });
+  } catch (e) {
+    res.json({ configured: true, error: String((e && e.message) || e), underAttack: [], alerts: [] });
+  }
+});
+
 app.post('/api/admin/shield/unban', requireAuth, requireAdmin, (req, res) => {
   const sh = global[Symbol.for('bluex.shield.patched')];
   const ip = (req.body && req.body.ip) || '';

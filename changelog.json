@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.91.5",
+    "date": "2026-11-07",
+    "changes": [
+      "BLUEX SHIELD vinculado ao Protection BLUEX: o selo 🛡️ no perfil do admin mostra o NOME do site (NEXT GAME ou o jogo de um parceiro) que começou a receber requisições demais. Máquina própria: o Shield lê bluex-shield/config.json."
+    ]
+  },
+  {
+    "version": "0.91.4",
+    "date": "2026-11-07",
+    "changes": [
+      "BLUEX SHIELD v3: defesa automática (≥5 mil pedidos/min = provável DDoS, ≥10 mil = extremo), sem coletar dados de jogador (só números e IPs abusivos), relatório opcional ao Protection BLUEX e comandos de derrubar/liberar IP. Selo 🛡️ no perfil do admin quando há requisições demais."
+    ]
+  },
+  {
     "version": "0.91.3",
     "date": "2026-11-07",
     "changes": [
