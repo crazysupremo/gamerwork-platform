@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.92.1",
+    "date": "2026-11-07",
+    "changes": [
+      "Botão Reportar erro saiu do canto inferior esquerdo (ficava por cima da coluna, tampando Configurações/Sobre) e agora fica na barra do topo, ao lado do sino."
+    ]
+  },
+  {
     "version": "0.92.0",
     "date": "2026-11-07",
     "changes": [
