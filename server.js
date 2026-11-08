@@ -1005,11 +1005,49 @@ async function grantCoins(userId, amount, reason) {
   }
 }
 
+// ---------- ANTI-ROBÔ (prova de trabalho) ----------
+// Quando o Shield está em alerta (ataque automático, anti-zumbi ou botão de emergência), login e cadastro
+// exigem uma prova leve feita pelo navegador (~0,2 s): robôs em massa ficam caros, gente de verdade nem sente.
+const POW_SECRET = crypto.randomBytes(32);
+const POW_USED = new Map(); // token -> expira
+function shieldObj() { return global[Symbol.for('bluex.shield.patched')]; }
+function powRequired() { const sh = shieldObj(); return !!(sh && sh.attackActive && sh.attackActive()); }
+function powBits() { const sh = shieldObj(); const st = sh && sh.stats && sh.stats(); return st && st.currentMinute && st.currentMinute.level !== 'normal' ? 19 : 17; }
+function powSign(payload) { return crypto.createHmac('sha256', POW_SECRET).update(payload).digest('base64url'); }
+function leadingZeroBits(buf) { let n = 0; for (const b of buf) { if (b === 0) { n += 8; continue; } n += Math.clz32(b) - 24; break; } return n; }
+app.get('/api/challenge', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (!powRequired()) return res.json({ required: false });
+  const payload = Buffer.from(JSON.stringify({ t: Date.now(), r: crypto.randomBytes(8).toString('hex'), b: powBits() })).toString('base64url');
+  res.json({ required: true, token: payload + '.' + powSign(payload), bits: powBits() });
+});
+function requirePow(req, res, next) {
+  if (!powRequired()) return next();
+  const pow = (req.body && req.body.pow) || {};
+  const fail = (m) => res.status(428).json({ error: m || 'Verificação anti-robô necessária. Recarregue a página e tente de novo.', powRequired: true });
+  try {
+    const token = String(pow.token || ''), nonce = String(pow.nonce || '');
+    const [payload, sig] = token.split('.');
+    if (!payload || !sig || nonce.length > 32) return fail();
+    const a = Buffer.from(sig), b = Buffer.from(powSign(payload));
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return fail();
+    const info = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    if (!info || Date.now() - info.t > 5 * 60_000 || Date.now() < info.t - 5000) return fail('Verificação expirada. Tente de novo.');
+    if (POW_USED.has(token)) return fail('Verificação já usada. Tente de novo.');
+    const h = crypto.createHash('sha256').update(token + ':' + nonce).digest();
+    if (leadingZeroBits(h) < (info.b || 17)) return fail();
+    POW_USED.set(token, Date.now() + 6 * 60_000);
+    if (POW_USED.size > 5000) for (const [k, v] of POW_USED) if (v < Date.now()) POW_USED.delete(k);
+  } catch (_) { return fail(); }
+  next();
+}
+
 // ---------- AUTH ----------
 
 app.post(
   '/api/register',
   authLimiter,
+  requirePow,
   asyncHandler(async (req, res) => {
     const {
       username,
@@ -1200,6 +1238,7 @@ app.post(
 app.post(
   '/api/login',
   authLimiter,
+  requirePow,
   asyncHandler(async (req, res) => {
     const { username, password, remember } = req.body || {};
     // Sem isso, um POST sem "username" (ex: campo com nome errado do lado do
@@ -2083,6 +2122,17 @@ app.get('/api/admin/shield-remote', requireAuth, requireAdmin, async (req, res) 
   } catch (e) {
     res.json({ configured: true, error: String((e && e.message) || e), underAttack: [], alerts: [] });
   }
+});
+
+// Botão de emergência do Monitor: liga/desliga o MODO ATAQUE (IPs novos ficam em espera, limites mais apertados
+// e login/cadastro exigem prova anti-robô). minutes = 1..1440; on=false desliga.
+app.post('/api/admin/shield/attack-mode', requireAuth, requireAdmin, (req, res) => {
+  const sh = global[Symbol.for('bluex.shield.patched')];
+  if (!sh) return res.status(400).json({ error: 'Shield desligado' });
+  const on = !!(req.body && req.body.on);
+  const minutes = Math.min(Math.max(parseInt(req.body && req.body.minutes, 10) || 60, 1), 1440);
+  sh.setAttackMode(on ? minutes : 0);
+  res.json({ ok: true, on, minutes: on ? minutes : 0 });
 });
 
 // Derruba (bane) IP(s) pelo Monitor. Temporário (1 a 1440 min) ou PERMANENTE (fica salvo no banco

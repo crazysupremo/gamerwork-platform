@@ -48,12 +48,19 @@ const DEFAULTS = {
   reportUrl: process.env.BLUEX_SHIELD_URL || FILE_CFG.url || 'https://protection-bluex.onrender.com',
   minAbusiveToReport: 200, // só manda IP pro painel se ele fez >= isto no minuto (IP normal NUNCA é enviado)
   suspiciousKeep: 300, // quantos pedidos suspeitos guardar na memória
+  // --- v4: anti-zumbi (botnet) ---
+  zombieMinNewIps: 120, // IPs NOVOS por minuto que, sozinhos, ligam o modo anti-zumbi (ou 6x o normal do site, o que for maior)
+  zombieHoldMs: 10 * 60_000, // quanto tempo o modo anti-zumbi fica ligado depois do último disparo
+  toolUaWeight: 30, // peso de pedido com User-Agent de ferramenta/robô (curl, python-requests...)
+  noBrowserSensitiveWeight: 15, // POST em rota sensível sem cabeçalhos de navegador (Accept-Language)
   log: true,
   logIntervalMs: 60_000,
   maxTrackedIps: 200_000, // limite de memória
 };
 
 const net = require('net');
+// User-Agents de ferramentas/robôs/scanners (nunca navegador de gente de verdade).
+const TOOL_UA = /(curl|wget|python-requests|python-urllib|aiohttp|httpx|go-http-client|libwww|scrapy|java\/|apache-httpclient|node-fetch|undici|masscan|zgrab|nikto|sqlmap|nmap|hydra|dirbuster|gobuster|ffuf|wpscan|headlesschrome|phantomjs|selenium|puppeteer|playwright)/i;
 
 // IPs da Cloudflare (lista pública: cloudflare.com/ips).
 const cloudflare = new net.BlockList();
@@ -96,7 +103,7 @@ function createShield(options = {}) {
   let secondCount = 0;
   let underAttack = false;
   let normalPerSecond = 0;
-  const minute = { total: 0, blocked: 0, newBans: 0, perIp: new Map() };
+  const minute = { total: 0, blocked: 0, newBans: 0, newIps: 0, perIp: new Map() };
   if (cfg.reportKey && cfg.log) console.log('[BLUEX SHIELD] 🔗 vinculado ao Protection BLUEX' + (cfg.siteName ? ' como "' + cfg.siteName + '"' : '') + '.');
   const recent = []; // últimos bans (pro painel admin)
   const suspicious = []; // pedidos suspeitos/bloqueados (coleta completa: ip, rota, user-agent...)
@@ -105,6 +112,9 @@ function createShield(options = {}) {
   let minuteStart = Date.now();
   let defense = 0; // 0 normal | 1 provável DDoS | 2 extremo
   let defenseUntil = 0;
+  let manualUntil = 0; // modo ataque ligado à mão (botão do monitor)
+  let zombieUntil = 0; // modo anti-zumbi (muitos IPs novos de uma vez)
+  let baseNewIps = 0; // média de IPs novos por minuto (normal do site)
   let lastAlertAt = 0;
   let lastReportErr = '';
   const sensitive = new Map(); // ip -> { n, start }
@@ -171,8 +181,24 @@ function createShield(options = {}) {
       if (ips.size >= cfg.maxTrackedIps) cleanup(true);
       s = { count: 0, windowStart: now, strikes: 0, bannedUntil: 0, bans: 0, firstSeen: now, lastSeen: now };
       ips.set(ip, s);
+      minute.newIps++;
+      // Botnet/zumbis: de repente chegam MUITOS IPs que nunca vieram (bem acima do normal do site).
+      const zLimit = Math.max(cfg.zombieMinNewIps, baseNewIps * 6);
+      if (minute.newIps >= zLimit) {
+        if (zombieUntil < now && cfg.log) console.warn(`[BLUEX SHIELD] 🧟 MODO ANTI-ZUMBI ligado (${minute.newIps} IPs novos no minuto; normal ~${Math.round(baseNewIps)})`);
+        zombieUntil = now + cfg.zombieHoldMs;
+      }
     }
     return s;
+  }
+
+  function manualActive() { return manualUntil > Date.now(); }
+  function zombieActive() { return zombieUntil > Date.now(); }
+  // true quando o site está em alerta (automático ou manual): IPs novos ficam em espera e login/cadastro pedem prova anti-robô.
+  function attackActive() { return underAttack || loadShed || defense > 0 || manualActive() || zombieActive(); }
+  function setAttackMode(minutes) {
+    manualUntil = minutes > 0 ? Date.now() + Math.min(minutes, 24 * 60) * 60_000 : 0;
+    if (cfg.log) console.warn(manualUntil ? `[BLUEX SHIELD] 🛑 MODO ATAQUE ligado manualmente por ${minutes} min` : '[BLUEX SHIELD] modo ataque manual desligado');
   }
 
   // Núcleo: decide se um pedido do IP passa. weight = quanto "custa".
@@ -228,7 +254,7 @@ function createShield(options = {}) {
 
     if (s.bannedUntil > now) return block(s, 'banido');
 
-    if ((underAttack || loadShed || defense > 0) && now - s.firstSeen < cfg.trustedAfterMs) {
+    if (attackActive() && now - s.firstSeen < cfg.trustedAfterMs) {
       return block(s, 'sob_ataque', 5);
     }
 
@@ -237,7 +263,8 @@ function createShield(options = {}) {
       s.count = 0;
     }
     s.count += weight;
-    const limitNow = defense === 2 ? Math.max(60, cfg.maxPerWindow / 8) : defense === 1 ? Math.max(120, cfg.maxPerWindow / 4) : cfg.maxPerWindow;
+    const lvlNow = Math.max(defense, manualActive() || zombieActive() ? 1 : 0);
+    const limitNow = lvlNow === 2 ? Math.max(60, cfg.maxPerWindow / 8) : lvlNow === 1 ? Math.max(120, cfg.maxPerWindow / 4) : cfg.maxPerWindow;
     if (s.count > limitNow) {
       // Conta 1 "strike" por janela estourada, não por pedido.
       if (!s.struckThisWindow || s.struckThisWindow !== s.windowStart) {
@@ -418,12 +445,16 @@ function createShield(options = {}) {
       if (cfg.trapPaths.some((p) => path.startsWith(p))) weight = cfg.trapWeight;
       // Sem User-Agent = quase sempre script de ataque (navegador sempre manda).
       else if (!req.headers || !req.headers['user-agent']) weight = 3;
+      // Robô com User-Agent de ferramenta (curl, python-requests, scrapy...): navegador de verdade nunca usa.
+      else if (TOOL_UA.test(String(req.headers['user-agent']))) weight = cfg.toolUaWeight;
       // Rotas sensíveis: limite próprio por minuto.
       if (req.method === 'POST' && cfg.sensitivePaths.some((p) => path.startsWith(p))) {
         const now = Date.now();
         let q = sensitive.get(ip);
         if (!q || now - q.start > 60_000) { q = { n: 0, start: now }; sensitive.set(ip, q); }
         if (++q.n > cfg.sensitiveMaxPerMinute) weight = Math.max(weight, 150);
+        // Navegador sempre manda Accept-Language; robô que finge ser navegador quase nunca.
+        else if (req.headers && !req.headers['accept-language']) weight = Math.max(weight, cfg.noBrowserSensitiveWeight);
         if (sensitive.size > cfg.maxTrackedIps) sensitive.clear();
       }
       // Muitos 404 seguidos = varredura de URLs: cobra a mais na resposta.
@@ -435,7 +466,7 @@ function createShield(options = {}) {
     }
     const h = req.headers || {};
     return check(ip, weight, {
-      tag: weight >= cfg.trapWeight ? 'armadilha_scanner' : weight >= 150 ? 'rota_sensivel_abuso' : !h['user-agent'] ? 'sem_user_agent' : weight > 1 ? 'peso_extra' : '',
+      tag: weight >= cfg.trapWeight ? 'armadilha_scanner' : weight >= 150 ? 'rota_sensivel_abuso' : !h['user-agent'] ? 'sem_user_agent' : weight === cfg.toolUaWeight ? 'bot_ferramenta' : weight === cfg.noBrowserSensitiveWeight ? 'bot_sem_navegador' : weight > 1 ? 'peso_extra' : '',
     });
   }
 
@@ -521,7 +552,8 @@ function createShield(options = {}) {
     for (const [ip, s] of ips) if (s.bannedUntil > now) banned.push({ ip, minutesLeft: Math.ceil((s.bannedUntil - now) / 60000), bans: s.bans });
     const total = minute.total;
     return {
-      defense, underAttack, loadShed, trackedIps: ips.size, banned, recentBans: recent.slice(0, 20),
+      defense, underAttack, loadShed, trackedIps: ips.size,
+      attackMode: { active: attackActive(), manual: manualActive(), manualMinutesLeft: manualActive() ? Math.ceil((manualUntil - Date.now()) / 60000) : 0, zombie: zombieActive(), auto: defense > 0 || underAttack || loadShed, newIpsMinute: minute.newIps, newIpsNormal: Math.round(baseNewIps) }, banned, recentBans: recent.slice(0, 20),
       thresholds: { elevated: cfg.elevatedPerMinute, suspect: cfg.suspectPerMinute, extreme: cfg.alertPerMinute },
       currentMinute: { total, blocked: minute.blocked, newBans: minute.newBans, level: levelOf(total) },
       alertActive: Date.now() - lastAlertAt < 10 * 60_000,
@@ -572,7 +604,9 @@ function createShield(options = {}) {
     minuteStart = Date.now();
     minute.total = 0;
     minute.blocked = 0;
+    if (!zombieActive()) baseNewIps = baseNewIps * 0.9 + minute.newIps * 0.1; // só aprende o normal quando não é ataque
     minute.newBans = 0;
+    minute.newIps = 0;
     minute.perIp.clear();
   }, cfg.logIntervalMs);
   timer.unref();
@@ -594,6 +628,8 @@ function createShield(options = {}) {
     stats,
     unban,
     ban,
+    setAttackMode,
+    attackActive,
     config: cfg,
   };
 }

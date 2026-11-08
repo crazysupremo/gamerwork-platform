@@ -88,6 +88,7 @@
     else if (cm.level === 'suspeito') { icon = '🟠'; title = 'Tráfego muito alto'; }
     else if (cm.level === 'elevado') { icon = '🟡'; title = 'Tráfego acima do normal'; }
     var unique = (d.top || []).length;
+    if (d.attackMode && d.attackMode.zombie) { icon = '🧟'; title = 'Anti-zumbi ligado: muitos IPs novos de uma vez'; text = 'Chegaram ' + fmt(d.attackMode.newIpsMinute) + ' IPs novos neste minuto (normal ~' + fmt(d.attackMode.newIpsNormal) + '). O Shield segura IPs novos e pede teste anti-robô no login/cadastro; quem já joga continua entrando.'; }
     if (cm.level && cm.level !== 'normal') {
       if (share >= 60 && big) { text = 'O IP ' + big.ip + (big.ip === you ? ' (você)' : '') + ' faz ' + share + '% dos pedidos (' + fmt(big.n) + '/min). ' + (big.ip === you ? 'Parece ser o seu uso.' : 'Isso é típico de um robô só — derrubar resolve.'); if (big.ip !== you) acts.push(['Derrubar ' + big.ip + ' por 24 h', function () { ban(big.ip, 1440, 'auto: ' + share + '% do tráfego'); }]); }
       else if (unique >= 5 && share < 30) text = 'O volume está espalhado entre vários IPs (maior: ' + share + '%). Parece ataque distribuído (DDoS): banir um a um ajuda pouco — o ideal é colocar o Cloudflare na frente do site.';
@@ -97,6 +98,18 @@
     if (susIps.length) { acts.push(['Banir ' + susIps.length + ' suspeito(s) por 24 h', function () { ban(susIps, 1440, 'auto: suspeito'); }]); if (title === 'Tudo tranquilo') { icon = '🕵️'; title = susIps.length + ' IP(s) suspeito(s) detectado(s)'; text = 'Scanners/bots tentaram acessar áreas sensíveis. O Shield já bloqueia, mas você pode derrubar de vez.'; } }
     $('d-ic').textContent = icon; $('d-title').textContent = title; $('d-text').textContent = text;
     var box = $('d-act'); box.textContent = ''; acts.forEach(function (a) { var b = el('button', a[0], 'danger'); b.onclick = a[1]; box.appendChild(b); });
+  }
+  function attack(d) {
+    var a = d.attackMode || {}, on = $('atk-on'), off = $('atk-off'), t = $('atk-title'), x = $('atk-auto');
+    var kind = a.manual ? 'LIGADO à mão (' + a.manualMinutesLeft + ' min restantes)' : a.zombie ? 'LIGADO automático — anti-zumbi (muitos IPs novos de uma vez)' : a.auto ? 'LIGADO automático — tráfego muito alto' : 'Desligado';
+    t.textContent = (a.active ? '🛑 ' : '✅ ') + kind; t.style.color = a.active ? '#fca5a5' : '';
+    x.textContent = 'IPs novos neste minuto: ' + fmt(a.newIpsMinute) + ' (normal do site: ~' + fmt(a.newIpsNormal) + '). O anti-zumbi liga sozinho se vierem 6x mais que o normal (mínimo 120 por minuto).';
+    on.style.display = a.manual ? 'none' : ''; off.style.display = a.manual ? '' : 'none'; $('atk-mins').style.display = a.manual ? 'none' : '';
+  }
+  function setAttack(onoff) {
+    var m = parseInt($('atk-mins').value, 10);
+    if (onoff && !confirm('Ligar o MODO ATAQUE por ' + (m >= 60 ? m / 60 + ' h' : m + ' min') + '?\n\nJogadores novos esperam ~1 minuto para entrar; quem já joga não sente.')) return;
+    api('/api/admin/shield/attack-mode', { on: onoff, minutes: m }).then(function () { msg(onoff ? 'Modo ataque LIGADO.' : 'Modo ataque desligado.'); load(); }).catch(function (e) { msg(e.message); });
   }
   function isBanned(d, ip) { return (d.banned || []).some(function (b) { return b.ip === ip; }); }
 
@@ -109,7 +122,7 @@
       $('k-total').textContent = fmt(cm.total); $('k-blocked').textContent = fmt(cm.blocked); $('k-bans').textContent = fmt(cm.newBans);
       $('k-banned').textContent = fmt((d.banned || []).length); $('k-tracked').textContent = fmt(d.trackedIps); $('k-peak').textContent = fmt(peak); $('k-peak-l').textContent = 'pico (' + (range >= 60 ? range / 60 + ' h' : range + ' min') + ')';
       $('upd').textContent = 'atualizado ' + new Date().toLocaleTimeString('pt-BR');
-      chart(); diagnose(d);
+      chart(); diagnose(d); attack(d);
       var total = cm.total || 0;
       fill($('top'), 'top-empty', (d.top || []).map(function (r) {
         var tr = el('tr'), a = el('td', r.ip, 'mono'); if (r.ip === you) { a.appendChild(el('span', ' você', 'tag')); } if (permSet[r.ip]) a.appendChild(el('span', ' ♾', 'tag vio'));
@@ -130,6 +143,7 @@
       var a = el('a', 'Abrir o monitor completo →'); a.href = (r.base || 'https://protection-bluex.onrender.com') + '/monitor.html'; a.target = '_blank'; a.rel = 'noopener'; box.appendChild(el('p')); box.appendChild(a);
     }).catch(function () {});
   }
+  $('atk-on').onclick = function () { setAttack(true); }; $('atk-off').onclick = function () { setAttack(false); };
   $('go').onclick = function () { var ip = $('ip').value.trim(); if (!ip) return msg('Digite um IP.'); var m = $('mins').value; ban(ip, m === 'perm' ? 'perm' : parseInt(m, 10), $('why').value.trim()); };
   [].forEach.call(document.querySelectorAll('button.range'), function (b) { b.onclick = function () { range = parseInt(b.dataset.r, 10); [].forEach.call(document.querySelectorAll('button.range'), function (x) { x.classList.toggle('on', x === b); }); if (DATA) { chart(); var hs = (DATA.history || []).slice(-range); $('k-peak').textContent = fmt(hs.reduce(function (m, p) { return Math.max(m, p.total); }, 0)); $('k-peak-l').textContent = 'pico (' + (range >= 60 ? range / 60 + ' h' : range + ' min') + ')'; } }; });
   window.addEventListener('resize', function () { if (DATA) chart(); });

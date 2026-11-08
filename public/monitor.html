@@ -56,6 +56,15 @@ input,select{background:#0b1020;color:var(--txt);border:1px solid #27355a;border
     <div class="kpi" style="--c:var(--ok)"><b id="k-tracked">–</b><span>IPs monitorados</span></div>
   </div></section>
 
+  <section class="card c12" id="atk-card"><div class="row" style="justify-content:space-between;gap:16px">
+    <div style="flex:1;min-width:260px"><h2 style="margin-bottom:6px">🛑 Modo ataque (emergência)</h2>
+      <p class="big" id="atk-title" style="margin:2px 0;font-size:16px;font-weight:700">Desligado</p>
+      <p class="mut" id="atk-text" style="margin:2px 0">Liga o bloqueio forte na hora: IPs novos ficam em espera por 1 minuto (quem já joga continua entrando), limites mais apertados e login/cadastro pedem um teste anti-robô rápido.</p>
+      <p class="mut" id="atk-auto" style="margin:6px 0 0"></p></div>
+    <div class="row"><select id="atk-mins"><option value="30">30 minutos</option><option value="60" selected>1 hora</option><option value="180">3 horas</option><option value="720">12 horas</option></select>
+      <button class="danger" id="atk-on">Ligar modo ataque</button><button id="atk-off" style="display:none">Desligar</button></div>
+  </div></section>
+
   <section class="card c12"><div class="diag"><div class="ic" id="d-ic">🛰️</div><div style="flex:1"><h2 style="margin-bottom:4px">Diagnóstico inteligente</h2><p class="big" id="d-title">Analisando…</p><p class="mut" id="d-text"></p><div class="row" id="d-act" style="margin-top:8px"></div></div></div></section>
 
   <section class="card c12">
@@ -74,7 +83,7 @@ input,select{background:#0b1020;color:var(--txt);border:1px solid #27355a;border
     <div class="row" style="margin-top:8px"><select id="mins"><option value="10">10 minutos</option><option value="60">1 hora</option><option value="360">6 horas</option><option value="1440">24 horas</option><option value="perm">♾ Para sempre</option></select>
       <button class="danger" id="go">Derrubar</button></div>
     <input id="why" placeholder="Motivo (opcional)" style="width:100%;margin-top:8px" />
-    <p class="mut" style="margin:10px 0 0">Banido recebe erro 429 e nem chega no site. “Para sempre” fica salvo e volta a valer até se o servidor reiniciar.</p></section>
+    <p class="mut" style="margin:10px 0 0">Banido recebe erro 429 e nem chega no site. “Para sempre” fica salvo e volta a valer mesmo se o servidor reiniciar.</p></section>
 
   <section class="card c6"><h2>♾ Banidos para sempre</h2>
     <div class="scroll"><table><thead><tr><th>IP</th><th>Motivo</th><th>Desde</th><th></th></tr></thead><tbody id="perm"></tbody></table></div>

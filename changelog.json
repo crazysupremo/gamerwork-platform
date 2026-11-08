@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.94.0",
+    "date": "2026-11-08",
+    "changes": [
+      "Proteção anti-zumbi (botnet): se chegam muitos IPs novos de uma vez, o site liga sozinho o modo ataque — IPs novos esperam ~1 min, quem já joga continua entrando.",
+      "Teste anti-robô rápido (invisível, ~0,2 s) no login e cadastro, pedido só quando o site está em alerta.",
+      "Robôs são barrados pelo jeito: ferramentas como curl/python, scanners e POST sem cabeçalhos de navegador contam forte e levam ban em segundos.",
+      "Botão de emergência no Monitor de atividade: liga/desliga o MODO ATAQUE na hora."
+    ]
+  },
+  {
     "version": "0.93.1",
     "date": "2026-11-08",
     "changes": [

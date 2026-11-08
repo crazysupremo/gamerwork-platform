@@ -936,15 +936,61 @@ let pending2FALoginToken = null;
 // ainda válido — é a pessoa quem escolhe ficar conectada, nunca automático.
 let pendingLoginRemember = true;
 
+// ---------- ANTI-ROBÔ: prova de trabalho (só é pedida quando o site está em alerta) ----------
+const POW_WORKER_SRC = `
+function sha256(msg){var K=[1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298];
+var H=[1779033703,3144134277,1013904242,2773480762,1359893119,2600822924,528734635,1541459225];
+var b=[];for(var i=0;i<msg.length;i++)b.push(msg.charCodeAt(i)&255);var l=b.length*8;b.push(128);while(b.length%64!==56)b.push(0);
+for(var s=56;s>=0;s-=8)b.push(s>=32?0:(l>>>s)&255);
+var w=new Array(64);
+for(var o=0;o<b.length;o+=64){for(var t=0;t<16;t++)w[t]=(b[o+t*4]<<24)|(b[o+t*4+1]<<16)|(b[o+t*4+2]<<8)|b[o+t*4+3];
+for(t=16;t<64;t++){var x=w[t-15],y=w[t-2];w[t]=(w[t-16]+(((x>>>7)|(x<<25))^((x>>>18)|(x<<14))^(x>>>3))+w[t-7]+(((y>>>17)|(y<<15))^((y>>>19)|(y<<13))^(y>>>10)))|0;}
+var a=H[0],B=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+for(t=0;t<64;t++){var T1=(h+(((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7)))+((e&f)^(~e&g))+K[t]+w[t])|0;var T2=((((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10)))+((a&B)^(a&c)^(B&c)))|0;h=g;g=f;f=e;e=(d+T1)|0;d=c;c=B;B=a;a=(T1+T2)|0;}
+H[0]=(H[0]+a)|0;H[1]=(H[1]+B)|0;H[2]=(H[2]+c)|0;H[3]=(H[3]+d)|0;H[4]=(H[4]+e)|0;H[5]=(H[5]+f)|0;H[6]=(H[6]+g)|0;H[7]=(H[7]+h)|0;}
+return H;}
+function zeros(H){var n=0;for(var i=0;i<8;i++){if(H[i]===0){n+=32;continue;}n+=Math.clz32(H[i]);break;}return n;}
+onmessage=function(ev){var token=ev.data.token,bits=ev.data.bits;for(var n=0;n<100000000;n++){if(zeros(sha256(token+':'+n))>=bits){postMessage(String(n));return;}}postMessage(null);};
+`;
+async function solvePow() {
+  try {
+    const r = await fetch('/api/challenge', { credentials: 'include', cache: 'no-store' });
+    const c = await r.json();
+    if (!c.required) return null;
+    const url = URL.createObjectURL(new Blob([POW_WORKER_SRC], { type: 'text/javascript' }));
+    const worker = new Worker(url);
+    const nonce = await new Promise((resolve) => {
+      const t = setTimeout(() => resolve(null), 60000);
+      worker.onmessage = (e) => { clearTimeout(t); resolve(e.data); };
+      worker.onerror = () => { clearTimeout(t); resolve(null); };
+      worker.postMessage({ token: c.token, bits: c.bits });
+    });
+    worker.terminate(); URL.revokeObjectURL(url);
+    return nonce == null ? null : { token: c.token, nonce };
+  } catch (_) { return null; }
+}
+
 async function authRequest(url, body, remember = true) {
   authError.textContent = '';
   try {
-    const res = await fetch(url, {
+    let pow = await solvePow();
+    let res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(Object.assign({}, body, { remember })),
+      body: JSON.stringify(Object.assign({}, body, { remember, pow })),
     });
+    if (res.status === 428) { // o site entrou em alerta agora mesmo: resolve a prova e tenta de novo uma vez
+      authError.textContent = 'Verificando que você não é um robô…';
+      pow = await solvePow();
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(Object.assign({}, body, { remember, pow })),
+      });
+      authError.textContent = '';
+    }
     const data = await res.json();
     if (!res.ok) {
       authError.textContent = data.error || 'Erro ao autenticar';
