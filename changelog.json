@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.93.0",
+    "date": "2026-11-08",
+    "changes": [
+      "Novo Monitor de atividade dentro do NEXT GAME (Admin > Monitor de atividade, ou /monitor.html): gráfico de pedidos por minuto, IPs com mais pedidos agora e botão para derrubar o IP (10 min, 1 h ou 24 h).",
+      "Também dá para digitar um IP e derrubar manualmente, liberar IPs banidos e ver os suspeitos (scanners e bots).",
+      "O selo de alerta do topo agora abre o monitor do próprio NEXT GAME."
+    ]
+  },
+  {
     "version": "0.92.2",
     "date": "2026-11-07",
     "changes": [

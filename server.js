@@ -2064,7 +2064,7 @@ app.post(
 app.get('/api/admin/shield', requireAuth, requireAdmin, (req, res) => {
   const sh = global[Symbol.for('bluex.shield.patched')];
   if (!sh) return res.json({ active: false });
-  res.json({ active: true, ...sh.stats() });
+  res.json({ active: true, you: req.ip, ...sh.stats() });
 });
 
 // Alertas dos sites vinculados (ex.: jogo do amigo) vindos do Protection BLUEX — o servidor
@@ -2082,6 +2082,17 @@ app.get('/api/admin/shield-remote', requireAuth, requireAdmin, async (req, res) 
   } catch (e) {
     res.json({ configured: true, error: String((e && e.message) || e), underAttack: [], alerts: [] });
   }
+});
+
+// Derruba (bane) um IP na hora pelo Monitor: 1 a 1440 minutos. Não deixa banir o seu próprio IP.
+app.post('/api/admin/shield/ban', requireAuth, requireAdmin, (req, res) => {
+  const sh = global[Symbol.for('bluex.shield.patched')];
+  const ip = String((req.body && req.body.ip) || '').trim();
+  const minutes = Math.min(Math.max(parseInt(req.body && req.body.minutes, 10) || 10, 1), 1440);
+  if (!sh || !ip || ip.length > 45 || !/^[0-9a-fA-F:.]+$/.test(ip)) return res.status(400).json({ error: 'IP inválido' });
+  if (ip === req.ip || ip === String(req.ip || '').replace(/^::ffff:/, '')) return res.status(400).json({ error: 'Esse é o seu IP — não vou derrubar você mesmo.' });
+  sh.ban(ip, minutes);
+  res.json({ ok: true, ip, minutes });
 });
 
 app.post('/api/admin/shield/unban', requireAuth, requireAdmin, (req, res) => {

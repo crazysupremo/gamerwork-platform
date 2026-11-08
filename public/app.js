@@ -11980,7 +11980,7 @@ function startShieldBadge() {
         badge.classList.remove('hidden');
         badge.style.background = colors[lv];
         badge.textContent = '🛡️ ' + label + ' · ' + lv.toUpperCase() + ' · ' + Number(total).toLocaleString('pt-BR') + '/min';
-        badge.href = (base || 'https://protection-bluex.onrender.com') + '/monitor.html';
+        badge.href = label === 'NEXT GAME' ? '/monitor.html' : (base || 'https://protection-bluex.onrender.com') + '/monitor.html';
         badge.title = 'BLUEX SHIELD: requisições demais em "' + label + '". Clique para abrir o monitor.';
       }
       const key = lv + '|' + label;

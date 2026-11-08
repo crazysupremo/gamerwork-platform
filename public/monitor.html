@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>NEXT GAME — Monitor de atividade</title>
+<style>
+:root{--bg:#0b0d12;--panel:#12161f;--line:#1f2633;--txt:#e8ecf5;--mut:#8a94a8;--blue:#4f8cff;--ok:#34d399;--warn:#facc15;--high:#fb923c;--crit:#ef4444}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif}
+header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+h1{margin:0;font-size:18px}h2{margin:0 0 10px;font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em}
+a{color:var(--blue)}main{padding:16px 20px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));max-width:1400px;margin:auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}.wide{grid-column:1/-1}
+.kpis{display:flex;gap:10px;flex-wrap:wrap}.kpi{flex:1;min-width:120px;background:#0e121a;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.kpi b{display:block;font-size:24px}.kpi span{color:var(--mut);font-size:12px}
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-weight:800;font-size:12px;color:#111;background:var(--ok)}
+.lv-elevado{background:var(--warn)}.lv-suspeito{background:var(--high)}.lv-extremo{background:var(--crit);color:#fff}
+table{width:100%;border-collapse:collapse}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:middle}
+th{color:var(--mut);font-weight:600}td.n{text-align:right;font-variant-numeric:tabular-nums}.mono{font-family:ui-monospace,Menlo,monospace}
+button{background:#1b2331;color:var(--txt);border:1px solid #2a3447;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px}
+button:hover{border-color:var(--blue)}button.danger{background:#3a1519;border-color:#6b2128;color:#ffb4b4}button.danger:hover{border-color:var(--crit)}
+input,select{background:#0e121a;color:var(--txt);border:1px solid #2a3447;border-radius:8px;padding:7px 9px;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.mut{color:var(--mut)}.empty{color:var(--mut);padding:8px 0}
+canvas{width:100%;height:200px;display:block}#msg{position:fixed;right:16px;bottom:16px;background:#1b2331;border:1px solid var(--blue);padding:10px 14px;border-radius:10px;display:none}
+.scroll{max-height:320px;overflow:auto}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛡️ Monitor de atividade — NEXT GAME</h1>
+  <div class="row"><span id="lvl" class="pill">carregando…</span><span class="mut" id="upd"></span><a href="/admin.html">← Admin</a> · <a href="/">Site</a></div>
+</header>
+<main>
+  <section class="card wide"><div class="kpis">
+    <div class="kpi"><b id="k-total">–</b><span>pedidos neste minuto</span></div>
+    <div class="kpi"><b id="k-blocked">–</b><span>bloqueados</span></div>
+    <div class="kpi"><b id="k-bans">–</b><span>bans novos (min)</span></div>
+    <div class="kpi"><b id="k-banned">–</b><span>IPs banidos agora</span></div>
+    <div class="kpi"><b id="k-tracked">–</b><span>IPs monitorados</span></div>
+  </div><p class="mut" id="thr" style="margin:10px 0 0"></p></section>
+
+  <section class="card wide"><h2>Pedidos por minuto (últimas 2 h)</h2><canvas id="chart" width="1200" height="220"></canvas></section>
+
+  <section class="card"><h2>IPs com mais pedidos agora</h2>
+    <div class="scroll"><table><thead><tr><th>IP</th><th class="n">Pedidos/min</th><th>Derrubar</th></tr></thead><tbody id="top"></tbody></table></div>
+    <div id="top-empty" class="empty" style="display:none">Nenhum IP com atividade agora.</div></section>
+
+  <section class="card"><h2>Derrubar um IP manualmente</h2>
+    <div class="row"><input id="ip" class="mono" placeholder="ex: 203.0.113.7" size="22" />
+      <select id="mins"><option value="10">10 min</option><option value="60">1 hora</option><option value="360">6 horas</option><option value="1440">24 horas</option></select>
+      <button class="danger" id="go">Derrubar</button></div>
+    <p class="mut" style="margin:10px 0 0">Banido = recebe erro 429 e nem chega no site. Você pode liberar a qualquer momento.</p></section>
+
+  <section class="card"><h2>IPs banidos agora</h2>
+    <div class="scroll"><table><thead><tr><th>IP</th><th>Falta</th><th>Bans</th><th></th></tr></thead><tbody id="banned"></tbody></table></div>
+    <div id="banned-empty" class="empty" style="display:none">Nenhum IP banido.</div></section>
+
+  <section class="card"><h2>Atividade suspeita (scanners/bots)</h2>
+    <div class="scroll"><table><thead><tr><th>Hora</th><th>IP</th><th>Motivo</th><th></th></tr></thead><tbody id="susp"></tbody></table></div>
+    <div id="susp-empty" class="empty" style="display:none">Nada suspeito.</div></section>
+
+  <section class="card wide" id="remote-card" style="display:none"><h2>Outros sites protegidos (Protection BLUEX)</h2><div id="remote"></div></section>
+</main>
+<div id="msg"></div>
+<script src="/monitor.js"></script>
+</body>
+</html>
