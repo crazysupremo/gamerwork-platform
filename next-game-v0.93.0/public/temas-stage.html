@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NEXT GAME — palco de preview dos temas</title>
+<!-- Palco do Estúdio de Temas (/temas.html): uma miniatura FIEL do NEXT GAME
+     (mesmo style.css, mesmas classes da barra lateral/topo/cards) onde o
+     Estúdio aplica o tema que está sendo editado, em tempo real, via
+     postMessage. Roda dentro de um <iframe>, então cada tamanho de tela
+     (desktop / tablet / celular) é testado de verdade com media queries. -->
+<link rel="stylesheet" href="/style.css?v=0.93.0" />
+<link rel="stylesheet" href="/plus2.css?v=0.93.0" />
+<style>
+  body { overflow: hidden; }
+  .stage-chat { flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 22px; min-height: 0; overflow: hidden; }
+  .stage-msg { display: flex; gap: 10px; align-items: flex-start; max-width: 640px; }
+  .stage-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--gradient-brand); flex-shrink: 0; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 15px; }
+  .stage-bubble { background: rgba(var(--accent-rgb), 0.14); border: 1px solid rgba(var(--accent-rgb), 0.28); border-radius: 14px; padding: 9px 13px; font-size: 14px; color: #eceff6; line-height: 1.4; }
+  .stage-msg.mine { align-self: flex-end; flex-direction: row-reverse; }
+  .stage-msg.mine .stage-bubble { background: var(--gradient-brand); border-color: transparent; color: #fff; }
+  .stage-name { font-size: 12px; font-weight: 800; color: var(--accent-3); margin-bottom: 3px; }
+  .stage-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; padding: 0 22px 18px; }
+  .stage-card { background: var(--bg-panel); border: 1px solid rgba(var(--accent-rgb), 0.25); border-radius: 14px; padding: 14px; }
+  .stage-card h4 { margin: 0 0 6px; font-size: 14px; color: #fff; } .stage-card p { margin: 0 0 10px; font-size: 12px; color: #9aa0ab; }
+  .stage-input { margin: 0 22px 20px; background: rgba(255,255,255,0.06); border: 1px solid rgba(var(--accent-rgb), 0.3); border-radius: 12px; padding: 12px 14px; color: #7d8390; font-size: 14px; }
+  .pvprev-ico { display: block; width: 28px; height: 28px; border-radius: 9px; }
+  @media (max-width: 640px) { .app-sidebar { display: none; } .stage-chat { padding: 14px; } .stage-cards { padding: 0 14px 14px; } .stage-input { margin: 0 14px 14px; } }
+</style>
+</head>
+<body>
+<div id="app" class="app">
+  <nav id="app-sidebar" class="app-sidebar">
+    <div class="app-sidebar-logo">
+      <img src="/assets/logo.png" alt="NEXT GAME" class="app-sidebar-logo-img" />
+      <span class="beta-tag">v0.93.0</span>
+    </div>
+    <div class="app-sidebar-nav">
+      <button class="sidebar-nav-item sidebar-nav-item-solo active"><span class="ng-icon-wrap" data-icon="gamepad-2"></span> Início</button>
+      <button class="sidebar-nav-item sidebar-nav-item-solo"><span class="ng-icon-wrap" data-icon="users"></span> Amigos</button>
+      <button class="sidebar-nav-item sidebar-nav-item-solo"><span class="ng-icon-wrap" data-icon="message-square"></span> Chat</button>
+    </div>
+    <div class="app-sidebar-servers-header"><span class="app-sidebar-section-label">Servidores</span></div>
+    <div id="server-rail" class="app-sidebar-servers">
+      <div id="server-rail-list" class="server-rail-list">
+        <button class="server-row active"><span class="server-row-icon"><span class="pvprev-ico" style="background:#ff4655"></span></span><span class="server-row-name">Valorant BR</span><span class="server-row-dot server-row-dot-on"></span></button>
+        <button class="server-row"><span class="server-row-icon"><span class="pvprev-ico" style="background:#4caf50"></span></span><span class="server-row-name">Minecraft Amigos</span><span class="server-row-dot"></span></button>
+        <button class="server-row"><span class="server-row-icon"><span class="pvprev-ico" style="background:#00a8ff"></span></span><span class="server-row-name">Magic Tank</span><span class="server-row-dot"></span></button>
+        <button class="server-row"><span class="server-row-icon"><span class="pvprev-ico" style="background:#c89b3c"></span></span><span class="server-row-name">League Squad</span><span class="server-row-dot"></span></button>
+      </div>
+    </div>
+  </nav>
+  <div class="app-main">
+    <header class="top-navbar">
+      <div style="font-weight:800;color:#fff;">Início</div>
+      <div class="navbar-right"><button class="home-btn-primary">Criar servidor</button></div>
+    </header>
+    <div class="stage-chat">
+      <div class="stage-msg"><div class="stage-avatar">M</div><div><div class="stage-name">Marina</div><div class="stage-bubble">Bora jogar hoje à noite? Já criei o servidor da galera.</div></div></div>
+      <div class="stage-msg mine"><div class="stage-avatar">R</div><div><div class="stage-bubble">Bora! Chama o pessoal que eu já entro. 🎮</div></div></div>
+      <div class="stage-msg"><div class="stage-avatar">T</div><div><div class="stage-name">Tiago</div><div class="stage-bubble">Chego em 5 minutos, separa uma vaga pra mim.</div></div></div>
+    </div>
+    <div class="stage-cards">
+      <div class="stage-card"><h4>Servidores em destaque</h4><p>Encontre uma comunidade para jogar.</p><button class="home-btn-primary">Explorar</button></div>
+      <div class="stage-card"><h4>Eventos</h4><p>Torneio de sábado às 20h.</p><button class="home-btn-primary">Ver evento</button></div>
+      <div class="stage-card"><h4>Jogando agora</h4><p>12 amigos online.</p><button class="home-btn-primary">Entrar</button></div>
+    </div>
+    <div class="stage-input">Mensagem para #geral</div>
+  </div>
+</div>
+
+<script>window.__PV2_STAGE = true; window.PlusV2UserName = 'Admin';</script>
+<script src="/icons.js?v=0.93.0"></script>
+<script src="/plus2-live.js?v=0.93.0"></script>
+<script src="/plus2-mascot.js?v=0.93.0"></script>
+<script src="/plus2-fx.js?v=0.93.0"></script>
+<script src="/plus2-quick.js?v=0.93.0"></script>
+<script>
+  // O Estúdio manda { type:'pv2-stage', theme, prefs, summon, name } por postMessage.
+  window.addEventListener('message', function (e) {
+    if (e.origin !== location.origin) return;
+    var m = e.data;
+    if (!m || m.type !== 'pv2-stage') return;
+    if (m.name) window.PlusV2UserName = m.name;
+    if (m.prefs) PlusV2Live.setPrefs(m.prefs);
+    if (m.theme) PlusV2Live.previewTheme(m.theme);
+    if (m.summon && window.PlusV2Mascot) PlusV2Mascot.summon();
+  });
+  if (window.parent !== window) window.parent.postMessage({ type: 'pv2-stage-ready' }, location.origin);
+</script>
+</body>
+</html>

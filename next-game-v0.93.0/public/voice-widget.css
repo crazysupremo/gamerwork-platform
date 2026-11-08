@@ -1,0 +1,110 @@
+/* voice-widget.css — visual do widget embutível de áudio (public/voice-widget.html).
+   Compacto de propósito (pensado pra caber num <iframe> pequeno dentro do
+   jogo de outra pessoa), sem depender do style.css do app principal. */
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; height: 100%; width: 100%;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  color: #e6e6e6;
+  overflow: hidden;
+}
+
+.vw-root {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+  background: #1a1b20;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.vw-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 16px; text-align: center; width: 100%; height: 100%;
+}
+.vw-state.hidden { display: none; }
+
+.vw-spinner {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 3px solid rgba(0,255,157,0.25); border-top-color: #00ff9d;
+  animation: vwSpin 0.8s linear infinite;
+}
+@keyframes vwSpin { to { transform: rotate(360deg); } }
+
+.vw-logo { height: 32px; width: auto; margin-bottom: 4px; }
+.vw-login-text { font-size: 12.5px; color: #9aa0ab; margin: 0; max-width: 220px; }
+.vw-login-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #00ff9d, #00c2ff); color: #06050a;
+  font-weight: 800; font-size: 12.5px; text-decoration: none;
+  padding: 9px 18px; border-radius: 20px; border: none; cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.vw-login-btn:hover { filter: brightness(1.08); }
+
+.vw-error-text { font-size: 12.5px; color: #ff8a8c; margin: 0; max-width: 220px; }
+
+.vw-call {
+  flex-direction: column; align-items: stretch; justify-content: flex-start;
+  padding: 10px;
+}
+.vw-call-header {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; font-weight: 700; color: #949ba4; text-transform: uppercase;
+  letter-spacing: 0.04em; margin-bottom: 8px; padding: 0 2px;
+}
+.vw-call-room-label { color: #00ff9d; }
+
+.vw-tiles {
+  flex: 1; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;
+  overflow-y: auto; min-height: 0;
+}
+.vw-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  width: 56px; padding: 4px 0;
+}
+.vw-tile-avatar {
+  width: 40px; height: 40px; border-radius: 50%; background: #2a2b32;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; color: #e6e6e6; overflow: hidden;
+  border: 2px solid transparent; transition: border-color 0.1s ease;
+  position: relative;
+}
+.vw-tile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.vw-tile.speaking .vw-tile-avatar { border-color: #00ff9d; }
+.vw-tile-name {
+  font-size: 9.5px; color: #c7ccd4; max-width: 56px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.vw-tile-muted-badge {
+  position: absolute; bottom: -2px; right: -2px; width: 16px; height: 16px;
+  border-radius: 50%; background: #f23f42; display: flex; align-items: center;
+  justify-content: center; font-size: 8px; border: 2px solid #1a1b20;
+}
+.vw-tile-muted-badge.hidden { display: none; }
+
+.vw-controls {
+  display: flex; gap: 8px; justify-content: center; margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.vw-ctrl-btn {
+  width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer;
+  background: #2a2b32; color: #e6e6e6; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.vw-ctrl-btn:hover { background: #35373f; }
+.vw-ctrl-btn:active { transform: scale(0.94); }
+.vw-ctrl-btn.vw-muted { background: rgba(242,63,66,0.18); color: #ff8a8c; }
+.vw-ctrl-leave { background: rgba(242,63,66,0.18); color: #ff8a8c; }
+.vw-ctrl-leave:hover { background: rgba(242,63,66,0.3); }
+
+/* Tema claro opcional (?theme=light) — alguns jogos têm UI clara e um
+   widget totalmente escuro destoa muito. */
+.vw-root.vw-theme-light { background: #f4f4f7; color: #1e1f22; }
+.vw-root.vw-theme-light .vw-tile-avatar { background: #e2e3e8; color: #1e1f22; }
+.vw-root.vw-theme-light .vw-tile-name { color: #4a4d54; }
+.vw-root.vw-theme-light .vw-ctrl-btn { background: #e2e3e8; color: #1e1f22; }
+.vw-root.vw-theme-light .vw-ctrl-btn:hover { background: #d3d4da; }
+.vw-root.vw-theme-light .vw-call-header { color: #6d7178; }
