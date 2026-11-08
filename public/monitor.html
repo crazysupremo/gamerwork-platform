@@ -5,61 +5,90 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>NEXT GAME — Monitor de atividade</title>
 <style>
-:root{--bg:#0b0d12;--panel:#12161f;--line:#1f2633;--txt:#e8ecf5;--mut:#8a94a8;--blue:#4f8cff;--ok:#34d399;--warn:#facc15;--high:#fb923c;--crit:#ef4444}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif}
-header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-h1{margin:0;font-size:18px}h2{margin:0 0 10px;font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em}
-a{color:var(--blue)}main{padding:16px 20px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));max-width:1400px;margin:auto}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}.wide{grid-column:1/-1}
-.kpis{display:flex;gap:10px;flex-wrap:wrap}.kpi{flex:1;min-width:120px;background:#0e121a;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-.kpi b{display:block;font-size:24px}.kpi span{color:var(--mut);font-size:12px}
-.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-weight:800;font-size:12px;color:#111;background:var(--ok)}
-.lv-elevado{background:var(--warn)}.lv-suspeito{background:var(--high)}.lv-extremo{background:var(--crit);color:#fff}
-table{width:100%;border-collapse:collapse}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:middle}
-th{color:var(--mut);font-weight:600}td.n{text-align:right;font-variant-numeric:tabular-nums}.mono{font-family:ui-monospace,Menlo,monospace}
-button{background:#1b2331;color:var(--txt);border:1px solid #2a3447;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px}
-button:hover{border-color:var(--blue)}button.danger{background:#3a1519;border-color:#6b2128;color:#ffb4b4}button.danger:hover{border-color:var(--crit)}
-input,select{background:#0e121a;color:var(--txt);border:1px solid #2a3447;border-radius:8px;padding:7px 9px;font-size:13px}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.mut{color:var(--mut)}.empty{color:var(--mut);padding:8px 0}
-canvas{width:100%;height:200px;display:block}#msg{position:fixed;right:16px;bottom:16px;background:#1b2331;border:1px solid var(--blue);padding:10px 14px;border-radius:10px;display:none}
-.scroll{max-height:320px;overflow:auto}
+:root{--bg:#070a12;--panel:#0e1320;--panel2:#121a2b;--line:#1d2740;--txt:#e9eefb;--mut:#8995ad;--blue:#5b8cff;--cyan:#22d3ee;--ok:#34d399;--warn:#facc15;--high:#fb923c;--crit:#ef4444;--violet:#a78bfa}
+*{box-sizing:border-box}
+body{margin:0;color:var(--txt);font:14px/1.5 Inter,system-ui,Segoe UI,Roboto,sans-serif;background:radial-gradient(1200px 600px at 10% -10%,rgba(91,140,255,.16),transparent 60%),radial-gradient(900px 500px at 100% 0%,rgba(167,139,250,.12),transparent 55%),var(--bg);min-height:100vh}
+header{display:flex;gap:14px;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap;backdrop-filter:blur(8px);position:sticky;top:0;z-index:5;background:rgba(7,10,18,.8)}
+h1{margin:0;font-size:18px;display:flex;gap:10px;align-items:center}h2{margin:0 0 12px;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.12em;font-weight:700}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+main{padding:18px 24px 40px;display:grid;gap:16px;grid-template-columns:repeat(12,1fr);max-width:1450px;margin:auto}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:16px;padding:16px;min-width:0;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.c12{grid-column:span 12}.c8{grid-column:span 8}.c6{grid-column:span 6}.c4{grid-column:span 4}
+@media(max-width:1000px){.c8,.c6,.c4{grid-column:span 12}}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(52,211,153,.7);animation:pulse 2s infinite;display:inline-block}
+@keyframes pulse{70%{box-shadow:0 0 0 9px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-weight:800;font-size:12px;color:#06210f;background:var(--ok)}
+.lv-elevado{background:var(--warn);color:#2a2200}.lv-suspeito{background:var(--high);color:#2b1300}.lv-extremo{background:var(--crit);color:#fff}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:12px;padding:12px 14px;position:relative;overflow:hidden}
+.kpi:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--blue))}
+.kpi b{display:block;font-size:26px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.kpi span{color:var(--mut);font-size:12px}
+.diag{display:flex;gap:14px;align-items:flex-start}.diag .ic{font-size:28px;line-height:1}
+.diag p{margin:2px 0}.diag .big{font-size:16px;font-weight:700}
+.bar{height:6px;border-radius:99px;background:#1a2336;overflow:hidden;min-width:70px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan))}.bar i.hot{background:linear-gradient(90deg,var(--high),var(--crit))}
+table{width:100%;border-collapse:collapse}td,th{padding:8px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:middle}
+th{color:var(--mut);font-weight:600;font-size:12px}td.n{text-align:right;font-variant-numeric:tabular-nums}.mono{font-family:ui-monospace,Menlo,monospace}
+.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;background:#1b2538;color:var(--mut)}.tag.red{background:#3a1519;color:#ffb4b4}.tag.vio{background:#2a2147;color:#cdbbff}.tag.yel{background:#3a3210;color:#fde68a}
+button{background:#18223a;color:var(--txt);border:1px solid #27355a;border-radius:9px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;transition:.15s}
+button:hover{border-color:var(--blue);transform:translateY(-1px)}button.danger{background:#3a1519;border-color:#6b2128;color:#ffc2c2}button.danger:hover{border-color:var(--crit)}
+button.perm{background:#2a2147;border-color:#4b3a85;color:#d8ccff}button.perm:hover{border-color:var(--violet)}
+button.range.on{background:var(--blue);border-color:var(--blue);color:#fff}
+input,select{background:#0b1020;color:var(--txt);border:1px solid #27355a;border-radius:9px;padding:8px 10px;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.mut{color:var(--mut)}.empty{color:var(--mut);padding:10px 0}
+.chartwrap{position:relative}canvas{width:100%;height:260px;display:block}
+#tip{position:absolute;pointer-events:none;background:rgba(10,14,26,.96);border:1px solid #2a3860;border-radius:10px;padding:8px 10px;font-size:12px;display:none;z-index:3;min-width:150px;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+#msg{position:fixed;right:18px;bottom:18px;background:#16213a;border:1px solid var(--blue);padding:10px 16px;border-radius:12px;display:none;z-index:9;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.scroll{max-height:340px;overflow:auto}.legend{display:flex;gap:14px;font-size:12px;color:var(--mut);flex-wrap:wrap;margin-top:6px}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
 </style>
 </head>
 <body>
 <header>
-  <h1>🛡️ Monitor de atividade — NEXT GAME</h1>
-  <div class="row"><span id="lvl" class="pill">carregando…</span><span class="mut" id="upd"></span><a href="/admin.html">← Admin</a> · <a href="/">Site</a></div>
+  <h1><span class="dot"></span> Monitor de atividade <span class="mut" style="font-weight:500">· NEXT GAME</span></h1>
+  <div class="row"><span id="lvl" class="pill">carregando…</span><span class="mut" id="upd"></span><a href="/admin.html">← Admin</a><a href="/">Site</a></div>
 </header>
 <main>
-  <section class="card wide"><div class="kpis">
-    <div class="kpi"><b id="k-total">–</b><span>pedidos neste minuto</span></div>
-    <div class="kpi"><b id="k-blocked">–</b><span>bloqueados</span></div>
-    <div class="kpi"><b id="k-bans">–</b><span>bans novos (min)</span></div>
-    <div class="kpi"><b id="k-banned">–</b><span>IPs banidos agora</span></div>
-    <div class="kpi"><b id="k-tracked">–</b><span>IPs monitorados</span></div>
-  </div><p class="mut" id="thr" style="margin:10px 0 0"></p></section>
+  <section class="card c12"><div class="kpis">
+    <div class="kpi" style="--c:var(--blue)"><b id="k-total">–</b><span>pedidos neste minuto</span></div>
+    <div class="kpi" style="--c:var(--crit)"><b id="k-blocked">–</b><span>bloqueados</span></div>
+    <div class="kpi" style="--c:var(--high)"><b id="k-bans">–</b><span>bans novos (min)</span></div>
+    <div class="kpi" style="--c:var(--violet)"><b id="k-banned">–</b><span>IPs banidos agora</span></div>
+    <div class="kpi" style="--c:var(--cyan)"><b id="k-peak">–</b><span id="k-peak-l">pico no período</span></div>
+    <div class="kpi" style="--c:var(--ok)"><b id="k-tracked">–</b><span>IPs monitorados</span></div>
+  </div></section>
 
-  <section class="card wide"><h2>Pedidos por minuto (últimas 2 h)</h2><canvas id="chart" width="1200" height="220"></canvas></section>
+  <section class="card c12"><div class="diag"><div class="ic" id="d-ic">🛰️</div><div style="flex:1"><h2 style="margin-bottom:4px">Diagnóstico inteligente</h2><p class="big" id="d-title">Analisando…</p><p class="mut" id="d-text"></p><div class="row" id="d-act" style="margin-top:8px"></div></div></div></section>
 
-  <section class="card"><h2>IPs com mais pedidos agora</h2>
-    <div class="scroll"><table><thead><tr><th>IP</th><th class="n">Pedidos/min</th><th>Derrubar</th></tr></thead><tbody id="top"></tbody></table></div>
+  <section class="card c12">
+    <div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">Pedidos por minuto</h2>
+      <div class="row"><button class="range" data-r="30">30 min</button><button class="range on" data-r="60">1 h</button><button class="range" data-r="120">2 h</button></div></div>
+    <div class="chartwrap"><canvas id="chart"></canvas><div id="tip"></div></div>
+    <div class="legend"><span><i style="background:#5b8cff"></i>pedidos</span><span><i style="background:#ef4444"></i>bloqueados</span><span><i style="background:#a78bfa"></i>ban aplicado</span><span><i style="background:#facc15"></i>nível elevado</span><span><i style="background:#fb923c"></i>suspeito</span><span><i style="background:#ef4444;opacity:.6"></i>extremo</span></div>
+  </section>
+
+  <section class="card c8"><h2>IPs com mais pedidos agora</h2>
+    <div class="scroll"><table><thead><tr><th>IP</th><th class="n">Pedidos/min</th><th>Parte do tráfego</th><th>Derrubar</th></tr></thead><tbody id="top"></tbody></table></div>
     <div id="top-empty" class="empty" style="display:none">Nenhum IP com atividade agora.</div></section>
 
-  <section class="card"><h2>Derrubar um IP manualmente</h2>
-    <div class="row"><input id="ip" class="mono" placeholder="ex: 203.0.113.7" size="22" />
-      <select id="mins"><option value="10">10 min</option><option value="60">1 hora</option><option value="360">6 horas</option><option value="1440">24 horas</option></select>
+  <section class="card c4"><h2>Derrubar um IP manualmente</h2>
+    <div class="row"><input id="ip" class="mono" placeholder="ex: 203.0.113.7" style="flex:1;min-width:140px" /></div>
+    <div class="row" style="margin-top:8px"><select id="mins"><option value="10">10 minutos</option><option value="60">1 hora</option><option value="360">6 horas</option><option value="1440">24 horas</option><option value="perm">♾ Para sempre</option></select>
       <button class="danger" id="go">Derrubar</button></div>
-    <p class="mut" style="margin:10px 0 0">Banido = recebe erro 429 e nem chega no site. Você pode liberar a qualquer momento.</p></section>
+    <input id="why" placeholder="Motivo (opcional)" style="width:100%;margin-top:8px" />
+    <p class="mut" style="margin:10px 0 0">Banido recebe erro 429 e nem chega no site. “Para sempre” fica salvo e volta a valer até se o servidor reiniciar.</p></section>
 
-  <section class="card"><h2>IPs banidos agora</h2>
+  <section class="card c6"><h2>♾ Banidos para sempre</h2>
+    <div class="scroll"><table><thead><tr><th>IP</th><th>Motivo</th><th>Desde</th><th></th></tr></thead><tbody id="perm"></tbody></table></div>
+    <div id="perm-empty" class="empty" style="display:none">Nenhum IP banido para sempre.</div></section>
+
+  <section class="card c6"><h2>Banidos temporariamente</h2>
     <div class="scroll"><table><thead><tr><th>IP</th><th>Falta</th><th>Bans</th><th></th></tr></thead><tbody id="banned"></tbody></table></div>
-    <div id="banned-empty" class="empty" style="display:none">Nenhum IP banido.</div></section>
+    <div id="banned-empty" class="empty" style="display:none">Nenhum IP banido temporariamente.</div></section>
 
-  <section class="card"><h2>Atividade suspeita (scanners/bots)</h2>
-    <div class="scroll"><table><thead><tr><th>Hora</th><th>IP</th><th>Motivo</th><th></th></tr></thead><tbody id="susp"></tbody></table></div>
+  <section class="card c12"><h2>Atividade suspeita (scanners e bots)</h2>
+    <div class="scroll"><table><thead><tr><th>IP</th><th class="n">Ocorrências</th><th>Motivos</th><th>Última</th><th>Derrubar</th></tr></thead><tbody id="susp"></tbody></table></div>
     <div id="susp-empty" class="empty" style="display:none">Nada suspeito.</div></section>
 
-  <section class="card wide" id="remote-card" style="display:none"><h2>Outros sites protegidos (Protection BLUEX)</h2><div id="remote"></div></section>
+  <section class="card c12" id="remote-card" style="display:none"><h2>Outros sites protegidos (Protection BLUEX)</h2><div id="remote"></div></section>
 </main>
 <div id="msg"></div>
 <script src="/monitor.js"></script>

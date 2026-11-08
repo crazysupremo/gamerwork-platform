@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.93.1",
+    "date": "2026-11-08",
+    "changes": [
+      "Monitor de atividade renovado: gráfico suave com zonas de alerta, passe o mouse para ver cada minuto, escolha 30 min, 1 h ou 2 h.",
+      "Diagnóstico inteligente: diz se é ataque de um IP só, ataque distribuído ou tráfego normal, e sugere a ação (com botão pronto).",
+      "Agora dá para banir PARA SEMPRE (fica salvo e volta mesmo se o servidor reiniciar), banir vários suspeitos de uma vez e liberar quando quiser."
+    ]
+  },
+  {
     "version": "0.93.0",
     "date": "2026-11-08",
     "changes": [

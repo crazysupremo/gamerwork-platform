@@ -2061,11 +2061,12 @@ app.post(
 );
 
 // Painel rápido do BLUEX SHIELD: IPs banidos agora, bans recentes e se está sob ataque.
-app.get('/api/admin/shield', requireAuth, requireAdmin, (req, res) => {
+app.get('/api/admin/shield', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const sh = global[Symbol.for('bluex.shield.patched')];
   if (!sh) return res.json({ active: false });
-  res.json({ active: true, you: req.ip, ...sh.stats() });
-});
+  const permanent = await db.all('SELECT ip, reason, banned_by, created_at FROM ip_bans ORDER BY created_at DESC LIMIT 500');
+  res.json({ active: true, you: req.ip, permanent, ...sh.stats() });
+}));
 
 // Alertas dos sites vinculados (ex.: jogo do amigo) vindos do Protection BLUEX — o servidor
 // consulta com a chave de dono, assim a chave nunca vai pro navegador.
@@ -2084,24 +2085,41 @@ app.get('/api/admin/shield-remote', requireAuth, requireAdmin, async (req, res) 
   }
 });
 
-// Derruba (bane) um IP na hora pelo Monitor: 1 a 1440 minutos. Não deixa banir o seu próprio IP.
-app.post('/api/admin/shield/ban', requireAuth, requireAdmin, (req, res) => {
+// Derruba (bane) IP(s) pelo Monitor. Temporário (1 a 1440 min) ou PERMANENTE (fica salvo no banco
+// e volta a valer sempre que o servidor reinicia). Não deixa banir o seu próprio IP.
+const PERMA_MIN = 60 * 24 * 365 * 10; // 10 anos
+function validIp(ip) { return typeof ip === 'string' && ip.length > 0 && ip.length <= 45 && /^[0-9a-fA-F:.]+$/.test(ip); }
+app.post('/api/admin/shield/ban', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const sh = global[Symbol.for('bluex.shield.patched')];
-  const ip = String((req.body && req.body.ip) || '').trim();
-  const minutes = Math.min(Math.max(parseInt(req.body && req.body.minutes, 10) || 10, 1), 1440);
-  if (!sh || !ip || ip.length > 45 || !/^[0-9a-fA-F:.]+$/.test(ip)) return res.status(400).json({ error: 'IP inválido' });
-  if (ip === req.ip || ip === String(req.ip || '').replace(/^::ffff:/, '')) return res.status(400).json({ error: 'Esse é o seu IP — não vou derrubar você mesmo.' });
-  sh.ban(ip, minutes);
-  res.json({ ok: true, ip, minutes });
-});
+  if (!sh) return res.status(400).json({ error: 'Shield desligado' });
+  const body = req.body || {};
+  const list = (Array.isArray(body.ips) ? body.ips : [body.ip]).map((x) => String(x || '').trim()).filter(Boolean).slice(0, 100);
+  const permanent = body.permanent === true;
+  const minutes = Math.min(Math.max(parseInt(body.minutes, 10) || 10, 1), 1440);
+  const reason = String(body.reason || '').slice(0, 200);
+  if (!list.length || !list.every(validIp)) return res.status(400).json({ error: 'IP inválido' });
+  const mine = String(req.ip || '').replace(/^::ffff:/, '');
+  const done = [];
+  for (const ip of list) {
+    if (ip === req.ip || ip === mine) continue; // nunca derruba você mesmo
+    sh.ban(ip, permanent ? PERMA_MIN : minutes);
+    if (permanent) {
+      await db.run('INSERT OR REPLACE INTO ip_bans (ip, reason, banned_by) VALUES (?, ?, ?)', [ip, reason || 'banido pelo Monitor', req.user.username || req.user.id]);
+    }
+    done.push(ip);
+  }
+  if (!done.length) return res.status(400).json({ error: 'Esse é o seu IP — não vou derrubar você mesmo.' });
+  res.json({ ok: true, banned: done, permanent, minutes: permanent ? null : minutes });
+}));
 
-app.post('/api/admin/shield/unban', requireAuth, requireAdmin, (req, res) => {
+app.post('/api/admin/shield/unban', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const sh = global[Symbol.for('bluex.shield.patched')];
   const ip = (req.body && req.body.ip) || '';
   if (!sh || !ip) return res.status(400).json({ error: 'IP obrigatório' });
   sh.unban(ip);
+  await db.run('DELETE FROM ip_bans WHERE ip = ?', [String(ip)]);
   res.json({ ok: true });
-});
+}));
 
 app.get(
   '/api/admin/redeem-codes',
@@ -9902,6 +9920,13 @@ process.on('unhandledRejection', (reason) => {
 
 async function main() {
   await db.initDb();
+  // Reaplica os IPs banidos PARA SEMPRE (o Shield guarda tudo em memória e zera no restart).
+  try {
+    const sh = global[Symbol.for('bluex.shield.patched')];
+    const rows = await db.all('SELECT ip FROM ip_bans');
+    if (sh) rows.forEach((r) => sh.ban(r.ip, 60 * 24 * 365 * 10));
+    if (rows.length) console.log(`[BLUEX SHIELD] ${rows.length} IP(s) banido(s) para sempre foram recarregados.`);
+  } catch (e) { console.error('[BLUEX SHIELD] erro ao recarregar bans permanentes:', e && e.message); }
   httpServer.listen(PORT, () => {
     console.log(`NEXT GAME rodando em http://localhost:${PORT}`);
   });

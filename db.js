@@ -1091,6 +1091,16 @@ async function initDb() {
     ]);
   }
 
+  // ---------- IPs BANIDOS PARA SEMPRE (Monitor de atividade) ----------
+  await run(`
+    CREATE TABLE IF NOT EXISTS ip_bans (
+      ip TEXT PRIMARY KEY,
+      reason TEXT,
+      banned_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
   // ---------- JOGOS SALVOS ("biblioteca" pessoal na barra lateral) ----------
   await run(`
     CREATE TABLE IF NOT EXISTS saved_games (
