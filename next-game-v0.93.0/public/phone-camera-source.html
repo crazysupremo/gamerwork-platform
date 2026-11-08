@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>NEXT GAME · Câmera do celular</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100dvh; background: #0a0b0d; color: #d8fff0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px 18px; text-align: center;
+  }
+  .logo { height: 40px; margin-bottom: 18px; }
+  h1 { font-size: 17px; margin: 0 0 8px; }
+  p.hint { font-size: 13px; color: #8b909a; line-height: 1.5; max-width: 320px; margin: 0 0 20px; }
+  video {
+    width: 100%; max-width: 320px; aspect-ratio: 4/3; border-radius: 12px; background: #111;
+    border: 1px solid rgba(0,255,157,0.3); object-fit: cover; margin-bottom: 16px; transform: scaleX(-1);
+  }
+  button {
+    font-family: inherit; font-size: 14px; font-weight: 700; padding: 13px 22px; border: none;
+    border-radius: 8px; cursor: pointer; width: 100%; max-width: 320px; margin-bottom: 10px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .btn-primary { background: linear-gradient(135deg, #00ff9d 0%, #00e5ff 100%); color: #05100a; }
+  .btn-secondary { background: #16181a; color: #d8fff0; border: 1px solid rgba(0,255,157,0.25); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #status { font-size: 13px; color: #00ff9d; min-height: 1.4em; margin-bottom: 6px; }
+  .hidden { display: none !important; }
+  .connected-box {
+    background: #0d0f10; border: 1px solid rgba(0,255,157,0.4); border-radius: 12px;
+    padding: 20px; max-width: 320px; font-size: 14px; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<img src="/assets/logo.png" alt="NEXT GAME" class="logo" />
+<h1>Usar câmera do celular na chamada</h1>
+<p class="hint">
+  Deixa o celular apoiado em algum lugar apontando pra você. A câmera vai direto pra chamada de vídeo
+  que está rolando no computador — sem gravar nada, sem passar pelo servidor.
+</p>
+
+<div id="screen-start">
+  <p id="status"></p>
+  <button type="button" id="btn-start" class="btn-primary">Ligar câmera e conectar</button>
+</div>
+
+<div id="screen-camera" class="hidden">
+  <video id="video" autoplay muted playsinline></video>
+  <p id="status-camera"></p>
+  <button type="button" id="btn-flip">Trocar câmera (frente/trás)</button>
+  <button type="button" id="btn-cancel" class="btn-secondary">Desconectar</button>
+</div>
+
+<div id="screen-done" class="hidden">
+  <div class="connected-box">
+    ✅ Conectado! A câmera do celular já está na chamada. Pode deixar o celular do jeito que está.
+  </div>
+  <button type="button" id="btn-cancel-2" class="btn-secondary" style="margin-top:14px;">Desconectar</button>
+</div>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  const statusEl = document.getElementById('status');
+  const statusCameraEl = document.getElementById('status-camera');
+  const video = document.getElementById('video');
+  let stream = null;
+  let pc = null;
+  let facingMode = 'user';
+  let pollTimer = null;
+
+  if (!token) {
+    statusEl.textContent = 'Link inválido — volta pro computador e gera um novo QR Code.';
+    document.getElementById('btn-start').disabled = true;
+  }
+
+  const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+  async function startCamera() {
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode, width: 640, height: 480 }, audio: false });
+    video.srcObject = stream;
+  }
+
+  async function connect() {
+    document.getElementById('screen-start').classList.add('hidden');
+    document.getElementById('screen-camera').classList.remove('hidden');
+    statusCameraEl.textContent = 'Pedindo acesso à câmera...';
+    try {
+      await startCamera();
+    } catch (err) {
+      statusCameraEl.textContent = 'Não foi possível acessar a câmera.';
+      return;
+    }
+    statusCameraEl.textContent = 'Conectando com o computador...';
+
+    pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') {
+        document.getElementById('screen-camera').classList.add('hidden');
+        document.getElementById('screen-done').classList.remove('hidden');
+      } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        statusCameraEl.textContent = 'A conexão caiu — tenta de novo.';
+      }
+    };
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await new Promise((resolve) => {
+      if (pc.iceGatheringState === 'complete') return resolve();
+      pc.addEventListener('icegatheringstatechange', () => {
+        if (pc.iceGatheringState === 'complete') resolve();
+      });
+      setTimeout(resolve, 4000);
+    });
+
+    await fetch(`/api/phone-camera-pair/${encodeURIComponent(token)}/offer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sdp: pc.localDescription.sdp }),
+    });
+
+    pollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/phone-camera-pair/${encodeURIComponent(token)}/answer`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.sdp || pc.currentRemoteDescription) return;
+        await pc.setRemoteDescription({ type: 'answer', sdp: data.sdp });
+        clearInterval(pollTimer);
+      } catch (err) {
+        // tenta de novo no próximo tick
+      }
+    }, 1500);
+  }
+
+  document.getElementById('btn-start').onclick = connect;
+
+  document.getElementById('btn-flip').onclick = async () => {
+    facingMode = facingMode === 'user' ? 'environment' : 'user';
+    try {
+      await startCamera();
+      const newTrack = stream.getVideoTracks()[0];
+      const sender = pc && pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+      if (sender) sender.replaceTrack(newTrack);
+    } catch (err) {
+      statusCameraEl.textContent = 'Não deu pra trocar de câmera.';
+    }
+  };
+
+  function disconnect() {
+    if (pollTimer) clearInterval(pollTimer);
+    if (pc) { pc.close(); pc = null; }
+    if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+    document.getElementById('screen-camera').classList.add('hidden');
+    document.getElementById('screen-done').classList.add('hidden');
+    document.getElementById('screen-start').classList.remove('hidden');
+    statusEl.textContent = 'Desconectado.';
+  }
+  document.getElementById('btn-cancel').onclick = disconnect;
+  document.getElementById('btn-cancel-2').onclick = disconnect;
+</script>
+</body>
+</html>

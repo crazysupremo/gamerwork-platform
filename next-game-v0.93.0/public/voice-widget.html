@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<!--
+  voice-widget.html — widget embutível de áudio do NEXT GAME.
+
+  Pedido: "separar a API de áudio pra integrar no jogo de um amigo, com
+  possibilidade de usar geral, sala do lobby e a call da sala de jogo já".
+
+  Essa página é feita pra rodar dentro de um <iframe> (ou WebView, no caso de
+  um jogo nativo) do jogo externo — carrega sozinha, pede login no NEXT GAME
+  se precisar, entra na sala de voz certa (geral / lobby / partida, pela URL)
+  e manda eventos pro jogo por cima via postMessage. Ver sdk/nextgame-voice.js
+  pra quem não quer mexer com iframe/postMessage na mão, e
+  docs/INTEGRACAO-AUDIO.md pra documentação completa.
+
+  Parâmetros de URL aceitos:
+    ?room=minha-sala-custom          -> entra direto nessa sala (uso livre)
+    ?mode=geral                      -> sala única compartilhada (ext-geral)
+    ?mode=lobby&game=<gameKey>       -> lobby por jogo (ext-lobby-<gameKey>)
+    ?mode=match&game=<gameKey>&match=<matchId> -> sala por partida
+    &muted=1                         -> entra com microfone mutado
+    &theme=dark|light                -> tema do widget (padrão: dark)
+-->
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>NEXT GAME · Voz</title>
+<link rel="stylesheet" href="/voice-widget.css?v=0.82.0" />
+</head>
+<body>
+  <div id="vw-root" class="vw-root">
+
+    <!-- Estado: carregando (checando login) -->
+    <div id="vw-loading" class="vw-state">
+      <div class="vw-spinner"></div>
+      <p>Conectando…</p>
+    </div>
+
+    <!-- Estado: precisa logar no NEXT GAME primeiro -->
+    <div id="vw-login" class="vw-state hidden">
+      <img src="/assets/logo.png" alt="NEXT GAME" class="vw-logo" />
+      <p class="vw-login-text">Entre com sua conta NEXT GAME pra usar o chat de voz.</p>
+      <a id="vw-login-link" class="vw-login-btn" href="#" target="_top">Entrar com NEXT GAME</a>
+    </div>
+
+    <!-- Estado: erro (sala cheia, sem permissão de mic, etc) -->
+    <div id="vw-error" class="vw-state hidden">
+      <p id="vw-error-text" class="vw-error-text"></p>
+      <button type="button" id="vw-retry-btn" class="vw-login-btn">Tentar de novo</button>
+    </div>
+
+    <!-- Estado: conectado na call -->
+    <div id="vw-call" class="vw-state vw-call hidden">
+      <div class="vw-call-header">
+        <span class="vw-call-room-label" id="vw-room-label">Sala de voz</span>
+        <span class="vw-call-count" id="vw-call-count">1 na call</span>
+      </div>
+      <div class="vw-tiles" id="vw-tiles"></div>
+      <div class="vw-controls">
+        <button type="button" id="vw-btn-mute" class="vw-ctrl-btn" title="Mutar/desmutar">🎙️</button>
+        <button type="button" id="vw-btn-leave" class="vw-ctrl-btn vw-ctrl-leave" title="Sair da call">📵</button>
+      </div>
+    </div>
+
+  </div>
+
+  <audio id="vw-remote-audio-pool" style="display:none;"></audio>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/voice-widget.js?v=0.82.0"></script>
+</body>
+</html>
