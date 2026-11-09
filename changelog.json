@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.97.3",
+    "date": "2026-11-09",
+    "changes": [
+      "Botão Baixar app reorganizado: agora fica junto dos botões principais da tela de login (antes ficava cortado no canto) e em largura total ao lado da logo no app."
+    ]
+  },
+  {
     "version": "0.97.2",
     "date": "2026-11-09",
     "changes": [

@@ -38,7 +38,7 @@
   });
 
   function mount() {
-    var hero = document.querySelector('.auth-hero-topbar');
+    var hero = document.querySelector('.auth-hero-ctas');
     if (hero && !hero.querySelector('.install-app-btn')) hero.appendChild(make('install-app-hero'));
     var card = document.getElementById('auth-card');
     var title = document.getElementById('auth-card-title');

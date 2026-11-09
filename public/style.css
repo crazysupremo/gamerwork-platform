@@ -4620,13 +4620,14 @@ table th { font-family: 'Rajdhani', 'Inter', sans-serif; letter-spacing: 0.04em;
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 
-/* Botão "Instalar app" (login e ao lado da logo) */
+/* Botão "Baixar app" (login e ao lado da logo) */
 .install-app-btn {
-  background: var(--gradient-brand); color: #06121a; border: none; font-weight: 700;
-  font-size: 13px; padding: 8px 14px; border-radius: 999px; cursor: pointer;
-  box-shadow: 0 6px 18px rgba(var(--accent-rgb, 0,255,157), 0.35); white-space: nowrap;
+  background: transparent; color: #fff; border: 1px solid rgba(var(--accent-rgb, 0,255,157), 0.55);
+  font-weight: 700; font-size: 14px; padding: 11px 18px; border-radius: 12px; cursor: pointer;
+  white-space: nowrap; transition: background 0.15s ease, transform 0.15s ease;
 }
-.install-app-btn:hover { transform: translateY(-1px); }
-.install-app-card { display: block; margin: 0 auto 14px; }
-.install-app-side { display: block; margin: 8px auto 0; font-size: 12px; padding: 6px 12px; }
-@media (min-width: 900px) { .install-app-card { display: none; } }
+.install-app-btn:hover { background: rgba(var(--accent-rgb, 0,255,157), 0.18); transform: translateY(-1px); }
+.install-app-hero { margin: 0; }
+.install-app-card { display: none; width: 100%; margin: 0 0 14px; }
+@media (max-width: 700px) { .install-app-card { display: block; } .install-app-hero { display: none; } }
+.install-app-side { display: block; width: 100%; margin: 10px 0 0; font-size: 12.5px; padding: 8px 10px; flex-basis: 100%; }
