@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.97.0",
+    "date": "2026-11-09",
+    "changes": [
+      "NEXT GAME agora pode ser instalado como aplicativo no Mac e no PC (Chrome/Edge: botão Instalar na barra de endereço), com ícone e janela próprios."
+    ]
+  },
+  {
     "version": "0.96.0",
     "date": "2026-11-09",
     "changes": [
