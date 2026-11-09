@@ -554,14 +554,14 @@ input[type="search"], input[type="date"], input[type="file"], textarea, [content
   width: 260px; flex-shrink: 0; background: var(--bg-rail); border-right: 1px solid #1c1d22;
   display: flex; flex-direction: column; min-height: 0; padding: 16px 12px 12px;
 }
-.app-sidebar-logo { padding: 4px 6px 16px; display: flex; align-items: center; gap: 8px; }
+.app-sidebar-logo { flex-wrap: wrap; padding: 4px 6px 16px; display: flex; align-items: center; gap: 8px; }
 /* Logo + badge de versão combinando com o tema ativo: a logo em si (arquivo
    .png) continua a mesma pra manter a marca reconhecível, mas o "halo" atrás
    dela e o brilho usam as variáveis de cor do tema (--accent-rgb/--gradient-
    brand), que já são trocadas na hora pelo applyTheme() em plus2-live.js
    sempre que a pessoa troca de tema no PLUS — então a logo "muda de cor"
    junto com o resto do site sem precisar de uma imagem por tema. */
-.app-sidebar-logo { position: relative; }
+.app-sidebar-logo { flex-wrap: wrap; position: relative; }
 .app-sidebar-logo::before {
   content: ''; position: absolute; left: 2px; top: 0; width: 38px; height: 38px;
   background: var(--gradient-brand); border-radius: 50%; filter: blur(14px); opacity: 0.45;
@@ -4619,3 +4619,14 @@ table th { font-family: 'Rajdhani', 'Inter', sans-serif; letter-spacing: 0.04em;
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* Botão "Instalar app" (login e ao lado da logo) */
+.install-app-btn {
+  background: var(--gradient-brand); color: #06121a; border: none; font-weight: 700;
+  font-size: 13px; padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(var(--accent-rgb, 0,255,157), 0.35); white-space: nowrap;
+}
+.install-app-btn:hover { transform: translateY(-1px); }
+.install-app-card { display: block; margin: 0 auto 14px; }
+.install-app-side { display: block; margin: 8px auto 0; font-size: 12px; padding: 6px 12px; }
+@media (min-width: 900px) { .install-app-card { display: none; } }

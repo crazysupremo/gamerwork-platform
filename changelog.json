@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.97.1",
+    "date": "2026-11-09",
+    "changes": [
+      "Botão \"Instalar app\" na tela de login e ao lado da logo: instala o NEXT GAME como aplicativo no Mac, PC e celular com 1 clique."
+    ]
+  },
+  {
     "version": "0.97.0",
     "date": "2026-11-09",
     "changes": [
