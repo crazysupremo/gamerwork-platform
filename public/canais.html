@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Canais — NEXT GAME Admin</title>
+<style>
+body{margin:0;background:#0b0f1a;color:#e5e9f5;font:14px system-ui,sans-serif;padding:20px}
+a{color:#6ea8ff}h1{margin:0 0 12px;font-size:20px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+input,select{background:#141b2d;color:#e5e9f5;border:1px solid #26314d;border-radius:8px;padding:8px}
+input{flex:1;min-width:200px}
+table{width:100%;border-collapse:collapse;background:#111827;border-radius:10px;overflow:hidden}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #1d2740;vertical-align:top}
+th{background:#16203a;cursor:pointer;white-space:nowrap}
+.tag{background:#1d2a4d;border-radius:6px;padding:1px 6px;font-size:12px;margin-right:4px}
+.muted{color:#8b97b5;font-size:12px}
+.wrap{overflow-x:auto}
+</style></head><body>
+<a href="/admin.html">← Admin</a>
+<h1>📋 Todos os canais criados</h1>
+<div class="muted" id="count"></div>
+<div class="bar">
+<input id="q" placeholder="Buscar canal, servidor ou criador...">
+<select id="type"><option value="">Todos os tipos</option></select>
+</div>
+<div class="wrap"><table><thead><tr>
+<th data-k="name">Canal</th><th data-k="server">Servidor</th><th data-k="type">Tipo</th>
+<th data-k="creator_username">Criado por</th><th data-k="owner_username">Dono do servidor</th>
+<th data-k="created_at">Criado em</th><th data-k="message_count">Msgs</th><th data-k="last_message_at">Última msg</th><th>Dados</th>
+</tr></thead><tbody id="tb"></tbody></table></div>
+<script>
+let all=[],sk='created_at',sd=-1;
+const $=id=>document.getElementById(id);
+function cell(tr,txt){const td=document.createElement('td');td.textContent=txt==null||txt===''?'—':txt;tr.appendChild(td);return td}
+function render(){
+  const q=$('q').value.toLowerCase(),t=$('type').value;
+  let r=all.filter(c=>(!t||c.type===t)&&(!q||[c.name,c.server,c.creator_username,c.owner_username].some(x=>String(x||'').toLowerCase().includes(q))));
+  r.sort((a,b)=>{let x=a[sk],y=b[sk];if(x==null)x='';if(y==null)y='';return (x>y?1:x<y?-1:0)*sd});
+  $('count').textContent=r.length+' de '+all.length+' canais';
+  const tb=$('tb');tb.textContent='';
+  for(const c of r){
+    const tr=document.createElement('tr');
+    cell(tr,c.name);cell(tr,c.server);cell(tr,c.type);
+    cell(tr,c.creator_username||(c.created_by?'(removido)':'sistema/seed'));
+    cell(tr,c.owner_username);cell(tr,c.created_at);cell(tr,c.message_count);cell(tr,c.last_message_at);
+    const d=cell(tr,'');d.textContent='';
+    const tags=[];
+    if(c.read_only)tags.push('somente leitura');
+    if(c.slow_mode_seconds)tags.push('slow '+c.slow_mode_seconds+'s');
+    if(c.voice_type&&c.type!=='texto')tags.push(c.voice_type);
+    if(c.voice_game)tags.push('jogo: '+c.voice_game);
+    if(c.is_quick)tags.push('rápido');
+    if(c.video_enabled)tags.push('vídeo');
+    if(c.is_official)tags.push('servidor oficial');
+    if(c.rules)tags.push('regras');
+    tags.forEach(x=>{const s=document.createElement('span');s.className='tag';s.textContent=x;d.appendChild(s)});
+    if(!tags.length)d.textContent='—';
+    tb.appendChild(tr);
+  }
+}
+document.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;sd=sk===k?-sd:1;sk=k;render()});
+$('q').oninput=render;$('type').onchange=render;
+fetch('/api/admin/channels',{credentials:'include'}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(d=>{
+  all=d.channels;[...new Set(all.map(c=>c.type))].forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;$('type').appendChild(o)});render();
+}).catch(e=>{$('count').textContent='Erro ao carregar ('+e.message+'). Entre como admin (com 2FA) primeiro.'});
+</script></body></html>

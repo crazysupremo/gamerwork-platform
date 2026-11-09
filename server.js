@@ -8662,6 +8662,30 @@ app.get(
   })
 );
 
+// Lista TODOS os canais da plataforma: servidor, criador, tipo, datas e dados.
+app.get(
+  '/api/admin/channels',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const rows = await db.all(
+      `SELECT c.id, c.name, c.category AS server, c.type, c.created_by, c.created_at,
+        c.slow_mode_seconds, c.read_only, c.voice_type, c.voice_game, c.is_quick,
+        c.rules, c.video_enabled,
+        cu.username AS creator_username,
+        s.owner_id, ou.username AS owner_username, s.is_official,
+        (SELECT COUNT(*) FROM messages m WHERE m.channel_id = c.id) AS message_count,
+        (SELECT MAX(m.created_at) FROM messages m WHERE m.channel_id = c.id) AS last_message_at
+       FROM channels c
+       LEFT JOIN users cu ON cu.id = c.created_by
+       LEFT JOIN servers s ON s.category = c.category
+       LEFT JOIN users ou ON ou.id = s.owner_id
+       ORDER BY c.created_at DESC`
+    );
+    res.json({ channels: rows, total: rows.length });
+  })
+);
+
 app.post(
   '/api/admin/servers/:category/toggle-official',
   requireAuth,

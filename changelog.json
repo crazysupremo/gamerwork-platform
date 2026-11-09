@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.95.0",
+    "date": "2026-11-09",
+    "changes": [
+      "Nova página Admin → Todos os canais: lista todos os canais já criados, quem criou, servidor, dono, tipo, datas, mensagens e configurações, com busca, filtro e ordenação."
+    ]
+  },
+  {
     "version": "0.94.0",
     "date": "2026-11-08",
     "changes": [
