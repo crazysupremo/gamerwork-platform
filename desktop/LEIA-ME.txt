@@ -1,0 +1,18 @@
+NEXT GAME - app Desktop (Mac e Windows) com Electron
+
+Precisa do Node.js instalado (nodejs.org, versao LTS).
+
+No Terminal, dentro desta pasta:
+  npm install          (so na primeira vez)
+  npm start            (abre o app para testar)
+
+Gerar os instaladores (saem na pasta dist/):
+  npm run build:mac    -> .dmg para Mac
+  npm run build:win    -> .exe instalador para Windows (pode ser feito no Mac)
+
+Icone: coloque build/icon.icns (Mac) e build/icon.ico (Windows) - 512x512 ou maior.
+Sem icone usa o padrao do Electron.
+
+Aviso: sem assinatura digital o Mac mostra "desenvolvedor nao identificado"
+(botao direito > Abrir) e o Windows mostra SmartScreen (Mais informacoes > Executar assim mesmo).
+Para publicar de verdade precisa de certificado (Apple Developer ~US$99/ano; Windows code signing).

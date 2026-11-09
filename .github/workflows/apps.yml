@@ -1,0 +1,66 @@
+name: Apps NEXT GAME (Mac, Windows, Android)
+on:
+  workflow_dispatch:
+  push:
+    paths: ['desktop/**', 'android/**', '.github/workflows/apps.yml']
+permissions:
+  contents: write
+env:
+  # Endereço do site: crie em GitHub > Settings > Variables > NEXTGAME_URL (opcional)
+  NEXTGAME_URL: ${{ vars.NEXTGAME_URL || 'https://nextgameblue.stream' }}
+jobs:
+  desktop:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Gerar instalador
+        working-directory: desktop
+        shell: bash
+        run: |
+          echo "{ \"url\": \"$NEXTGAME_URL\" }" > config.json
+          npm install
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then npx electron-builder --mac --publish never; else npx electron-builder --win --publish never; fi
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/*.exe
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.7' }
+      - name: Gerar APK
+        working-directory: android
+        run: gradle assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+  release:
+    needs: [desktop, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: out }
+      - name: Publicar downloads
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apps-latest
+          name: NEXT GAME - Apps (Mac, Windows, Android)
+          body: Baixe o instalador do seu sistema. Atualizado a cada mudança nos apps.
+          files: |
+            out/**/*.dmg
+            out/**/*.exe
+            out/**/*.apk

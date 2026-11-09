@@ -1,0 +1,12 @@
+NEXT GAME - app Android (WebView do site)
+
+1) Android Studio > File > Open > escolha esta pasta (nextgame-android). Espere o Sync (baixa o Gradle sozinho).
+2) Testar: ligue o celular com depuracao USB (ou crie um emulador) e clique em Run.
+3) Gerar o arquivo:
+   - APK de teste: Build > Build Bundle(s)/APK(s) > Build APK(s)
+     (sai em app/build/outputs/apk/debug/app-debug.apk - pode mandar pra amigos instalarem)
+   - Para a Play Store: Build > Generate Signed Bundle / APK > Android App Bundle (.aab)
+     (crie e GUARDE a chave/keystore; sem ela nao da pra atualizar o app depois)
+4) Endereco do site: MainActivity.kt, variavel siteUrl.
+5) Icone: troque app/src/main/res/drawable/ic_launcher_foreground.xml pela sua logo
+   (botao direito em res > New > Image Asset).

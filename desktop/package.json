@@ -1,0 +1,46 @@
+{
+  "name": "nextgame-desktop",
+  "productName": "NEXT GAME",
+  "version": "1.0.0",
+  "description": "NEXT GAME - app para desktop",
+  "main": "main.js",
+  "author": "NEXT GAME",
+  "scripts": {
+    "start": "electron .",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:all": "electron-builder --mac --win"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "stream.nextgameblue.app",
+    "productName": "NEXT GAME",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "package.json",
+      "config.json"
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.social-networking",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Usado nas salas de voz do NEXT GAME.",
+        "NSCameraUsageDescription": "Usado nas chamadas de v\u00eddeo."
+      }
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
