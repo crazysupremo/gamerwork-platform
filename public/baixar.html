@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Baixar NEXT GAME</title>
+<link rel="icon" type="image/png" href="/assets/favicon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#14151a">
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(1200px 600px at 50% -10%,rgba(0,229,255,.18),transparent),radial-gradient(900px 500px at 90% 100%,rgba(0,255,157,.14),transparent),#0e0f13;color:#e9edf5;font-family:Inter,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;align-items:center}
+header{width:100%;max-width:1100px;padding:22px 24px;display:flex;align-items:center;justify-content:space-between}
+header img{height:36px}
+header a{color:#cfd6e4;text-decoration:none;font-weight:600}
+main{flex:1;text-align:center;padding:40px 24px 60px;max-width:760px}
+h1{font-size:clamp(34px,6vw,58px);line-height:1.05;margin:10px 0 14px;font-weight:800;letter-spacing:.01em}
+h1 span{background:linear-gradient(135deg,#00ff9d,#00e5ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+p.lead{color:#a9b3c6;font-size:18px;margin:0 auto 34px;max-width:560px}
+.main-btn{display:inline-flex;align-items:center;gap:12px;font-size:20px;font-weight:700;padding:18px 34px;border-radius:999px;border:none;cursor:pointer;color:#05121a;background:linear-gradient(135deg,#00ff9d,#00e5ff);box-shadow:0 12px 40px rgba(0,229,255,.35);text-decoration:none;transition:transform .15s}
+.main-btn:hover{transform:translateY(-2px)}
+.note{color:#7f8aa0;font-size:13px;margin-top:14px;min-height:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:46px}
+.card{background:#171922;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:20px}
+.card h3{margin:0 0 6px;font-size:18px}
+.card p{margin:0 0 14px;color:#8d98ad;font-size:13px}
+.card a,.card button{display:block;width:100%;text-align:center;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:transparent;color:#e9edf5;font-weight:600;font-size:14px;cursor:pointer;text-decoration:none}
+.card a:hover,.card button:hover{border-color:#00e5ff;color:#00e5ff}
+footer{color:#6c768a;font-size:13px;padding:24px}
+</style></head><body>
+<header><a href="/"><img src="/assets/logo.png" alt="NEXT GAME"></a><a href="/">Abrir no navegador</a></header>
+<main>
+<h1>Jogue, converse e <span>vença</span> no NEXT GAME</h1>
+<p class="lead">Baixe o aplicativo para ter voz, chat e comunidade sempre à mão.</p>
+<button class="main-btn" id="main-btn" type="button"></button>
+<div class="note" id="note"></div>
+<div class="grid">
+  <div class="card"><h3>Windows</h3><p>Instalador (.exe)</p><a id="dl-win" href="#">Baixar para Windows</a></div>
+  <div class="card"><h3>Mac</h3><p>Instalação pelo navegador</p><button id="dl-mac" type="button">Instalar no Mac</button></div>
+  <div class="card"><h3>Android</h3><p>Arquivo APK</p><a id="dl-and" href="#">Baixar para Android</a></div>
+</div>
+</main>
+<footer>NEXT GAME · Protegido por PROTECTION BLUEX</footer>
+<script>
+var BASE='https://github.com/crazysupremo/gamerwork-platform/releases/download/apps-latest/';
+var WIN=BASE+'NEXT-GAME-Setup.exe', AND=BASE+'NEXT-GAME.apk';
+var ua=navigator.userAgent, deferred=null;
+var os=/Android/i.test(ua)?'android':/iPhone|iPad|iPod/i.test(ua)?'ios':/Windows/i.test(ua)?'windows':/Mac/i.test(ua)?'mac':'other';
+document.getElementById('dl-win').href=WIN; document.getElementById('dl-and').href=AND;
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function(){});
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;});
+function installWeb(){
+  if(deferred){deferred.prompt();deferred=null;return;}
+  var safari=/Safari/.test(ua)&&!/Chrome|Chromium|Edg/.test(ua);
+  alert(os==='ios'?'Toque em Compartilhar e depois em "Adicionar à Tela de Início".':
+    safari?'No Safari: menu Arquivo > "Adicionar ao Dock".':
+    'Clique no ícone de instalar na barra de endereço do Chrome/Edge (ou menu ⋮ > Instalar NEXT GAME).');
+}
+var btn=document.getElementById('main-btn'), note=document.getElementById('note');
+function setMain(label,fn,n){btn.textContent='⬇  '+label;btn.onclick=fn;note.textContent=n||'';}
+if(os==='windows') setMain('Baixar para Windows',function(){location.href=WIN;},'Depois de baixar, abra o arquivo para instalar. Se o Windows avisar, clique em "Mais informações" > "Executar assim mesmo".');
+else if(os==='android') setMain('Baixar para Android',function(){location.href=AND;},'Ao abrir o arquivo, permita instalar apps deste navegador.');
+else if(os==='mac'||os==='ios') setMain(os==='mac'?'Instalar no Mac':'Instalar no iPhone',installWeb,'Instala em 1 clique e abre em janela própria, como um app.');
+else setMain('Instalar app',installWeb,'');
+document.getElementById('dl-mac').onclick=installWeb;
+</script></body></html>

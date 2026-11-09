@@ -36,11 +36,14 @@
       }
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "NEXT-GAME-Setup.${ext}"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
     }
   }
 }

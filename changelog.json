@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.97.2",
+    "date": "2026-11-09",
+    "changes": [
+      "Nova página de download estilo Discord (/baixar.html): botão grande que detecta o seu sistema — Windows e Android baixam o instalador, Mac instala pelo navegador."
+    ]
+  },
+  {
     "version": "0.97.1",
     "date": "2026-11-09",
     "changes": [

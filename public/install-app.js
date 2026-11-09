@@ -16,7 +16,8 @@
         : 'Abra no Chrome ou Edge e clique no ícone de instalar na barra de endereço (ou menu ⋮ > Instalar NEXT GAME).';
     alert(msg);
   }
-  function click() {
+  function click() { window.open('/baixar.html', '_blank'); return;
+    /* legado: */
     if (deferred) {
       deferred.prompt();
       deferred.userChoice.finally(function () { deferred = null; });
@@ -26,7 +27,7 @@
     var b = document.createElement('button');
     b.type = 'button';
     b.className = 'install-app-btn ' + (cls || '');
-    b.textContent = '⬇ Instalar app';
+    b.textContent = '⬇ Baixar app';
     b.title = 'Instalar o NEXT GAME no seu computador ou celular';
     b.addEventListener('click', click);
     return b;
