@@ -4631,3 +4631,39 @@ table th { font-family: 'Rajdhani', 'Inter', sans-serif; letter-spacing: 0.04em;
 .install-app-card { display: none; width: 100%; margin: 0 0 14px; }
 @media (max-width: 700px) { .install-app-card { display: block; } .install-app-hero { display: none; } }
 .install-app-side { display: block; width: 100%; margin: 10px 0 0; font-size: 12.5px; padding: 8px 10px; flex-basis: 100%; }
+
+/* ==========================================================================
+   v0.97.5 — Tela de login mais compacta, organizada e legível (só CSS).
+   Tudo menor e mais bem espaçado; no celular o topo deixa de se atropelar.
+   ========================================================================== */
+.auth-card { width: 390px; padding: 26px 26px; }
+.auth-logo-badge { width: 84px; height: 84px; margin-bottom: 14px; }
+.auth-logo-img { width: 78px; height: 78px; }
+.auth-card-title { font-size: 20px; margin-bottom: 4px; }
+.subtitle { font-size: 12.5px; margin-bottom: 16px; line-height: 1.45; }
+.auth-tabs { margin: 12px 0 14px; }
+.auth-card input[type="text"], .auth-card input[type="password"], .auth-card input[type="email"] { font-size: 14px; }
+.auth-hero-title { letter-spacing: 0.01em; }
+.auth-hero-ctas { gap: 10px; margin-bottom: 22px; }
+.auth-hero-ctas button { font-size: 13.5px; padding: 10px 16px; }
+.auth-hero-topbar { padding: 22px 28px 0; }
+
+@media (max-width: 860px) {
+  .auth-hero-topbar { padding: 12px 14px 0; gap: 8px; align-items: center; }
+  .auth-hero-brand { gap: 8px; min-width: 0; }
+  .auth-hero-brand-logo { height: 26px; }
+  .auth-hero-brand-text { flex-direction: row; align-items: baseline; gap: 4px; }
+  .auth-hero-brand-name { font-size: 14px; white-space: nowrap; }
+  .auth-hero-brand-tagline { display: none; }
+  .auth-hero-bluex-badge { font-size: 9px; padding: 4px 8px; gap: 5px; margin-left: auto; margin-right: 44px; }
+  .auth-music-toggle { width: 32px !important; height: 32px !important; }
+  .auth-split { padding: 10px; }
+  .auth-card { width: 100%; padding: 16px 16px 18px; max-height: calc(100dvh - 70px); border-radius: 18px; }
+  .auth-logo-badge { width: 64px; height: 64px; margin-bottom: 8px; }
+  .auth-logo-img { width: 60px; height: 60px; }
+  .install-app-card { padding: 8px 12px; font-size: 13px; margin-bottom: 8px; }
+  .auth-card-title { font-size: 18px; }
+  .subtitle { font-size: 12px; margin-bottom: 10px; }
+  .auth-tabs { margin: 6px 0 10px; }
+  .auth-card input[type="text"], .auth-card input[type="password"], .auth-card input[type="email"] { padding-top: 11px; padding-bottom: 11px; }
+}

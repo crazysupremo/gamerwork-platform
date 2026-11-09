@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.97.5",
+    "date": "2026-11-09",
+    "changes": [
+      "Tela de login mais compacta e organizada: elementos menores, topo do celular sem sobreposição (logo, selo BLUEX e som), cartão de login mais enxuto. Só visual."
+    ]
+  },
+  {
     "version": "0.97.4",
     "date": "2026-11-09",
     "changes": [
