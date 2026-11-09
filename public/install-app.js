@@ -3,7 +3,7 @@
 (function () {
   var deferred = null;
   var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  if (standalone) return; // já está rodando como app
+  if (standalone || /NextGameApp|Electron/i.test(navigator.userAgent)) return; // já está rodando como app
 
   function ua() { return navigator.userAgent || ''; }
   function help() {

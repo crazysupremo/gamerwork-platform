@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.97.4",
+    "date": "2026-11-09",
+    "changes": [
+      "O botão Baixar app não aparece mais dentro do aplicativo já instalado (Android/desktop)."
+    ]
+  },
+  {
     "version": "0.97.3",
     "date": "2026-11-09",
     "changes": [
