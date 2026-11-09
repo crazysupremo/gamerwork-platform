@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.96.0",
+    "date": "2026-11-09",
+    "changes": [
+      "Polimento visual em todo o site (login, app, modais e admin): rolagem fina, campos com brilho no foco, botões e cartões com hover suave, tabelas mais legíveis, animação leve nas mensagens. Só CSS — layout e funções iguais."
+    ]
+  },
+  {
     "version": "0.95.0",
     "date": "2026-11-09",
     "changes": [
