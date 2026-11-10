@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.97.6",
+    "date": "2026-11-10",
+    "changes": [
+      "Login sem sobreposições em todos os tamanhos de tela: selo BLUEX não fica mais sob o botão de som, textos não invadem o cartão de login, celular mostra só o cartão centralizado e o botão Reportar erro não cobre mais o login."
+    ]
+  },
+  {
     "version": "0.97.5",
     "date": "2026-11-09",
     "changes": [
