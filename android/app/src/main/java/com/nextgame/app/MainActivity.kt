@@ -34,6 +34,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         web = WebView(this).apply { setBackgroundColor(Color.parseColor("#14151a")) }
+        web.overScrollMode = View.OVER_SCROLL_NEVER
+        web.isVerticalScrollBarEnabled = false
         setContentView(web)
 
         ActivityCompat.requestPermissions(
@@ -47,6 +49,12 @@ class MainActivity : AppCompatActivity() {
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
             allowFileAccess = false
+            textZoom = 100
+            setSupportZoom(false)
+            builtInZoomControls = false
+            displayZoomControls = false
+            useWideViewPort = true
+            loadWithOverviewMode = true
             userAgentString = userAgentString + " NextGameApp/1.0"
         }
         CookieManager.getInstance().setAcceptCookie(true)

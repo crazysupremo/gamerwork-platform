@@ -4705,3 +4705,70 @@ body:has(#auth-screen:not(.hidden)) .report-bug-fab { display: none; }
   .auth-card { max-height: calc(100dvh - 76px); }
   .auth-hero-topbar { padding-right: 56px; }
 }
+
+/* ==========================================================================
+   v0.97.7 — Android / celular: sem piscar ao abrir o menu (☰) e sem nada
+   sobreposto. Só CSS.
+   Causas do "piscar": (1) o flash cinza de toque do WebView, (2) efeitos de
+   :hover que ficam "grudados" no toque (filter/transform), (3) backdrop-filter
+   em várias camadas, (4) a gaveta (z-index 50) ficava ATRÁS de camadas de
+   tema/efeitos (z-index 80–250) e do botão Reportar erro, então elas
+   desenhavam por cima e brigavam a cada quadro, (5) o fundo escuro aparecia
+   de uma vez (display) em vez de suavizar.
+   ========================================================================== */
+* { -webkit-tap-highlight-color: transparent; }
+button, a, [role="button"], .channel-item, .server-row, .sidebar-nav-item, .member-item {
+  touch-action: manipulation; -webkit-touch-callout: none;
+}
+/* toque não tem "passar o mouse": desliga os efeitos que grudam */
+@media (hover: none) {
+  button:not(:disabled):hover { filter: none; }
+  .channel-item:hover, .member-item:hover, .install-app-btn:hover { transform: none; }
+  [class*="card"]:hover { box-shadow: none; }
+}
+
+@media (max-width: 768px) {
+  /* blur em tempo real é o que mais pisca/trava no WebView do Android */
+  *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+
+  /* gaveta SEMPRE acima de efeitos de tema, mascotes, botões flutuantes */
+  .mobile-drawer-backdrop { z-index: 9700 !important; display: block !important; opacity: 0; pointer-events: none;
+    transition: opacity 0.2s ease; background: rgba(0,0,0,0.6); will-change: opacity; }
+  .mobile-drawer-backdrop:not(.hidden) { opacity: 1; pointer-events: auto; }
+  .app-sidebar {
+    z-index: 9800 !important; width: min(84vw, 300px); max-width: none; box-shadow: none;
+    transform: translate3d(-105%, 0, 0); visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
+    will-change: transform; backface-visibility: hidden; contain: layout paint;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+  .app-sidebar.mobile-open {
+    transform: translate3d(0, 0, 0); visibility: visible; transition: transform 0.2s ease, visibility 0s;
+    box-shadow: 2px 0 24px rgba(0,0,0,0.5);
+  }
+  #channel-sidebar:not(.hidden), #members-panel:not(.hidden) { z-index: 9650 !important; }
+
+  /* animações infinitas dentro do menu/topo só gastam bateria e causam piscadas */
+  .app-sidebar *, .app-sidebar *::before, .app-sidebar *::after,
+  .top-navbar *, .top-navbar *::before, .top-navbar *::after { animation: none !important; }
+  .app-sidebar::after { animation: none !important; }
+
+  /* elementos flutuantes que ficavam por cima do conteúdo */
+  body.theme-magic-tank #mt-member-tag { display: none !important; }
+  body::before, body::after { display: none !important; }
+  #plus2-fx, #plus2-decor, #plus2-mascot-layer { z-index: 40 !important; }
+  .report-bug-fab { width: 36px; height: 36px; left: 8px; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); opacity: 0.75; z-index: 60 !important; }
+  .pv2-quick { right: 8px; left: 8px; width: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 70px); max-height: 60vh; }
+
+  /* nada estoura a largura da tela */
+  html, body { max-width: 100vw; overflow-x: hidden; }
+  .app-body, .app-main { min-width: 0; }
+  .top-navbar { height: 52px; padding: 0 8px; gap: 6px; }
+  .top-navbar > * { min-width: 0; flex-shrink: 1; }
+  .navbar-search { flex: 1 1 auto; min-width: 0; }
+  .main-header { flex-wrap: wrap; padding: 6px 10px; gap: 6px; }
+  .main-header > * { min-width: 0; }
+  img, video, canvas, iframe { max-width: 100%; }
+  .modal-card, .modal-card-wide { width: calc(100vw - 20px); max-width: 440px; max-height: calc(100dvh - 24px); overflow-y: auto; }
+  .navbar-icon-btn { width: 36px; height: 36px; flex-shrink: 0; }
+}

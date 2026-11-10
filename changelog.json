@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.97.7",
+    "date": "2026-11-10",
+    "changes": [
+      "Android/celular: corrigido o piscar da tela ao abrir o menu (☰) e as sobreposições — a gaveta agora fica acima de efeitos de tema e botões flutuantes, sem desfoque pesado nem flash de toque. App Android também ignora o tamanho de fonte do sistema para não quebrar o layout."
+    ]
+  },
+  {
     "version": "0.97.6",
     "date": "2026-11-10",
     "changes": [

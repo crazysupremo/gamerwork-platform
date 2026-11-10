@@ -335,7 +335,7 @@
         ctx.textBaseline = 'top';
         const col = colors[0] || '#00ff66';
         for (let i = 0; i < cols.length; i++) {
-          // v0.97.6 — Matrix SUTIL: só 1 coluna a cada 3 desenha, sem cabeça branca e sem brilho
+          // v0.97.7 — Matrix SUTIL: só 1 coluna a cada 3 desenha, sem cabeça branca e sem brilho
           if (i % 3 === 0) {
             const ch = String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96));
             const y = cols[i] * fs;
@@ -1293,7 +1293,7 @@
     return inFlight;
   }
 
-  // v0.97.6 — quando o mouse está sobre algo clicável (botão, link, campo, item de lista),
+  // v0.97.7 — quando o mouse está sobre algo clicável (botão, link, campo, item de lista),
   // os efeitos/decoração por cima ficam quase transparentes: dá para ver e clicar sem nada na frente.
   (function bindClearZone() {
     if (global.__pv2ClearBound || typeof document === 'undefined') return;
