@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.97.9",
+    "date": "2026-11-12",
+    "changes": [
+      "Corrigido: o escudo BLUEX não bloqueia mais (erro 429) quem entra logo depois que o servidor liga ou acorda — o atraso normal da inicialização e picos isolados não ligam mais o modo proteção.",
+      "Segurança: a senha inicial da conta @moderador_bluex saiu do código. Agora ela vem da variável MODERATOR_INITIAL_PASSWORD (só na primeira criação da conta)."
+    ]
+  },
+  {
     "version": "0.97.8",
     "date": "2026-11-12",
     "changes": [

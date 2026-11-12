@@ -1295,16 +1295,24 @@ async function seedMagicTankCoupons({ run, get }) {
 
 async function seedModeratorAccount({ run, get }) {
   const USERNAME = 'moderador_bluex';
-  // Senha inicial temporária — a pessoa que for usar essa conta deve trocar
-  // em Configurações > Segurança assim que entrar pela primeira vez (e
-  // precisa ativar 2FA antes de conseguir abrir o painel /admin.html, igual
-  // qualquer conta admin/moderadora — ver requireModerator).
-  const INITIAL_PASSWORD = 'BluexMod#2026';
+  // CORRIGIDO (0.97.9): a senha inicial ficava escrita aqui no código — quem
+  // visse o código sabia a senha da conta moderadora. Agora vem da variável
+  // de ambiente MODERATOR_INITIAL_PASSWORD (só usada na 1ª criação da conta).
+  // Sem a variável, a conta simplesmente não é criada. A pessoa que for usar
+  // a conta deve trocar a senha em Configurações > Segurança ao entrar (e
+  // precisa ativar 2FA antes de abrir o painel /admin.html — ver requireModerator).
+  const INITIAL_PASSWORD = process.env.MODERATOR_INITIAL_PASSWORD || '';
   const existing = await get('SELECT id FROM users WHERE username = ?', [USERNAME]);
   if (existing) {
     // Já existe — só garante que continua marcada como moderadora (não
     // sobrescreve senha/e-mail, pra não derrubar quem já está usando).
     await run('UPDATE users SET is_moderator = 1 WHERE id = ?', [existing.id]);
+    return;
+  }
+  if (INITIAL_PASSWORD.length < 10) {
+    console.warn(
+      `[aviso] Conta @${USERNAME} não criada: defina MODERATOR_INITIAL_PASSWORD (mínimo 10 caracteres) para criá-la.`
+    );
     return;
   }
   const id = crypto.randomUUID();

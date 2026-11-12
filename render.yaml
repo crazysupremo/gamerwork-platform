@@ -18,3 +18,5 @@ services:
         sync: false # preencha no painel do Render com a URL do seu banco Turso (turso.tech)
       - key: TURSO_AUTH_TOKEN
         sync: false # preencha no painel do Render com o token do seu banco Turso
+      - key: MODERATOR_INITIAL_PASSWORD
+        sync: false # senha inicial da conta @moderador_bluex (só usada se a conta ainda não existir)

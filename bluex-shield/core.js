@@ -38,6 +38,8 @@ const DEFAULTS = {
   // Proteção por sobrecarga: se o servidor está "engasgado" (event loop lento),
   // recusa IPs novos/pesados em vez de cair tudo.
   lagShedMs: 400, // atraso do event loop que liga o modo proteção
+  lagShedSamples: 3, // quantas medições seguidas (a cada 250ms) com atraso alto até ligar
+  lagGraceMs: 30_000, // ignora o atraso nos primeiros 30s depois de ligar o servidor
   maxRequestsPerSocket: 1000, // conexão keep-alive reciclada depois disso
   // --- v3: monitoramento e relatório remoto ---
   suspectPerMinute: 5_000, // provável DDoS: liga a DEFESA AUTOMÁTICA (limites 4x mais apertados)
@@ -120,12 +122,25 @@ function createShield(options = {}) {
   const sensitive = new Map(); // ip -> { n, start }
   let loadShed = false; // servidor engasgado
   let lastTick = Date.now();
+  const shieldStartedAt = Date.now();
+  let lagStreak = 0; // medições seguidas com atraso alto
   const lagTimer = setInterval(() => {
     const now = Date.now();
     const lag = now - lastTick - 250;
     lastTick = now;
     const was = loadShed;
-    loadShed = lag > cfg.lagShedMs;
+    // CORRIGIDO (0.97.9): o servidor sempre "engasga" ao ligar (banco, seeds)
+    // e isso ligava o modo proteção, devolvendo 429 pra quem chegasse primeiro
+    // (ex.: quem acorda o servidor no Render grátis). Agora ignora os primeiros
+    // segundos e só liga com atraso alto em várias medições seguidas — um pico
+    // único (coleta de memória, consulta lenta) não bloqueia mais ninguém.
+    if (now - shieldStartedAt < cfg.lagGraceMs) {
+      lagStreak = 0;
+      loadShed = false;
+    } else {
+      lagStreak = lag > cfg.lagShedMs ? lagStreak + 1 : 0;
+      loadShed = lagStreak >= cfg.lagShedSamples;
+    }
     if (cfg.log && loadShed !== was) console.warn(loadShed ? `[BLUEX SHIELD] ⚠️ servidor sobrecarregado (atraso ${lag}ms) — protegendo` : '[BLUEX SHIELD] servidor normalizado');
   }, 250);
   lagTimer.unref();
