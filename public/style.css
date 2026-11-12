@@ -4772,3 +4772,110 @@ button, a, [role="button"], .channel-item, .server-row, .sidebar-nav-item, .memb
   .modal-card, .modal-card-wide { width: calc(100vw - 20px); max-width: 440px; max-height: calc(100dvh - 24px); overflow-y: auto; }
   .navbar-icon-btn { width: 36px; height: 36px; flex-shrink: 0; }
 }
+
+/* ==========================================================================
+   v0.97.8 — REPAGINADA VISUAL "Gamer neon moderno" (só CSS, sem mexer em
+   layout nem funções). Fundo azul-noite mais profundo, brilho na cor do tema
+   (usa --accent-rgb, então os temas PLUS continuam mandando), cantos mais
+   suaves, cartões com borda luminosa, botões com glow, foco bem visível.
+   ========================================================================== */
+:root {
+  --bg-app: #0c0e16;
+  --bg-rail: #080a11;
+  --bg-sidebar: #0f1220;
+  --bg-panel: #131726;
+  --bg-modal: #161a2b;
+  --nx-line: rgba(255, 255, 255, 0.07);
+  --nx-glow: rgba(var(--accent-rgb, 0, 255, 157), 0.28);
+  --nx-radius: 14px;
+}
+body { background: var(--bg-app); }
+.app-main {
+  background:
+    radial-gradient(900px 420px at 12% -8%, rgba(var(--accent-rgb, 0,255,157), 0.07), transparent 60%),
+    radial-gradient(800px 420px at 100% 108%, rgba(var(--accent-2-rgb, 0,229,255), 0.06), transparent 60%),
+    var(--bg-app);
+}
+
+/* ---- barras laterais e topo: mais limpas, com linha luminosa fina ---- */
+.app-sidebar { border-right: 1px solid var(--nx-line) !important; box-shadow: none; background: linear-gradient(180deg, var(--bg-rail), #0a0c14) !important; }
+.top-navbar { border-bottom: 1px solid var(--nx-line) !important; }
+.members-panel, #channel-sidebar { border-color: var(--nx-line) !important; }
+
+/* ---- menu lateral: itens em "pílula" com barra de brilho no ativo ---- */
+.sidebar-nav-item, .server-row {
+  border-radius: 12px; transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.sidebar-nav-item:hover, .server-row:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.sidebar-nav-item.active, .server-row.active {
+  background: linear-gradient(90deg, rgba(var(--accent-rgb, 0,255,157), 0.2), rgba(var(--accent-rgb, 0,255,157), 0.04));
+  color: #fff; box-shadow: inset 3px 0 0 rgb(var(--accent-rgb, 0,255,157)), 0 0 18px -6px var(--nx-glow);
+}
+.channel-item { border-radius: 10px; }
+.channel-item.active {
+  background: linear-gradient(90deg, rgba(var(--accent-rgb, 0,255,157), 0.18), rgba(var(--accent-rgb, 0,255,157), 0.03));
+  color: #fff; box-shadow: inset 2px 0 0 rgb(var(--accent-rgb, 0,255,157));
+}
+
+/* ---- cartões e painéis: borda luminosa suave e profundidade ---- */
+.modal-card, .modal-card-wide {
+  background: var(--bg-modal); border: 1px solid rgba(var(--accent-rgb, 0,255,157), 0.18) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03), 0 0 60px -20px var(--nx-glow) !important;
+}
+.home-quick-action, .home-tournament-banner, .explore-card, .tournament-card, .shop-card, .auth-feature, .auth-stat {
+  border: 1px solid var(--nx-line); border-radius: var(--nx-radius) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012));
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+.home-quick-action:hover, .explore-card:hover, .tournament-card:hover, .shop-card:hover {
+  border-color: rgba(var(--accent-rgb, 0,255,157), 0.45);
+  box-shadow: 0 10px 30px -12px var(--nx-glow);
+}
+
+/* ---- botões: primário com degradê e glow; demais com contorno limpo ---- */
+.modal-actions button.primary, .auth-hero-cta-primary, button.primary {
+  background: var(--gradient-brand); color: #fff; border: none; border-radius: 12px;
+  box-shadow: 0 8px 24px -8px var(--nx-glow), inset 0 1px 0 rgba(255,255,255,0.25); font-weight: 700;
+}
+.modal-actions button:not(.primary), .auth-hero-cta-secondary {
+  border-radius: 12px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04);
+}
+.navbar-icon-btn { border-radius: 12px; transition: background 0.15s ease, color 0.15s ease; }
+.navbar-icon-btn:hover { background: rgba(var(--accent-rgb, 0,255,157), 0.14); color: #fff; }
+
+/* ---- chat: mensagens e campo de digitar ---- */
+.message-row:hover, .message:hover { background: rgba(255,255,255,0.03); }
+.message-form { border-top: 1px solid var(--nx-line); padding: 12px 16px 14px; background: linear-gradient(180deg, transparent, rgba(0,0,0,0.25)); }
+.message-form input {
+  border-radius: 14px; background: rgba(255,255,255,0.05); border: 1px solid var(--nx-line);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.message-form input:focus {
+  background: rgba(255,255,255,0.07); border-color: rgb(var(--accent-rgb, 0,255,157));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 0,255,157), 0.16);
+}
+
+/* ---- campos de formulário em geral ---- */
+.modal-card input, .modal-card textarea, .modal-card select, .auth-card input {
+  background: rgba(255,255,255,0.045); border: 1px solid var(--nx-line); border-radius: 12px;
+}
+.modal-card input:focus, .modal-card textarea:focus, .modal-card select:focus, .auth-card input:focus {
+  border-color: rgb(var(--accent-rgb, 0,255,157)); box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 0,255,157), 0.16);
+}
+
+/* ---- emblemas e detalhes ---- */
+.navbar-badge, .server-row-badge { box-shadow: 0 0 10px rgba(255, 70, 90, 0.45); }
+.beta-tag { border: 1px solid rgba(var(--accent-rgb, 0,255,157), 0.4); background: rgba(var(--accent-rgb, 0,255,157), 0.12); }
+hr, .divider { border-color: var(--nx-line); }
+
+/* ---- login: cartão e logo combinando com o novo estilo ---- */
+.auth-card {
+  border: 1px solid rgba(var(--accent-rgb, 0,255,157), 0.2) !important;
+  box-shadow: 0 30px 90px rgba(0,0,0,0.65), 0 0 80px -24px var(--nx-glow) !important;
+}
+.auth-hero-title-gradient, .auth-card-title { letter-spacing: 0.01em; }
+
+/* ---- admin ---- */
+.admin-nav-btn { border-radius: 12px; }
+.admin-nav-btn.active { background: linear-gradient(90deg, rgba(var(--accent-rgb, 0,255,157), 0.2), transparent); box-shadow: inset 3px 0 0 rgb(var(--accent-rgb, 0,255,157)); }

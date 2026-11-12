@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.97.8",
+    "date": "2026-11-12",
+    "changes": [
+      "Repaginada visual \"Gamer neon moderno\": fundo azul-noite mais profundo, menu lateral em pílulas com brilho no item ativo, cartões e modais com borda luminosa, botões com glow, campos de texto e chat com foco destacado. Só visual — funções e layout iguais; os temas PLUS continuam mandando nas cores."
+    ]
+  },
+  {
     "version": "0.97.7",
     "date": "2026-11-10",
     "changes": [
