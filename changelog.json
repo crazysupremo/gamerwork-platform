@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.98.3",
+    "date": "2026-11-13",
+    "changes": [
+      "Corrigido o tema \"bugado\"/travando: o motor de figurinhas dos temas iniciava um loop de animação novo a cada briga dos bichinhos ou explosão de figurinhas — chegava a dezenas de loops ao mesmo tempo. Agora roda um só: o Magic Tank ficou cerca de 12x mais leve (e Halloween, Dia do Gamer e outros temas com bichinhos também).",
+      "Corrigido: ao rolar a lista de temas em Configurações › NEXTGAME PLUS, pedaços da lista ficavam em branco. Com uma janela aberta, os efeitos animados (que ficam escondidos atrás dela) agora pausam de verdade em vez de continuar desenhando por trás. A moldura do tema não muda."
+    ]
+  },
+  {
     "version": "0.98.2",
     "date": "2026-11-13",
     "changes": [

@@ -302,7 +302,7 @@
   function tick(t) {
     raf = 0;
     if (!cv) return;
-    if (doc.hidden) { raf = requestAnimationFrame(tick); last = 0; return; }
+    if (doc.hidden || document.body && document.body.classList.contains('pv2-modal-open')) { if (!raf) raf = requestAnimationFrame(tick); last = 0; return; } // aba escondida ou janela aberta: pausa
     const dt = last ? Math.min(0.05, (t - last) / 1000) : 0.016; last = t;
     ctx.clearRect(0, 0, W, H);
     if (cfg) {
@@ -329,7 +329,11 @@
       if (p.spr) { const sc = 0.6 + Math.sin(Math.min(1, p.life / p.max) * Math.PI) * 0.7; draw(impact, p.x, p.y, p.s * sc, p.rot, a); }
       else draw(sprites[p.i], p.x, p.y, p.s, p.rot, a);
     }
-    if (needsLoop()) raf = requestAnimationFrame(tick);
+    // CORRIGIDO (0.98.3, "o tema tá bugado/travando"): durante o quadro, a briga
+    // dos bichinhos e as explosões chamam wake(), que já agenda o próximo quadro.
+    // Aqui agendava DE NOVO — cada briga dobrava o número de loops rodando ao
+    // mesmo tempo (chegava a ~40 loops, ~2.400 quadros/s, tudo travando).
+    if (needsLoop() && !raf) raf = requestAnimationFrame(tick);
   }
 
 

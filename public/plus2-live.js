@@ -315,6 +315,7 @@
     function frame(t) {
       if (!running) return;
       raf = requestAnimationFrame(frame);
+      if (document.body && document.body.classList.contains('pv2-modal-open')) { last = t; return; } // janela aberta: não desenha (ver pv2-modal-open)
       if (t - last < 33) return; // ~30fps — leve de propósito
       last = t;
       if (mode === 'matrix') {
@@ -662,6 +663,7 @@
     function frame(t) {
       if (!running) return;
       raf = requestAnimationFrame(frame);
+      if (document.body && document.body.classList.contains('pv2-modal-open')) { last = t; return; } // janela aberta: não desenha (ver pv2-modal-open)
       const dt = Math.min(48, t - (last || t)) / 16.67; last = t;
       ctx.clearRect(0, 0, W, H);
       const wind = Math.sin(t / 3800) * 0.35 + Math.sin(t / 1300) * 0.12;

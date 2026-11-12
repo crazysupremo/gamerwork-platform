@@ -74,6 +74,7 @@
     st.id = 'pv2-ix-style';
     st.textContent = `
 #pv2-ix{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:96}
+body.pv2-modal-open :is(#pv2-ix,#pv2-spot,#plus2-fx,#plus2-scene,#plus2-decor,#pv2-cfx,#pv2-tsp,#plus2-mascot-layer,#pv2-cfx-mascot,#pv2-cfx-bubble,#pv2-cfx-garland){display:none!important}
 #pv2-spot{position:fixed;pointer-events:none;z-index:95;opacity:0;transition:opacity .25s ease;
   background:radial-gradient(260px circle at var(--x,50%) var(--y,50%),rgba(var(--c),.16),transparent 65%);
   box-shadow:inset 0 0 0 1px rgba(var(--c),.28)}
@@ -312,6 +313,7 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
   function tick(t) {
     raf = 0;
     if (!cv) return;
+    if (doc.body.classList.contains('pv2-modal-open')) { parts = []; orbs = []; ctx.clearRect(0, 0, W, H); return; }
     const dt = last ? Math.min(0.05, (t - last) / 1000) : 0.016; last = t;
     ctx.clearRect(0, 0, W, H);
     // projéteis do Magic Tank
@@ -368,7 +370,7 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     }
     ctx.globalCompositeOperation = 'source-over';
     const tankOn = drawTank(dt);
-    if (parts.length || orbs.length || tankOn) raf = requestAnimationFrame(tick);
+    if ((parts.length || orbs.length || tankOn) && !raf) raf = requestAnimationFrame(tick);
   }
 
   // ------------------------------------------------------------ Magic Tank: cometas e brilho nos botões
@@ -454,8 +456,30 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
   global.addEventListener('blur', hideSpot);
   global.addEventListener('resize', () => { size(); hideSpot(); });
 
+  // ------------------------------------------------------------ janela aberta = efeitos pausados
+  // CORRIGIDO (0.98.3, vídeo "a lista de temas some ao rolar"): com uma janela
+  // aberta (Configurações, Explorar...) as camadas animadas em tela cheia
+  // ficavam invisíveis (opacity 0), mas continuavam sendo desenhadas 60x/s por
+  // trás do fundo desfocado da janela. Em tela grande/Retina o Chrome não dava
+  // conta e pedaços da lista ficavam em branco ao rolar. Agora, com janela
+  // aberta, os loops param e as camadas saem da renderização (display:none).
+  // A moldura do tema não é afetada.
+  const OPEN_MODAL = '.modal-overlay:not(.hidden):not(.pv2-hide-for-preview)';
+  let modalCheckT = 0;
+  function syncModalPause() {
+    modalCheckT = 0;
+    const open = !!doc.querySelector(OPEN_MODAL);
+    if (open !== doc.body.classList.contains('pv2-modal-open')) {
+      doc.body.classList.toggle('pv2-modal-open', open);
+      if (!open) wake();
+    }
+  }
+  function queueModalCheck() { if (!modalCheckT) modalCheckT = requestAnimationFrame(syncModalPause); }
+
   function start() {
     if (!doc.body) return;
+    syncModalPause();
+    new MutationObserver(queueModalCheck).observe(doc.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
     injectStyle(); // cursor da varinha precisa estar pronto antes do 1º clique
     watchTheme();
     new MutationObserver(watchTheme).observe(doc.body, { attributes: true, attributeFilter: ['class'] });
