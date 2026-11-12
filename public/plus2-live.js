@@ -789,8 +789,19 @@
     return [c.highlight, '#ffffff', c.primary];
   }
 
+  // CORRIGIDO (0.98.2, "a tela pisca ao trocar de tema"): applyScene/applyDecor
+  // destruíam e recriavam o fundo animado e a decoração a CADA chamada — e uma
+  // troca de tema chama isso 2-3 vezes seguidas (aplicar, salvar, recarregar o
+  // catálogo, ligar efeitos sugeridos...). Agora só refaz quando algo que muda o
+  // desenho mudou de verdade.
+  let lastSceneSig = '', lastDecorSig = '';
   function applyScene(theme) {
     const key = theme && theme.scene ? theme.scene : 'none';
+    const c = theme && theme.colors ? theme.colors : {};
+    const sceneSig = [key, theme && theme.key, c.primary, c.secondary, c.highlight,
+      !!(state.performanceMode && !state.previewing), JSON.stringify(c), JSON.stringify(prefsState)].join('|');
+    if (sceneSig === lastSceneSig && document.getElementById('plus2-scene')) return;
+    lastSceneSig = sceneSig;
     const layer = ensureSceneLayer();
     if (sceneStop) { sceneStop(); sceneStop = null; }
     sceneApi = null;
@@ -975,7 +986,11 @@
   }
 
   function applyDecor(theme) {
-    if (global.PlusV2Fx) global.PlusV2Fx.set(theme && theme.fx ? theme.fx : null);
+    if (global.PlusV2Fx) global.PlusV2Fx.set(theme && theme.fx ? theme.fx : null); // já ignora repetição
+    const decorSig = [theme && theme.key, theme && theme.decor, theme && theme.colors && theme.colors.primary,
+      !!(state.performanceMode && !state.previewing), JSON.stringify(prefsState)].join('|');
+    if (decorSig === lastDecorSig) return;
+    lastDecorSig = decorSig;
     const key = theme && theme.decor ? theme.decor : '';
     const cfg = DECORS[key];
     const root = document.documentElement;
@@ -1017,7 +1032,7 @@
     // v0.91.5: a pré-visualização mostra os efeitos mesmo com o "modo desempenho"
     // ligado (senão parecia que o tema não tinha efeito nenhum).
     state.previewing = true;
-    applyTheme(theme, true);
+    withThemeTransition(theme.key || theme.id, () => applyTheme(theme, true));
   }
   // v0.90.0 — reaplica o tema atual (usado pelo mini-editor do chat)
   function reapply() { const t = global.PlusV2LiveBaseTheme; if (t) applyTheme(t); }
@@ -1143,7 +1158,11 @@
     }
     return layer;
   }
+  let lastBgSig = null, particlesOn = false;
   function applyBackground(bg, prefs) {
+    const bgSig = JSON.stringify([bg || null, prefs || null]);
+    if (bgSig === lastBgSig) return; // mesmo fundo: não zera e redesenha (piscava)
+    lastBgSig = bgSig;
     state.background = bg;
     const layer = ensureBgLayer();
     const opacity = prefs && typeof prefs.opacity === 'number' ? prefs.opacity : 100;
@@ -1195,6 +1214,9 @@
   function refreshParticleLayer(layer) {
     layer = layer || document.getElementById('plus2-bg-layer');
     if (!layer) return;
+    const want = !state.performanceMode && !!(state._bgParticlesRequested || (state.effects && state.effects.particles));
+    if (want === particlesOn && (!want || particleStop)) return; // nada mudou
+    particlesOn = want;
     stopParticles();
     // Sempre limpa qualquer canvas antigo antes de decidir se cria um novo —
     // sem isso, chamar essa função mais de uma vez (ex: applyBackground E
@@ -1253,7 +1275,23 @@
     }
   }
 
+  // Troca de tema com transição suave (View Transitions, quando o navegador
+  // tem): em vez de cores, fundo e decoração trocarem em etapas visíveis, a
+  // tela inteira faz um fade rápido do tema antigo pro novo.
+  let lastThemeKey = null;
+  function withThemeTransition(nextKey, fn) {
+    const can = typeof document.startViewTransition === 'function' && !document.hidden &&
+      !(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const changed = lastThemeKey !== null && nextKey !== lastThemeKey;
+    lastThemeKey = nextKey;
+    if (!can || !changed) { fn(); return; }
+    try { document.startViewTransition(fn); } catch (_) { fn(); }
+  }
   function applyAll(data) {
+    const t = data && [...(data.themes || []), ...(data.myCustomThemes || [])].find((x) => x.id === data.current.themeId);
+    withThemeTransition(t ? t.key || t.id : '', () => applyAllNow(data));
+  }
+  function applyAllNow(data) {
     lastData = data;
     state.previewing = false;
     const theme = [...data.themes, ...data.myCustomThemes].find((t) => t.id === data.current.themeId);
@@ -1295,18 +1333,11 @@
 
   // v0.97.8 — quando o mouse está sobre algo clicável (botão, link, campo, item de lista),
   // os efeitos/decoração por cima ficam quase transparentes: dá para ver e clicar sem nada na frente.
-  (function bindClearZone() {
-    if (global.__pv2ClearBound || typeof document === 'undefined') return;
-    global.__pv2ClearBound = true;
-    const SEL = 'button,a,input,textarea,select,label,summary,[role="button"],[role="menuitem"],[role="tab"],.channel-item,.message,.server-icon,.home-card,.server-card,.sidebar-nav-item,.navbar-icon-btn,.member-item,.friend-row,.modal-card,.footer-more-menu,.sidebar-more-menu,.navbar-create-menu';
-    let on = false;
-    document.addEventListener('pointerover', (e) => {
-      const t = e.target && e.target.closest ? e.target.closest(SEL) : null;
-      const want = !!t && !t.closest('#plus2-decor, #plus2-mascot-layer, .pv2-drop');
-      if (want !== on) { on = want; document.body.classList.toggle('pv2-clear', want); }
-    }, { passive: true });
-    document.addEventListener('pointerleave', () => { if (on) { on = false; document.body.classList.remove('pv2-clear'); } }, { passive: true });
-  })();
+  // REMOVIDO (0.98.2): a "zona livre" (v0.97.8) apagava os efeitos do tema
+  // sempre que o mouse passava em cima de algo clicável — como quase tudo no
+  // app é clicável, os efeitos SUMIAM o tempo todo ("passa o mouse e some
+  // tudo"). Os efeitos já deixam o clique atravessar (pointer-events:none),
+  // então não precisam sumir pra nada ficar clicável.
 
   global.PlusV2Live = { state, refresh, applyAll, previewTheme, cancelPreview, reapply, prefs: getPrefs, setPrefs, art: ART, poke: (x, y) => { if (sceneApi) sceneApi.hit(x * (Math.min(global.devicePixelRatio || 1, 2)), y * (Math.min(global.devicePixelRatio || 1, 2))); } };
 })(typeof window !== 'undefined' ? window : globalThis);

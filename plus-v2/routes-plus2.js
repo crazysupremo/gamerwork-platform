@@ -185,7 +185,10 @@ function themeOut(t, unlocked, now, isAdmin, user) {
     earlyAccess: !trulyReleased && released,
     exclusive,
     couponLocked,
-    locked: (!!t.is_premium && !unlocked && !isAdmin) || !released || couponLocked,
+    // v0.98.2: tema exclusivo por código (ex.: Magic Tank) — o CÓDIGO é a
+    // única chave (admin sempre pode). Antes ele também exigia PLUS, e quem
+    // resgatava um código "só tema" continuava trancado.
+    locked: exclusive ? (couponLocked || !released) : ((!!t.is_premium && !unlocked && !isAdmin) || !released),
   };
 }
 
@@ -446,7 +449,7 @@ function buildPlusV2Router({ db, requireAuth, requireAdmin, asyncHandler, isPlus
               exclusive: theme.exclusive_coupon,
             });
           }
-          if (theme.is_premium && !unlocked && !req.user.is_admin) {
+          if (!theme.exclusive_coupon && theme.is_premium && !unlocked && !req.user.is_admin) {
             return res.status(403).json({ error: 'Esse tema é exclusivo de quem tem NEXTGAME PLUS' });
           }
           // Reforça no servidor a data de lançamento (release_at) definida

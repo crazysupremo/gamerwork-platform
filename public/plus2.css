@@ -1421,3 +1421,6 @@ body[data-pv2-scene="matrix"] #plus2-scene { opacity: .15 !important; }
 @media (max-width: 700px) {
   html body.theme-magic-tank #mt-member-tag { display: none !important; }
 }
+
+/* v0.98.2 — troca de tema com fade suave da tela inteira (View Transitions) */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .35s; animation-timing-function: ease; }

@@ -433,6 +433,12 @@
 
     function startPreview(theme) {
       if (!global.PlusV2Live || !global.PlusV2Live.previewTheme) return;
+      // v0.98.2: tema exclusivo por código (Magic Tank) não abre prévia pra quem
+      // não tem o código — a prévia mostrava o tema inteiro de graça.
+      if (theme.exclusive && theme.couponLocked) {
+        if (opts.onLockedClick) opts.onLockedClick('theme', theme);
+        return;
+      }
       previewingTheme = theme;
       global.PlusV2Live.previewTheme(theme);
       const overlay = overlayAncestor();
@@ -598,7 +604,7 @@
         el('div', { class: 'pv2-theme-name' }, [
           el('div', { class: 'pv2-theme-name-row' }, [
             theme.name,
-            theme.premium ? el('span', { class: 'pv2-premium-pill' }, ['PLUS']) : null,
+            theme.exclusive ? el('span', { class: 'pv2-premium-pill' }, ['CÓDIGO']) : (theme.premium ? el('span', { class: 'pv2-premium-pill' }, ['PLUS']) : null),
             selected ? el('span', { class: 'pv2-meta-tag' }, ['em uso']) : null,
             theme.draft ? el('span', { class: 'pv2-meta-tag' }, ['rascunho (só admin)']) : null,
             (theme.comingSoon && theme.locked === false) ? el('span', { class: 'pv2-meta-tag' }, ['teste antecipado (admin verificado)']) : null,
@@ -607,7 +613,7 @@
           metaTags.length ? el('div', { class: 'pv2-theme-meta' }, metaTags.map((m) => el('span', { class: 'pv2-meta-tag' }, [m]))) : null,
         ]),
         el('div', { class: 'pv2-theme-actions' }, [
-          el('button', { type: 'button', class: 'pv2-card-btn', onclick: (e) => { e.stopPropagation(); startPreview(theme); } }, ['👁 Ver ao vivo']),
+          (theme.exclusive && theme.couponLocked) ? null : el('button', { type: 'button', class: 'pv2-card-btn', onclick: (e) => { e.stopPropagation(); startPreview(theme); } }, ['👁 Ver ao vivo']),
           theme.custom ? el('button', {
             type: 'button', class: 'pv2-card-btn', title: 'Excluir este tema',
             onclick: async (e) => {

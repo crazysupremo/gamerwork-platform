@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.98.2",
+    "date": "2026-11-13",
+    "changes": [
+      "Corrigido: os efeitos do tema (figurinhas, mascote, decoração, fundo animado) SUMIAM ao passar o mouse em cima de botões, mensagens, menus e cards — agora ficam sempre na tela (e continuam sem atrapalhar o clique).",
+      "Troca de tema mais suave: o fundo animado e a decoração não são mais destruídos e recriados várias vezes seguidas ao aplicar um tema; a tela faz uma transição rápida do tema antigo pro novo.",
+      "Magic Tank: agora o CÓDIGO do Magic Tank é a chave do tema (admin sempre pode usar). Quem resgatou um código \"só tema\" não fica mais bloqueado por não ter PLUS, e quem não tem código não consegue mais ver o tema completo pelo \"Ver ao vivo\". O cartão mostra o selo CÓDIGO.",
+      "Magic Tank mais top: cursor de varinha mágica dourada, faíscas douradas ao passar o mouse nos botões e cometas mágicos cruzando o fundo de vez em quando."
+    ]
+  },
+  {
     "version": "0.98.1",
     "date": "2026-11-13",
     "changes": [

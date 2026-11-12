@@ -57,6 +57,16 @@
   }
 
   // ------------------------------------------------------------ CSS próprio
+  // Cursor "varinha mágica" do Magic Tank (SVG desenhado aqui, sem arquivo extra).
+  const wandSvg = (hot) => "url(\"data:image/svg+xml," + encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>" +
+    (hot ? "<circle cx='6' cy='6' r='6' fill='rgba(127,217,255,.55)'/>" : '') +
+    "<line x1='9' y1='9' x2='28' y2='28' stroke='#05080f' stroke-width='5.5' stroke-linecap='round'/>" +
+    "<line x1='9' y1='9' x2='28' y2='28' stroke='#1a6fd1' stroke-width='3' stroke-linecap='round'/>" +
+    "<line x1='23' y1='23' x2='28' y2='28' stroke='#fbdc70' stroke-width='3' stroke-linecap='round'/>" +
+    "<path d='M6 0l1.6 4.2L12 6l-4.4 1.8L6 12l-1.6-4.2L0 6l4.4-1.8z' fill='#fbdc70' stroke='#7a5a10' stroke-width='.7'/>" +
+    "</svg>") + "\")";
+  const WAND = wandSvg(false), WAND_HOT = wandSvg(true);
   let styled = false;
   function injectStyle() {
     if (styled) return; styled = true;
@@ -85,7 +95,12 @@
 @keyframes pv2mtPop{0%{transform:scale(.3) rotate(-25deg);opacity:0}100%{transform:none;opacity:1}}
 @keyframes pv2mtSpin{to{transform:rotate(360deg)}}
 @keyframes pv2mtUp{0%{transform:translateY(12px);opacity:0}100%{transform:none;opacity:1}}
-@media (prefers-reduced-motion:reduce){#pv2-mt-splash .ring::before,#pv2-mt-splash .ring::after{animation:none}}`;
+@media (prefers-reduced-motion:reduce){#pv2-mt-splash .ring::before,#pv2-mt-splash .ring::after{animation:none}}
+@media (hover:hover) and (pointer:fine){
+body.theme-magic-tank,body.theme-magic-tank *{cursor:${WAND} 6 6,auto}
+body.theme-magic-tank :is(a,button,[role="button"],select,label,summary,.channel-item,.member-item,.server-row,.sidebar-nav-item,.friend-row,.explore-card,.manage-tab,.settings-sidebar-item,input[type="checkbox"],input[type="radio"]),
+body.theme-magic-tank :is(a,button,[role="button"]) *{cursor:${WAND_HOT} 6 6,pointer}
+body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="email"],input[type="password"],input[type="number"],textarea,[contenteditable="true"]){cursor:text}}`;
     doc.head.appendChild(st);
   }
 
@@ -333,6 +348,15 @@
         ctx.fillStyle = `rgba(${ICE},${(k * 0.9).toFixed(3)})`;
         for (let j = 0; j < 6; j++) { const a = j * Math.PI / 3; ctx.save(); ctx.translate(Math.cos(a) * r, Math.sin(a) * r); ctx.rotate(a); star(0, 0, 4); ctx.restore(); }
         ctx.restore();
+      } else if (p.k === 'comet') {
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        const tx = p.x - p.vx * 0.16, ty = p.y - p.vy * 0.16;
+        const g = ctx.createLinearGradient(tx, ty, p.x, p.y);
+        g.addColorStop(0, `rgba(${BLUE},0)`); g.addColorStop(1, `rgba(${GOLD},${(0.85 * Math.min(1, k * 3)).toFixed(3)})`);
+        ctx.strokeStyle = g; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(p.x, p.y); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,250,225,.95)'; ctx.beginPath(); ctx.arc(p.x, p.y, 2.6, 0, 6.29); ctx.fill();
+        if (Math.random() < 0.5) spark(p.x, p.y, pick([GOLD, ICE]), { v: rnd(10, 40), g: 60, max: 0.5, s: rnd(0.8, 1.8) });
       } else if (p.k === 'text') {
         p.y += p.vy * dt;
         ctx.globalCompositeOperation = 'source-over';
@@ -345,6 +369,33 @@
     ctx.globalCompositeOperation = 'source-over';
     const tankOn = drawTank(dt);
     if (parts.length || orbs.length || tankOn) raf = requestAnimationFrame(tick);
+  }
+
+  // ------------------------------------------------------------ Magic Tank: cometas e brilho nos botões
+  let cometT = 0;
+  function scheduleComet() {
+    clearTimeout(cometT);
+    cometT = setTimeout(() => {
+      if (isMT() && allowed() && !doc.hidden && !reduce()) {
+        ensureCanvas();
+        const ltr = Math.random() < 0.5, sp = rnd(520, 760), y0 = rnd(H * 0.08, H * 0.4);
+        const a = rnd(0.12, 0.3);
+        parts.push({ k: 'comet', x: ltr ? -40 : W + 40, y: y0, vx: (ltr ? 1 : -1) * Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: (W + 80) / (Math.cos(a) * sp) });
+        wake();
+      }
+      if (isMT()) scheduleComet();
+    }, rnd(6000, 11000));
+  }
+  const hoverSeen = new WeakMap();
+  function hoverSparkle(el) {
+    const now = performance.now();
+    if (now - (hoverSeen.get(el) || 0) < 700) return;
+    hoverSeen.set(el, now);
+    const r = el.getBoundingClientRect();
+    if (r.width < 12 || r.width * r.height > W * H * 0.2) return;
+    ensureCanvas();
+    for (let i = 0; i < 6; i++) spark(rnd(r.left + 4, r.right - 4), r.top + rnd(0, 4), pick([GOLD, GOLD, ICE]), { a: rnd(-Math.PI * 0.85, -Math.PI * 0.15), v: rnd(30, 90), g: 80, max: rnd(0.4, 0.7), s: rnd(1, 2) });
+    wake();
   }
 
   // ------------------------------------------------------------ abertura do Magic Tank
@@ -376,6 +427,7 @@
       if (hadOtherTheme || !seen) setTimeout(() => { if (isMT() && allowed()) splash(); }, 150);
     }
     if (!now && global.PlusV2LiveCurrentTheme) hadOtherTheme = true;
+    if (now && !wasMT) scheduleComet(); else if (!now) clearTimeout(cometT);
     wasMT = now;
     colorsFor = null; // cores podem ter mudado
     hideSpot();
@@ -393,16 +445,22 @@
     moveSpot(e.target, e.clientX, e.clientY);
     if (!reduce()) trail(e.clientX, e.clientY);
   }, { passive: true });
+  doc.addEventListener('pointerover', (e) => {
+    if (e.pointerType !== 'mouse' || !isMT() || reduce() || !allowed()) return;
+    const b = e.target && e.target.closest ? e.target.closest('button, a, [role="button"]') : null;
+    if (b) hoverSparkle(b);
+  }, { passive: true });
   global.addEventListener('scroll', hideSpot, { capture: true, passive: true });
   global.addEventListener('blur', hideSpot);
   global.addEventListener('resize', () => { size(); hideSpot(); });
 
   function start() {
     if (!doc.body) return;
+    injectStyle(); // cursor da varinha precisa estar pronto antes do 1º clique
     watchTheme();
     new MutationObserver(watchTheme).observe(doc.body, { attributes: true, attributeFilter: ['class'] });
   }
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', start); else start();
 
-  global.PlusV2Interact = { ripple, fire: mtFire, splash, active: allowed };
+  global.PlusV2Interact = { ripple, fire: mtFire, splash, active: allowed, stats: () => ({ particulas: parts.length, cometas: parts.filter((p) => p.k === 'comet').length }) };
 })(typeof window !== 'undefined' ? window : globalThis);
