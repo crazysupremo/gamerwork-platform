@@ -4879,3 +4879,118 @@ hr, .divider { border-color: var(--nx-line); }
 /* ---- admin ---- */
 .admin-nav-btn { border-radius: 12px; }
 .admin-nav-btn.active { background: linear-gradient(90deg, rgba(var(--accent-rgb, 0,255,157), 0.2), transparent); box-shadow: inset 3px 0 0 rgb(var(--accent-rgb, 0,255,157)); }
+
+/* ===================================================================
+   v0.97.9 — correções de elementos uns por cima dos outros
+   =================================================================== */
+
+/* Login: a arte de fundo (auth-hero.png) já traz o logo "NEXT GAME /
+   PLAY. CONNECT. WIN." desenhado no canto — ele aparecia "fantasma" logo
+   atrás/ao lado do logo de verdade. Ancora a imagem por baixo (corta o topo
+   onde o logo da arte mora) e escurece o cantinho superior esquerdo. */
+.auth-hero-img { object-position: 68% 100%; }
+.auth-hero-overlay {
+  background:
+    radial-gradient(ellipse 38% 26% at 0% 0%, rgba(8,8,14,0.97) 55%, rgba(8,8,14,0) 100%),
+    linear-gradient(90deg, rgba(8,8,14,0.96) 0%, rgba(8,8,14,0.82) 32%, rgba(8,8,14,0.35) 62%, rgba(8,8,14,0.15) 100%),
+    linear-gradient(180deg, rgba(6,6,10,0.75) 0%, rgba(6,6,10,0.05) 22%, rgba(6,6,10,0.1) 60%, rgba(6,6,10,0.92) 100%);
+}
+
+/* Login: a aba ativa já é um botão preenchido com degradê; o sublinhado
+   antigo ficava solto embaixo dela, parecendo uma barrinha fora do lugar. */
+.auth-tab.active::after { display: none; }
+
+/* Login: links do rodapé não quebram no meio ("📥" numa linha, "Downloads" na outra). */
+.auth-left-footer-link { white-space: nowrap; }
+
+/* Selo de contagem (ex.: 🔥 do Rewards) não sai mais pra fora do menu lateral. */
+.sidebar-nav-item { position: relative; }
+.sidebar-nav-item .navbar-badge { position: static; margin-left: auto; transform: none; }
+
+@media (max-width: 768px) {
+  /* Coluna de canais/Mensagens e painel de membros: ficam ACIMA do fundo
+     escuro (9700) e ABAIXO da gaveta do menu (9800). Antes ficavam abaixo do
+     fundo e acima de todo o resto, sem fundo nenhum — cobriam o botão ☰ e a
+     pessoa ficava presa sem conseguir sair da tela de Mensagens. */
+  #channel-sidebar:not(.hidden), #members-panel:not(.hidden) { z-index: 9750 !important; }
+
+  /* Banner do Início: texto, ícone e botão um embaixo do outro em vez de
+     espremer o título numa coluna de uma palavra por linha. */
+  .home-tournament-banner-inner { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .home-tournament-banner-text h2 { font-size: 20px; }
+  .home-tournament-banner-inner .home-btn-primary { align-self: stretch; text-align: center; }
+}
+
+@media (max-width: 420px) {
+  /* Barra de topo em celular estreito: "Criar" vira só o ícone "+", senão os
+     botões da direita (novidades, sino, perfil) eram empurrados pra fora da tela. */
+  .navbar-create-btn { font-size: 0 !important; gap: 0 !important; padding: 8px 10px !important; }
+  .navbar-create-btn .ng-icon, .navbar-create-btn svg { width: 16px; height: 16px; }
+  .top-navbar { gap: 6px; }
+  .navbar-right { gap: 4px; }
+}
+
+/* Campos com ícone (lupa etc.) dentro de janelas/modais: a regra genérica
+   ".modal-card input { padding: 8px }" vinha depois e tirava o espaço da
+   lupa — o ícone ficava em cima do texto ("🔍scar servidores"). O campo de
+   dentro também ganhava uma segunda borda/fundo por cima da moldura. */
+.modal-card .input-icon-wrap input,
+.input-icon-wrap > input {
+  padding-left: 34px; background: none; border: none; box-shadow: none;
+}
+
+/* Login em janela baixa (notebook com ~600px de altura, celular pequeno):
+   o cartão tem altura máxima e rola, mas o flex ESPREMIA os filhos em vez de
+   rolar — as abas "Entrar / Criar conta" viravam uma faixa de 6px e o logo
+   passava por cima da borda de cima. Agora nada encolhe (o cartão rola) e a
+   centralização vertical é feita com margens automáticas, que nunca empurram
+   o conteúdo pra fora do topo. */
+.auth-card { justify-content: flex-start !important; }
+.auth-card > * { flex-shrink: 0; }
+.auth-card > :first-child { margin-top: auto; }
+.auth-card > :last-child { margin-bottom: auto; }
+
+/* Topo do login em celular estreito: o selo "PROTECTION BLUEX ATIVO" cobria
+   o "GAME" do nome. Abaixo de 420px fica só o ícone da marca (o cartão logo
+   abaixo já mostra o logo grande). */
+@media (max-width: 420px) {
+  .auth-hero-brand-text { display: none !important; }
+}
+
+/* Barra de topo no celular/tablet: quem encolhe é a BUSCA, nunca os botões.
+   Antes a fileira da direita "encolhia" mas os botões não — o sino e o chip
+   de perfil (onde ficam Editar perfil, PLUS, Admin e SAIR) eram empurrados
+   pra fora da tela e ficavam inalcançáveis. */
+@media (max-width: 1100px) {
+  .top-navbar > .navbar-right { flex-shrink: 0 !important; }
+  .navbar-search { flex: 1 1 auto; min-width: 0; }
+  .navbar-search input { width: 100%; min-width: 0; }
+}
+@media (max-width: 1100px) and (min-width: 769px) {
+  .navbar-right { gap: 8px; }
+}
+@media (max-width: 600px) {
+  /* chip de perfil vira só o avatar (o menu continua abrindo ao tocar) */
+  .navbar-profile-chip-text, .navbar-profile-chip .navbar-chip-chevron { display: none !important; }
+  .navbar-profile-chip { padding: 3px !important; gap: 0 !important; min-width: 0 !important; }
+  .navbar-search { padding: 7px 10px; }
+}
+@media (max-width: 380px) {
+  /* celular bem estreito: a busca vira só a lupa + campo curtinho */
+  .navbar-icon-btn { width: 32px !important; height: 32px !important; }
+  .navbar-search input::placeholder { color: transparent; }
+}
+
+/* Abas largas (Jogar: Buscar Grupos / ... / Organizações) rolam pro lado no
+   celular em vez de a última aba ficar cortada pra fora da tela. */
+@media (max-width: 768px) {
+  .manage-tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .manage-tabs::-webkit-scrollbar { display: none; }
+  .manage-tab { flex-shrink: 0; }
+  .modal-card input, .modal-card select, .modal-card textarea { max-width: 100%; min-width: 0; box-sizing: border-box; }
+}
+
+/* Campos lado a lado em janelas (ex.: Região | Idioma no perfil): as
+   colunas não deixavam o campo encolher e o segundo saía pela direita. */
+.modal-card [style*="flex:1"], .modal-card [style*="flex: 1"] { min-width: 0; }
+.modal-card [style*="flex:1"] > input, .modal-card [style*="flex: 1"] > input { width: 100%; box-sizing: border-box; }

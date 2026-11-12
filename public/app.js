@@ -1654,7 +1654,7 @@ setupSidebarSectionToggle('btn-toggle-biblioteca', 'biblioteca-toggle-chevron', 
 async function loadServerIcons() {
   try {
     const res = await fetch('/api/servers', { credentials: 'include' });
-    const rows = await res.json();
+    const rows = await jsonList(res);
     serverIcons = {};
     officialServers = new Set();
     rows.forEach((r) => {
@@ -1802,10 +1802,29 @@ document.getElementById('btn-close-channel-sidebar').onclick = () => setChannelS
 // Só existe visualmente abaixo de 768px (o botão ☰ fica escondido em tela
 // grande via CSS) — mas o JS funciona sempre, sem custo nenhum se não for usado.
 const mobileBackdrop = document.getElementById('mobile-drawer-backdrop');
+function isMobileView() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+// CORRIGIDO (0.97.9): o fundo escuro só aparecia com a gaveta do menu. A
+// coluna de canais/Mensagens e o painel de membros abriam por cima de tudo
+// SEM fundo e sem jeito de fechar (no modo chat nem o X aparecia), cobrindo
+// o botão ☰ — a pessoa ficava presa. Agora o fundo aparece sempre que
+// qualquer uma dessas gavetas estiver aberta no celular, e tocar nele fecha.
+function syncMobileBackdrop() {
+  const sidebarOpen = document.getElementById('app-sidebar').classList.contains('mobile-open');
+  const channelOpen = !document.getElementById('channel-sidebar').classList.contains('hidden');
+  const membersOpen = !document.getElementById('members-panel').classList.contains('hidden');
+  mobileBackdrop.classList.toggle('hidden', !(sidebarOpen || (isMobileView() && (channelOpen || membersOpen))));
+}
 function setMobileSidebarOpen(open) {
   document.getElementById('app-sidebar').classList.toggle('mobile-open', open);
-  mobileBackdrop.classList.toggle('hidden', !open);
+  syncMobileBackdrop();
 }
+['channel-sidebar', 'members-panel'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) new MutationObserver(syncMobileBackdrop).observe(el, { attributes: true, attributeFilter: ['class'] });
+});
+window.addEventListener('resize', syncMobileBackdrop);
 const btnMobileMenu = document.getElementById('btn-mobile-menu');
 if (btnMobileMenu) btnMobileMenu.onclick = () => setMobileSidebarOpen(true);
 mobileBackdrop.onclick = () => {
@@ -2201,6 +2220,34 @@ function showCopyToast(text) {
     toast.classList.remove('copy-toast-show');
     setTimeout(() => toast.remove(), 200);
   }, 1800);
+}
+
+// CORRIGIDO (0.98.1): ~30 telas (Feed, Clipes, Jogos Salvos, Ranking,
+// Explorar, Torneios, Loja...) liam a resposta do servidor direto como lista.
+// Quando o servidor respondia erro — "muitas requisições" (texto, não JSON),
+// sessão expirada, servidor acordando — o JS quebrava ("x.forEach is not a
+// function" / "Unexpected token") e a tela ficava travada em "Carregando...".
+// Agora: erro vira lista vazia + um aviso curto (no máximo um a cada 8s).
+let lastListErrorToastAt = 0;
+async function jsonList(res) {
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (_) {
+    data = null;
+  }
+  if (res.ok && Array.isArray(data)) return data;
+  if (Date.now() - lastListErrorToastAt > 8000) {
+    lastListErrorToastAt = Date.now();
+    const msg =
+      res.status === 429
+        ? 'Muitas ações seguidas — espere alguns segundos e tente de novo.'
+        : res.status === 401
+          ? 'Sua sessão expirou — entre de novo.'
+          : 'Não deu pra carregar agora. Tente de novo em instantes.';
+    showCopyToast(msg);
+  }
+  return [];
 }
 
 // Toast que fica na tela até alguém chamar hideAnalyzingImageToast() — usado
@@ -2716,7 +2763,7 @@ async function loadManageMembers() {
   const listEl = document.getElementById('server-members-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/members`, { credentials: 'include' });
-  const members = await res.json();
+  const members = await jsonList(res);
 
   const rolesRes = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/roles`, { credentials: 'include' });
   const rolesData = await rolesRes.json();
@@ -3041,7 +3088,7 @@ async function renderBracket(tournamentId, container, format) {
   let standingsHtml = '';
   if (format === 'liga') {
     const standingsRes = await fetch(`/api/tournaments/${tournamentId}/standings`, { credentials: 'include' });
-    const standings = await standingsRes.json();
+    const standings = await jsonList(standingsRes);
     if (standings.length > 0) {
       standingsHtml = `
         <div class="liga-standings">
@@ -3060,7 +3107,7 @@ async function renderBracket(tournamentId, container, format) {
   }
 
   const res = await fetch(`/api/tournaments/${tournamentId}/bracket`, { credentials: 'include' });
-  const matches = await res.json();
+  const matches = await jsonList(res);
   if (matches.length === 0) {
     container.innerHTML = standingsHtml || '<p class="empty-hint">Chave ainda não foi gerada.</p>';
     return;
@@ -3303,7 +3350,7 @@ async function loadServerEvents() {
     };
     card.querySelector('.btn-event-participants').onclick = async () => {
       const r = await fetch(`/api/servers/${encodeURIComponent(activeServerCategory)}/events/${ev.id}/participants`, { credentials: 'include' });
-      const rows = await r.json().catch(() => []);
+      const rows = await jsonList(r).catch(() => []);
       alert(rows.length === 0 ? 'Ninguém confirmou presença ainda.' : 'Confirmaram presença:\n' + rows.map((u) => u.username).join('\n'));
     };
     const statusBtn = card.querySelector('.btn-event-status');
@@ -3383,7 +3430,7 @@ async function loadRankingModal() {
     params.set('category', activeServerCategory);
   }
   const res = await fetch(`/api/ranking?${params.toString()}`, { credentials: 'include' });
-  const ranking = await res.json();
+  const ranking = await jsonList(res);
   list.innerHTML = '';
   if (ranking.length === 0) {
     list.innerHTML = '<p class="empty-hint">Ainda sem atividade suficiente essa semana nessa categoria.</p>';
@@ -3985,7 +4032,10 @@ function enterChatMode(landOn) {
   // BUG CORRIGIDO: o "X" de fechar a coluna e os ícones de servidor
   // (sala rápida, config etc) continuavam aparecendo em cima da lista de
   // conversas — não fazem sentido fora do contexto de um servidor.
+  // No celular o X continua visível: lá a lista de conversas é uma gaveta
+  // por cima da tela e precisa de um jeito óbvio de fechar.
   ['btn-new-room', 'btn-sidebar-more', 'btn-close-channel-sidebar'].forEach((id) => {
+    if (id === 'btn-close-channel-sidebar' && isMobileView()) return;
     document.getElementById(id).classList.add('hidden');
   });
   // Mesma lógica pro cabeçalho da área principal — só faz sentido mostrar
@@ -3994,7 +4044,9 @@ function enterChatMode(landOn) {
     document.getElementById(id).classList.add('hidden');
   });
   if (typeof setServersCollapsed === 'function') setServersCollapsed(true);
-  setChannelSidebarOpen(true);
+  // CORRIGIDO (0.97.9): no celular, "Amigos" abria a lista de conversas por
+  // cima do painel de amigos, escondendo justamente o que a pessoa pediu.
+  setChannelSidebarOpen(!(isMobileView() && landOn === 'amigos'));
   renderServerRail([...new Set(allChannels.map((c) => c.category))]);
 
   loadFriends();
@@ -4055,7 +4107,10 @@ document.getElementById('nav-sidebar-amigos').onclick = () => {
   enterChatMode('amigos');
   showFriendsPanel();
 };
-document.getElementById('dm-friends-shortcut').onclick = showFriendsPanel;
+document.getElementById('dm-friends-shortcut').onclick = () => {
+  showFriendsPanel();
+  if (isMobileView()) setChannelSidebarOpen(false);
+};
 
 document.getElementById('dm-search-input').oninput = (e) => {
   const term = e.target.value.trim().toLowerCase();
@@ -5114,7 +5169,7 @@ async function openProfilePreview(user) {
   }
 
   const activityRes = await fetch('/api/feed', { credentials: 'include' });
-  const feed = await activityRes.json();
+  const feed = await jsonList(activityRes);
   const myFeed = feed.filter((p) => p.user_id === user.id).slice(0, 10);
   const activityTab = document.getElementById('profile-tab-atividade');
   activityTab.innerHTML =
@@ -5402,6 +5457,8 @@ document.getElementById('profile-avatar-file').onchange = (e) => {
 };
 
 document.getElementById('btn-edit-profile').onclick = () => {
+  // CORRIGIDO (0.98.1): sem sessão carregada ainda, quebrava lendo me.email.
+  if (!me) return;
   document.getElementById('profile-error').textContent = '';
   document.getElementById('own-profile-tag').textContent = userTag(me);
   document.getElementById('profile-email').value = me.email || '';
@@ -5604,7 +5661,7 @@ async function loadSessions() {
   const listEl = document.getElementById('sessions-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch('/api/sessions', { credentials: 'include' });
-  const sessions = await res.json();
+  const sessions = await jsonList(res);
   listEl.innerHTML = '';
   sessions.forEach((s) => {
     const row = document.createElement('div');
@@ -5740,7 +5797,7 @@ async function loadBlockedUsers() {
   const listEl = document.getElementById('blocked-users-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch('/api/blocked-users', { credentials: 'include' });
-  const rows = await res.json();
+  const rows = await jsonList(res);
   if (rows.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Você não bloqueou ninguém.</p>';
     return;
@@ -5816,7 +5873,7 @@ async function loadPinnedMessages(channelId) {
   const listEl = document.getElementById('pinned-messages-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch(`/api/channels/${channelId}/pinned`, { credentials: 'include' });
-  const rows = await res.json();
+  const rows = await jsonList(res);
   if (rows.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Nenhuma mensagem fixada nesse canal ainda.</p>';
     return;
@@ -6352,7 +6409,7 @@ document.getElementById('search-messages-input').oninput = (e) => {
     const res = await fetch(`/api/channels/${currentChannel.id}/search?q=${encodeURIComponent(q)}`, {
       credentials: 'include',
     });
-    const rows = await res.json();
+    const rows = await jsonList(res);
     resultsEl.innerHTML = '';
     if (rows.length === 0) {
       resultsEl.innerHTML = '<p class="empty-hint">Nada encontrado.</p>';
@@ -6453,7 +6510,9 @@ function selectChannel(channel, options = {}) {
   // Canal de servidor: escolher fecha o popup de canais, sobra mais tela pro
   // conteúdo. DM: a coluna do meio agora é a lista de conversas — fica
   // aberta o tempo todo, igual Discord, pra trocar de pessoa rápido.
-  if (!isDm) setChannelSidebarOpen(false);
+  // No celular a lista de conversas é uma gaveta por cima do chat — escolher
+  // uma conversa fecha a gaveta, senão ela continua cobrindo as mensagens.
+  if (!isDm || isMobileView()) setChannelSidebarOpen(false);
   if (isDm) {
     document.querySelectorAll('#dm-conversations-list .friend-row').forEach((row) => {
       row.classList.toggle('friend-row-active', row.dataset.searchName === channel.name.replace('💬 ', '').toLowerCase());
@@ -6627,7 +6686,7 @@ function setNavActive(id, active) {
 
 function updateClearChannelButton() {
   const btn = document.getElementById('btn-clear-channel');
-  btn.classList.toggle('hidden', !(me.is_admin && currentChannel));
+  btn.classList.toggle('hidden', !(me && me.is_admin && currentChannel));
 }
 
 document.getElementById('btn-clear-channel').onclick = async () => {
@@ -6683,7 +6742,7 @@ async function loadExplore() {
   grid.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const q = document.getElementById('explore-search').value.trim();
   const res = await fetch(`/api/servers/discover${q ? '?q=' + encodeURIComponent(q) : ''}`, { credentials: 'include' });
-  const servers = await res.json();
+  const servers = await jsonList(res);
   if (servers.length === 0) {
     grid.innerHTML = '<p class="empty-hint">Nenhum servidor público encontrado. Servidores só aparecem aqui se o dono marcar como público em "Gerenciar Servidor".</p>';
     return;
@@ -6754,7 +6813,7 @@ async function loadLfgPosts() {
   const listEl = document.getElementById('lfg-posts-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch('/api/lfg', { credentials: 'include' });
-  const posts = await res.json();
+  const posts = await jsonList(res);
   if (posts.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Nenhum grupo procurando jogador agora. Crie um na aba "Criar Post"!</p>';
     return;
@@ -6828,7 +6887,7 @@ async function loadGameProfiles() {
   const listEl = document.getElementById('game-profiles-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch(`/api/game-profiles/${me.id}`, { credentials: 'include' });
-  const rows = await res.json();
+  const rows = await jsonList(res);
   if (rows.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Nenhum perfil de jogo ainda — adicione um abaixo.</p>';
     return;
@@ -6876,7 +6935,7 @@ async function loadTeams() {
   const listEl = document.getElementById('teams-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch('/api/teams/mine', { credentials: 'include' });
-  const rows = await res.json();
+  const rows = await jsonList(res);
   if (rows.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Você não faz parte de nenhum time ainda.</p>';
     return;
@@ -6942,8 +7001,8 @@ async function loadClans() {
     fetch('/api/clans', { credentials: 'include' }),
     fetch('/api/clans/mine', { credentials: 'include' }),
   ]);
-  const all = await allRes.json();
-  const mine = await mineRes.json();
+  const all = await jsonList(allRes);
+  const mine = await jsonList(mineRes);
   const mineIds = new Set(mine.map((c) => c.id));
   if (all.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Nenhum clã criado ainda — crie o primeiro abaixo.</p>';
@@ -6998,7 +7057,7 @@ async function loadOrgs() {
   const listEl = document.getElementById('orgs-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch('/api/organizations', { credentials: 'include' });
-  const orgs = await res.json();
+  const orgs = await jsonList(res);
   if (orgs.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Nenhuma organização criada ainda.</p>';
     return;
@@ -7053,7 +7112,7 @@ async function loadMarketplace() {
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const category = document.getElementById('market-filter-category').value;
   const res = await fetch(`/api/marketplace${category ? '?category=' + category : ''}`, { credentials: 'include' });
-  const profiles = await res.json();
+  const profiles = await jsonList(res);
   if (profiles.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Nenhum perfil profissional publicado ainda.</p>';
     return;
@@ -7116,8 +7175,8 @@ async function loadShop() {
     fetch('/api/shop', { credentials: 'include' }),
   ]);
   const coinsData = await coinsRes.json();
-  const items = await itemsRes.json();
-  document.getElementById('shop-coins-balance').textContent = coinsData.balance;
+  const items = await jsonList(itemsRes);
+  document.getElementById('shop-coins-balance').textContent = (coinsData && coinsData.balance) || 0;
 
   const listEl = document.getElementById('shop-items-list');
   if (items.length === 0) {
@@ -7167,7 +7226,7 @@ async function loadIntegrations() {
   const listEl = document.getElementById('integrations-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch('/api/integrations', { credentials: 'include' });
-  const rows = await res.json();
+  const rows = await jsonList(res);
   listEl.innerHTML = '';
   rows.forEach((r) => {
     const row = document.createElement('div');
@@ -7237,7 +7296,7 @@ async function loadFeedPosts() {
   const listEl = document.getElementById('feed-posts-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch('/api/feed', { credentials: 'include' });
-  const posts = await res.json();
+  const posts = await jsonList(res);
   if (posts.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Nada no feed ainda — seja o primeiro a publicar!</p>';
     return;
@@ -7289,7 +7348,7 @@ async function loadClips() {
   const listEl = document.getElementById('clips-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch('/api/clips?sort=trending', { credentials: 'include' });
-  const clips = await res.json();
+  const clips = await jsonList(res);
   if (clips.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Nenhum clipe publicado ainda.</p>';
     return;
@@ -7341,7 +7400,7 @@ async function loadStreams() {
   const listEl = document.getElementById('streams-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch('/api/streams', { credentials: 'include' });
-  const streams = await res.json();
+  const streams = await jsonList(res);
   if (streams.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Ninguém ao vivo agora.</p>';
     return;
@@ -7400,7 +7459,7 @@ async function loadEvents() {
   const listEl = document.getElementById('events-list');
   listEl.innerHTML = '<p class="empty-hint">Carregando...</p>';
   const res = await fetch('/api/events', { credentials: 'include' });
-  const events = await res.json();
+  const events = await jsonList(res);
   if (events.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Nenhum evento marcado ainda.</p>';
     return;
@@ -7738,7 +7797,7 @@ async function loadHomeEvents() {
 // ---------- JOGOS SALVOS ----------
 async function loadSavedGames() {
   const res = await fetch('/api/saved-games', { credentials: 'include' });
-  const games = await res.json();
+  const games = await jsonList(res);
   const listEl = document.getElementById('saved-games-list');
   if (games.length === 0) {
     listEl.innerHTML = '<p class="empty-hint">Nenhum jogo salvo ainda.</p>';
@@ -8138,7 +8197,7 @@ function timeAgo(dateStr) {
 async function loadHomeTournamentBanner() {
   const el = document.getElementById('home-tournament-banner');
   const res = await fetch('/api/tournaments', { credentials: 'include' });
-  const tournaments = await res.json();
+  const tournaments = await jsonList(res);
   const upcoming = tournaments.filter((t) => !t.event_date || new Date(t.event_date) >= new Date()).slice(0, 1)[0];
 
   // Ações fixas do hero (Explorar Comunidade / Assistir vídeo) — aparecem
@@ -8221,7 +8280,7 @@ document.getElementById('btn-close-watch-video').onclick = () => {
 async function loadHomeRanking() {
   const el = document.getElementById('home-ranking');
   const res = await fetch('/api/ranking', { credentials: 'include' });
-  const ranking = await res.json();
+  const ranking = await jsonList(res);
   el.innerHTML = '';
   if (ranking.length === 0) {
     el.innerHTML = '<p class="empty-hint">Sem atividade suficiente essa semana.</p>';
@@ -8250,7 +8309,7 @@ async function joinTextChannel(channelId) {
   typingUsers[channelId] = {};
   renderTypingIndicator();
   const res = await fetch(`/api/channels/${channelId}/messages`, { credentials: 'include' });
-  const messages = await res.json();
+  const messages = await jsonList(res);
   const container = document.getElementById('messages');
   container.innerHTML = '';
   delete container.dataset.lastDateKey;
@@ -8273,7 +8332,7 @@ function markChannelRead(channelId) {
 // sala de voz, só que renderizada na coluna lateral).
 async function loadVoiceChatHistory(channelId) {
   const res = await fetch(`/api/channels/${channelId}/messages`, { credentials: 'include' });
-  const messages = await res.json();
+  const messages = await jsonList(res);
   const container = document.getElementById('voice-chat-messages');
   container.innerHTML = '';
   delete container.dataset.lastDateKey;
@@ -11654,14 +11713,14 @@ function animateHomeStatCounters(container) {
       document.body.appendChild(canvas);
       ctx = canvas.getContext('2d');
       resizeCanvas();
-      global.addEventListener('resize', resizeCanvas);
+      window.addEventListener('resize', resizeCanvas);
     }
   }
 
   function resizeCanvas() {
     if (!canvas) return;
-    canvas.width = global.innerWidth;
-    canvas.height = global.innerHeight;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
   }
 
   function makeParticle() {
@@ -11795,10 +11854,10 @@ function animateHomeStatCounters(container) {
       document.body.appendChild(canvas);
       ctx = canvas.getContext('2d');
       resize();
-      global.addEventListener('resize', resize);
+      window.addEventListener('resize', resize);
     }
   }
-  function resize() { if (canvas) { canvas.width = global.innerWidth; canvas.height = global.innerHeight; } }
+  function resize() { if (canvas) { canvas.width = window.innerWidth; canvas.height = window.innerHeight; } }
   function make() {
     return {
       icon: ICONS[Math.floor(Math.random() * ICONS.length)],
@@ -11855,7 +11914,7 @@ function animateHomeStatCounters(container) {
     return banner;
   }
   function render() {
-    const theme = global.PlusV2LiveCurrentTheme;
+    const theme = window.PlusV2LiveCurrentTheme;
     const banner = ensureBanner();
     if (!banner) return;
     if (!theme || !theme.name) { banner.classList.add('hidden'); return; }

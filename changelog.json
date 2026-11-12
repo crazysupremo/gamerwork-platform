@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.98.1",
+    "date": "2026-11-13",
+    "changes": [
+      "Temas interativos: em qualquer tema, tocar ou clicar solta uma onda e faíscas nas cores do tema; no computador, um rastro de luz segue o cursor e os cards ganham um brilho que acompanha o mouse. Temas com figurinhas soltam algumas no clique.",
+      "Magic Tank especial: abertura animada com o logo ao escolher o tema, e um tanque mágico sobe do canto, mira onde você tocou e dispara um projétil dourado que explode em runas — com COMBO pra cliques seguidos (x10 \"MÁGICO!\", x25 \"LENDÁRIO!\"). Com som, se os sons estiverem ligados.",
+      "Tudo isso desliga sozinho no modo desempenho, com a cena animada desligada ou com \"reduzir movimento\" do sistema — e nunca bloqueia clique.",
+      "Temas com varal de figurinhas não penduram mais nada por cima da barra do topo (busca, Criar, sino e perfil ficavam cobertos).",
+      "Celular: o selo \"MEMBRO MAGIC TANK\" não espreme mais a barra do topo.",
+      "Corrigido: Feed, Clipes, Jogos Salvos, Ranking, Explorar, Torneios, Loja e outras ~20 telas travavam com erro quando o servidor respondia \"muitas requisições\" ou estava acordando — agora mostram um aviso e continuam funcionando.",
+      "Corrigidos dois erros que aconteciam antes da sessão carregar (Configurações e botão de limpar conversa)."
+    ]
+  },
+  {
+    "version": "0.98.0",
+    "date": "2026-11-12",
+    "changes": [
+      "Celular: a tela de Mensagens não cobre mais o botão ☰ — agora tem fundo escuro (toque fora pra fechar) e botão X. \"Amigos\" abre direto a lista de amigos, e escolher uma conversa fecha a gaveta.",
+      "Celular: barra de topo cabe inteira — o sino e o avatar de perfil (com Sair) não ficam mais fora da tela; \"Criar\" vira só o +.",
+      "Celular: banner do Início sem texto espremido; abas largas (Jogar) rolam pro lado; campos Região/Idioma não saem da janela.",
+      "Login: abas Entrar/Criar conta não somem mais em janela baixa (notebook/celular pequeno); logo não passa da borda; sem o logo \"fantasma\" da arte de fundo atrás da marca; sem barrinha solta embaixo da aba ativa; selo BLUEX não cobre mais o nome no celular.",
+      "Busca do Explorar: a lupa não fica mais por cima do texto.",
+      "Corrigido erro de JavaScript que quebrava os efeitos dos temas Halloween/DDTank e a faixa do tema na barra lateral."
+    ]
+  },
+  {
     "version": "0.97.9",
     "date": "2026-11-12",
     "changes": [

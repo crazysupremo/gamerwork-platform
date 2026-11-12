@@ -116,6 +116,13 @@
   }
   function buildGarland() {
     if (!cfg.garland.on || !cfg.items.length) return;
+    // CORRIGIDO (0.98.1): dentro do app o varal pendurava as figurinhas por
+    // cima da barra do topo — cobria a busca, o "Criar", o sino e o perfil.
+    // Com a barra de topo visível, o varal não aparece (a chuva de figurinhas,
+    // a moldura, os bichinhos e o mascote continuam). Na prévia de temas,
+    // que não tem barra, segue igual.
+    const topbar = doc.getElementById('top-navbar');
+    if (topbar && topbar.offsetParent !== null) return;
     const px = cfg.garland.size, n = Math.max(4, Math.min(30, Math.floor((global.innerWidth || 1200) / (px * 1.9))));
     garland = doc.createElement('div'); garland.id = 'pv2-cfx-garland';
     garland.style.height = (px * 1.8 + 12) + 'px';

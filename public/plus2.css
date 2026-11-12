@@ -1414,3 +1414,10 @@ body:has(.modal-overlay:not(.hidden)) #plus2-fx, body:has(.modal-overlay:not(.hi
 .pv2-countdown { z-index: 251; }
 /* Matrix mais SUTIL */
 body[data-pv2-scene="matrix"] #plus2-scene { opacity: .15 !important; }
+
+/* v0.98.1 — no celular o selo "★ MEMBRO MAGIC TANK" entrava na barra do topo
+   e espremia a busca e os botões. Abaixo de 700px ele não aparece (o tema
+   inteiro já deixa claro que é Magic Tank). */
+@media (max-width: 700px) {
+  html body.theme-magic-tank #mt-member-tag { display: none !important; }
+}
