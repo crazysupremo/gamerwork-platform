@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.98.5",
+    "date": "2026-11-13",
+    "changes": [
+      "Datas comemorativas especiais e interativas: cada tema de data tem o seu \"toque\" — Natal (presente que explode em neve e enfeites), Ano Novo (foguete que sobe e estoura em fogos, \"FELIZ ANO\" na sequência), Carnaval (canhão de confete), Páscoa (ovinho que racha e sai um pintinho), Namorados e Dia do Amigo (corações), Dia das Crianças (balões que dá pra estourar!), Dia das Mães (flor que desabrocha), Dia dos Pais (bola quicando e troféu), Festa Junina (fogueira), Black Friday (etiquetas de desconto), Dia do Gamer (pixels, +10 XP e LEVEL UP), Sete de Setembro (confete verde-amarelo), Halloween (morcegos e fantasma) e Winter Night (neve).",
+      "Cada data também tem rastro de cursor próprio (neve, corações, confete, pixels, brasas, pétalas...), faíscas nas cores da data ao passar nos botões e um aviso rápido \"toque na tela\" quando o tema é ativado.",
+      "Magic Tank ainda mais especial: segure o clique (ou o dedo) pra carregar e solte pra lançar a MEGA MAGIA, com ondas de choque e clarão dourado; cristais mágicos aparecem de vez em quando pra você acertar (contador salvo); o projétil agora deixa um rastro de luz.",
+      "Tudo pausa com janela aberta e respeita o modo desempenho e \"reduzir movimento\"."
+    ]
+  },
+  {
     "version": "0.98.4",
     "date": "2026-11-13",
     "changes": [

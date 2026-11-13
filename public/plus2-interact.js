@@ -92,6 +92,13 @@ body.pv2-modal-open :is(#pv2-ix,#pv2-spot,#plus2-fx,#plus2-scene,#plus2-decor,#p
 #pv2-mt-splash .t{font:900 clamp(14px,3.2vw,20px)/1.1 var(--pv2-font-display,system-ui,sans-serif);letter-spacing:.32em;color:#fbe7a0;
   text-shadow:0 0 12px rgba(0,168,255,.9),0 0 30px rgba(251,220,112,.45);animation:pv2mtUp .8s .25s ease both}
 #pv2-mt-splash .s{font:700 clamp(10px,2.2vw,12px)/1 var(--pv2-font-body,system-ui,sans-serif);letter-spacing:.24em;color:#9fdcff;animation:pv2mtUp .8s .45s ease both}
+#pv2-fest-hello{position:fixed;left:50%;top:72px;transform:translateX(-50%);z-index:9500;pointer-events:none;
+  padding:9px 16px;border-radius:999px;font:800 13px/1.2 var(--pv2-font-body,system-ui,sans-serif);color:#fff;white-space:nowrap;
+  background:rgba(12,10,22,.88);border:1px solid rgba(var(--c),.7);box-shadow:0 8px 26px rgba(0,0,0,.45),0 0 22px rgba(var(--c),.35);
+  animation:pv2festHello 4.2s ease forwards}
+@keyframes pv2festHello{0%{opacity:0;transform:translate(-50%,-10px)}8%,82%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-6px)}}
+@media(max-width:600px){#pv2-fest-hello{top:60px;font-size:12px;max-width:calc(100vw - 24px);white-space:normal;text-align:center}}
+body.pv2-modal-open #pv2-fest-hello{display:none}
 @keyframes pv2mtFade{0%,78%{opacity:1}100%{opacity:0}}
 @keyframes pv2mtPop{0%{transform:scale(.3) rotate(-25deg);opacity:0}100%{transform:none;opacity:1}}
 @keyframes pv2mtSpin{to{transform:rotate(360deg)}}
@@ -231,7 +238,7 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     combo = now - comboT < 1300 ? combo + 1 : 1; comboT = now;
     const m = muzzle(true);
     const dist = Math.hypot(x - m.x, y - m.y);
-    orbs.push({ x0: m.x, y0: m.y, x1: x, y1: y, cx: (m.x + x) / 2, cy: Math.min(m.y, y) - Math.min(220, dist * 0.35), t: 0, dur: Math.min(0.55, Math.max(0.22, dist / 1500)), combo });
+    orbs.push({ x0: m.x, y0: m.y, x1: x, y1: y, cx: (m.x + x) / 2, cy: Math.min(m.y, y) - Math.min(220, dist * 0.35), t: 0, dur: Math.min(0.55, Math.max(0.22, dist / 1500)), combo, hist: [] });
     for (let i = 0; i < 8; i++) spark(m.x, m.y, pick([GOLD, ICE]), { a: tank.ang + rnd(-0.5, 0.5), v: rnd(80, 220), max: 0.3 });
     sound('pew');
     wake();
@@ -309,6 +316,320 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     ctx.closePath(); ctx.fill();
   }
 
+
+  // ================================================================ DATAS COMEMORATIVAS (v0.98.5)
+  // Cada tema de data ganha um "toque" próprio (o que acontece ao tocar/clicar),
+  // um rastro de cursor e faíscas nos botões com a cara da data. Tudo desenhado
+  // no mesmo canvas leve deste módulo (pausa com janela aberta, respeita modo
+  // desempenho e "reduzir movimento").
+  const emoCache = new Map();
+  function emoSprite(ch) {
+    let c = emoCache.get(ch);
+    if (c) return c;
+    c = doc.createElement('canvas'); c.width = c.height = 72;
+    const x = c.getContext('2d');
+    x.font = '56px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(ch, 36, 40);
+    emoCache.set(ch, c);
+    return c;
+  }
+  const P = (o) => { if (parts.length < 520) parts.push(Object.assign({ life: 0 }, o)); };
+  function emo(x, y, ch, o) {
+    o = o || {};
+    const a = o.a != null ? o.a : rnd(-Math.PI * 0.9, -Math.PI * 0.1), v = o.v != null ? o.v : rnd(120, 320);
+    P({ k: 'emo', x, y, ch, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: o.g != null ? o.g : 520, rot: rnd(-0.5, 0.5), vr: o.vr != null ? o.vr : rnd(-4, 4), s: o.s || rnd(24, 38), max: o.max || rnd(0.9, 1.4), pop: o.pop, flap: o.flap });
+  }
+  function confetti(x, y, cols, n, o) {
+    o = o || {};
+    for (let i = 0; i < n; i++) {
+      const a = o.a != null ? o.a + rnd(-o.spread, o.spread) : rnd(-Math.PI * 0.95, -Math.PI * 0.05), v = rnd(o.v0 || 220, o.v1 || 560);
+      P({ k: 'conf', x, y, c: pick(cols), vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 420, w: rnd(5, 9), h: rnd(8, 14), rot: rnd(0, 6.28), vr: rnd(-10, 10), ph: rnd(0, 6.28), max: rnd(1.3, 2.1) });
+    }
+  }
+  function hearts(x, y, cols, n, big) {
+    for (let i = 0; i < n; i++) P({ k: 'heart', x: x + rnd(-14, 14), y: y + rnd(-8, 8), c: pick(cols), vx: rnd(-60, 60), vy: -rnd(70, 190), s: big ? rnd(14, 22) : rnd(7, 13), ph: rnd(0, 6.28), max: rnd(1.1, 1.8) });
+  }
+  function pixels(x, y, cols, n) {
+    for (let i = 0; i < n; i++) { const a = rnd(0, 6.28), v = rnd(90, 360); P({ k: 'pix', x, y, c: pick(cols), vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 380, s: pick([4, 5, 6, 8]), max: rnd(0.6, 1.1) }); }
+  }
+  function firework(x, y) {
+    const cols = pick([['255,214,90', '255,255,255'], ['255,80,170', '255,214,90'], ['80,220,255', '255,255,255'], ['160,110,255', '255,140,220'], ['120,255,160', '255,240,160']]);
+    const n = reduce() ? 14 : 46;
+    for (let i = 0; i < n; i++) { const a = (i / n) * 6.283 + rnd(-0.06, 0.06); spark(x, y, pick(cols), { a, v: rnd(160, 300), g: 90, max: rnd(0.9, 1.4), s: rnd(1.4, 2.6) }); }
+    ring(x, y, cols[0], { vr: 260, max: 0.45, w: 2 });
+    if (!reduce()) setTimeout(() => { for (let i = 0; i < 12; i++) spark(x + rnd(-90, 90), y + rnd(-70, 90), '255,250,220', { v: rnd(5, 30), g: 30, max: rnd(0.2, 0.45), s: rnd(1, 1.8) }); wake(); }, 650);
+    sound('boom');
+  }
+  function textPop(x, y, str, c, o) { P(Object.assign({ k: 'text', x, y, vy: -60, max: 1.1, str, c }, o || {})); }
+
+  const YEAR = () => new Date().getFullYear() + (new Date().getMonth() === 11 ? 1 : 0);
+  let festCount = 0, festCountT = 0;
+  const FEST = {
+    natal: {
+      cols: ['255,255,255', '214,40,57', '31,138,76', '255,213,74'], hello: '🎄 Modo Natal — toque na tela!',
+      tap(x, y) { P({ k: 'emo', x, y, ch: '🎁', vx: 0, vy: -40, g: 0, rot: 0, vr: 0, s: 40, max: 0.32, pop: 1 }); setTimeout(() => { ring(x, y, '255,255,255', { vr: 240, max: 0.5 }); for (let i = 0; i < 7; i++) emo(x, y, pick(['❄️', '⭐', '🎄', '🔔', '🍪'])); for (let i = 0; i < 16; i++) spark(x, y, pick(this.cols)); wake(); }, 300); },
+      trail: 'snow',
+    },
+    'winter-night': { cols: ['224,242,255', '150,200,255', '255,255,255'], hello: '❄️ Noite de neve — toque na tela!', tap(x, y) { ring(x, y, '224,242,255', { vr: 220 }); for (let i = 0; i < 5; i++) emo(x, y, '❄️', { s: rnd(18, 30) }); for (let i = 0; i < 18; i++) spark(x, y, pick(this.cols), { g: 60 }); }, trail: 'snow' },
+    'ano-novo': {
+      cols: ['255,214,90', '255,255,255', '255,80,170', '80,220,255'], hello: '🎆 Ano Novo — toque pra soltar fogos!',
+      tap(x, y) {
+        const x0 = Math.max(20, Math.min(W - 20, x + rnd(-80, 80)));
+        P({ k: 'rocket', x: x0, y: H + 8, x0, y0: H + 8, x1: x, y1: y, t: 0, dur: Math.min(0.9, Math.max(0.35, (H - y) / 900)), max: 3 });
+        const now = performance.now(); festCount = now - festCountT < 2600 ? festCount + 1 : 1; festCountT = now;
+        if (festCount === 5) setTimeout(() => { textPop(W / 2, H * 0.3, `FELIZ ${YEAR()}!`, '255,214,90', { max: 2, vy: -20, big: 1 }); wake(); }, 700);
+        sound('pew');
+      },
+      trail: 'glitter',
+    },
+    carnaval: { cols: ['255,46,147', '0,184,92', '255,214,0', '0,170,255', '160,80,255'], hello: '🎭 Carnaval — toque pra soltar confete!', tap(x, y) { confetti(x, y, this.cols, reduce() ? 12 : 38); if (Math.random() < 0.6) emo(x, y, pick(['🎭', '🎉', '🥁', '🎊'])); }, trail: 'confetti' },
+    'sete-de-setembro': { cols: ['22,163,74', '250,204,21', '37,99,235', '255,255,255'], hello: '🇧🇷 Sete de Setembro — toque na tela!', tap(x, y) { confetti(x, y, this.cols, reduce() ? 12 : 32); emo(x, y, pick(['🇧🇷', '⚽', '🎉']), { s: 34 }); }, trail: 'confetti' },
+    pascoa: {
+      cols: ['179,136,255', '255,158,199', '255,243,160', '160,230,200'], hello: '🐣 Páscoa — toque pra achar ovinhos!',
+      tap(x, y) { P({ k: 'egg', x, y, c: pick(['255,200,225', '200,180,255', '255,240,170', '180,240,210']), max: 0.62, done: 0 }); if (Math.random() < 0.25) emo(x, y, '🐰', { a: -Math.PI / 2 + rnd(-0.6, 0.6), v: 260 }); },
+      trail: 'pastel',
+    },
+    namorados: { cols: ['255,77,121', '255,194,212', '200,20,80'], hello: '💘 Dia dos Namorados — toque na tela!', tap(x, y) { hearts(x, y, this.cols, reduce() ? 3 : 9); hearts(x, y, ['255,77,121'], 1, true); ring(x, y, '255,77,121', { vr: 180, max: 0.5 }); }, trail: 'hearts' },
+    'dia-do-amigo': { cols: ['251,113,133', '96,165,250', '252,211,77'], hello: '🤝 Dia do Amigo — toque na tela!', tap(x, y) { hearts(x, y, this.cols, reduce() ? 3 : 7); emo(x, y, pick(['🤝', '🫶', '💛', '🎮']), { s: 34 }); }, trail: 'hearts' },
+    criancas: {
+      cols: ['34,184,240', '255,112,67', '255,238,88', '120,220,120', '200,120,255'], hello: '🎈 Dia das Crianças — toque pra soltar (e estourar!) balões',
+      tap(x, y) { for (let i = 0; i < 2; i++) P({ k: 'balloon', x: x + rnd(-24, 24), y: y + rnd(-6, 10), c: pick(this.cols), vy: -rnd(55, 95), ph: rnd(0, 6.28), s: rnd(15, 21), max: 14 }); },
+      trail: 'confetti',
+    },
+    'dia-das-maes': { cols: ['255,111,165', '199,125,255', '255,214,165'], hello: '🌸 Dia das Mães — toque pra florescer!', tap(x, y) { P({ k: 'bloom', x, y, c: pick(['255,111,165', '199,125,255', '255,150,190']), rot: rnd(0, 6.28), max: 1.3 }); for (let i = 0; i < 3; i++) emo(x, y, pick(['🌸', '🌷', '🦋', '💐']), { g: 120, v: rnd(60, 160), s: rnd(20, 28) }); }, trail: 'petals' },
+    'dia-dos-pais': { cols: ['59,130,246', '14,165,233', '251,191,36'], hello: '🏆 Dia dos Pais — toque na tela!', tap(x, y) { P({ k: 'emo', x, y, ch: '⚽', vx: rnd(-160, 160), vy: -rnd(260, 380), g: 900, rot: 0, vr: rnd(-8, 8), s: 30, max: 2.4, bounce: 1 }); if (Math.random() < 0.5) P({ k: 'emo', x, y: y - 10, ch: '🏆', vx: 0, vy: -50, g: 0, rot: 0, vr: 0, s: 36, max: 0.9, pop: 1 }); for (let i = 0; i < 12; i++) spark(x, y, pick(this.cols)); }, trail: 'glitter' },
+    'festa-junina': { cols: ['255,179,0', '229,57,53', '124,179,66', '255,120,30'], hello: '🔥 Arraiá — toque pra acender a fogueira!', tap(x, y) { for (let i = 0; i < (reduce() ? 8 : 26); i++) spark(x + rnd(-10, 10), y, pick(['255,180,40', '255,120,30', '255,220,120']), { a: -Math.PI / 2 + rnd(-0.5, 0.5), v: rnd(60, 220), g: -40, max: rnd(0.7, 1.3), s: rnd(1.4, 3) }); emo(x, y, pick(['🌽', '🎈', '🪅', '🎆']), { s: 30 }); }, trail: 'embers' },
+    'black-friday': { cols: ['255,214,0', '255,23,68', '0,229,255'], hello: '🛒 Black Friday — toque pra caçar ofertas!', tap(x, y) { P({ k: 'tag', x, y, str: '-' + pick([50, 60, 70, 80, 90]) + '%', max: 1.1 }); for (let i = 0; i < 4; i++) P({ k: 'emo', x: x + rnd(-80, 80), y: y - rnd(40, 120), ch: pick(['💸', '💰', '🛒']), vx: rnd(-20, 20), vy: rnd(40, 120), g: 300, rot: 0, vr: rnd(-2, 2), s: 26, max: 1.4 }); }, trail: 'glitter' },
+    'dia-do-gamer': {
+      cols: ['168,85,247', '34,211,238', '244,114,182', '255,255,255'], hello: '👾 Dia do Gamer — toque pra ganhar XP!',
+      tap(x, y) { pixels(x, y, this.cols, reduce() ? 10 : 28); const now = performance.now(); festCount = now - festCountT < 4000 ? festCount + 1 : 1; festCountT = now; textPop(x, y - 16, festCount % 10 === 0 ? 'LEVEL UP!' : '+10 XP', festCount % 10 === 0 ? '252,238,10' : '34,211,238', { pixel: 1 }); },
+      trail: 'pixels',
+    },
+    halloween: { cols: ['255,122,26', '160,60,255', '255,46,46'], hello: '🎃 Halloween — toque se tiver coragem!', tap(x, y) { for (let i = 0; i < (reduce() ? 2 : 4); i++) emo(x, y, '🦇', { a: rnd(-Math.PI, 0), v: rnd(160, 300), g: -40, s: rnd(22, 30), max: 1.3, flap: 1 }); for (let i = 0; i < 14; i++) spark(x, y, pick(this.cols)); if (Math.random() < 0.2) P({ k: 'emo', x, y, ch: '👻', vx: rnd(-20, 20), vy: -70, g: -10, rot: 0, vr: 0, s: 38, max: 1.6 }); }, trail: 'embers' },
+  };
+  const festKey = () => { const t = global.PlusV2LiveCurrentTheme; return t && FEST[t.key] ? t.key : null; };
+  function festTap(x, y) {
+    ensureCanvas();
+    if (festKey() === 'criancas' && popBalloonAt(x, y)) { wake(); return; } // estourar vem antes do limite de toques
+    const now = performance.now();
+    if (now - lastTap < 120) return; lastTap = now;
+    FEST[festKey()].tap(x, y);
+    wake();
+  }
+  function popBalloonAt(x, y) {
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      if (p.k !== 'balloon') continue;
+      if (Math.hypot(p.x - x, p.y - y) < p.s * 1.6) {
+        parts.splice(i, 1);
+        confetti(p.x, p.y, FEST.criancas.cols, 18, { v0: 120, v1: 320 });
+        ring(p.x, p.y, p.c, { vr: 300, max: 0.3 });
+        textPop(p.x, p.y - 10, 'POP!', p.c);
+        sound('boom');
+        return true;
+      }
+    }
+    return false;
+  }
+  function festTrail(x, y, kind) {
+    const cs = FEST[festKey()].cols;
+    if (kind === 'snow') spark(x + rnd(-4, 4), y + rnd(-4, 4), '240,248,255', { v: rnd(5, 20), g: 40, max: rnd(0.6, 1), s: rnd(1.2, 2.4) });
+    else if (kind === 'hearts') { if (Math.random() < 0.45) P({ k: 'heart', x, y, c: pick(cs), vx: rnd(-10, 10), vy: -rnd(20, 50), s: rnd(4, 7), ph: rnd(0, 6), max: 0.8 }); }
+    else if (kind === 'confetti') { if (Math.random() < 0.5) P({ k: 'conf', x, y, c: pick(cs), vx: rnd(-30, 30), vy: rnd(-20, 10), g: 160, w: 4, h: 6, rot: rnd(0, 6), vr: rnd(-8, 8), ph: 0, max: 0.8 }); }
+    else if (kind === 'pixels') { if (Math.random() < 0.6) P({ k: 'pix', x: Math.round(x / 4) * 4, y: Math.round(y / 4) * 4, c: pick(cs), vx: 0, vy: 0, g: 0, s: 4, max: 0.45 }); }
+    else if (kind === 'petals') { if (Math.random() < 0.4) P({ k: 'heart', x, y, c: pick(cs), vx: rnd(-20, 20), vy: rnd(-10, 30), s: rnd(3, 5), ph: rnd(0, 6), max: 0.9, petal: 1 }); }
+    else if (kind === 'embers') spark(x, y, pick(['255,170,40', '255,110,30']), { a: -Math.PI / 2 + rnd(-0.6, 0.6), v: rnd(15, 45), g: -30, max: rnd(0.4, 0.7), s: rnd(1, 2) });
+    else if (kind === 'pastel') spark(x, y, pick(cs), { v: rnd(5, 25), g: 20, max: rnd(0.5, 0.8), s: rnd(1.4, 2.6) });
+    else spark(x + rnd(-3, 3), y + rnd(-3, 3), pick(cs), { v: rnd(8, 30), g: 40, max: rnd(0.35, 0.6), s: rnd(1, 2.2) });
+  }
+  // aviso discreto (1x por sessão por tema) dizendo que dá pra interagir
+  function festHello(key) {
+    const cfg = FEST[key]; if (!cfg || !cfg.hello) return;
+    let seen = false;
+    try { const k = 'pv2_fest_hello_' + key; seen = sessionStorage.getItem(k) === '1'; sessionStorage.setItem(k, '1'); } catch (_) { /* sem storage */ }
+    if (seen) return;
+    const old = doc.getElementById('pv2-fest-hello'); if (old) old.remove();
+    injectStyle();
+    const el = doc.createElement('div'); el.id = 'pv2-fest-hello'; el.textContent = cfg.hello;
+    el.style.setProperty('--c', cfg.cols[0]);
+    doc.body.appendChild(el);
+    setTimeout(() => el.remove(), 4200);
+  }
+  function heartPath(x, y, s) {
+    ctx.beginPath(); ctx.moveTo(x, y + s * 0.35);
+    ctx.bezierCurveTo(x - s * 1.1, y - s * 0.45, x - s * 0.45, y - s * 1.15, x, y - s * 0.45);
+    ctx.bezierCurveTo(x + s * 0.45, y - s * 1.15, x + s * 1.1, y - s * 0.45, x, y + s * 0.35);
+    ctx.closePath();
+  }
+  // desenha os tipos novos (chamado dentro do loop, com composição normal)
+  function drawFest(p, dt, k) {
+    ctx.globalCompositeOperation = 'source-over';
+    if (p.k === 'emo') {
+      if (p.flap) { p.vx *= 0.99; p.vy += Math.sin(p.life * 22) * 40 * dt; }
+      p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+      if (p.bounce && p.y > H - 30 && p.vy > 0) { p.y = H - 30; p.vy *= -0.62; p.vx *= 0.8; }
+      const sc = p.pop ? Math.min(1.25, 0.4 + p.life / 0.12) : Math.min(1, 0.5 + p.life / 0.08);
+      const sz = p.s * sc;
+      ctx.save(); ctx.globalAlpha = Math.min(1, k * 2.2); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      if (p.flap) ctx.scale(1, 0.75 + Math.abs(Math.sin(p.life * 22)) * 0.35);
+      ctx.drawImage(emoSprite(p.ch), -sz / 2, -sz / 2, sz, sz); ctx.restore();
+    } else if (p.k === 'conf') {
+      p.vy += p.g * dt; p.vx *= 0.97; p.vy *= 0.985; p.x += p.vx * dt + Math.sin(p.life * 6 + p.ph) * 20 * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+      ctx.save(); ctx.globalAlpha = Math.min(1, k * 2.5); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(1, Math.cos(p.life * 9 + p.ph));
+      ctx.fillStyle = `rgb(${p.c})`; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+    } else if (p.k === 'heart') {
+      p.x += (p.vx + Math.sin(p.life * 4 + p.ph) * 30) * dt; p.y += p.vy * dt; p.vy *= 0.995;
+      ctx.globalAlpha = Math.min(1, k * 2); ctx.fillStyle = `rgb(${p.c})`;
+      if (p.petal) { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.life * 3 + p.ph); ctx.beginPath(); ctx.ellipse(0, 0, p.s, p.s * 0.55, 0, 0, 6.29); ctx.fill(); ctx.restore(); }
+      else { heartPath(p.x, p.y, p.s * Math.min(1, 0.4 + p.life * 5)); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    } else if (p.k === 'pix') {
+      p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.98;
+      ctx.globalAlpha = Math.min(1, k * 2); ctx.fillStyle = `rgb(${p.c})`; ctx.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s); ctx.globalAlpha = 1;
+    } else if (p.k === 'rocket') {
+      p.t += dt / p.dur; const u = Math.min(1, p.t), e = 1 - Math.pow(1 - u, 2);
+      p.x = p.x0 + (p.x1 - p.x0) * e; p.y = p.y0 + (p.y1 - p.y0) * e;
+      spark(p.x, p.y + 4, pick(['255,220,140', '255,170,60']), { a: Math.PI / 2 + rnd(-0.4, 0.4), v: rnd(30, 90), g: 60, max: rnd(0.25, 0.45), s: rnd(1, 2) });
+      ctx.fillStyle = 'rgba(255,250,230,1)'; ctx.beginPath(); ctx.arc(p.x, p.y, 2.6, 0, 6.29); ctx.fill();
+      if (u >= 1) { p.life = p.max; firework(p.x1, p.y1); }
+    } else if (p.k === 'balloon') {
+      p.y += p.vy * dt; p.x += Math.sin(p.life * 1.6 + p.ph) * 18 * dt;
+      if (p.y < -60) { p.life = p.max; return; }
+      const s = p.s * Math.min(1, 0.3 + p.life * 4);
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y + s * 1.25); ctx.quadraticCurveTo(p.x + Math.sin(p.life * 3) * 6, p.y + s * 2, p.x, p.y + s * 2.8); ctx.stroke();
+      const g = ctx.createRadialGradient(p.x - s * 0.35, p.y - s * 0.45, s * 0.1, p.x, p.y, s * 1.3);
+      g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(0.25, `rgb(${p.c})`); g.addColorStop(1, `rgba(${p.c},.85)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(p.x, p.y, s, s * 1.2, 0, 0, 6.29); ctx.fill();
+      ctx.fillStyle = `rgb(${p.c})`; ctx.beginPath(); ctx.moveTo(p.x - 3, p.y + s * 1.25); ctx.lineTo(p.x + 3, p.y + s * 1.25); ctx.lineTo(p.x, p.y + s * 1.08); ctx.fill();
+    } else if (p.k === 'bloom') {
+      const u = Math.min(1, p.life / 0.35), r = 26 * (1 - Math.pow(1 - u, 3));
+      ctx.save(); ctx.globalAlpha = Math.min(1, k * 2.2); ctx.translate(p.x, p.y); ctx.rotate(p.rot + p.life * 0.6);
+      ctx.fillStyle = `rgb(${p.c})`;
+      for (let i = 0; i < 6; i++) { ctx.rotate(Math.PI / 3); ctx.beginPath(); ctx.ellipse(r * 0.55, 0, r * 0.55, r * 0.3, 0, 0, 6.29); ctx.fill(); }
+      ctx.fillStyle = 'rgb(255,214,90)'; ctx.beginPath(); ctx.arc(0, 0, r * 0.22, 0, 6.29); ctx.fill(); ctx.restore();
+    } else if (p.k === 'egg') {
+      const wob = Math.sin(p.life * 38) * 0.22 * Math.min(1, p.life * 4);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(wob);
+      ctx.fillStyle = `rgb(${p.c})`; ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(0, 0, 16, 21, 0, 0, 6.29); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-14, -2); for (let i = -10; i <= 14; i += 6) ctx.lineTo(i, i % 12 === 0 ? -6 : 2); ctx.stroke();
+      if (p.life > 0.42) { ctx.strokeStyle = 'rgba(80,60,40,.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-8, -10); ctx.lineTo(-2, -4); ctx.lineTo(3, -11); ctx.lineTo(8, -5); ctx.stroke(); }
+      ctx.restore();
+      if (p.life > 0.58 && !p.done) { p.done = 1; P({ k: 'emo', x: p.x, y: p.y, ch: '🐣', vx: 0, vy: -60, g: 0, rot: 0, vr: 0, s: 34, max: 1.1, pop: 1 }); for (let i = 0; i < 12; i++) spark(p.x, p.y, pick(FEST.pascoa.cols)); }
+    } else if (p.k === 'tag') {
+      const sc = Math.min(1.15, 0.3 + p.life / 0.1);
+      ctx.save(); ctx.globalAlpha = Math.min(1, k * 2.5); ctx.translate(p.x, p.y - p.life * 30); ctx.rotate(-0.12); ctx.scale(sc, sc);
+      ctx.fillStyle = 'rgb(255,214,0)'; rr(-30, -14, 60, 28, 6); ctx.fill();
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(-22, 0, 3, 0, 6.29); ctx.fill();
+      ctx.font = '900 15px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.str, 4, 1); ctx.restore();
+    } else if (p.k === 'flash') {
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, Math.max(W, H));
+      g.addColorStop(0, `rgba(${p.c},${(0.32 * k).toFixed(3)})`); g.addColorStop(1, `rgba(${p.c},0)`);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    } else if (p.k === 'crystal') {
+      drawCrystal(p, dt, k);
+    }
+    ctx.globalCompositeOperation = 'lighter';
+  }
+
+  // ================================================================ MAGIC TANK v2 (v0.98.5)
+  // • segurar o clique/dedo carrega uma MEGA MAGIA (solta pra disparar)
+  // • cristais mágicos aparecem de vez em quando — acerte pra coletar (contador salvo)
+  // • o projétil deixa um rastro de luz
+  const charge = { on: 0, x: 0, y: 0, t0: 0, id: null };
+  const MEGA_MS = 450;
+  function chargeLevel() { return charge.on ? Math.min(1, (performance.now() - charge.t0 - 150) / 900) : 0; }
+  function megaFire(x, y) {
+    ensureCanvas();
+    tank.want = 1; tank.idle = 0;
+    const m0 = muzzle(true);
+    tank.ang = Math.max(-Math.PI + 0.15, Math.min(-0.05, Math.atan2(y - m0.ty, x - m0.tx)));
+    tank.recoil = 1.6; tank.flash = 1.6;
+    const m = muzzle(true), dist = Math.hypot(x - m.x, y - m.y);
+    orbs.push({ x0: m.x, y0: m.y, x1: x, y1: y, cx: (m.x + x) / 2, cy: Math.min(m.y, y) - Math.min(260, dist * 0.4), t: 0, dur: Math.min(0.75, Math.max(0.32, dist / 1100)), combo: 0, mega: 1, hist: [] });
+    sound('pew'); wake();
+  }
+  function mtMega(x, y) {
+    P({ k: 'flash', x, y, c: GOLD, max: 0.45 });
+    for (const [c, vr, w, mx] of [[GOLD, 520, 4, 0.7], [BLUE, 380, 3, 0.85], [ICE, 260, 2, 1], [GOLD, 160, 2, 1.1]]) ring(x, y, c, { r0: 10, vr, w, max: mx });
+    rune(x, y); setTimeout(() => { rune(x, y); wake(); }, 160);
+    const n = reduce() ? 20 : 90;
+    for (let i = 0; i < n; i++) spark(x, y, pick([GOLD, GOLD, BLUE, ICE, '255,255,235']), { v: rnd(140, 620), max: rnd(0.6, 1.2), s: rnd(1.6, 3.4) });
+    textPop(x, y - 30, 'MEGA MAGIA!', GOLD, { big: 1, max: 1.4 });
+    if (global.PlusV2Fx && global.PlusV2Fx.burst) global.PlusV2Fx.burst(x, y, 14);
+    hitCrystals(x, y, 140);
+    sound('boom'); setTimeout(() => sound('boom'), 120);
+  }
+  // ---- cristais
+  let crystalT = 0;
+  function crystalCount(add) {
+    let n = 0;
+    try { n = Number(localStorage.getItem('pv2_mt_crystals') || 0) + (add || 0); if (add) localStorage.setItem('pv2_mt_crystals', String(n)); } catch (_) { /* sem storage */ }
+    return n;
+  }
+  function scheduleCrystal(first) {
+    clearTimeout(crystalT);
+    crystalT = setTimeout(() => {
+      if (isMT() && allowed() && !doc.hidden && !doc.body.classList.contains('pv2-modal-open') && !parts.some((p) => p.k === 'crystal')) {
+        ensureCanvas();
+        const left = W < 800 ? 30 : 300;
+        P({ k: 'crystal', x: rnd(left, W - 60), y: rnd(H * 0.14, H * 0.5), ph: rnd(0, 6.28), max: 9, born: 0 });
+        wake();
+      }
+      if (isMT()) scheduleCrystal();
+    }, first ? rnd(5000, 9000) : rnd(16000, 28000));
+  }
+  function drawCrystal(p, dt, k) {
+    p.ph += dt * 2;
+    const y = p.y + Math.sin(p.ph) * 8, a = Math.min(1, p.life * 3) * Math.min(1, k * 4), s = 15;
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(p.x, y);
+    const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, 46);
+    glow.addColorStop(0, `rgba(${ICE},.45)`); glow.addColorStop(1, `rgba(${BLUE},0)`);
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, 46, 0, 6.29); ctx.fill();
+    ctx.rotate(Math.sin(p.ph * 0.5) * 0.15);
+    const g = ctx.createLinearGradient(-s, -s * 1.6, s, s * 1.6);
+    g.addColorStop(0, '#e9fbff'); g.addColorStop(0.45, '#4cc3ff'); g.addColorStop(1, '#fbdc70');
+    ctx.fillStyle = g; ctx.strokeStyle = `rgba(${GOLD},.95)`; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(0, -s * 1.7); ctx.lineTo(s, -s * 0.4); ctx.lineTo(s * 0.6, s * 1.2); ctx.lineTo(0, s * 1.7); ctx.lineTo(-s * 0.6, s * 1.2); ctx.lineTo(-s, -s * 0.4); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, -s * 1.7); ctx.lineTo(0, s * 1.7); ctx.moveTo(-s, -s * 0.4); ctx.lineTo(s, -s * 0.4); ctx.stroke();
+    ctx.restore();
+    if (Math.random() < 0.25) spark(p.x + rnd(-22, 22), y + rnd(-26, 26), pick([GOLD, ICE]), { v: rnd(5, 20), g: -10, max: 0.5, s: rnd(0.8, 1.6) });
+  }
+  function hitCrystals(x, y, radius) {
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      if (p.k !== 'crystal') continue;
+      const cy = p.y + Math.sin(p.ph) * 8;
+      if (Math.hypot(p.x - x, cy - y) > radius) continue;
+      parts.splice(i, 1);
+      const total = crystalCount(1);
+      ring(p.x, cy, ICE, { vr: 360, max: 0.5, w: 3 });
+      for (let j = 0; j < 30; j++) spark(p.x, cy, pick([ICE, GOLD, '255,255,255']), { v: rnd(120, 420), max: rnd(0.5, 1), s: rnd(1.6, 3) });
+      textPop(p.x, cy - 26, `💎 +1  (total ${total})`, ICE, { max: 1.6 });
+      sound('boom');
+    }
+  }
+  function drawCharge() {
+    const c = chargeLevel();
+    if (c <= 0) return;
+    const m = muzzle(false);
+    ctx.globalCompositeOperation = 'lighter';
+    const r = 6 + c * 18;
+    const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, r * 2);
+    g.addColorStop(0, 'rgba(255,255,235,.95)'); g.addColorStop(0.35, `rgba(${GOLD},.85)`); g.addColorStop(1, `rgba(${BLUE},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m.x, m.y, r * 2, 0, 6.29); ctx.fill();
+    // mira no alvo
+    ctx.save(); ctx.translate(charge.x, charge.y); ctx.rotate(performance.now() / 300);
+    ctx.strokeStyle = `rgba(${GOLD},${(0.4 + c * 0.6).toFixed(2)})`; ctx.lineWidth = 2; ctx.setLineDash([5, 6]);
+    ctx.beginPath(); ctx.arc(0, 0, 26 - c * 8, 0, 6.29); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = `rgba(${ICE},${c.toFixed(2)})`; for (let j = 0; j < 4; j++) { ctx.rotate(Math.PI / 2); star(26 - c * 8, 0, 3); }
+    ctx.restore();
+    if (Math.random() < 0.6) spark(m.x + rnd(-30, 30), m.y + rnd(-30, 30), pick([GOLD, ICE]), { a: Math.atan2(m.y - (m.y + rnd(-30, 30)), 0), v: 40, g: 0, max: 0.3, s: 1.4 });
+    tank.want = 1; tank.idle = 0;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
   // ------------------------------------------------------------ loop
   function tick(t) {
     raf = 0;
@@ -322,11 +643,21 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
       const u = Math.min(1, o.t), iu = 1 - u;
       const x = iu * iu * o.x0 + 2 * iu * u * o.cx + u * u * o.x1;
       const y = iu * iu * o.y0 + 2 * iu * u * o.cy + u * u * o.y1;
+      const R = o.mega ? 30 : 16;
+      // rastro de luz (fita que afina)
+      (o.hist = o.hist || []).push(x, y); if (o.hist.length > 24) o.hist.splice(0, 2);
+      ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+      for (let j = 2; j < o.hist.length; j += 2) {
+        const f2 = j / o.hist.length;
+        ctx.strokeStyle = `rgba(${f2 > 0.6 ? GOLD : BLUE},${(f2 * 0.8).toFixed(3)})`; ctx.lineWidth = R * 0.55 * f2;
+        ctx.beginPath(); ctx.moveTo(o.hist[j - 2], o.hist[j - 1]); ctx.lineTo(o.hist[j], o.hist[j + 1]); ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
       spark(x, y, pick([GOLD, ICE]), { v: rnd(10, 50), g: 20, max: 0.35, s: rnd(1.2, 2.6) });
-      const g = ctx.createRadialGradient(x, y, 0, x, y, 16);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, R);
       g.addColorStop(0, 'rgba(255,255,235,1)'); g.addColorStop(0.35, `rgba(${GOLD},.9)`); g.addColorStop(1, `rgba(${BLUE},0)`);
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 16, 0, 6.29); ctx.fill();
-      if (u >= 1) { orbs.splice(i, 1); mtBoom(o.x1, o.y1, o.combo); }
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, R, 0, 6.29); ctx.fill();
+      if (u >= 1) { orbs.splice(i, 1); if (o.mega) mtMega(o.x1, o.y1); else { mtBoom(o.x1, o.y1, o.combo); hitCrystals(o.x1, o.y1, 60); } }
     }
     ctx.globalCompositeOperation = 'lighter';
     for (let i = parts.length - 1; i >= 0; i--) {
@@ -362,15 +693,18 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
       } else if (p.k === 'text') {
         p.y += p.vy * dt;
         ctx.globalCompositeOperation = 'source-over';
-        ctx.font = '900 18px system-ui, sans-serif'; ctx.textAlign = 'center';
+        ctx.font = p.big ? '900 30px system-ui, sans-serif' : p.pixel ? '900 16px ui-monospace, Menlo, monospace' : '900 18px system-ui, sans-serif'; ctx.textAlign = 'center';
         ctx.lineWidth = 4; ctx.strokeStyle = `rgba(5,8,16,${k.toFixed(3)})`; ctx.strokeText(p.str, p.x, p.y);
         ctx.fillStyle = `rgba(${p.c},${k.toFixed(3)})`; ctx.fillText(p.str, p.x, p.y);
         ctx.globalCompositeOperation = 'lighter';
+      } else {
+        drawFest(p, dt, k);
       }
     }
     ctx.globalCompositeOperation = 'source-over';
     const tankOn = drawTank(dt);
-    if ((parts.length || orbs.length || tankOn) && !raf) raf = requestAnimationFrame(tick);
+    drawCharge();
+    if ((parts.length || orbs.length || tankOn || charge.on) && !raf) raf = requestAnimationFrame(tick);
   }
 
   // ------------------------------------------------------------ Magic Tank: cometas e brilho nos botões
@@ -396,7 +730,8 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     const r = el.getBoundingClientRect();
     if (r.width < 12 || r.width * r.height > W * H * 0.2) return;
     ensureCanvas();
-    for (let i = 0; i < 6; i++) spark(rnd(r.left + 4, r.right - 4), r.top + rnd(0, 4), pick([GOLD, GOLD, ICE]), { a: rnd(-Math.PI * 0.85, -Math.PI * 0.15), v: rnd(30, 90), g: 80, max: rnd(0.4, 0.7), s: rnd(1, 2) });
+    const hc = isMT() ? [GOLD, GOLD, ICE] : FEST[festKey()].cols;
+    for (let i = 0; i < 6; i++) spark(rnd(r.left + 4, r.right - 4), r.top + rnd(0, 4), pick(hc), { a: rnd(-Math.PI * 0.85, -Math.PI * 0.15), v: rnd(30, 90), g: 80, max: rnd(0.4, 0.7), s: rnd(1, 2) });
     wake();
   }
 
@@ -418,7 +753,7 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     }, 350);
     setTimeout(() => el.remove(), 2700);
   }
-  let wasMT = false, hadOtherTheme = false;
+  let wasMT = false, hadOtherTheme = false, lastFest = null;
   function watchTheme() {
     const now = isMT();
     if (now && !wasMT) {
@@ -429,7 +764,10 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
       if (hadOtherTheme || !seen) setTimeout(() => { if (isMT() && allowed()) splash(); }, 150);
     }
     if (!now && global.PlusV2LiveCurrentTheme) hadOtherTheme = true;
-    if (now && !wasMT) scheduleComet(); else if (!now) clearTimeout(cometT);
+    if (now && !wasMT) { scheduleComet(); scheduleCrystal(true); } else if (!now) { clearTimeout(cometT); clearTimeout(crystalT); parts = parts.filter((p) => p.k !== 'crystal'); }
+    const fk = festKey();
+    if (fk && fk !== lastFest && allowed()) setTimeout(() => { if (festKey() === fk) festHello(fk); }, 900);
+    lastFest = fk;
     wasMT = now;
     colorsFor = null; // cores podem ter mudado
     hideSpot();
@@ -440,15 +778,32 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
   doc.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || !allowed()) return;
     if (e.target && e.target.closest && e.target.closest(TYPING)) return;
-    if (isMT()) mtFire(e.clientX, e.clientY); else ripple(e.clientX, e.clientY);
+    if (isMT()) {
+      mtFire(e.clientX, e.clientY);
+      if (!reduce()) { charge.on = 1; charge.x = e.clientX; charge.y = e.clientY; charge.t0 = performance.now(); charge.id = e.pointerId; wake(); }
+    } else if (festKey()) festTap(e.clientX, e.clientY);
+    else ripple(e.clientX, e.clientY);
   }, { capture: true, passive: true });
+  // tiro carregado do Magic Tank: segurou >= MEGA_MS e soltou = MEGA MAGIA
+  const endCharge = (e, fire) => {
+    if (!charge.on || (e && charge.id != null && e.pointerId !== charge.id)) return;
+    const held = performance.now() - charge.t0;
+    charge.on = 0;
+    if (fire && held >= MEGA_MS && isMT() && allowed()) megaFire(charge.x, charge.y);
+  };
+  doc.addEventListener('pointerup', (e) => endCharge(e, true), { capture: true, passive: true });
+  doc.addEventListener('pointercancel', (e) => endCharge(e, false), { capture: true, passive: true });
+  global.addEventListener('blur', () => endCharge(null, false));
   doc.addEventListener('pointermove', (e) => {
     if (e.pointerType !== 'mouse' || !allowed()) { hideSpot(); return; }
     moveSpot(e.target, e.clientX, e.clientY);
-    if (!reduce()) trail(e.clientX, e.clientY);
+    if (charge.on && e.pointerId === charge.id) { charge.x = e.clientX; charge.y = e.clientY; }
+    if (!reduce()) { const fk = festKey(); if (fk) { const now = performance.now(); if (now - lastTrail >= 28 && parts.length < 220) { lastTrail = now; ensureCanvas(); festTrail(e.clientX, e.clientY, FEST[fk].trail); wake(); } } else trail(e.clientX, e.clientY); }
   }, { passive: true });
+  // no toque (celular) a mira do tiro carregado acompanha o dedo
+  doc.addEventListener('pointermove', (e) => { if (e.pointerType !== 'mouse' && charge.on && e.pointerId === charge.id) { charge.x = e.clientX; charge.y = e.clientY; } }, { passive: true });
   doc.addEventListener('pointerover', (e) => {
-    if (e.pointerType !== 'mouse' || !isMT() || reduce() || !allowed()) return;
+    if (e.pointerType !== 'mouse' || reduce() || !allowed() || (!isMT() && !festKey())) return;
     const b = e.target && e.target.closest ? e.target.closest('button, a, [role="button"]') : null;
     if (b) hoverSparkle(b);
   }, { passive: true });
@@ -486,5 +841,5 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
   }
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', start); else start();
 
-  global.PlusV2Interact = { ripple, fire: mtFire, splash, active: allowed, stats: () => ({ particulas: parts.length, cometas: parts.filter((p) => p.k === 'comet').length }) };
+  global.PlusV2Interact = { ripple, fire: mtFire, mega: megaFire, festTap: (x, y) => { if (festKey()) festTap(x, y); }, crystal: () => scheduleCrystal(true), splash, active: allowed, stats: () => ({ baloes: parts.filter((p) => p.k === 'balloon').map((p) => [Math.round(p.x), Math.round(p.y)]), cristais: parts.filter((p) => p.k === 'crystal').map((p) => [Math.round(p.x), Math.round(p.y + Math.sin(p.ph) * 8)]), particulas: parts.length, cometas: parts.filter((p) => p.k === 'comet').length }) };
 })(typeof window !== 'undefined' ? window : globalThis);
