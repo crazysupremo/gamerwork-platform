@@ -96,7 +96,6 @@
 .pv2-lock-badge {
   position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #ffd93d; font-size: 10px;
   font-weight: 800; padding: 3px 7px; border-radius: 20px; display: flex; align-items: center; gap: 3px;
-  backdrop-filter: blur(2px);
 }
 /* Tema com lançamento programado (data controlada pelo admin) — mesma
    posição/formato do cadeado de PLUS, mas em azul pra não confundir "ainda
@@ -109,21 +108,24 @@
 /* Selo "✨" na galeria — avisa que esse tema já liga efeitos sozinho ao ser
    escolhido (ver suggestedEffects/applyThemeSuggestedEffects). */
 .pv2-interactive-pill {
-  font-size: 10px; margin-left: 2px; animation: pv2InteractivePulse 1.8s ease-in-out infinite;
+  font-size: 10px; margin-left: 2px;
 }
+.pv2-theme-card:hover .pv2-interactive-pill { animation: pv2InteractivePulse 1.8s ease-in-out infinite; }
 @keyframes pv2InteractivePulse { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
 
 /* ---------- efeitos visuais dos temas premium ---------- */
-.pv2-effect-shine .pv2-theme-mini-btn { animation: pv2Shine 2.2s linear infinite; background-size: 200% auto; }
+/* v0.98.4: animações infinitas das cartas só no hover/selecionada (antes: todas
+   as cartas animavam o tempo todo e repintavam a lista inteira ao rolar). */
+.pv2-effect-shine .pv2-theme-card:hover .pv2-theme-mini-btn { animation: pv2Shine 2.2s linear infinite; background-size: 200% auto; }
 @keyframes pv2Shine {
   0% { filter: brightness(1); } 50% { filter: brightness(1.5); } 100% { filter: brightness(1); }
 }
-.pv2-effect-glow .pv2-theme-mini { animation: pv2Glow 2s ease-in-out infinite; }
+.pv2-effect-glow .pv2-theme-card:hover .pv2-theme-mini { animation: pv2Glow 2s ease-in-out infinite; }
 @keyframes pv2Glow {
   0%, 100% { box-shadow: inset 0 0 12px rgba(255,255,255,0.05); }
   50% { box-shadow: inset 0 0 22px rgba(255,255,255,0.25); }
 }
-.pv2-effect-pulse .pv2-theme-mini-server.active { animation: pv2Pulse 1.4s ease-in-out infinite; }
+.pv2-effect-pulse .pv2-theme-card:hover .pv2-theme-mini-server.active { animation: pv2Pulse 1.4s ease-in-out infinite; }
 @keyframes pv2Pulse {
   0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.6); opacity: 0.6; }
 }
@@ -670,8 +672,10 @@ body.pv2-scene-active .members-panel { background: color-mix(in srgb, var(--bg-s
 .pv2-theme-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
 /* card glass: vidro fosco com borda que acende na cor do tema */
 .pv2-theme-card {
-  border-radius: 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-radius: 16px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.09);
+  /* v0.98.4: SEM backdrop-filter nas cartas — dezenas de filtros em uma lista
+     rolável faziam a tela piscar e as cartas sumirem ao rolar. */
+  contain: layout paint;
 }
 .pv2-theme-card:hover { border-color: var(--pv2-mini-primary); }
 .pv2-theme-card.selected { border: 2px solid var(--pv2-mini-primary); }

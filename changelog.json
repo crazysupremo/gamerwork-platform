@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.98.4",
+    "date": "2026-11-13",
+    "changes": [
+      "Corrigido: tela piscando e itens sumindo ao rolar a lista de temas do NEXTGAME PLUS. Tiramos o filtro de desfoque de cada carta e as animações contínuas das cartas (agora só ao passar o mouse)."
+    ]
+  },
+  {
     "version": "0.98.3",
     "date": "2026-11-13",
     "changes": [
