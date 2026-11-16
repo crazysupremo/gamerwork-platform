@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.99.2",
+    "date": "2026-11-16",
+    "changes": [
+      "Noite de Lançamento: novo botão 🎧 OUVIR no cartão do Início — abre o player OFICIAL do Spotify com a música do lançamento (o site não hospeda a música; quem toca é o Spotify, que tem a licença). Só abre se a pessoa clicar, tem botão de fechar e pausa a trilha do tema pra não tocar duas músicas juntas.",
+      "Faixa completa pra quem está logado no Spotify no navegador; prévia pra quem não está. Pra trocar a música, basta mudar o ID da faixa (NB_TRACK) no plus2-interact.js."
+    ]
+  },
+  {
+    "version": "0.99.1",
+    "date": "2026-11-16",
+    "changes": [
+      "Noite de Lançamento ganhou TRILHA (só nesse tema): um synthwave original gerado ao vivo pelo navegador — bateria, baixo, acordes e arpejo com eco. Sem arquivo e sem direito autoral de terceiros.",
+      "Começa desligada: liga no botão 🎵 TRILHA do cartão do Início ou clicando no letreiro do menu. A escolha fica salva; o fundo, o horizonte e o relógio pulsam na batida.",
+      "Pausa com a aba em segundo plano e durante chamadas de voz; para na hora ao trocar de tema.",
+      "Quer usar uma música sua (com direito de uso)? Coloque o arquivo em public/assets/music/noite-de-lancamento.mp3 — ela toca no lugar da trilha gerada."
+    ]
+  },
+  {
     "version": "0.99.0",
     "date": "2026-11-16",
     "changes": [

@@ -162,6 +162,31 @@ body.pv2-nb-on.pv2-scene-active .top-navbar{background:color-mix(in srgb,var(--b
 body.pv2-nb-on .home-tournament-banner-text h2{background:linear-gradient(90deg,#fff6fb 0%,#ffd1ea 45%,#ffb04a 100%)!important;-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important;text-shadow:none!important;filter:drop-shadow(0 0 10px rgba(255,61,154,.6)) drop-shadow(0 0 22px rgba(255,61,154,.25))}
 #pv2-nb-clock{position:absolute;right:18px;bottom:14px;z-index:2;display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:12px;pointer-events:none;
   background:rgba(14,4,22,.72);border:1.5px solid rgba(255,61,154,.85);box-shadow:0 0 12px rgba(255,61,154,.6),inset 0 0 12px rgba(45,226,230,.22)}
+#pv2-nb-audio{position:absolute;top:14px;right:14px;z-index:3;display:flex;gap:8px}
+#pv2-nb-listen{display:flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;cursor:pointer;background:linear-gradient(135deg,rgba(29,185,84,.9),rgba(20,140,64,.9));
+  border:1.5px solid rgba(255,255,255,.35);color:#fff;font:800 10.5px/1 system-ui,sans-serif;letter-spacing:.14em;box-shadow:0 0 12px rgba(29,185,84,.5)}
+#pv2-nb-listen:hover{box-shadow:0 0 18px rgba(29,185,84,.8)}
+#pv2-nb-player{position:fixed;right:18px;bottom:18px;z-index:9000;width:min(360px,calc(100vw - 24px));border-radius:16px;overflow:hidden;
+  background:linear-gradient(180deg,rgba(40,8,48,.97),rgba(14,4,22,.97));border:1.5px solid #ff3d9a;box-shadow:0 0 22px rgba(255,61,154,.55),0 24px 60px rgba(0,0,0,.6);animation:pv2nbModal .3s cubic-bezier(.2,1.25,.4,1)}
+#pv2-nb-player .hd{display:flex;align-items:center;justify-content:space-between;padding:9px 10px 8px 14px;font:800 11px/1 system-ui,sans-serif;letter-spacing:.16em;color:#fff4fa;text-shadow:0 0 8px rgba(255,61,154,.8)}
+#pv2-nb-player .x{all:unset;cursor:pointer;width:26px;height:26px;display:grid;place-items:center;border-radius:8px;color:#ffd1ea;font-size:14px}
+#pv2-nb-player .x:hover{background:rgba(255,61,154,.25)}
+#pv2-nb-player iframe{display:block;border:0;border-radius:12px;margin:0 8px;width:calc(100% - 16px)}
+#pv2-nb-player .ft{padding:7px 14px 10px;font:600 10px/1.35 system-ui,sans-serif;color:#c9a9bd}
+@media(max-width:700px){#pv2-nb-player{right:12px;left:12px;width:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 74px)}}
+#pv2-nb-music{position:relative;display:flex;align-items:center;gap:7px;padding:7px 11px;border-radius:999px;cursor:pointer;
+  background:rgba(14,4,22,.72);border:1.5px solid rgba(45,226,230,.75);color:#bff8fa;font:800 10.5px/1 system-ui,sans-serif;letter-spacing:.16em;box-shadow:0 0 10px rgba(45,226,230,.35)}
+#pv2-nb-music:hover{border-color:#ff3d9a;box-shadow:0 0 14px rgba(255,61,154,.6)}
+#pv2-nb-music.on{border-color:#ff3d9a;color:#fff4fa;box-shadow:0 0 14px rgba(255,61,154,.7),inset 0 0 10px rgba(255,61,154,.25)}
+#pv2-nb-music .eq{display:flex;align-items:flex-end;gap:2px;height:12px}
+#pv2-nb-music .eq i{display:block;width:3px;height:4px;border-radius:1px;background:currentColor}
+#pv2-nb-music.on .eq i{animation:pv2nbEq .9s ease-in-out infinite}
+#pv2-nb-music.on .eq i:nth-child(2){animation-delay:-.3s}#pv2-nb-music.on .eq i:nth-child(3){animation-delay:-.6s}
+@keyframes pv2nbEq{0%,100%{height:3px}50%{height:12px}}
+body.pv2-nb-on .app-sidebar-theme-banner{cursor:pointer}
+body.pv2-nb-beat #pv2-nb-scene .nb-sky2{opacity:1!important;animation-play-state:paused}
+body.pv2-nb-beat #pv2-nb-scene .nb-horizon{opacity:1!important;box-shadow:0 0 22px rgba(255,61,154,1),0 0 44px rgba(45,226,230,.6)}
+body.pv2-nb-beat #pv2-nb-clock{box-shadow:0 0 22px rgba(255,61,154,.95),inset 0 0 14px rgba(45,226,230,.35)}
 #pv2-nb-clock .lbl{font:800 10px/1 system-ui,sans-serif;letter-spacing:.2em;color:#2de2e6;text-shadow:0 0 8px rgba(45,226,230,.8)}
 #pv2-nb-clock .dig{display:flex;gap:7px;align-items:baseline}
 #pv2-nb-clock b{font:900 20px/1 'Audiowide',ui-monospace,monospace;color:#fff6fb;text-shadow:0 0 8px #ff3d9a,0 0 18px rgba(255,61,154,.7);font-variant-numeric:tabular-nums}
@@ -836,7 +861,7 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     injectStyle();
     const el = doc.createElement('div'); el.id = 'pv2-nb-splash'; el.setAttribute('aria-hidden', 'true');
     const today = Math.abs(LAUNCH.getTime() - Date.now()) < 86400000 && Date.now() >= LAUNCH.getTime();
-    el.innerHTML = '<div class="sun"></div><div class="t">NOITE DE LANÇAMENTO</div><div class="s">' + (today ? '🎉 É HOJE! BOA JOGATINA' : launchLabel().replace('🌴 ', '')) + '</div><div class="h">toque na tela • segure pra pilotar</div>';
+    el.innerHTML = '<div class="sun"></div><div class="t">NOITE DE LANÇAMENTO</div><div class="s">' + (today ? '🎉 É HOJE! BOA JOGATINA' : launchLabel().replace('🌴 ', '')) + '</div><div class="h">toque na tela • segure pra pilotar • 🎵 liga a trilha</div>';
     doc.body.appendChild(el);
     setTimeout(() => { ensureCanvas(); const x = W / 2, y = H * 0.42; for (let i = 0; i < (reduce() ? 4 : 10); i++) emo(x, y, '💵', { g: 160, v: rnd(160, 380), vr: rnd(-3, 3), max: 2 }); ring(x, y, '255,61,154', { r0: 70, vr: 380, max: 0.8, w: 3 }); ring(x, y, '45,226,230', { r0: 70, vr: 260, max: 1, w: 2 }); wake(); }, 400);
     setTimeout(() => el.remove(), 2900);
@@ -904,12 +929,21 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
   function nbClock() {
     const hero = doc.getElementById('home-tournament-banner');
     let chip = doc.getElementById('pv2-nb-clock');
-    if (!isNB() || !hero) { if (chip) chip.remove(); return; }
+    if (!isNB() || !hero) { if (chip) chip.remove(); const g = doc.getElementById('pv2-nb-audio'); if (g) g.remove(); return; }
     if (!chip || chip.parentElement !== hero) {
       if (chip) chip.remove();
       chip = doc.createElement('div'); chip.id = 'pv2-nb-clock'; chip.setAttribute('aria-live', 'off');
       hero.appendChild(chip);
     }
+    const grp0 = doc.getElementById('pv2-nb-audio');
+    if (!grp0 || grp0.parentElement !== hero) {
+      if (grp0) grp0.remove();
+      const grp = doc.createElement('div'); grp.id = 'pv2-nb-audio';
+      grp.innerHTML = (NB_TRACK ? '<button type="button" id="pv2-nb-listen" title="Ouvir a música oficial no Spotify">🎧 <span class="t">OUVIR</span></button>' : '') +
+        '<button type="button" id="pv2-nb-music"><span class="eq"><i></i><i></i><i></i></span><span class="t">TRILHA</span></button>';
+      hero.appendChild(grp); musicUi();
+    }
+    if (inCall() && M() && M().isPlaying()) musicStopAll();
     const ms = LAUNCH.getTime() - Date.now();
     let html;
     if (ms > 0) {
@@ -921,6 +955,71 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     if (chip.innerHTML !== html) chip.innerHTML = html;
   }
   setInterval(nbClock, 1000);
+  // ---- Trilha do tema (só na Noite de Lançamento) — v0.99.1
+  // Começa DESLIGADA. Liga no botão 🎵 do cartão do Início ou clicando no
+  // letreiro do menu. A escolha fica salva no aparelho; com ela ligada, a
+  // música volta no primeiro toque depois de abrir o app (o navegador exige um
+  // toque antes de tocar som). Pausa com a aba escondida e em chamada de voz.
+  const MUSIC_KEY = 'pv2_nb_music';
+  const musicPref = () => { try { return localStorage.getItem(MUSIC_KEY) === 'on'; } catch (_) { return false; } };
+  const setMusicPref = (on) => { try { localStorage.setItem(MUSIC_KEY, on ? 'on' : 'off'); } catch (_) { /* sem storage */ } };
+  const M = () => global.NBMusic;
+  const inCall = () => { const r = doc.getElementById('sidebar-return-to-call'); return !!(r && !r.classList.contains('hidden')); };
+  function musicUi() {
+    const on = !!(M() && M().isPlaying());
+    const b = doc.getElementById('pv2-nb-music');
+    if (b) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.title = on ? 'Desligar a trilha do tema' : 'Ligar a trilha do tema'; b.querySelector('.t').textContent = on ? 'TRILHA ON' : 'TRILHA'; }
+  }
+  async function musicToggle() {
+    if (!M() || !isNB()) return;
+    if (M().isPlaying()) { M().stop(); setMusicPref(false); }
+    else { const ok = await M().start(); setMusicPref(!!ok); }
+    musicUi();
+  }
+  function musicStopAll() { if (M() && M().isPlaying()) M().stop(); musicUi(); }
+  // retoma no 1º toque (preferência ligada)
+  doc.addEventListener('pointerdown', () => {
+    if (isNB() && musicPref() && M() && !M().isPlaying() && !doc.hidden && !inCall()) M().start().then(musicUi);
+  }, { capture: true, passive: true });
+  doc.addEventListener('visibilitychange', () => {
+    if (!M() || !isNB()) return;
+    if (doc.hidden) musicStopAll();
+    else if (musicPref() && !inCall()) M().start().then(musicUi);
+  });
+  // ---- 🎧 OUVIR: player oficial do Spotify (só abre se a pessoa clicar)
+  // Pra trocar a música: cole aqui o ID da faixa (o trecho depois de /track/ no link do Spotify).
+  const NB_TRACK = '4HCOHRCSQelz2GPX8iTamO';
+  function nbPlayer(open) {
+    let el = doc.getElementById('pv2-nb-player');
+    if (!open) { if (el) el.remove(); return; }
+    if (el) return;
+    if (M() && M().isPlaying()) { M().stop(); musicUi(); } // não toca duas músicas juntas
+    injectStyle();
+    el = doc.createElement('div'); el.id = 'pv2-nb-player'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Música do lançamento');
+    el.innerHTML = '<div class="hd"><span>🎧 MÚSICA DO LANÇAMENTO</span><button type="button" class="x" aria-label="Fechar">✕</button></div>' +
+      '<iframe title="Player do Spotify" src="https://open.spotify.com/embed/track/' + NB_TRACK + '?utm_source=generator&theme=0" width="100%" height="152" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>' +
+      '<div class="ft">Tocando pelo Spotify · faixa completa pra quem está logado no Spotify, prévia pra quem não está</div>';
+    doc.body.appendChild(el);
+    el.querySelector('.x').addEventListener('click', () => nbPlayer(false));
+  }
+  doc.addEventListener('click', (e) => {
+    if (!isNB()) return;
+    const t = e.target && e.target.closest ? e.target.closest('#pv2-nb-listen') : null;
+    if (t) { e.preventDefault(); nbPlayer(!doc.getElementById('pv2-nb-player')); }
+  }, true);
+  // letreiro do menu também liga/desliga
+  doc.addEventListener('click', (e) => {
+    if (!isNB()) return;
+    const t = e.target && e.target.closest ? e.target.closest('#app-sidebar-theme-banner, #pv2-nb-music') : null;
+    if (t) { e.preventDefault(); musicToggle(); }
+  }, true);
+  // batida: o pôr do sol do fundo, o horizonte e o relógio pulsam junto
+  let beatT = 0;
+  if (global.NBMusic) global.NBMusic.onBeat(() => {
+    if (!isNB() || reduce()) return;
+    doc.body.classList.add('pv2-nb-beat'); clearTimeout(beatT); beatT = setTimeout(() => doc.body.classList.remove('pv2-nb-beat'), 120);
+  });
+
   // parallax da arte do cartão (só mouse)
   let parT = 0;
   doc.addEventListener('pointermove', (e) => {
@@ -1166,7 +1265,7 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
       try { seenNb = sessionStorage.getItem('pv2_nb_splash') === '1'; sessionStorage.setItem('pv2_nb_splash', '1'); } catch (_) { /* sem storage */ }
       if ((switchedFrom || !seenNb) && allowed()) setTimeout(() => { if (isNB()) nbSplash(); }, 200);
       setTimeout(() => { const b = doc.getElementById('app-sidebar-theme-banner'); if (b && isNB()) b.textContent = launchLabel(); }, 400);
-    } else if (fk !== 'noite-de-lancamento' && lastFest === 'noite-de-lancamento') { nbScene(false); clearTimeout(carT); parts = parts.filter((p) => p.k !== 'car'); }
+    } else if (fk !== 'noite-de-lancamento' && lastFest === 'noite-de-lancamento') { musicStopAll(); nbPlayer(false); nbScene(false); clearTimeout(carT); parts = parts.filter((p) => p.k !== 'car'); }
     if (fk && fk !== lastFest && allowed()) setTimeout(() => { if (festKey() === fk) festHello(fk); }, fk === 'noite-de-lancamento' ? 3100 : 900);
     lastFest = fk;
     wasMT = now;
