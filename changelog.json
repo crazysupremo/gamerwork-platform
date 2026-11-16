@@ -1,5 +1,51 @@
 [
   {
+    "version": "0.99.0",
+    "date": "2026-11-16",
+    "changes": [
+      "Noite de Lançamento com fundo ANIMADO no app inteiro: holofotes de noite de estreia varrendo o céu (ciano, rosa e dourado), estrelas piscando, estrelas cadentes, luzes neon flutuando, brilho do pôr do sol pulsando e linha do horizonte neon sobre o chão em grade.",
+      "A área de conteúdo, o topo do canal e o menu ficam translúcidos nesse tema pra o fundo aparecer atrás das mensagens e dos cartões, sem atrapalhar a leitura. Tudo em CSS leve (60 quadros por segundo), pausa com janela aberta e respeita \"reduzir movimento\"."
+    ]
+  },
+  {
+    "version": "0.98.9",
+    "date": "2026-11-16",
+    "changes": [
+      "Noite de Lançamento no app inteiro: com o tema ativo, a ABERTURA do app (tela de carregamento) já vem no clima — sol neon listrado, título em neon piscando, carro correndo na barra de carregamento, contagem regressiva e chão neon em grade.",
+      "Toda troca de aba/tela (Início, Amigos, Chat, Jogar, Feed, Torneios, Ranking, servidores, canais, abas das janelas) passa uma faixa de luz neon e o conteúdo entra deslizando.",
+      "Todas as janelas abrem com animação, borda neon e faixa de pôr do sol no topo; títulos em degradê neon; avisos, barras de rolagem, item ativo do menu, avatares e selos no estilo neon.",
+      "Chat interativo: suas mensagens com faixa rosa e as dos outros com faixa ciano, faísca neon saindo do campo enquanto você digita, chuva de dinheiro ao enviar e sirene + \"TE CHAMARAM!\" quando alguém te menciona.",
+      "Corrigido: no celular o botão de enviar mensagem ficava parcialmente fora da tela."
+    ]
+  },
+  {
+    "version": "0.98.8",
+    "date": "2026-11-16",
+    "changes": [
+      "Noite de Lançamento repaginado: contagem regressiva AO VIVO dentro do cartão do Início (dias, horas, minutos e segundos em letreiro neon) e a arte do pôr do sol acompanha o mouse (efeito de profundidade).",
+      "Novo: segure o clique (ou o dedo) numa área livre e o carro neon aparece no rodapé seguindo você — solte e ele sai acelerando com VRUUUM! Cada toque também pode soltar uma palavra em neon (BORA!, PARTIU!, 19/11...).",
+      "Mais limpo: sem prédios/palmeiras atrás do menu lateral, fonte normal do site, sem aviso por cima da busca e botões do cartão em vidro neon."
+    ]
+  },
+  {
+    "version": "0.98.7",
+    "date": "2026-11-16",
+    "changes": [
+      "Noite de Lançamento mais bonita: a arte do cartão do Início agora é animada — estrelas piscando, estrela cadente, gaivotas voando, listras do sol descendo, montanhas com contorno neon, mar com reflexo cintilando, estrada com luzes de carro passando e palmeira balançando.",
+      "Título do cartão em degradê neon brilhante e a faixa do menu (contagem regressiva) virou um letreiro neon que pisca de leve, como placa de verdade."
+    ]
+  },
+  {
+    "version": "0.98.6",
+    "date": "2026-11-16",
+    "changes": [
+      "Novo tema de data: NOITE DE LANÇAMENTO (grátis, em Datas comemorativas) — pra noite de lançamento do dia 19/11. Pôr do sol neon com sol listrado, cidade e palmeiras balançando por trás do app, e a arte do pôr do sol no cartão de destaque do Início.",
+      "Interativo: toque na tela solta chuva de dinheiro com luz de sirene; 5 toques seguidos = TURBO! e um carro neon passa voando pelo rodapé (ele também aparece sozinho de vez em quando).",
+      "Contagem regressiva na faixa do menu lateral (\"LANÇA EM 2d 4h 10m\"), que vira \"LANÇOU! BOA JOGATINA\" no dia. Abertura animada ao escolher o tema.",
+      "Visual 100% original (sem logo, nome ou personagens de terceiros). Pausa com janela aberta e respeita modo desempenho / reduzir movimento."
+    ]
+  },
+  {
     "version": "0.98.5",
     "date": "2026-11-13",
     "changes": [

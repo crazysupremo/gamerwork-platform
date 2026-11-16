@@ -98,7 +98,105 @@ body.pv2-modal-open :is(#pv2-ix,#pv2-spot,#plus2-fx,#plus2-scene,#plus2-decor,#p
   animation:pv2festHello 4.2s ease forwards}
 @keyframes pv2festHello{0%{opacity:0;transform:translate(-50%,-10px)}8%,82%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-6px)}}
 @media(max-width:600px){#pv2-fest-hello{top:60px;font-size:12px;max-width:calc(100vw - 24px);white-space:normal;text-align:center}}
-body.pv2-modal-open #pv2-fest-hello{display:none}
+body.pv2-modal-open #pv2-fest-hello,body.pv2-modal-open #pv2-nb-scene{display:none}
+#pv2-nb-sweep{position:fixed;pointer-events:none;z-index:94;overflow:hidden;opacity:0}
+#pv2-nb-sweep.go{opacity:1}
+#pv2-nb-sweep::before{content:"";position:absolute;top:0;bottom:0;width:38%;left:-40%;background:linear-gradient(90deg,transparent,rgba(255,61,154,.20) 40%,rgba(45,226,230,.28) 60%,transparent);filter:blur(2px)}
+#pv2-nb-sweep.go::before{animation:pv2nbSweep .6s cubic-bezier(.4,0,.2,1) forwards}
+#pv2-nb-sweep::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,#ff3d9a,#2de2e6,transparent);opacity:0}
+#pv2-nb-sweep.go::after{animation:pv2nbLine .6s ease forwards}
+@keyframes pv2nbSweep{to{left:110%}}
+@keyframes pv2nbLine{0%{opacity:0;transform:scaleX(.2)}30%{opacity:1}100%{opacity:0;transform:scaleX(1)}}
+.app-main.pv2-nb-enter .main>section:not(.hidden){animation:pv2nbEnter .42s cubic-bezier(.2,.9,.3,1)}
+@keyframes pv2nbEnter{from{opacity:.25;transform:translateY(10px)}to{opacity:1;transform:none}}
+body.pv2-nb-on .modal-overlay:not(.hidden) .modal-card{animation:pv2nbModal .34s cubic-bezier(.2,1.25,.4,1);border:1px solid rgba(255,61,154,.55)!important;
+  box-shadow:0 0 0 1px rgba(45,226,230,.18),0 0 34px rgba(255,61,154,.32),0 26px 70px rgba(0,0,0,.6)!important;
+  background-image:linear-gradient(180deg,rgba(255,61,154,.16),rgba(255,154,60,.05) 70px,transparent 120px)!important}
+@keyframes pv2nbModal{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+body.pv2-nb-on .modal-card h2,body.pv2-nb-on .home-section-title{background:linear-gradient(90deg,#fff6fb,#ffd1ea 50%,#ffb04a);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 0 8px rgba(255,61,154,.45))}
+body.pv2-nb-on .message.msg-own{box-shadow:inset 3px 0 0 #ff3d9a,0 0 18px -10px rgba(255,61,154,.8)!important}
+body.pv2-nb-on .message:not(.msg-own):not(.bot-message){box-shadow:inset 3px 0 0 rgba(45,226,230,.75)!important}
+body.pv2-nb-on #message-input:focus{box-shadow:0 0 0 2px rgba(255,61,154,.85),0 0 22px rgba(255,61,154,.45),0 0 40px rgba(45,226,230,.2)!important;border-color:#ff3d9a!important}
+body.pv2-nb-on .copy-toast{background:linear-gradient(135deg,rgba(40,8,48,.96),rgba(18,4,26,.96))!important;color:#fff4fa!important;border:1px solid #ff3d9a!important;box-shadow:0 0 16px rgba(255,61,154,.55),0 10px 30px rgba(0,0,0,.5)!important;text-shadow:0 0 8px rgba(255,61,154,.6)}
+body.pv2-nb-on .sidebar-nav-item.active{box-shadow:inset 3px 0 0 #ff3d9a,0 0 18px -6px rgba(255,61,154,.7)!important;background:linear-gradient(90deg,rgba(255,61,154,.22),rgba(45,226,230,.06))!important}
+body.pv2-nb-on .sidebar-nav-item:hover{background:linear-gradient(90deg,rgba(255,61,154,.12),transparent)!important}
+body.pv2-nb-on .member-avatar{box-shadow:0 0 0 2px rgba(255,61,154,.55),0 0 12px rgba(45,226,230,.35)}
+body.pv2-nb-on ::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#ff3d9a,#2de2e6)!important;border-radius:8px}
+body.pv2-nb-on *{scrollbar-color:#ff3d9a transparent}
+body.pv2-nb-on .navbar-badge{background:#ff3d9a!important;box-shadow:0 0 10px rgba(255,61,154,.8)!important}
+@media (prefers-reduced-motion:reduce){.app-main.pv2-nb-enter .main>section{animation:none!important}body.pv2-nb-on .modal-overlay:not(.hidden) .modal-card{animation:none}}
+
+#pv2-nb-scene{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+#pv2-nb-scene>*{position:absolute;pointer-events:none}
+#pv2-nb-scene .nb-stars{inset:0;width:100%;height:100%;display:block}
+#pv2-nb-scene .nb-sky{inset:0;background:radial-gradient(ellipse 85% 60% at 50% 102%,rgba(255,61,154,.42),rgba(122,31,160,.18) 48%,rgba(18,5,31,0) 76%),linear-gradient(180deg,rgba(10,3,20,.0),rgba(36,8,58,.35))}
+#pv2-nb-scene .nb-sky2{inset:0;background:radial-gradient(ellipse 60% 42% at 50% 100%,rgba(255,154,60,.38),rgba(255,154,60,0) 70%);animation:nbSkyPulse 7s ease-in-out infinite}
+@keyframes nbSkyPulse{0%,100%{opacity:.55}50%{opacity:1}}
+#pv2-nb-scene .nb-beam{bottom:-6%;width:22vw;min-width:160px;height:125vh;transform-origin:50% 100%;
+  clip-path:polygon(47% 100%,53% 100%,100% 0,0 0);will-change:transform;animation:nbBeam 11s ease-in-out infinite alternate}
+#pv2-nb-scene .b1{left:12%;background:linear-gradient(to top,rgba(45,226,230,.30),rgba(45,226,230,.08) 55%,rgba(45,226,230,0) 85%)}
+#pv2-nb-scene .b2{right:12%;background:linear-gradient(to top,rgba(255,61,154,.30),rgba(255,61,154,.08) 55%,rgba(255,61,154,0) 85%);animation-delay:-5.5s;animation-direction:alternate-reverse}
+#pv2-nb-scene .b3{left:46%;width:16vw;background:linear-gradient(to top,rgba(255,214,120,.18),rgba(255,214,120,0) 70%);animation-duration:15s;animation-delay:-3s}
+@keyframes nbBeam{0%{transform:rotate(-24deg)}100%{transform:rotate(24deg)}}
+#pv2-nb-scene .nb-orb{border-radius:50%;will-change:transform;animation:nbFloat 22s ease-in-out infinite alternate}
+#pv2-nb-scene .o1{width:340px;height:340px;left:8%;top:18%;background:radial-gradient(circle,rgba(255,61,154,.20),rgba(255,61,154,0) 68%)}
+#pv2-nb-scene .o2{width:420px;height:420px;right:6%;top:8%;background:radial-gradient(circle,rgba(45,226,230,.16),rgba(45,226,230,0) 68%);animation-duration:27s;animation-delay:-8s}
+#pv2-nb-scene .o3{width:260px;height:260px;left:42%;top:30%;background:radial-gradient(circle,rgba(255,154,60,.16),rgba(255,154,60,0) 68%);animation-duration:19s;animation-delay:-4s}
+#pv2-nb-scene .o4{width:300px;height:300px;left:62%;bottom:12%;background:radial-gradient(circle,rgba(160,80,255,.18),rgba(160,80,255,0) 68%);animation-duration:24s;animation-delay:-12s}
+#pv2-nb-scene .o5{width:220px;height:220px;left:24%;bottom:22%;background:radial-gradient(circle,rgba(45,226,230,.14),rgba(45,226,230,0) 68%);animation-duration:17s;animation-delay:-6s}
+@keyframes nbFloat{0%{transform:translate(0,0) scale(1)}33%{transform:translate(60px,-40px) scale(1.12)}66%{transform:translate(-50px,30px) scale(.92)}100%{transform:translate(30px,50px) scale(1.06)}}
+#pv2-nb-scene .nb-shoot{top:10%;left:-12%;width:140px;height:2px;border-radius:2px;opacity:0;
+  background:linear-gradient(90deg,rgba(255,255,255,0),#fff 70%,#ffe8f4);box-shadow:0 0 8px rgba(255,255,255,.8);will-change:transform,opacity;animation:nbShoot 9s linear infinite}
+#pv2-nb-scene .s2{top:22%;animation-delay:-3.3s;animation-duration:11s}
+#pv2-nb-scene .s3{top:5%;animation-delay:-6.6s;animation-duration:13s}
+@keyframes nbShoot{0%{transform:translate(0,0) rotate(14deg);opacity:0}2%{opacity:1}10%{transform:translate(78vw,19vw) rotate(14deg);opacity:0}100%{transform:translate(78vw,19vw) rotate(14deg);opacity:0}}
+#pv2-nb-scene .nb-horizon{left:0;right:0;bottom:55%;height:2px;background:linear-gradient(90deg,transparent,#ff3d9a 25%,#2de2e6 50%,#ff3d9a 75%,transparent);
+  box-shadow:0 0 14px rgba(255,61,154,.7),0 0 30px rgba(45,226,230,.4);animation:nbHz 4.5s ease-in-out infinite}
+@keyframes nbHz{0%,100%{opacity:.45}50%{opacity:.95}}
+@media(max-width:700px){#pv2-nb-scene .b3,#pv2-nb-scene .o4,#pv2-nb-scene .o5,#pv2-nb-scene .s3{display:none}}
+body.pv2-nb-on.pv2-scene-active .app-main{background:color-mix(in srgb,var(--bg-app) 38%,transparent)!important}
+body.pv2-nb-on.pv2-scene-active .main{background:color-mix(in srgb,var(--bg-panel,#1d1117) 30%,transparent)!important}
+body.pv2-nb-on.pv2-scene-active .app-sidebar{background:color-mix(in srgb,var(--bg-rail) 66%,transparent)!important}
+body.pv2-nb-on.pv2-scene-active .main-header{background:color-mix(in srgb,var(--bg-panel,#1d1117) 55%,transparent)!important}
+body.pv2-nb-on.pv2-scene-active .top-navbar{background:color-mix(in srgb,var(--bg-sidebar) 70%,transparent)!important}
+body.pv2-nb-on .home-tournament-banner-text h2{background:linear-gradient(90deg,#fff6fb 0%,#ffd1ea 45%,#ffb04a 100%)!important;-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important;text-shadow:none!important;filter:drop-shadow(0 0 10px rgba(255,61,154,.6)) drop-shadow(0 0 22px rgba(255,61,154,.25))}
+#pv2-nb-clock{position:absolute;right:18px;bottom:14px;z-index:2;display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:12px;pointer-events:none;
+  background:rgba(14,4,22,.72);border:1.5px solid rgba(255,61,154,.85);box-shadow:0 0 12px rgba(255,61,154,.6),inset 0 0 12px rgba(45,226,230,.22)}
+#pv2-nb-clock .lbl{font:800 10px/1 system-ui,sans-serif;letter-spacing:.2em;color:#2de2e6;text-shadow:0 0 8px rgba(45,226,230,.8)}
+#pv2-nb-clock .dig{display:flex;gap:7px;align-items:baseline}
+#pv2-nb-clock b{font:900 20px/1 'Audiowide',ui-monospace,monospace;color:#fff6fb;text-shadow:0 0 8px #ff3d9a,0 0 18px rgba(255,61,154,.7);font-variant-numeric:tabular-nums}
+#pv2-nb-clock i{font:800 9px/1 system-ui,sans-serif;font-style:normal;color:#ffb0d6;margin-left:1px}
+@media(max-width:900px){body.pv2-nb-on .home-tournament-banner{background-size:auto,cover!important;background-position:0 0,right center!important}}
+@media(max-width:1100px){#pv2-nb-clock{position:relative;right:auto;bottom:auto;margin:14px 0 0;width:max-content;max-width:100%}}
+@media(max-width:600px){#pv2-nb-clock{padding:6px 9px;gap:7px}#pv2-nb-clock b{font-size:15px}}
+body.pv2-nb-on .home-tournament-banner{position:relative;transition:background-position .25s ease-out}
+body.pv2-nb-on .home-tournament-banner .home-btn-primary{background:linear-gradient(135deg,rgba(255,61,154,.95),rgba(255,154,60,.95))!important;color:#fff!important;border:1px solid rgba(255,255,255,.35)!important;box-shadow:0 0 16px rgba(255,61,154,.65),0 6px 18px rgba(0,0,0,.35)!important;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+body.pv2-nb-on .home-tournament-banner .home-btn-secondary{background:rgba(14,4,22,.6)!important;border:1px solid rgba(45,226,230,.7)!important;color:#bff8fa!important;box-shadow:0 0 12px rgba(45,226,230,.35)!important}
+body.pv2-nb-on .home-tournament-banner-kicker{color:#2de2e6!important;text-shadow:0 0 10px rgba(45,226,230,.75)}
+body.pv2-nb-on .app-sidebar-theme-banner{font-family:'Audiowide',ui-monospace,monospace!important;font-size:10.5px!important;letter-spacing:.08em!important;color:#fff2f8!important;
+  background:linear-gradient(180deg,rgba(40,8,48,.92),rgba(18,4,26,.92))!important;border:1.5px solid #ff3d9a!important;border-radius:12px!important;
+  box-shadow:0 0 10px rgba(255,61,154,.75),0 0 26px rgba(255,61,154,.35),inset 0 0 12px rgba(45,226,230,.25)!important;
+  text-shadow:0 0 6px #ff3d9a,0 0 14px rgba(255,61,154,.8)!important;animation:pv2nbSign 7s linear infinite!important}
+@keyframes pv2nbSign{0%,100%{opacity:1}2%{opacity:.55}3%{opacity:1}5%{opacity:.7}6%,64%{opacity:1}65%{opacity:.6}66%{opacity:1}}
+body.pv2-nb-on .home-tournament-banner{background:linear-gradient(90deg,rgba(18,6,28,.94) 0%,rgba(18,6,28,.78) 38%,rgba(18,6,28,.15) 68%,rgba(18,6,28,0) 100%),var(--pv2-nb-hero) calc(100% + var(--nbx,0px)) calc(50% + var(--nby,0px))/112% auto no-repeat!important;border-color:rgba(255,61,154,.55)!important;box-shadow:0 0 0 1px rgba(45,226,230,.25),0 18px 50px -18px rgba(255,61,154,.55)!important}
+#pv2-nb-scene .nb-palm{transform-box:fill-box;transform-origin:50% 100%;animation:pv2nbSway 7s ease-in-out infinite}
+#pv2-nb-scene .nb-palm-r{animation-delay:-3.5s}
+#pv2-nb-scene .nb-glow{animation:pv2nbGlow 5s ease-in-out infinite}
+#pv2-nb-scene .nb-win{animation:pv2nbWin 3.2s steps(2) infinite}#pv2-nb-scene .nb-win2{animation:pv2nbWin 4.4s steps(2) infinite reverse}
+@keyframes pv2nbSway{0%,100%{transform:rotate(-1.4deg)}50%{transform:rotate(1.6deg)}}
+@keyframes pv2nbGlow{0%,100%{opacity:.75}50%{opacity:1}}
+@keyframes pv2nbWin{0%{opacity:1}100%{opacity:.25}}
+#pv2-nb-splash{position:fixed;inset:0;z-index:2147483000;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  background:radial-gradient(circle at 50% 44%,rgba(60,10,60,.6),rgba(10,4,20,0) 62%);animation:pv2mtFade 2.9s ease forwards}
+#pv2-nb-splash .sun{width:min(40vw,200px);aspect-ratio:1;border-radius:50%;animation:pv2mtPop .7s cubic-bezier(.2,1.4,.4,1) both;
+  background:linear-gradient(#ffe680,#ff8a3c 55%,#ff3d9a);box-shadow:0 0 60px rgba(255,61,154,.7),0 0 120px rgba(255,154,60,.35);
+  -webkit-mask:repeating-linear-gradient(to bottom,#000 0 58%,transparent 58% 61%,#000 61% 66%,transparent 66% 70%,#000 70% 76%,transparent 76% 81%,#000 81% 88%,transparent 88% 94%,#000 94% 100%);
+  mask:repeating-linear-gradient(to bottom,#000 0 58%,transparent 58% 61%,#000 61% 66%,transparent 66% 70%,#000 70% 76%,transparent 76% 81%,#000 81% 88%,transparent 88% 94%,#000 94% 100%)}
+#pv2-nb-splash .t{font:900 clamp(18px,4.2vw,34px)/1 'Audiowide',var(--pv2-font-display,system-ui,sans-serif);letter-spacing:.12em;color:#fff2f8;
+  text-shadow:0 0 10px #ff3d9a,0 0 28px #ff3d9a,0 0 50px rgba(45,226,230,.6);animation:pv2mtUp .8s .25s ease both}
+#pv2-nb-splash .h{font:700 12px/1 var(--pv2-font-body,system-ui,sans-serif);letter-spacing:.14em;color:#ffd1ea;opacity:.9;animation:pv2mtUp .8s .65s ease both}
+#pv2-nb-splash .s{font:800 clamp(11px,2.4vw,14px)/1 var(--pv2-font-body,system-ui,sans-serif);letter-spacing:.22em;color:#2de2e6;text-shadow:0 0 12px rgba(45,226,230,.8);animation:pv2mtUp .8s .45s ease both}
+@media (prefers-reduced-motion:reduce){#pv2-nb-scene *{animation:none!important}}
 @keyframes pv2mtFade{0%,78%{opacity:1}100%{opacity:0}}
 @keyframes pv2mtPop{0%{transform:scale(.3) rotate(-25deg);opacity:0}100%{transform:none;opacity:1}}
 @keyframes pv2mtSpin{to{transform:rotate(360deg)}}
@@ -405,6 +503,19 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
       tap(x, y) { pixels(x, y, this.cols, reduce() ? 10 : 28); const now = performance.now(); festCount = now - festCountT < 4000 ? festCount + 1 : 1; festCountT = now; textPop(x, y - 16, festCount % 10 === 0 ? 'LEVEL UP!' : '+10 XP', festCount % 10 === 0 ? '252,238,10' : '34,211,238', { pixel: 1 }); },
       trail: 'pixels',
     },
+    'noite-de-lancamento': {
+      cols: ['255,61,154', '255,154,60', '45,226,230', '255,230,120'], hello: null,
+      tap(x, y) {
+        for (let i = 0; i < (reduce() ? 2 : 6); i++) emo(x, y, pick(['💵', '💵', '💵', '💰']), { g: 150, v: rnd(140, 300), vr: rnd(-3, 3), max: rnd(1.4, 2), s: rnd(24, 32) });
+        ring(x, y, '255,61,154', { vr: 260, max: 0.5, w: 2.5 }); ring(x, y, '45,226,230', { vr: 170, max: 0.6, w: 1.6 });
+        P({ k: 'siren', x, y, max: 0.75 });
+        if (Math.random() < 0.38) P({ k: 'neonword', x, y: y - 34, str: pick(['BORA!', 'PARTIU!', '19/11', 'É HOJE?', 'VAI!', 'NEON!', 'TURBO']), c: pick(['255,61,154', '45,226,230', '255,154,60']), max: 1.2, rot: rnd(-0.18, 0.18) });
+        const now = performance.now(); festCount = now - festCountT < 3000 ? festCount + 1 : 1; festCountT = now;
+        if (festCount === 5) { textPop(x, y - 30, 'TURBO!', '45,226,230', { big: 1, max: 1.3 }); nbCar(x < W / 2); }
+        sound('pew');
+      },
+      trail: 'neon',
+    },
     halloween: { cols: ['255,122,26', '160,60,255', '255,46,46'], hello: '🎃 Halloween — toque se tiver coragem!', tap(x, y) { for (let i = 0; i < (reduce() ? 2 : 4); i++) emo(x, y, '🦇', { a: rnd(-Math.PI, 0), v: rnd(160, 300), g: -40, s: rnd(22, 30), max: 1.3, flap: 1 }); for (let i = 0; i < 14; i++) spark(x, y, pick(this.cols)); if (Math.random() < 0.2) P({ k: 'emo', x, y, ch: '👻', vx: rnd(-20, 20), vy: -70, g: -10, rot: 0, vr: 0, s: 38, max: 1.6 }); }, trail: 'embers' },
   };
   const festKey = () => { const t = global.PlusV2LiveCurrentTheme; return t && FEST[t.key] ? t.key : null; };
@@ -438,6 +549,7 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     else if (kind === 'confetti') { if (Math.random() < 0.5) P({ k: 'conf', x, y, c: pick(cs), vx: rnd(-30, 30), vy: rnd(-20, 10), g: 160, w: 4, h: 6, rot: rnd(0, 6), vr: rnd(-8, 8), ph: 0, max: 0.8 }); }
     else if (kind === 'pixels') { if (Math.random() < 0.6) P({ k: 'pix', x: Math.round(x / 4) * 4, y: Math.round(y / 4) * 4, c: pick(cs), vx: 0, vy: 0, g: 0, s: 4, max: 0.45 }); }
     else if (kind === 'petals') { if (Math.random() < 0.4) P({ k: 'heart', x, y, c: pick(cs), vx: rnd(-20, 20), vy: rnd(-10, 30), s: rnd(3, 5), ph: rnd(0, 6), max: 0.9, petal: 1 }); }
+    else if (kind === 'neon') spark(x + rnd(-2, 2), y + rnd(-2, 2), pick(['255,61,154', '45,226,230']), { v: rnd(6, 24), g: 10, max: rnd(0.35, 0.55), s: rnd(1.2, 2.2) });
     else if (kind === 'embers') spark(x, y, pick(['255,170,40', '255,110,30']), { a: -Math.PI / 2 + rnd(-0.6, 0.6), v: rnd(15, 45), g: -30, max: rnd(0.4, 0.7), s: rnd(1, 2) });
     else if (kind === 'pastel') spark(x, y, pick(cs), { v: rnd(5, 25), g: 20, max: rnd(0.5, 0.8), s: rnd(1.4, 2.6) });
     else spark(x + rnd(-3, 3), y + rnd(-3, 3), pick(cs), { v: rnd(8, 30), g: 40, max: rnd(0.35, 0.6), s: rnd(1, 2.2) });
@@ -529,6 +641,20 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     } else if (p.k === 'crystal') {
       drawCrystal(p, dt, k);
+    } else if (p.k === 'neonword') {
+      const sc = Math.min(1.1, 0.4 + p.life / 0.09), fl = (p.life < 0.25 && Math.random() < 0.35) ? 0.35 : 1;
+      ctx.save(); ctx.globalAlpha = Math.min(1, k * 2.2) * fl; ctx.translate(p.x, p.y - p.life * 26); ctx.rotate(p.rot); ctx.scale(sc, sc);
+      ctx.font = "900 26px 'Audiowide', system-ui, sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = `rgb(${p.c})`; ctx.shadowBlur = 18; ctx.lineWidth = 2.2; ctx.strokeStyle = `rgb(${p.c})`; ctx.strokeText(p.str, 0, 0);
+      ctx.shadowBlur = 8; ctx.fillStyle = '#fff6fb'; ctx.fillText(p.str, 0, 0); ctx.restore();
+    } else if (p.k === 'car') {
+      drawCar(p, dt);
+    } else if (p.k === 'siren') {
+      ctx.globalCompositeOperation = 'lighter';
+      const red = Math.floor(p.life / 0.12) % 2 === 0;
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 120);
+      g.addColorStop(0, red ? `rgba(255,40,60,${(0.55 * k).toFixed(3)})` : `rgba(40,110,255,${(0.55 * k).toFixed(3)})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, 120, 0, 6.29); ctx.fill();
     }
     ctx.globalCompositeOperation = 'lighter';
   }
@@ -630,6 +756,270 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     ctx.globalCompositeOperation = 'source-over';
   }
 
+
+  // ================================================================ NOITE DE LANÇAMENTO (v0.98.6)
+  // Tema original pra noite de lançamento (19/11/2026, meia-noite no horário
+  // local): cenário neon (sol listrado, cidade, palmeiras balançando) por trás
+  // do app, carro neon passando, chuva de dinheiro + sirene no toque e
+  // contagem regressiva na faixa do menu. Desenhos próprios, sem marcas.
+  const NB_KEY = 'noite-de-lancamento';
+  const LAUNCH = new Date(2026, 10, 19, 0, 0, 0); // meia-noite LOCAL de 19/11
+  const isNB = () => { const t = global.PlusV2LiveCurrentTheme; return !!(t && t.key === NB_KEY); };
+  function launchLabel() {
+    const ms = LAUNCH.getTime() - Date.now();
+    if (ms > 0) {
+      const d = Math.floor(ms / 86400000), h = Math.floor(ms / 3600000) % 24, m = Math.floor(ms / 60000) % 60;
+      return '🌴 LANÇA EM ' + (d ? d + 'd ' : '') + h + 'h ' + String(m).padStart(2, '0') + 'm';
+    }
+    if (ms > -3 * 86400000) return '🎉 LANÇOU! BOA JOGATINA';
+    return '🌴 NOITE DE LANÇAMENTO';
+  }
+  global.pv2BannerText = (theme) => (theme && theme.key === NB_KEY ? launchLabel() : null);
+  setInterval(() => {
+    if (!isNB()) return;
+    const b = doc.getElementById('app-sidebar-theme-banner');
+    if (b) { const t = launchLabel(); if (b.textContent !== t) b.textContent = t; }
+  }, 15000);
+
+  // v0.99.0: fundo ANIMADO — céu com brilho do pôr do sol pulsando, holofotes
+  // de "noite de estreia" varrendo o céu, estrelas piscando, estrelas cadentes,
+  // luzes neon flutuando e linha do horizonte (por cima do chão em grade).
+  const NB_SVG = `<div class="nb-sky"></div><div class="nb-sky2"></div>
+<div class="nb-beam b1"></div><div class="nb-beam b2"></div><div class="nb-beam b3"></div>
+<svg class="nb-stars" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg"><g fill="#fff"><circle cx="946" cy="453" r="1.8"><animate attributeName="opacity" values=".1;1;.1" dur="5.0s" begin="-3.9s" repeatCount="indefinite"/></circle><circle cx="945" cy="270" r="1.8"><animate attributeName="opacity" values=".1;1;.1" dur="2.7s" begin="-4.0s" repeatCount="indefinite"/></circle><circle cx="994" cy="332" r="1.8"><animate attributeName="opacity" values=".1;1;.1" dur="4.8s" begin="-0.5s" repeatCount="indefinite"/></circle><circle cx="641" cy="82" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="3.9s" begin="-4.5s" repeatCount="indefinite"/></circle><circle cx="1319" cy="31" r="1.8"><animate attributeName="opacity" values=".1;1;.1" dur="5.4s" begin="-4.8s" repeatCount="indefinite"/></circle><circle cx="1359" cy="388" r="1.8"><animate attributeName="opacity" values=".1;1;.1" dur="4.3s" begin="-3.1s" repeatCount="indefinite"/></circle><circle cx="1102" cy="42" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="2.1s" begin="-4.4s" repeatCount="indefinite"/></circle><circle cx="1248" cy="25" r="1.5"><animate attributeName="opacity" values=".1;1;.1" dur="3.1s" begin="-3.0s" repeatCount="indefinite"/></circle><circle cx="420" cy="275" r="1"><animate attributeName="opacity" values=".1;1;.1" dur="4.2s" begin="-2.5s" repeatCount="indefinite"/></circle><circle cx="1376" cy="53" r="1.5"><animate attributeName="opacity" values=".1;1;.1" dur="4.3s" begin="-2.0s" repeatCount="indefinite"/></circle><circle cx="1148" cy="440" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="4.5s" begin="-1.6s" repeatCount="indefinite"/></circle><circle cx="490" cy="272" r="1.2"><animate attributeName="opacity" values=".1;1;.1" dur="2.1s" begin="-2.8s" repeatCount="indefinite"/></circle><circle cx="241" cy="215" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="5.0s" begin="-1.9s" repeatCount="indefinite"/></circle><circle cx="54" cy="443" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="2.7s" begin="-4.6s" repeatCount="indefinite"/></circle><circle cx="127" cy="250" r="1.5"><animate attributeName="opacity" values=".1;1;.1" dur="5.4s" begin="-2.0s" repeatCount="indefinite"/></circle><circle cx="169" cy="299" r="1"><animate attributeName="opacity" values=".1;1;.1" dur="4.7s" begin="-1.3s" repeatCount="indefinite"/></circle><circle cx="198" cy="169" r="1.2"><animate attributeName="opacity" values=".1;1;.1" dur="2.1s" begin="-2.1s" repeatCount="indefinite"/></circle><circle cx="261" cy="78" r="1"><animate attributeName="opacity" values=".1;1;.1" dur="4.5s" begin="-0.1s" repeatCount="indefinite"/></circle><circle cx="972" cy="418" r="1.5"><animate attributeName="opacity" values=".1;1;.1" dur="2.6s" begin="-2.8s" repeatCount="indefinite"/></circle><circle cx="936" cy="270" r="1"><animate attributeName="opacity" values=".1;1;.1" dur="5.4s" begin="-3.8s" repeatCount="indefinite"/></circle><circle cx="878" cy="339" r="1.5"><animate attributeName="opacity" values=".1;1;.1" dur="2.4s" begin="-2.1s" repeatCount="indefinite"/></circle><circle cx="455" cy="10" r="1.2"><animate attributeName="opacity" values=".1;1;.1" dur="5.0s" begin="-4.9s" repeatCount="indefinite"/></circle><circle cx="1233" cy="165" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="2.7s" begin="-2.0s" repeatCount="indefinite"/></circle><circle cx="1252" cy="338" r="1.8"><animate attributeName="opacity" values=".1;1;.1" dur="2.4s" begin="-4.9s" repeatCount="indefinite"/></circle><circle cx="456" cy="236" r="1.2"><animate attributeName="opacity" values=".1;1;.1" dur="2.0s" begin="-3.1s" repeatCount="indefinite"/></circle><circle cx="626" cy="207" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="2.3s" begin="-1.0s" repeatCount="indefinite"/></circle><circle cx="1323" cy="134" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="4.1s" begin="-1.9s" repeatCount="indefinite"/></circle><circle cx="948" cy="75" r="1.8"><animate attributeName="opacity" values=".1;1;.1" dur="3.7s" begin="-2.9s" repeatCount="indefinite"/></circle><circle cx="810" cy="103" r="1"><animate attributeName="opacity" values=".1;1;.1" dur="3.1s" begin="-1.1s" repeatCount="indefinite"/></circle><circle cx="1270" cy="137" r="1"><animate attributeName="opacity" values=".1;1;.1" dur="2.6s" begin="-3.1s" repeatCount="indefinite"/></circle><circle cx="1154" cy="110" r="1.5"><animate attributeName="opacity" values=".1;1;.1" dur="5.1s" begin="-3.0s" repeatCount="indefinite"/></circle><circle cx="883" cy="34" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="2.4s" begin="-2.6s" repeatCount="indefinite"/></circle><circle cx="542" cy="132" r="1.5"><animate attributeName="opacity" values=".1;1;.1" dur="2.9s" begin="-4.1s" repeatCount="indefinite"/></circle><circle cx="1241" cy="261" r="1.2"><animate attributeName="opacity" values=".1;1;.1" dur="3.8s" begin="-4.6s" repeatCount="indefinite"/></circle><circle cx="160" cy="74" r="1"><animate attributeName="opacity" values=".1;1;.1" dur="3.7s" begin="-3.3s" repeatCount="indefinite"/></circle><circle cx="1281" cy="324" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="3.0s" begin="-4.6s" repeatCount="indefinite"/></circle><circle cx="437" cy="393" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="2.2s" begin="-2.1s" repeatCount="indefinite"/></circle><circle cx="530" cy="40" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="2.6s" begin="-1.8s" repeatCount="indefinite"/></circle><circle cx="1191" cy="77" r="0.8"><animate attributeName="opacity" values=".1;1;.1" dur="3.3s" begin="-4.5s" repeatCount="indefinite"/></circle><circle cx="697" cy="346" r="1.8"><animate attributeName="opacity" values=".1;1;.1" dur="4.0s" begin="-0.7s" repeatCount="indefinite"/></circle><circle cx="91" cy="19" r="1.5"><animate attributeName="opacity" values=".1;1;.1" dur="5.2s" begin="-3.5s" repeatCount="indefinite"/></circle><circle cx="88" cy="20" r="1.8"><animate attributeName="opacity" values=".1;1;.1" dur="4.2s" begin="-2.4s" repeatCount="indefinite"/></circle><circle cx="1516" cy="169" r="1.2"><animate attributeName="opacity" values=".1;1;.1" dur="2.5s" begin="-0.4s" repeatCount="indefinite"/></circle><circle cx="947" cy="289" r="1.2"><animate attributeName="opacity" values=".1;1;.1" dur="4.6s" begin="-4.5s" repeatCount="indefinite"/></circle><circle cx="1529" cy="387" r="1"><animate attributeName="opacity" values=".1;1;.1" dur="4.8s" begin="-4.6s" repeatCount="indefinite"/></circle><circle cx="740" cy="53" r="1.5"><animate attributeName="opacity" values=".1;1;.1" dur="5.2s" begin="-4.4s" repeatCount="indefinite"/></circle></g></svg>
+<div class="nb-orb o1"></div><div class="nb-orb o2"></div><div class="nb-orb o3"></div><div class="nb-orb o4"></div><div class="nb-orb o5"></div>
+<div class="nb-shoot s1"></div><div class="nb-shoot s2"></div><div class="nb-shoot s3"></div>
+<div class="nb-horizon"></div>`;
+  const NB_HERO = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" preserveAspectRatio="xMaxYMid slice">
+<defs>
+<linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#12052a"/><stop offset=".4" stop-color="#4a0f5c"/><stop offset=".78" stop-color="#ff3d9a"/><stop offset="1" stop-color="#ffb04a"/></linearGradient>
+<linearGradient id="u" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1a0"/><stop offset=".5" stop-color="#ff9a3c"/><stop offset="1" stop-color="#ff3d9a"/></linearGradient>
+<radialGradient id="h"><stop offset="0" stop-color="#ff6fb5" stop-opacity=".75"/><stop offset=".55" stop-color="#ff3d9a" stop-opacity=".22"/><stop offset="1" stop-color="#ff3d9a" stop-opacity="0"/></radialGradient>
+<linearGradient id="m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e0c44"/><stop offset="1" stop-color="#07030f"/></linearGradient>
+<linearGradient id="mt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a1155"/><stop offset="1" stop-color="#1a0828"/></linearGradient>
+<linearGradient id="sh" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff"/></linearGradient>
+<mask id="c"><rect width="1200" height="360" fill="#fff"/><g fill="#000"><rect x="760" y="126" width="300" height="2"/><rect x="760" y="150" width="300" height="4"/><rect x="760" y="174" width="300" height="6"/><rect x="760" y="198" width="300" height="8"/><rect x="760" y="222" width="300" height="10"/><rect x="760" y="246" width="300" height="12"/><animateTransform attributeName="transform" type="translate" values="0 0;0 24" dur="2.6s" repeatCount="indefinite"/></g></mask>
+</defs>
+<rect width="1200" height="246" fill="url(#s)"/>
+<circle cx="801" cy="46" r="1.8" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="3.9s" begin="-0.3s" repeatCount="indefinite"/></circle><circle cx="1018" cy="32" r="1.4" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="3.7s" begin="-3.6s" repeatCount="indefinite"/></circle><circle cx="689" cy="17" r="0.9" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="3.3s" begin="-0.3s" repeatCount="indefinite"/></circle><circle cx="562" cy="149" r="1.8" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="2.4s" begin="-2.3s" repeatCount="indefinite"/></circle><circle cx="698" cy="23" r="1.8" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="2.3s" begin="-0.9s" repeatCount="indefinite"/></circle><circle cx="1040" cy="42" r="1.4" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="3.3s" begin="-2.2s" repeatCount="indefinite"/></circle><circle cx="1054" cy="86" r="1.1" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="2.5s" begin="-2.3s" repeatCount="indefinite"/></circle><circle cx="662" cy="103" r="0.9" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="3.6s" begin="-0.3s" repeatCount="indefinite"/></circle><circle cx="531" cy="60" r="1.8" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="4.0s" begin="-1.7s" repeatCount="indefinite"/></circle><circle cx="791" cy="127" r="1.8" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="3.1s" begin="-1.0s" repeatCount="indefinite"/></circle><circle cx="654" cy="70" r="0.9" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="3.7s" begin="-2.1s" repeatCount="indefinite"/></circle><circle cx="821" cy="122" r="1.4" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="3.8s" begin="-0.3s" repeatCount="indefinite"/></circle><circle cx="994" cy="115" r="1.1" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="4.2s" begin="-0.6s" repeatCount="indefinite"/></circle><circle cx="970" cy="115" r="0.9" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="4.7s" begin="-0.3s" repeatCount="indefinite"/></circle><circle cx="1041" cy="88" r="1.4" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="4.0s" begin="-2.4s" repeatCount="indefinite"/></circle><circle cx="1063" cy="124" r="0.9" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="4.4s" begin="-3.8s" repeatCount="indefinite"/></circle><circle cx="955" cy="24" r="0.9" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="4.1s" begin="-1.2s" repeatCount="indefinite"/></circle><circle cx="1061" cy="122" r="1.4" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="4.1s" begin="-3.5s" repeatCount="indefinite"/></circle><circle cx="825" cy="13" r="1.8" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="3.1s" begin="-2.4s" repeatCount="indefinite"/></circle><circle cx="975" cy="23" r="1.1" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="4.2s" begin="-0.5s" repeatCount="indefinite"/></circle><circle cx="723" cy="109" r="1.8" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="4.6s" begin="-2.0s" repeatCount="indefinite"/></circle><circle cx="640" cy="122" r="1.8" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="3.6s" begin="-3.5s" repeatCount="indefinite"/></circle><circle cx="910" cy="148" r="1.4" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="4.0s" begin="-3.9s" repeatCount="indefinite"/></circle><circle cx="1169" cy="105" r="1.1" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="2.6s" begin="-0.7s" repeatCount="indefinite"/></circle><circle cx="707" cy="67" r="0.9" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="3.5s" begin="-2.4s" repeatCount="indefinite"/></circle><circle cx="739" cy="80" r="0.9" fill="#fff"><animate attributeName="opacity" values=".15;1;.15" dur="2.6s" begin="-2.1s" repeatCount="indefinite"/></circle>
+<g><line x1="0" y1="0" x2="70" y2="0" stroke="url(#sh)" stroke-width="2" stroke-linecap="round"/>
+<animateTransform attributeName="transform" type="translate" values="560 20;860 110" dur="9s" repeatCount="indefinite" keyTimes="0;1"/>
+<animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;.82;.88;.96;1" dur="9s" repeatCount="indefinite"/></g>
+<circle cx="900" cy="232" r="215" fill="url(#h)"><animate attributeName="r" values="205;225;205" dur="5s" repeatCount="indefinite"/></circle>
+<circle cx="900" cy="232" r="122" fill="url(#u)" mask="url(#c)"/>
+<path d="M470 246 L560 196 L612 222 L690 168 L760 214 L800 200 L840 246Z M960 246 L1010 206 L1060 228 L1120 186 L1200 230 L1200 246Z" fill="url(#mt)"/>
+<path d="M470 246 L560 196 L612 222 L690 168 L760 214 L800 200 L840 246 M960 246 L1010 206 L1060 228 L1120 186 L1200 230" fill="none" stroke="#ff5fae" stroke-width="1.6" opacity=".85"/>
+<g fill="#12061e"><rect x="560" y="200" width="24" height="46"/><rect x="588" y="178" width="20" height="68"/><rect x="612" y="206" width="30" height="40"/><rect x="646" y="190" width="18" height="56"/><rect x="1040" y="196" width="22" height="50"/><rect x="1066" y="212" width="34" height="34"/></g>
+<g fill="#2de2e6"><rect x="593" y="190" width="3" height="4"><animate attributeName="opacity" values="1;.2;1" dur="3s" repeatCount="indefinite"/></rect><rect x="600" y="208" width="3" height="4"/><rect x="566" y="214" width="3" height="4"><animate attributeName="opacity" values=".2;1;.2" dur="4s" repeatCount="indefinite"/></rect><rect x="651" y="204" width="3" height="4"/><rect x="1047" y="210" width="3" height="4"><animate attributeName="opacity" values="1;.3;1" dur="2.6s" repeatCount="indefinite"/></rect><rect x="1076" y="222" width="3" height="4"/></g>
+<rect y="246" width="1200" height="114" fill="url(#m)"/>
+<rect y="245" width="1200" height="2" fill="#2de2e6"><animate attributeName="opacity" values=".6;1;.6" dur="3s" repeatCount="indefinite"/></rect>
+<rect x="815" y="253" width="170" height="2.4" rx="1.2" fill="#ff8fc6"><animate attributeName="opacity" values=".25;.9;.25" dur="2.4s" begin="-0s" repeatCount="indefinite"/><animate attributeName="x" values="815;823;815" dur="3.4s" repeatCount="indefinite"/></rect><rect x="834" y="262" width="132" height="2.4" rx="1.2" fill="#ff8fc6"><animate attributeName="opacity" values=".25;.9;.25" dur="2.9s" begin="-1s" repeatCount="indefinite"/><animate attributeName="x" values="834;842;834" dur="3.9s" repeatCount="indefinite"/></rect><rect x="848" y="272" width="104" height="2.4" rx="1.2" fill="#ff8fc6"><animate attributeName="opacity" values=".25;.9;.25" dur="2.2s" begin="-0.5s" repeatCount="indefinite"/><animate attributeName="x" values="848;856;848" dur="3.2s" repeatCount="indefinite"/></rect><rect x="860" y="284" width="80" height="2.4" rx="1.2" fill="#ff8fc6"><animate attributeName="opacity" values=".25;.9;.25" dur="3.1s" begin="-1.5s" repeatCount="indefinite"/><animate attributeName="x" values="860;868;860" dur="4.1s" repeatCount="indefinite"/></rect><rect x="872" y="297" width="56" height="2.4" rx="1.2" fill="#ff8fc6"><animate attributeName="opacity" values=".25;.9;.25" dur="2.6s" begin="-0.8s" repeatCount="indefinite"/><animate attributeName="x" values="872;880;872" dur="3.6s" repeatCount="indefinite"/></rect><rect x="882" y="312" width="36" height="2.4" rx="1.2" fill="#ff8fc6"><animate attributeName="opacity" values=".25;.9;.25" dur="2.8s" begin="-2s" repeatCount="indefinite"/><animate attributeName="x" values="882;890;882" dur="3.8s" repeatCount="indefinite"/></rect>
+<path d="M480 352 L1200 330" stroke="#1f0b30" stroke-width="12"/>
+<path d="M480 349 L1200 327" stroke="#ff4060" stroke-width="2.2" stroke-dasharray="14 70" stroke-linecap="round"><animate attributeName="stroke-dashoffset" values="0;168" dur="1.4s" repeatCount="indefinite"/></path>
+<path d="M480 355 L1200 333" stroke="#fffbe0" stroke-width="2.2" stroke-dasharray="18 90" stroke-linecap="round"><animate attributeName="stroke-dashoffset" values="216;0" dur="1.8s" repeatCount="indefinite"/></path>
+<g fill="none" stroke="#1a0828" stroke-width="2.2" stroke-linecap="round"><path d="M0 0 q7 -7 14 0 q7 -7 14 0"><animateTransform attributeName="transform" type="translate" values="1210 70;640 96" dur="16s" repeatCount="indefinite"/></path><path d="M0 0 q5 -5 10 0 q5 -5 10 0"><animateTransform attributeName="transform" type="translate" values="1240 84;660 112" dur="16s" repeatCount="indefinite"/></path></g>
+<g fill="#0a0312"><path d="M1185 360 C1172 300 1158 250 1128 200 L1120 203 C1146 252 1160 300 1170 360Z"/><path d="M1124 200 C1090 176 1052 180 1024 202 C1058 186 1094 188 1124 206Z"/><path d="M1124 200 C1108 166 1080 150 1046 150 C1080 162 1106 180 1122 204Z"/><path d="M1126 198 C1132 160 1156 138 1186 132 C1162 150 1144 174 1128 204Z"/><path d="M1126 200 C1158 180 1194 180 1220 196 C1186 192 1156 196 1128 206Z"/><path d="M1124 202 C1100 206 1086 226 1082 250 C1094 230 1106 216 1126 208Z"/><animateTransform attributeName="transform" type="rotate" values="-1.6 1180 360;1.8 1180 360;-1.6 1180 360" dur="7s" repeatCount="indefinite"/></g>
+</svg>`);
+  function nbScene(on) {
+    let el = doc.getElementById('pv2-nb-scene');
+    doc.body.classList.toggle('pv2-nb-on', !!on);
+    if (!on) { if (el) el.remove(); return; }
+    if (el) return;
+    injectStyle();
+    el = doc.createElement('div'); el.id = 'pv2-nb-scene'; el.setAttribute('aria-hidden', 'true'); el.innerHTML = NB_SVG;
+    doc.documentElement.style.setProperty('--pv2-nb-hero', 'url("' + NB_HERO + '")');
+    const sc = doc.getElementById('plus2-scene');
+    if (sc && sc.parentNode) sc.parentNode.insertBefore(el, sc.nextSibling); else doc.body.insertBefore(el, doc.body.firstChild);
+  }
+  function nbSplash() {
+    if (doc.getElementById('pv2-nb-splash')) return;
+    injectStyle();
+    const el = doc.createElement('div'); el.id = 'pv2-nb-splash'; el.setAttribute('aria-hidden', 'true');
+    const today = Math.abs(LAUNCH.getTime() - Date.now()) < 86400000 && Date.now() >= LAUNCH.getTime();
+    el.innerHTML = '<div class="sun"></div><div class="t">NOITE DE LANÇAMENTO</div><div class="s">' + (today ? '🎉 É HOJE! BOA JOGATINA' : launchLabel().replace('🌴 ', '')) + '</div><div class="h">toque na tela • segure pra pilotar</div>';
+    doc.body.appendChild(el);
+    setTimeout(() => { ensureCanvas(); const x = W / 2, y = H * 0.42; for (let i = 0; i < (reduce() ? 4 : 10); i++) emo(x, y, '💵', { g: 160, v: rnd(160, 380), vr: rnd(-3, 3), max: 2 }); ring(x, y, '255,61,154', { r0: 70, vr: 380, max: 0.8, w: 3 }); ring(x, y, '45,226,230', { r0: 70, vr: 260, max: 1, w: 2 }); wake(); }, 400);
+    setTimeout(() => el.remove(), 2900);
+  }
+  // carro neon (desenho próprio) passando pelo rodapé
+  function nbCar(dirRight) {
+    if (reduce()) return;
+    ensureCanvas();
+    const s = W < 700 ? 0.7 : 1, sp = 1150 * s;
+    P({ k: 'car', x: dirRight ? -200 * s : W + 200 * s, y: H - 22 * s, vx: dirRight ? sp : -sp, s, max: (W + 420 * s) / sp, dir: dirRight ? 1 : -1 });
+    sound('pew');
+    wake();
+  }
+  let carT = 0;
+  function scheduleCar(first) {
+    clearTimeout(carT);
+    carT = setTimeout(() => {
+      if (isNB() && allowed() && !doc.hidden && !doc.body.classList.contains('pv2-modal-open')) nbCar(Math.random() < 0.6);
+      if (isNB()) scheduleCar();
+    }, first ? rnd(3500, 6000) : rnd(20000, 34000));
+  }
+  function drawCar(p, dt) {
+    const s = p.s;
+    if (p.driven) {
+      if (drive.on) { p.life = 0.1; const tx = Math.max(60, Math.min(W - 60, drive.x)); const nx = p.x + (tx - p.x) * Math.min(1, dt * 7); const v = (nx - p.x) / Math.max(dt, 0.001); if (Math.abs(v) > 30) p.dir = v > 0 ? 1 : -1; p.vx = v; p.x = nx; }
+      else { p.vx = p.dir * Math.max(900, Math.abs(p.vx) + 1600 * dt) ; p.x += p.vx * dt; if (p.x < -260 || p.x > W + 260) p.life = p.max; }
+    } else p.x += p.vx * dt;
+    const d = p.dir;
+    const x = p.x, y = p.y;
+    if (Math.random() < 0.7) spark(x - d * 70 * s, y - 6 * s, pick(['255,61,154', '45,226,230', '255,154,60']), { a: d > 0 ? Math.PI + rnd(-0.2, 0.2) : rnd(-0.2, 0.2), v: rnd(60, 180), g: -20, max: 0.4, s: rnd(1, 2) });
+    ctx.save(); ctx.translate(x, y); ctx.scale(d * s, s);
+    // linhas de velocidade
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 4; i++) { ctx.strokeStyle = `rgba(45,226,230,${0.35 - i * 0.07})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-90 - i * 40, -14 - i * 7); ctx.lineTo(-170 - i * 70, -14 - i * 7); ctx.stroke(); }
+    // brilho por baixo
+    const ug = ctx.createRadialGradient(0, 4, 4, 0, 4, 95);
+    ug.addColorStop(0, 'rgba(255,61,154,.75)'); ug.addColorStop(1, 'rgba(255,61,154,0)');
+    ctx.fillStyle = ug; ctx.beginPath(); ctx.ellipse(0, 4, 95, 12, 0, 0, 6.29); ctx.fill();
+    // farol (frente)
+    const hb = ctx.createLinearGradient(70, -12, 190, -4);
+    hb.addColorStop(0, 'rgba(255,250,220,.65)'); hb.addColorStop(1, 'rgba(255,250,220,0)');
+    ctx.fillStyle = hb; ctx.beginPath(); ctx.moveTo(72, -16); ctx.lineTo(190, -30); ctx.lineTo(190, 4); ctx.lineTo(72, -9); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    // carroceria (cupê baixo em cunha)
+    const bg = ctx.createLinearGradient(0, -40, 0, -4);
+    bg.addColorStop(0, '#ff5fae'); bg.addColorStop(1, '#7a1050');
+    ctx.fillStyle = bg; ctx.strokeStyle = '#2de2e6'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-82, -8); ctx.lineTo(-80, -22); ctx.lineTo(-56, -27); ctx.lineTo(-22, -40); ctx.lineTo(20, -41); ctx.lineTo(46, -28); ctx.lineTo(80, -22); ctx.lineTo(84, -10); ctx.lineTo(76, -6); ctx.lineTo(-76, -6); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // vidro
+    ctx.fillStyle = 'rgba(45,226,230,.55)'; ctx.beginPath(); ctx.moveTo(-40, -28); ctx.lineTo(-18, -37); ctx.lineTo(16, -38); ctx.lineTo(36, -28); ctx.closePath(); ctx.fill();
+    // lanterna traseira e farol
+    ctx.fillStyle = '#ff2a2a'; ctx.fillRect(-83, -20, 5, 6);
+    ctx.fillStyle = '#fffbe0'; ctx.fillRect(79, -20, 5, 5);
+    // rodas girando
+    for (const wx of [-50, 52]) {
+      ctx.fillStyle = '#0c0414'; ctx.beginPath(); ctx.arc(wx, -6, 12, 0, 6.29); ctx.fill();
+      ctx.strokeStyle = '#2de2e6'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(wx, -6, 7, 0, 6.29); ctx.stroke();
+      const r0 = p.life * 40;
+      for (let k = 0; k < 3; k++) { const a = r0 + k * 2.09; ctx.beginPath(); ctx.moveTo(wx, -6); ctx.lineTo(wx + Math.cos(a) * 7, -6 + Math.sin(a) * 7); ctx.stroke(); }
+    }
+    ctx.restore();
+  }
+
+  // ---- Noite de Lançamento: contagem ao vivo dentro do cartão do Início
+  function nbClock() {
+    const hero = doc.getElementById('home-tournament-banner');
+    let chip = doc.getElementById('pv2-nb-clock');
+    if (!isNB() || !hero) { if (chip) chip.remove(); return; }
+    if (!chip || chip.parentElement !== hero) {
+      if (chip) chip.remove();
+      chip = doc.createElement('div'); chip.id = 'pv2-nb-clock'; chip.setAttribute('aria-live', 'off');
+      hero.appendChild(chip);
+    }
+    const ms = LAUNCH.getTime() - Date.now();
+    let html;
+    if (ms > 0) {
+      const d = Math.floor(ms / 86400000), h = Math.floor(ms / 3600000) % 24, m = Math.floor(ms / 60000) % 60, sec = Math.floor(ms / 1000) % 60;
+      const u = (n, l) => '<b>' + String(n).padStart(2, '0') + '</b><i>' + l + '</i>';
+      html = '<span class="lbl">LANÇA EM</span><span class="dig">' + u(d, 'D') + u(h, 'H') + u(m, 'M') + u(sec, 'S') + '</span>';
+    } else if (ms > -3 * 86400000) html = '<span class="lbl">JÁ SAIU</span><span class="dig"><b>BOA JOGATINA!</b></span>';
+    else { chip.remove(); return; }
+    if (chip.innerHTML !== html) chip.innerHTML = html;
+  }
+  setInterval(nbClock, 1000);
+  // parallax da arte do cartão (só mouse)
+  let parT = 0;
+  doc.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse' || !isNB() || reduce() || parT) return;
+    parT = requestAnimationFrame(() => {
+      parT = 0;
+      const hero = doc.getElementById('home-tournament-banner'); if (!hero) return;
+      const r = hero.getBoundingClientRect();
+      const nx = (e.clientX - r.left) / r.width - 0.5, ny = (e.clientY - r.top) / r.height - 0.5;
+      hero.style.setProperty('--nbx', (Math.max(-0.6, Math.min(0.6, nx)) * -26).toFixed(1) + 'px');
+      hero.style.setProperty('--nby', (Math.max(-0.6, Math.min(0.6, ny)) * -12).toFixed(1) + 'px');
+    });
+  }, { passive: true });
+  // segurar o clique/dedo = aparece o carro neon e ele segue você; soltar = ele acelera e some
+  const drive = { on: 0, x: 0, t0: 0, id: null, timer: 0, car: null };
+  function startDrive(e) {
+    drive.x = e.clientX; drive.id = e.pointerId; drive.t0 = performance.now();
+    clearTimeout(drive.timer);
+    drive.timer = setTimeout(() => {
+      if (!isNB() || !allowed()) return;
+      drive.on = 1; ensureCanvas();
+      const s = W < 700 ? 0.7 : 1;
+      drive.car = { k: 'car', driven: 1, x: drive.x < W / 2 ? -180 * s : W + 180 * s, y: H - 22 * s, vx: 0, s, max: 60, dir: drive.x < W / 2 ? 1 : -1, life: 0 };
+      P(drive.car); sound('pew'); wake();
+    }, 320);
+  }
+  function endDrive(e) {
+    if (e && drive.id != null && e.pointerId !== drive.id) return;
+    clearTimeout(drive.timer);
+    if (drive.on && drive.car) { textPop(drive.car.x, drive.car.y - 50, 'VRUUUM!', '45,226,230', { big: 1, max: 1 }); sound('boom'); wake(); }
+    drive.on = 0; drive.car = null; drive.id = null;
+  }
+  // só em área livre: segurar em botão, link, campo ou mensagem (pra selecionar texto) não chama o carro
+  const NO_DRIVE = 'a, button, [role="button"], input, textarea, select, label, summary, [contenteditable="true"], .message, .msg, .modal-overlay, .navbar-search';
+  doc.addEventListener('pointerdown', (e) => { if (e.button === 0 && isNB() && allowed() && !reduce() && !(e.target && e.target.closest && e.target.closest(NO_DRIVE))) startDrive(e); }, { capture: true, passive: true });
+  doc.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== drive.id) return;
+    // arrastou muito antes de "pegar" (ex.: rolando a tela) = cancela
+    if (!drive.on && Math.abs(e.clientX - drive.x) > 40) { clearTimeout(drive.timer); drive.id = null; return; }
+    drive.x = e.clientX;
+  }, { passive: true });
+  doc.addEventListener('pointerup', endDrive, { capture: true, passive: true });
+  doc.addEventListener('pointercancel', endDrive, { capture: true, passive: true });
+
+
+  // ---- Noite de Lançamento no app inteiro (v0.98.9)
+  // lembra o último tema neste aparelho (a abertura do app usa isso antes do login)
+  function rememberTheme() {
+    const t = global.PlusV2LiveCurrentTheme;
+    if (!t || !t.key) return;
+    try { localStorage.setItem('pv2_last_theme', t.key); } catch (_) { /* sem storage */ }
+    doc.documentElement.classList.toggle('nb-boot', t.key === NB_KEY);
+  }
+  // troca de aba/tela: faixa de luz neon passando + conteúdo entrando
+  const NAV_SEL = '.sidebar-nav-item, .server-row, .channel-item, .friend-row, #dm-friends-shortcut, .settings-sidebar-item, .manage-tab, .friends-tab, .home-btn-primary, .home-btn-secondary';
+  let sweepT = 0;
+  function nbSweep() {
+    if (reduce() || !allowed()) return;
+    const main = doc.querySelector('.app-main'); if (!main) return;
+    injectStyle();
+    let sw = doc.getElementById('pv2-nb-sweep');
+    if (!sw) { sw = doc.createElement('div'); sw.id = 'pv2-nb-sweep'; sw.setAttribute('aria-hidden', 'true'); doc.body.appendChild(sw); }
+    const r = main.getBoundingClientRect();
+    sw.style.left = r.left + 'px'; sw.style.top = r.top + 'px'; sw.style.width = r.width + 'px'; sw.style.height = r.height + 'px';
+    sw.classList.remove('go'); void sw.offsetWidth; sw.classList.add('go');
+    main.classList.remove('pv2-nb-enter'); void main.offsetWidth; main.classList.add('pv2-nb-enter');
+    clearTimeout(sweepT); sweepT = setTimeout(() => { sw.classList.remove('go'); main.classList.remove('pv2-nb-enter'); }, 700);
+  }
+  doc.addEventListener('click', (e) => {
+    if (!isNB()) return;
+    const el = e.target && e.target.closest ? e.target.closest(NAV_SEL) : null;
+    if (el) setTimeout(nbSweep, 30);
+  }, { capture: true, passive: true });
+  // chat: enviar = dinheiro; menção = sirene; digitar = faísca neon no campo
+  global.addEventListener('pv2:chat', (ev) => {
+    if (!isNB() || !allowed() || reduce()) return;
+    const d = (ev && ev.detail) || {};
+    const m = doc.querySelectorAll('#messages > *'); const last = m[m.length - 1];
+    if (!last) return;
+    const r = last.getBoundingClientRect();
+    const x = Math.min(W - 40, r.left + Math.min(r.width, 260) * (d.own ? 0.75 : 0.3)), y = Math.max(80, Math.min(H - 90, r.top + 10));
+    ensureCanvas();
+    for (let i = 0; i < (d.own ? 4 : 2); i++) emo(x, y, '💵', { g: 160, v: rnd(90, 200), vr: rnd(-3, 3), s: rnd(18, 24), max: 1.2 });
+    if (d.mention) { P({ k: 'siren', x, y, max: 1 }); textPop(x, y - 24, 'TE CHAMARAM!', '255,61,154'); }
+    else if (d.own && Math.random() < 0.35) P({ k: 'neonword', x, y: y - 26, str: pick(['MANDOU!', 'BORA!', 'ENVIADO!']), c: pick(['255,61,154', '45,226,230']), max: 1, rot: rnd(-0.15, 0.15) });
+    wake();
+  });
+  let typeT = 0;
+  doc.addEventListener('input', (e) => {
+    const inp = e.target;
+    if (!isNB() || reduce() || !allowed() || !inp || inp.id !== 'message-input') return;
+    const now = performance.now(); if (now - typeT < 45) return; typeT = now;
+    const r = inp.getBoundingClientRect();
+    const x = Math.min(r.right - 12, r.left + 14 + Math.min(String(inp.value).length * 7.4, r.width - 30));
+    ensureCanvas();
+    for (let i = 0; i < 3; i++) spark(x, r.top + r.height / 2, pick(['255,61,154', '45,226,230', '255,154,60']), { a: -Math.PI / 2 + rnd(-0.9, 0.9), v: rnd(30, 90), g: 120, max: rnd(0.3, 0.5), s: rnd(1, 2) });
+    wake();
+  }, { passive: true });
+
   // ------------------------------------------------------------ loop
   function tick(t) {
     raf = 0;
@@ -704,7 +1094,7 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     ctx.globalCompositeOperation = 'source-over';
     const tankOn = drawTank(dt);
     drawCharge();
-    if ((parts.length || orbs.length || tankOn || charge.on) && !raf) raf = requestAnimationFrame(tick);
+    if ((parts.length || orbs.length || tankOn || charge.on || drive.on) && !raf) raf = requestAnimationFrame(tick);
   }
 
   // ------------------------------------------------------------ Magic Tank: cometas e brilho nos botões
@@ -753,8 +1143,12 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     }, 350);
     setTimeout(() => el.remove(), 2700);
   }
-  let wasMT = false, hadOtherTheme = false, lastFest = null;
+  let wasMT = false, hadOtherTheme = false, lastFest = null, prevThemeKey = null;
   function watchTheme() {
+    const curKey = (global.PlusV2LiveCurrentTheme || {}).key || null;
+    if (curKey) rememberTheme();
+    const switchedFrom = curKey !== prevThemeKey ? prevThemeKey : undefined;
+    if (curKey) prevThemeKey = curKey;
     const now = isMT();
     if (now && !wasMT) {
       // Trocou de outro tema pro Magic Tank nesta página = escolheu agora:
@@ -766,7 +1160,14 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     if (!now && global.PlusV2LiveCurrentTheme) hadOtherTheme = true;
     if (now && !wasMT) { scheduleComet(); scheduleCrystal(true); } else if (!now) { clearTimeout(cometT); clearTimeout(crystalT); parts = parts.filter((p) => p.k !== 'crystal'); }
     const fk = festKey();
-    if (fk && fk !== lastFest && allowed()) setTimeout(() => { if (festKey() === fk) festHello(fk); }, 900);
+    if (fk === 'noite-de-lancamento' && lastFest !== fk) {
+      nbScene(true); scheduleCar(true);
+      let seenNb = false;
+      try { seenNb = sessionStorage.getItem('pv2_nb_splash') === '1'; sessionStorage.setItem('pv2_nb_splash', '1'); } catch (_) { /* sem storage */ }
+      if ((switchedFrom || !seenNb) && allowed()) setTimeout(() => { if (isNB()) nbSplash(); }, 200);
+      setTimeout(() => { const b = doc.getElementById('app-sidebar-theme-banner'); if (b && isNB()) b.textContent = launchLabel(); }, 400);
+    } else if (fk !== 'noite-de-lancamento' && lastFest === 'noite-de-lancamento') { nbScene(false); clearTimeout(carT); parts = parts.filter((p) => p.k !== 'car'); }
+    if (fk && fk !== lastFest && allowed()) setTimeout(() => { if (festKey() === fk) festHello(fk); }, fk === 'noite-de-lancamento' ? 3100 : 900);
     lastFest = fk;
     wasMT = now;
     colorsFor = null; // cores podem ter mudado
@@ -841,5 +1242,5 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
   }
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', start); else start();
 
-  global.PlusV2Interact = { ripple, fire: mtFire, mega: megaFire, festTap: (x, y) => { if (festKey()) festTap(x, y); }, crystal: () => scheduleCrystal(true), splash, active: allowed, stats: () => ({ baloes: parts.filter((p) => p.k === 'balloon').map((p) => [Math.round(p.x), Math.round(p.y)]), cristais: parts.filter((p) => p.k === 'crystal').map((p) => [Math.round(p.x), Math.round(p.y + Math.sin(p.ph) * 8)]), particulas: parts.length, cometas: parts.filter((p) => p.k === 'comet').length }) };
+  global.PlusV2Interact = { car: () => nbCar(true), ripple, fire: mtFire, mega: megaFire, festTap: (x, y) => { if (festKey()) festTap(x, y); }, crystal: () => scheduleCrystal(true), splash, active: allowed, stats: () => ({ baloes: parts.filter((p) => p.k === 'balloon').map((p) => [Math.round(p.x), Math.round(p.y)]), cristais: parts.filter((p) => p.k === 'crystal').map((p) => [Math.round(p.x), Math.round(p.y + Math.sin(p.ph) * 8)]), particulas: parts.length, cometas: parts.filter((p) => p.k === 'comet').length }) };
 })(typeof window !== 'undefined' ? window : globalThis);

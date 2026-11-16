@@ -4994,3 +4994,50 @@ hr, .divider { border-color: var(--nx-line); }
    colunas não deixavam o campo encolher e o segundo saía pela direita. */
 .modal-card [style*="flex:1"], .modal-card [style*="flex: 1"] { min-width: 0; }
 .modal-card [style*="flex:1"] > input, .modal-card [style*="flex: 1"] > input { width: 100%; box-sizing: border-box; }
+
+/* ===== v0.98.9 — abertura do app no tema Noite de Lançamento ===== */
+.nb-boot-sun, .nb-boot-title, .nb-boot-road, .nb-boot-count { display: none; }
+html.nb-boot .boot-loading {
+  background: radial-gradient(ellipse 90% 55% at 50% 100%, rgba(255,61,154,.55), rgba(122,31,160,.25) 45%, transparent 75%),
+              linear-gradient(180deg, #0b0418 0%, #24083a 55%, #4a0f4f 100%);
+  gap: 14px; overflow: hidden;
+}
+html.nb-boot .boot-loading::before {
+  content: ""; position: absolute; left: -50%; right: -50%; bottom: 0; height: 42%;
+  background-image: linear-gradient(rgba(255,61,154,.55) 1px, transparent 1px), linear-gradient(90deg, rgba(255,61,154,.55) 1px, transparent 1px);
+  background-size: 60px 60px; transform: perspective(320px) rotateX(62deg); transform-origin: bottom;
+  animation: nbBootGrid 1.6s linear infinite; -webkit-mask-image: linear-gradient(to top, #000 20%, transparent 95%); mask-image: linear-gradient(to top, #000 20%, transparent 95%);
+}
+@keyframes nbBootGrid { to { background-position: 0 60px; } }
+html.nb-boot .nb-boot-sun {
+  display: block; position: absolute; left: 50%; bottom: 36%; width: min(46vw, 300px); aspect-ratio: 1; transform: translateX(-50%);
+  border-radius: 50%; background: linear-gradient(#ffe680, #ff8a3c 55%, #ff3d9a); opacity: .9;
+  box-shadow: 0 0 80px rgba(255,61,154,.7), 0 0 160px rgba(255,154,60,.35);
+  -webkit-mask: repeating-linear-gradient(to bottom, #000 0 56%, transparent 56% 59%, #000 59% 66%, transparent 66% 70%, #000 70% 77%, transparent 77% 82%, #000 82% 89%, transparent 89% 95%, #000 95% 100%);
+  mask: repeating-linear-gradient(to bottom, #000 0 56%, transparent 56% 59%, #000 59% 66%, transparent 66% 70%, #000 70% 77%, transparent 77% 82%, #000 82% 89%, transparent 89% 95%, #000 95% 100%);
+  animation: nbBootSun 3s ease-in-out infinite;
+}
+@keyframes nbBootSun { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.15); } }
+html.nb-boot .boot-loading-logo, html.nb-boot .boot-loading-spinner, html.nb-boot .boot-loading-status, html.nb-boot .boot-loading-skip { position: relative; z-index: 2; }
+html.nb-boot .boot-loading-logo { filter: drop-shadow(0 0 14px rgba(255,61,154,.9)); }
+html.nb-boot .nb-boot-title {
+  display: block; position: relative; z-index: 2; font: 900 clamp(18px, 4.4vw, 34px)/1 system-ui, sans-serif; letter-spacing: .14em; color: #fff4fa;
+  text-shadow: 0 0 10px #ff3d9a, 0 0 26px #ff3d9a, 0 0 46px rgba(45,226,230,.6); animation: nbBootFlicker 4s linear infinite;
+}
+@keyframes nbBootFlicker { 0%,100% { opacity: 1; } 3% { opacity: .5; } 4% { opacity: 1; } 7% { opacity: .75; } 8%,70% { opacity: 1; } 71% { opacity: .6; } 72% { opacity: 1; } }
+html.nb-boot .boot-loading-spinner { width: 34px; height: 34px; border-width: 3px; border-color: rgba(45,226,230,.18); border-top-color: #ff3d9a; border-right-color: #2de2e6; box-shadow: 0 0 14px rgba(255,61,154,.6); }
+html.nb-boot .nb-boot-road { display: block; position: relative; z-index: 2; width: min(78vw, 420px); height: 30px; border-bottom: 2px solid #2de2e6; box-shadow: 0 6px 14px -8px #2de2e6; }
+html.nb-boot .nb-boot-car { position: absolute; bottom: -1px; width: 70px; height: 20px; filter: drop-shadow(0 4px 8px rgba(255,61,154,.9)); animation: nbBootCar 1.9s cubic-bezier(.5,0,.5,1) infinite; }
+@keyframes nbBootCar { 0% { left: -20%; } 100% { left: 100%; } }
+html.nb-boot .nb-boot-count { display: block; position: relative; z-index: 2; font: 800 12px/1 system-ui, sans-serif; letter-spacing: .22em; color: #2de2e6; text-shadow: 0 0 10px rgba(45,226,230,.8); }
+@media (prefers-reduced-motion: reduce) { html.nb-boot .boot-loading::before, html.nb-boot .nb-boot-car, html.nb-boot .nb-boot-title { animation: none; } }
+
+/* v0.98.9 — chat no celular: o botão de enviar ficava ~20px pra fora da tela.
+   O campo encolhe e os botões ficam um pouco menores. */
+@media (max-width: 600px) {
+  #form-message { gap: 6px !important; min-width: 0; }
+  #form-message > button, #form-message button[type="submit"], #btn-attach-file, #btn-sticker-picker, #btn-quick-theme {
+    width: 36px !important; height: 36px !important; min-width: 36px !important; flex: 0 0 36px !important; padding: 0 !important;
+  }
+  #message-input { min-width: 0 !important; width: auto !important; flex: 1 1 auto !important; }
+}

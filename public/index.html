@@ -8,17 +8,28 @@
 <link rel="icon" type="image/png" sizes="512x512" href="/assets/favicon-512.png" />
 <link rel="apple-touch-icon" href="/assets/favicon-180.png" />
 <link rel="manifest" href="/manifest.webmanifest" />
+<script>
+/* v0.98.9: se o último tema usado neste aparelho foi a Noite de Lançamento, a
+   tela de carregamento já abre no clima (antes do login/catálogo chegarem). */
+try { if (localStorage.getItem('pv2_last_theme') === 'noite-de-lancamento') document.documentElement.classList.add('nb-boot'); } catch (e) {}
+</script>
+
 <meta name="theme-color" content="#14151a" />
-<link rel="stylesheet" href="/style.css?v=0.98.5" />
-<link rel="stylesheet" href="/plus2.css?v=0.98.5" />
+<link rel="stylesheet" href="/style.css?v=0.99.0" />
+<link rel="stylesheet" href="/plus2.css?v=0.99.0" />
 </head>
 <body>
 
 <!-- Tela de carregamento — some assim que a gente decide se mostra o login
      ou entra direto (evita piscar a tela de login pra depois logar sozinho). -->
 <div id="boot-loading" class="boot-loading">
+  <div class="nb-boot-sun" aria-hidden="true"></div>
   <img src="/assets/logo.png" alt="NEXT GAME" class="boot-loading-logo" />
+  <div class="nb-boot-title" aria-hidden="true">NOITE DE LANÇAMENTO</div>
   <div class="boot-loading-spinner"></div>
+  <div class="nb-boot-road" aria-hidden="true"><svg viewBox="0 0 120 34" class="nb-boot-car"><path d="M6 26 L7 17 L24 13 L44 5 L72 4 L88 13 L112 17 L114 25 L108 28 L10 28Z" fill="#ff5fae" stroke="#2de2e6" stroke-width="1.5"/><path d="M48 12 L58 7 L72 7 L82 13Z" fill="#2de2e6" opacity=".7"/><circle cx="30" cy="28" r="6" fill="#0c0414" stroke="#2de2e6" stroke-width="1.5"/><circle cx="92" cy="28" r="6" fill="#0c0414" stroke="#2de2e6" stroke-width="1.5"/><rect x="110" y="17" width="4" height="4" fill="#fffbe0"/><rect x="5" y="18" width="4" height="4" fill="#ff2a2a"/></svg></div>
+  <div class="nb-boot-count" id="nb-boot-count" aria-hidden="true"></div>
+  <script>try{if(document.documentElement.classList.contains('nb-boot')){var ms=new Date(2026,10,19).getTime()-Date.now(),el=document.getElementById('nb-boot-count');if(ms>0){var d=Math.floor(ms/864e5),h=Math.floor(ms/36e5)%24,m=Math.floor(ms/6e4)%60;el.textContent='LANÇA EM '+(d?d+'D ':'')+h+'H '+(m<10?'0':'')+m+'M';}else if(ms>-2592e5){el.textContent='JÁ SAIU — BOA JOGATINA!';}}}catch(e){}</script>
   <!-- Item pedido: avisar quando está demorando (em vez de deixar a pessoa
        encarando um logo girando sem saber se travou ou se é só o servidor
        "acordando" — ver tryResumeSession() em app.js). -->
@@ -2618,15 +2629,15 @@
      pessoa, nunca passa nem fica salvo no nosso servidor. -->
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/icons.js?v=0.98.5"></script>
-<script src="/sfx.js?v=0.98.5"></script>
-<script src="/plus2.js?v=0.98.5"></script>
-<script src="/plus2-live.js?v=0.98.5"></script>
-<script src="/plus2-mascot.js?v=0.98.5"></script>
-<script src="/plus2-fx.js?v=0.98.5"></script>
-<script src="/plus2-quick.js?v=0.98.5"></script>
-<script src="/plus2-interact.js?v=0.98.5"></script>
-<script src="/app.js?v=0.98.5"></script>
+<script src="/icons.js?v=0.99.0"></script>
+<script src="/sfx.js?v=0.99.0"></script>
+<script src="/plus2.js?v=0.99.0"></script>
+<script src="/plus2-live.js?v=0.99.0"></script>
+<script src="/plus2-mascot.js?v=0.99.0"></script>
+<script src="/plus2-fx.js?v=0.99.0"></script>
+<script src="/plus2-quick.js?v=0.99.0"></script>
+<script src="/plus2-interact.js?v=0.99.0"></script>
+<script src="/app.js?v=0.99.0"></script>
 <script>
   // Dificulta cópia casual do conteúdo da página — bloqueia menu de botão
   // direito e alguns atalhos de DevTools. IMPORTANTE: isso NÃO esconde o
@@ -2647,6 +2658,6 @@
   });
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
-<script src="/install-app.js?v=0.98.5"></script>
+<script src="/install-app.js?v=0.99.0"></script>
 </body>
 </html>

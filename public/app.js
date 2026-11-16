@@ -11926,7 +11926,10 @@ function animateHomeStatCounters(container) {
       return;
     }
     banner.classList.remove('hidden');
-    banner.textContent = '✦ ' + theme.name.toUpperCase() + ' ✦';
+    // v0.98.6: um tema pode trocar o texto da faixa (ex.: contagem regressiva
+    // da Noite de Lançamento) — ver window.pv2BannerText em plus2-interact.js.
+    const customText = typeof window.pv2BannerText === 'function' ? window.pv2BannerText(theme) : null;
+    banner.textContent = customText || ('✦ ' + theme.name.toUpperCase() + ' ✦');
   }
   const observer = new MutationObserver(render);
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
