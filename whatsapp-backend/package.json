@@ -1,0 +1,16 @@
+{
+  "name": "zelvora-whatsapp-backend",
+  "version": "1.0.0",
+  "description": "Recebe fotos de horas enviadas por WhatsApp (API oficial da Meta), lê com IA e grava direto no Firestore do sistema Zelvora.",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
