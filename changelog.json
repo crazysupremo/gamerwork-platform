@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.99.3",
+    "date": "2026-11-24",
+    "changes": [
+      "Atualização dos temas: todos os 20 temas do catálogo agora são interativos, cada um com o seu toque — Next Blue (pulso de energia), Obsidian (estilhaços de vidro), Ocean Deep (ondas e bolhas), Matrix (coluna de código caindo), Crimson e Inferno (brasas e labaredas), GAMEX (pixels e +1), Cyberpunk (glitch neon), Vaporwave (quadradinhos e texto anos 80), Galaxy (supernova), Eclipse (coroa de eclipse), Nebula (nuvem lilás), Royal (coroa e chuva de moedas de ouro), Diamond e Emerald Elite (cristais), Platinum Pro (faísca metálica), Aurora (fitas de aurora), Sunset (raios de sol), Sakura (chuva de pétalas) e DDTank (corações e brilhos).",
+      "Cada tema também tem rastro de cursor próprio (bolhas, código, poeira de estrelas, glitter dourado, pétalas, aurora...) e faíscas nas suas cores ao passar nos botões.",
+      "No chat, enviar uma mensagem (ou ser mencionado) dispara o toque do tema em cima da mensagem — vale pros temas do catálogo e das datas comemorativas.",
+      "Leve: continua a 60 quadros por segundo mesmo tocando sem parar; pausa com janela aberta e respeita modo desempenho / reduzir movimento."
+    ]
+  },
+  {
     "version": "0.99.2",
     "date": "2026-11-16",
     "changes": [

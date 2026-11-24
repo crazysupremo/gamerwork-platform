@@ -541,8 +541,41 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
       },
       trail: 'neon',
     },
+    // ===== temas do catálogo (v0.99.3) — sem aviso na tela, só o toque/rastro
+    blue: { cols: ['91,108,255', '139,92,246', '34,211,238'], tap(x, y) { for (let i = 0; i < 3; i++) setTimeout(() => { ring(x, y, pick(this.cols), { vr: 300, max: 0.55, w: 2.5 - i * 0.6 }); wake(); }, i * 110); burst(x, y, this.cols, reduce() ? 6 : 16, { v: rnd(120, 260) }); }, trail: 'glitter' },
+    obsidian: { cols: ['226,232,240', '148,163,184', '125,211,252'], tap(x, y) { shards(x, y, ['30,36,48', '60,70,88', '148,163,184'], reduce() ? 5 : 12); ring(x, y, '226,232,240', { vr: 260, max: 0.35, w: 1.5 }); }, trail: 'glitter' },
+    ocean: { cols: ['14,165,233', '103,232,249', '37,99,235'], tap(x, y) { for (let i = 0; i < 3; i++) setTimeout(() => { ring(x, y, '103,232,249', { r0: 4, vr: 140, max: 0.9, w: 2 }); wake(); }, i * 180); bubbles(x, y, reduce() ? 4 : 12); }, trail: 'bubbles' },
+    'cyber-green': { cols: ['0,224,138', '182,255,217', '4,120,87'], tap(x, y) { codeRain(x, y, reduce() ? 4 : 9); ring(x, y, '0,224,138', { vr: 200, max: 0.4, w: 1.5 }); }, trail: 'code' },
+    crimson: { cols: ['239,35,60', '255,107,129', '255,180,60'], tap(x, y) { ring(x, y, '239,35,60', { vr: 280, max: 0.5, w: 3 }); burst(x, y, ['255,90,60', '255,170,60', '239,35,60'], reduce() ? 8 : 24, { a: -Math.PI / 2 + rnd(-0.9, 0.9), v: rnd(80, 260), g: -60, max: rnd(0.7, 1.2) }); }, trail: 'embers' },
+    inferno: { cols: ['255,90,31', '255,209,102', '185,28,28'], tap(x, y) { for (let i = 0; i < (reduce() ? 8 : 30); i++) spark(x + rnd(-14, 14), y, pick(['255,90,31', '255,170,40', '255,230,140']), { a: -Math.PI / 2 + rnd(-0.45, 0.45), v: rnd(100, 330), g: -90, max: rnd(0.5, 1), s: rnd(1.8, 3.6) }); puffs(x, y - 10, ['255,90,31', '255,170,40'], 3); }, trail: 'embers' },
+    gamex: { cols: ['57,255,106', '124,58,237', '255,225,77'], tap(x, y) { pixels(x, y, this.cols, reduce() ? 10 : 26); textPop(x, y - 16, '+1', '57,255,106', { pixel: 1 }); }, trail: 'pixels' },
+    cyberpunk: { cols: ['255,42,138', '0,229,255', '252,238,10'], tap(x, y) { glitch(x, y, this.cols); burst(x, y, this.cols, reduce() ? 4 : 10, { v: rnd(120, 300) }); if (Math.random() < 0.3) P({ k: 'neonword', x, y: y - 30, str: pick(['SYS//OK', 'HACK', 'NEON', '0xFF']), c: pick(['255,42,138', '0,229,255']), max: 0.9, rot: rnd(-0.1, 0.1) }); }, trail: 'neon2' },
+    vaporwave: { cols: ['255,113,206', '185,103,255', '1,205,254'], tap(x, y) { pixels(x, y, this.cols, reduce() ? 8 : 16); if (Math.random() < 0.45) P({ k: 'neonword', x, y: y - 28, str: pick(['ＶＡＰＯＲ', '８０ｓ', 'ＡＥＳＴＨＥＴＩＣ', 'ＲＥＴＲＯ']), c: pick(['255,113,206', '1,205,254']), max: 1.1, rot: rnd(-0.12, 0.12) }); ring(x, y, '255,113,206', { vr: 200, max: 0.5, w: 2 }); }, trail: 'pastel' },
+    galaxy: { cols: ['109,93,252', '168,85,247', '56,189,248', '255,255,255'], tap(x, y) { const n = reduce() ? 10 : 34; for (let i = 0; i < n; i++) { const a = (i / n) * 6.283 * 2, v = 60 + i * 7; spark(x, y, pick(this.cols), { a, v, g: 0, max: rnd(0.7, 1.2), s: rnd(1.2, 2.4) }); } ring(x, y, '255,255,255', { vr: 360, max: 0.4, w: 2 }); }, trail: 'stardust' },
+    eclipse: { cols: ['124,58,237', '196,181,253', '49,46,129'], tap(x, y) { P({ k: 'eclipse', x, y, max: 0.8 }); burst(x, y, ['196,181,253', '124,58,237'], reduce() ? 6 : 16, { v: rnd(90, 220), g: 0 }); }, trail: 'stardust' },
+    nebula: { cols: ['168,85,247', '99,102,241', '240,171,252'], tap(x, y) { puffs(x, y, this.cols, reduce() ? 3 : 6); burst(x, y, ['255,255,255', '240,171,252'], 10, { v: rnd(30, 120), g: 0, max: 1.2 }); }, trail: 'stardust' },
+    royal: { cols: ['212,175,55', '255,224,138', '124,58,237'], tap(x, y) { P({ k: 'emo', x, y, ch: '👑', vx: 0, vy: -60, g: 0, rot: 0, vr: 0, s: 34, max: 0.9, pop: 1 }); coins(x, y, reduce() ? 4 : 12); }, trail: 'gold' },
+    diamond: { cols: ['125,211,252', '199,210,254', '255,255,255'], tap(x, y) { shards(x, y, ['224,242,254', '125,211,252', '255,255,255'], reduce() ? 5 : 12); burst(x, y, ['255,255,255'], 8, { v: rnd(60, 160), g: 0 }); ring(x, y, '199,210,254', { vr: 240, max: 0.45 }); }, trail: 'twinkle' },
+    'emerald-elite': { cols: ['16,185,129', '230,195,92', '6,95,70'], tap(x, y) { shards(x, y, ['16,185,129', '52,211,153', '6,95,70'], reduce() ? 5 : 11); burst(x, y, ['230,195,92', '255,236,170'], 10, { v: rnd(80, 220) }); }, trail: 'gold' },
+    'platinum-pro': { cols: ['143,163,184', '203,213,225', '94,200,255'], tap(x, y) { P({ k: 'ray', x: x - 90, y, a: 0, len: 180, c: '226,232,240', max: 0.35, sweep: 1 }); burst(x, y, ['226,232,240', '94,200,255'], reduce() ? 6 : 14, { v: rnd(160, 360), g: 500, max: 0.5, s: 1.4 }); }, trail: 'glitter' },
+    aurora: { cols: ['16,217,168', '124,92,255', '184,245,255'], tap(x, y) { ribbons(x, y, this.cols); burst(x, y, this.cols, 8, { v: rnd(40, 120), g: -20 }); }, trail: 'aurora' },
+    sunset: { cols: ['255,122,89', '192,38,211', '255,209,102'], tap(x, y) { rays(x, y, this.cols, reduce() ? 6 : 14); ring(x, y, '255,209,102', { vr: 220, max: 0.5, w: 2.5 }); }, trail: 'glitter' },
+    sakura: { cols: ['255,143,184', '255,228,239', '192,132,252'], tap(x, y) { petals(x, y, this.cols, reduce() ? 5 : 16); }, trail: 'petals' },
+    ddtank: { cols: ['255,95,160', '95,212,255', '255,211,77'], tap(x, y) { hearts(x, y, this.cols, reduce() ? 3 : 8); burst(x, y, ['255,255,255', '255,211,77'], 8, { v: rnd(60, 160), g: 0 }); if (Math.random() < 0.4) emo(x, y, pick(['💕', '✨', '🎀']), { s: 28 }); }, trail: 'hearts' },
     halloween: { cols: ['255,122,26', '160,60,255', '255,46,46'], hello: '🎃 Halloween — toque se tiver coragem!', tap(x, y) { for (let i = 0; i < (reduce() ? 2 : 4); i++) emo(x, y, '🦇', { a: rnd(-Math.PI, 0), v: rnd(160, 300), g: -40, s: rnd(22, 30), max: 1.3, flap: 1 }); for (let i = 0; i < 14; i++) spark(x, y, pick(this.cols)); if (Math.random() < 0.2) P({ k: 'emo', x, y, ch: '👻', vx: rnd(-20, 20), vy: -70, g: -10, rot: 0, vr: 0, s: 38, max: 1.6 }); }, trail: 'embers' },
   };
+  // ---- efeitos novos dos temas do catálogo (v0.99.3)
+  function shards(x, y, cols, n) { for (let i = 0; i < n; i++) { const a = rnd(0, 6.28), v = rnd(140, 380); P({ k: 'shard', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 80, g: 620, rot: rnd(0, 6.28), vr: rnd(-9, 9), s: rnd(5, 13), c: pick(cols), max: rnd(0.6, 1.1), pts: [rnd(0.6, 1), rnd(0.5, 1), rnd(0.6, 1)] }); } }
+  function bubbles(x, y, n) { for (let i = 0; i < n; i++) P({ k: 'bubble', x: x + rnd(-26, 26), y: y + rnd(-6, 10), vy: -rnd(45, 120), r: rnd(3.5, 10), ph: rnd(0, 6.28), max: rnd(1.1, 2) }); }
+  const GLYPHS = 'アイウエオカキクケコサシスセソ0123456789ﾊﾋﾌﾍﾎ';
+  function codeRain(x, y, n) { const cx = Math.round(x / 14) * 14; for (let c = -1; c <= 1; c++) for (let i = 0; i < n; i++) P({ k: 'glyph', x: cx + c * 16, y: y - i * 17 - (c ? rnd(0, 40) : 0), vy: rnd(170, 240), ch: GLYPHS[Math.floor(Math.random() * GLYPHS.length)], head: i === 0, max: rnd(0.7, 1.1) }); }
+  function glitch(x, y, cols) { for (let i = 0; i < 9; i++) P({ k: 'glitch', x: x + rnd(-120, 40), y: y + rnd(-50, 50), w: rnd(40, 170), h: rnd(2, 9), c: pick(cols), dx: rnd(-40, 40), max: rnd(0.15, 0.38) }); }
+  function coins(x, y, n) { for (let i = 0; i < n; i++) { const a = rnd(-Math.PI * 0.9, -Math.PI * 0.1), v = rnd(200, 420); P({ k: 'coin', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 820, s: rnd(6, 10), ph: rnd(0, 6.28), max: rnd(1, 1.5) }); } }
+  function ribbons(x, y, cols) { for (let i = 0; i < 3; i++) P({ k: 'ribbon', x, y: y + (i - 1) * 14, c: cols[i % cols.length], amp: rnd(10, 22), len: rnd(160, 260), ph: rnd(0, 6.28), max: 1.5 }); }
+  function puffs(x, y, cols, n) { for (let i = 0; i < n; i++) P({ k: 'puff', x: x + rnd(-40, 40), y: y + rnd(-30, 30), r0: rnd(14, 30), c: pick(cols), max: rnd(0.9, 1.5) }); }
+  function rays(x, y, cols, n) { for (let i = 0; i < n; i++) P({ k: 'ray', x, y, a: (i / n) * 6.283 + rnd(-0.1, 0.1), len: rnd(60, 130), c: pick(cols), max: rnd(0.4, 0.6) }); }
+  function petals(x, y, cols, n) { for (let i = 0; i < n; i++) P({ k: 'heart', x: x + rnd(-10, 10), y, c: pick(cols), vx: rnd(-140, 140), vy: rnd(-160, 20), s: rnd(4, 7), ph: rnd(0, 6), max: rnd(1.4, 2.2), petal: 1, fall: 1 }); }
+  function burst(x, y, cols, n, o) { for (let i = 0; i < n; i++) spark(x, y, pick(cols), o); }
   const festKey = () => { const t = global.PlusV2LiveCurrentTheme; return t && FEST[t.key] ? t.key : null; };
   function festTap(x, y) {
     ensureCanvas();
@@ -574,6 +607,13 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     else if (kind === 'confetti') { if (Math.random() < 0.5) P({ k: 'conf', x, y, c: pick(cs), vx: rnd(-30, 30), vy: rnd(-20, 10), g: 160, w: 4, h: 6, rot: rnd(0, 6), vr: rnd(-8, 8), ph: 0, max: 0.8 }); }
     else if (kind === 'pixels') { if (Math.random() < 0.6) P({ k: 'pix', x: Math.round(x / 4) * 4, y: Math.round(y / 4) * 4, c: pick(cs), vx: 0, vy: 0, g: 0, s: 4, max: 0.45 }); }
     else if (kind === 'petals') { if (Math.random() < 0.4) P({ k: 'heart', x, y, c: pick(cs), vx: rnd(-20, 20), vy: rnd(-10, 30), s: rnd(3, 5), ph: rnd(0, 6), max: 0.9, petal: 1 }); }
+    else if (kind === 'bubbles') { if (Math.random() < 0.35) P({ k: 'bubble', x, y, vy: -rnd(20, 50), r: rnd(2, 4.5), ph: rnd(0, 6), max: 0.9 }); }
+    else if (kind === 'code') { if (Math.random() < 0.4) P({ k: 'glyph', x: Math.round(x / 14) * 14, y, vy: rnd(40, 80), ch: GLYPHS[Math.floor(Math.random() * GLYPHS.length)], max: 0.6 }); }
+    else if (kind === 'neon2') spark(x, y, pick(['255,42,138', '0,229,255']), { v: rnd(6, 20), g: 0, max: rnd(0.3, 0.5), s: rnd(1, 1.8) });
+    else if (kind === 'stardust') spark(x + rnd(-4, 4), y + rnd(-4, 4), pick(cs), { v: rnd(4, 16), g: 0, max: rnd(0.5, 0.9), s: rnd(0.8, 1.8) });
+    else if (kind === 'gold') spark(x, y, pick(['255,224,138', '212,175,55', '255,246,210']), { v: rnd(8, 26), g: 50, max: rnd(0.4, 0.7), s: rnd(1, 2) });
+    else if (kind === 'twinkle') { if (Math.random() < 0.5) spark(x + rnd(-6, 6), y + rnd(-6, 6), '255,255,255', { v: 2, g: 0, max: rnd(0.3, 0.6), s: rnd(1.4, 2.6) }); }
+    else if (kind === 'aurora') spark(x, y, pick(cs), { a: -Math.PI / 2 + rnd(-0.3, 0.3), v: rnd(10, 30), g: -10, max: rnd(0.6, 1), s: rnd(1.4, 2.6) });
     else if (kind === 'neon') spark(x + rnd(-2, 2), y + rnd(-2, 2), pick(['255,61,154', '45,226,230']), { v: rnd(6, 24), g: 10, max: rnd(0.35, 0.55), s: rnd(1.2, 2.2) });
     else if (kind === 'embers') spark(x, y, pick(['255,170,40', '255,110,30']), { a: -Math.PI / 2 + rnd(-0.6, 0.6), v: rnd(15, 45), g: -30, max: rnd(0.4, 0.7), s: rnd(1, 2) });
     else if (kind === 'pastel') spark(x, y, pick(cs), { v: rnd(5, 25), g: 20, max: rnd(0.5, 0.8), s: rnd(1.4, 2.6) });
@@ -615,7 +655,7 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
       ctx.save(); ctx.globalAlpha = Math.min(1, k * 2.5); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(1, Math.cos(p.life * 9 + p.ph));
       ctx.fillStyle = `rgb(${p.c})`; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
     } else if (p.k === 'heart') {
-      p.x += (p.vx + Math.sin(p.life * 4 + p.ph) * 30) * dt; p.y += p.vy * dt; p.vy *= 0.995;
+      p.x += (p.vx + Math.sin(p.life * 4 + p.ph) * 30) * dt; p.y += p.vy * dt; p.vy *= 0.995; if (p.fall) { p.vy += 140 * dt; p.vx *= 0.98; }
       ctx.globalAlpha = Math.min(1, k * 2); ctx.fillStyle = `rgb(${p.c})`;
       if (p.petal) { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.life * 3 + p.ph); ctx.beginPath(); ctx.ellipse(0, 0, p.s, p.s * 0.55, 0, 0, 6.29); ctx.fill(); ctx.restore(); }
       else { heartPath(p.x, p.y, p.s * Math.min(1, 0.4 + p.life * 5)); ctx.fill(); }
@@ -666,6 +706,63 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     } else if (p.k === 'crystal') {
       drawCrystal(p, dt, k);
+    } else if (p.k === 'shard') {
+      p.vy += p.g * dt; p.vx *= 0.99; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+      ctx.save(); ctx.globalAlpha = Math.min(1, k * 2.2); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = `rgb(${p.c})`; ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(0, -p.s * p.pts[0]); ctx.lineTo(p.s * p.pts[1], p.s * 0.4); ctx.lineTo(-p.s * p.pts[2], p.s * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+    } else if (p.k === 'bubble') {
+      p.y += p.vy * dt; p.x += Math.sin(p.life * 3 + p.ph) * 22 * dt;
+      ctx.globalAlpha = Math.min(1, k * 2); ctx.strokeStyle = 'rgba(200,245,255,.85)'; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.29); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(p.x - p.r * 0.35, p.y - p.r * 0.35, p.r * 0.22, 0, 6.29); ctx.fill(); ctx.globalAlpha = 1;
+    } else if (p.k === 'glyph') {
+      p.y += p.vy * dt;
+      ctx.globalAlpha = Math.min(1, k * 1.8); ctx.font = '700 15px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center';
+      ctx.fillStyle = p.head ? 'rgb(220,255,235)' : 'rgb(0,224,138)'; ctx.shadowColor = 'rgb(0,224,138)'; ctx.shadowBlur = p.head ? 12 : 4;
+      if (Math.random() < 0.08) p.ch = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+      ctx.fillText(p.ch, p.x, p.y); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    } else if (p.k === 'glitch') {
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, k * 2.5) * (Math.random() < 0.25 ? 0.3 : 1);
+      ctx.fillStyle = `rgb(${p.c})`; ctx.fillRect(p.x + (Math.random() < 0.5 ? p.dx : 0), p.y, p.w, p.h); ctx.globalAlpha = 1;
+    } else if (p.k === 'coin') {
+      p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.ph += dt * 14;
+      const sx = Math.abs(Math.cos(p.ph));
+      ctx.save(); ctx.globalAlpha = Math.min(1, k * 2.2); ctx.translate(p.x, p.y); ctx.scale(Math.max(0.15, sx), 1);
+      const g = ctx.createLinearGradient(-p.s, -p.s, p.s, p.s); g.addColorStop(0, '#fff2b0'); g.addColorStop(0.5, '#e6b93a'); g.addColorStop(1, '#a8781a');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, p.s, 0, 6.29); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,250,220,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, p.s * 0.65, 0, 6.29); ctx.stroke(); ctx.restore();
+    } else if (p.k === 'ribbon') {
+      ctx.globalCompositeOperation = 'lighter';
+      const u = 1 - k, half = p.len * (0.3 + u * 0.7) / 2;
+      ctx.strokeStyle = `rgba(${p.c},${(0.6 * Math.min(1, k * 2)).toFixed(3)})`; ctx.lineWidth = 6 * k + 1.5; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let xx = -half; xx <= half; xx += 6) { const yy = Math.sin(xx / 28 + p.ph + p.life * 5) * p.amp * (0.5 + u); if (xx === -half) ctx.moveTo(p.x + xx, p.y + yy - u * 30); else ctx.lineTo(p.x + xx, p.y + yy - u * 30); }
+      ctx.stroke();
+    } else if (p.k === 'puff') {
+      ctx.globalCompositeOperation = 'lighter';
+      const r = p.r0 * (1 + (1 - k) * 1.6);
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      g.addColorStop(0, `rgba(${p.c},${(0.45 * k).toFixed(3)})`); g.addColorStop(1, `rgba(${p.c},0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.29); ctx.fill();
+    } else if (p.k === 'ray') {
+      ctx.globalCompositeOperation = 'lighter';
+      if (p.sweep) {
+        const xx = p.x + (1 - k) * 260; const g = ctx.createLinearGradient(xx - 60, 0, xx + 60, 0);
+        g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, `rgba(${p.c},${(0.8 * k).toFixed(3)})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g; ctx.fillRect(xx - 60, p.y - 2, 120, 4);
+      } else {
+        const r0 = (1 - k) * 30, r1 = r0 + p.len * (0.4 + (1 - k) * 0.6);
+        ctx.strokeStyle = `rgba(${p.c},${(0.9 * k).toFixed(3)})`; ctx.lineWidth = 2.4 * k + 0.6; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(p.x + Math.cos(p.a) * r0, p.y + Math.sin(p.a) * r0); ctx.lineTo(p.x + Math.cos(p.a) * r1, p.y + Math.sin(p.a) * r1); ctx.stroke();
+      }
+    } else if (p.k === 'eclipse') {
+      ctx.globalCompositeOperation = 'lighter';
+      const r = 26 + (1 - k) * 18;
+      const g = ctx.createRadialGradient(p.x, p.y, r * 0.7, p.x, p.y, r * 2.2);
+      g.addColorStop(0, `rgba(196,181,253,${(0.9 * k).toFixed(3)})`); g.addColorStop(1, 'rgba(124,58,237,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.2, 0, 6.29); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = `rgba(8,4,18,${Math.min(1, k * 2).toFixed(3)})`; ctx.beginPath(); ctx.arc(p.x, p.y, r * 0.95, 0, 6.29); ctx.fill();
     } else if (p.k === 'neonword') {
       const sc = Math.min(1.1, 0.4 + p.life / 0.09), fl = (p.life < 0.25 && Math.random() < 0.35) ? 0.35 : 1;
       ctx.save(); ctx.globalAlpha = Math.min(1, k * 2.2) * fl; ctx.translate(p.x, p.y - p.life * 26); ctx.rotate(p.rot); ctx.scale(sc, sc);
@@ -1094,6 +1191,18 @@ body.theme-magic-tank :is(input[type="text"],input[type="search"],input[type="em
     if (el) setTimeout(nbSweep, 30);
   }, { capture: true, passive: true });
   // chat: enviar = dinheiro; menção = sirene; digitar = faísca neon no campo
+  // qualquer tema com toque próprio (menos a Noite de Lançamento, que tem o dela):
+  // sua mensagem ou uma menção a você dispara o toque do tema em cima da mensagem
+  global.addEventListener('pv2:chat', (ev) => {
+    const fk = festKey();
+    if (!fk || fk === NB_KEY || !allowed() || reduce()) return;
+    const d = (ev && ev.detail) || {};
+    if (!d.own && !d.mention) return;
+    const m = doc.querySelectorAll('#messages > *'); const last = m[m.length - 1]; if (!last) return;
+    const r = last.getBoundingClientRect();
+    const x = Math.min(W - 40, r.left + Math.min(r.width, 260) * (d.own ? 0.7 : 0.3)), y = Math.max(80, Math.min(H - 90, r.top + 14));
+    ensureCanvas(); FEST[fk].tap(x, y); wake();
+  });
   global.addEventListener('pv2:chat', (ev) => {
     if (!isNB() || !allowed() || reduce()) return;
     const d = (ev && ev.detail) || {};
